@@ -21,3 +21,6 @@ dynamic = ["dependencies"]
 
 [project.urls]
 "Source code" = "https://bitbucket.org/tom-bjorkholm/backlog-ops"
+
+[project.gui-scripts]
+backlogops-gui = "backlogops_gui.application:main"

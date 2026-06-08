@@ -12,7 +12,12 @@ setup(
   python_requires='>=3.12',
   packages=['backlogops_gui'],
   package_dir={'backlogops_gui': 'src/backlogops_gui'},
-  package_data={'backlogops': ['src/py.typed']},
+  package_data={'backlogops_gui': ['py.typed']},
+  entry_points={
+    'gui_scripts': [
+      'backlogops-gui=backlogops_gui.application:main'
+    ]
+  },
   install_requires=[
     'backlogops >= 0.0.1',
     'pip >= 26.1.1',
