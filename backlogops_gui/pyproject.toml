@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "backlogops-gui"
+version = "0.0.1"
+authors = [
+  { name="Tom Björkholm", email="klausuler_linnet0q@icloud.com" },
+]
+description = "Graphical user interface for backlog operations."
+readme = "README_pypi.md"
+requires-python = ">=3.12"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Development Status :: 1 - Planning"
+]
+dynamic = ["dependencies"]
+
+[project.urls]
+"Source code" = "https://bitbucket.org/tom-bjorkholm/backlog-ops"
