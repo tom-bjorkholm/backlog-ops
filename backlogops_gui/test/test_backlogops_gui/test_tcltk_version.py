@@ -30,12 +30,11 @@ class FakeTcl:  # pylint: disable=too-few-public-methods
         return self.version_text
 
 
-class FakeRoot:  # pylint: disable=too-few-public-methods
-    """Fake root exposing a Tcl interpreter."""
-
-    def __init__(self, fake_tcl: FakeTcl) -> None:
-        """Store the fake Tcl interpreter."""
-        self.tk: object = fake_tcl
+def _make_root(fake_tcl: FakeTcl) -> tk.Tk:
+    """Return a Tk root shell with a fake Tcl interpreter."""
+    root = object.__new__(tk.Tk)
+    setattr(root, 'tk', fake_tcl)
+    return root
 
 
 @pytest.mark.parametrize('version_text', ['9.0.2', '9.1.0', '10.0.0'])
@@ -64,14 +63,15 @@ def test_bad_versions_warn(version_text: str) -> None:
 
 def test_check_reads_root() -> None:
     """Test Tcl/Tk checking reads the root patch level."""
-    warning_text = check_tcltk_version(FakeRoot(FakeTcl('8.6.13')))
+    warning_text = check_tcltk_version(_make_root(FakeTcl('8.6.13')))
     assert warning_text is not None
     assert '8.6.13' in warning_text
 
 
 def test_check_read_error() -> None:
     """Test Tcl/Tk checking warns when the version cannot be read."""
-    warning_text = check_tcltk_version(FakeRoot(FakeTcl('', 'no patchlevel')))
+    root = _make_root(FakeTcl('', 'no patchlevel'))
+    warning_text = check_tcltk_version(root)
     assert warning_text is not None
     assert 'no patchlevel' in warning_text
     assert 'malformed or cannot be read' in warning_text

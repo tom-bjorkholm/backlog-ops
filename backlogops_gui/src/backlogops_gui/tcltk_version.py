@@ -5,29 +5,11 @@
 # MIT License
 
 import tkinter as tk
-from typing import Optional, Protocol, runtime_checkable
+from typing import Optional
 
 
 MIN_TCLTK_VERSION = (9, 0, 2)
 MIN_TCLTK_VERSION_TEXT = '9.0.2'
-
-
-@runtime_checkable
-class TclInterpreter(Protocol):  # pylint: disable=too-few-public-methods
-    """Small part of the Tcl interpreter API used by the GUI."""
-
-    def call(self, *args: object) -> object:
-        """Call the Tcl interpreter and return the Tcl result."""
-        raise NotImplementedError
-
-
-class TclTkRoot(Protocol):  # pylint: disable=too-few-public-methods
-    """Root object exposing the Tcl interpreter used by Tkinter."""
-
-    @property
-    def tk(self) -> object:
-        """Return the Tcl interpreter object."""
-        raise NotImplementedError
 
 
 def _parse_tcltk_version(version_text: str) -> Optional[tuple[int, int, int]]:
@@ -72,13 +54,10 @@ def warning_for_version(version_text: str) -> Optional[str]:
     return None
 
 
-def check_tcltk_version(root: TclTkRoot) -> Optional[str]:
+def check_tcltk_version(root: tk.Tk) -> Optional[str]:
     """Return a warning if the running Tcl/Tk version may be unsuitable."""
-    tcl_interpreter = root.tk
-    if not isinstance(tcl_interpreter, TclInterpreter):
-        return _bad_version_warning(str(tcl_interpreter))
     try:
-        version_value = tcl_interpreter.call('info', 'patchlevel')
+        version_value = root.tk.call('info', 'patchlevel')
     except (RuntimeError, tk.TclError) as error:
         return _bad_version_warning(str(error))
     return warning_for_version(str(version_value))
