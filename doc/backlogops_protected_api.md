@@ -1,5 +1,16 @@
 # Table of Contents
 
+* [backlogops.no\_text\_io](#backlogops.no_text_io)
+  * [NoTextIO](#backlogops.no_text_io.NoTextIO)
+    * [write](#backlogops.no_text_io.NoTextIO.write)
+    * [writelines](#backlogops.no_text_io.NoTextIO.writelines)
+    * [flush](#backlogops.no_text_io.NoTextIO.flush)
+    * [close](#backlogops.no_text_io.NoTextIO.close)
+    * [seek](#backlogops.no_text_io.NoTextIO.seek)
+    * [tell](#backlogops.no_text_io.NoTextIO.tell)
+    * [truncate](#backlogops.no_text_io.NoTextIO.truncate)
+    * [\_\_enter\_\_](#backlogops.no_text_io.NoTextIO.__enter__)
+    * [\_\_exit\_\_](#backlogops.no_text_io.NoTextIO.__exit__)
 * [backlogops.backlog](#backlogops.backlog)
   * [Status](#backlogops.backlog.Status)
   * [BacklogItem](#backlogops.backlog.BacklogItem)
@@ -29,6 +40,147 @@
   * [\_create\_item](#backlogops.backlog._create_item)
   * [get\_backlog\_item](#backlogops.backlog.get_backlog_item)
   * [get\_backlog](#backlogops.backlog.get_backlog)
+
+<a id="backlogops.no_text_io"></a>
+
+# backlogops.no\_text\_io
+
+NoTextIO can be used as a TextIO object that does nothing.
+
+<a id="backlogops.no_text_io.NoTextIO"></a>
+
+## NoTextIO Objects
+
+```python
+class NoTextIO(io.StringIO)
+```
+
+NoTextIO can be used as a TextIO object that does nothing.
+
+When a function expects a TextIO object for output, you can pass in
+a NoTextIO object and no output will be produced.
+The differrence compared to using StringIO to suppress output is that
+the NoTextIO does not store any data, so no matter how much is
+written to it, you do not risk running out of memory.
+
+<a id="backlogops.no_text_io.NoTextIO.write"></a>
+
+#### write
+
+```python
+@override
+def write(s: str) -> int
+```
+
+Write a string to the NoTextIO object.
+
+This method does nothing and returns 0.
+
+<a id="backlogops.no_text_io.NoTextIO.writelines"></a>
+
+#### writelines
+
+```python
+@override
+def writelines(lines: Iterable[str]) -> None
+```
+
+Write a list of strings to the NoTextIO object.
+
+This method does nothing and returns None.
+
+<a id="backlogops.no_text_io.NoTextIO.flush"></a>
+
+#### flush
+
+```python
+@override
+def flush() -> None
+```
+
+Flush the NoTextIO object.
+
+This method does nothing and returns None.
+
+<a id="backlogops.no_text_io.NoTextIO.close"></a>
+
+#### close
+
+```python
+@override
+def close() -> None
+```
+
+Close the NoTextIO object.
+
+This method does nothing and returns None.
+
+<a id="backlogops.no_text_io.NoTextIO.seek"></a>
+
+#### seek
+
+```python
+@override
+def seek(offset: int, whence: int = io.SEEK_SET) -> int
+```
+
+Seek to a position in the NoTextIO object.
+
+This method does nothing and returns 0.
+
+<a id="backlogops.no_text_io.NoTextIO.tell"></a>
+
+#### tell
+
+```python
+@override
+def tell() -> int
+```
+
+Get the current position in the NoTextIO object.
+
+This method does nothing and returns 0.
+
+<a id="backlogops.no_text_io.NoTextIO.truncate"></a>
+
+#### truncate
+
+```python
+@override
+def truncate(size: int | None = None) -> int
+```
+
+Truncate the NoTextIO object.
+
+This method does nothing and returns 0.
+
+<a id="backlogops.no_text_io.NoTextIO.__enter__"></a>
+
+#### \_\_enter\_\_
+
+```python
+@override
+def __enter__() -> 'NoTextIO'
+```
+
+Enter the NoTextIO object.
+
+This method does nothing and returns the NoTextIO object.
+
+<a id="backlogops.no_text_io.NoTextIO.__exit__"></a>
+
+#### \_\_exit\_\_
+
+```python
+@override
+def __exit__(exc_type: type[BaseException] | None,
+             exc_value: BaseException | None,
+             traceback: TracebackType | None) -> None
+```
+
+Exit the NoTextIO object.
+
+This method does nothing.
 
 <a id="backlogops.backlog"></a>
 
