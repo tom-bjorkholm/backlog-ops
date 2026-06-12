@@ -5,12 +5,18 @@
 # MIT License
 
 import sys
-from collections.abc import Callable
-from dataclasses import MISSING, Field, dataclass, field, fields
-from enum import Enum, IntEnum, auto
-from types import UnionType
-from typing import NoReturn, Optional, TextIO, Union, cast, get_args
-from typing import get_origin, get_type_hints
+from datetime import date
+from dataclasses import dataclass, field, fields
+from enum import IntEnum, auto
+from typing import Optional, TextIO
+from backlogops.backlog_helpers import build_item_kwargs, check_key_syntax
+from backlogops.backlog_helpers import construct, field_type_hints, find_cycle
+from backlogops.backlog_helpers import report_bad_value, report_wrong_type
+from backlogops.backlog_helpers import report_unknown_reference
+from backlogops.backlog_helpers import value_matches_type
+
+DEPENDENCY_FIELDS = ('depends_on_f2s', 'depends_on_f2f', 'depends_on_s2s')
+"""Names of the fields that hold dependency keys of a backlog item."""
 
 
 class Status(IntEnum):
@@ -23,13 +29,55 @@ class Status(IntEnum):
 
 
 @dataclass
-class BacklogItem:
-    """Internal representation of a backlog item."""
+class BacklogItem:  # pylint: disable=too-many-instance-attributes
+    """Internal representation of a backlog item.
+
+    The backlog item has a number of defined fields that are used
+    by the backlog operations. In addition, it has a number of extra
+    fields that store useful information (like descriptions) that are
+    not used by the backlog operations.
+
+    Fields:
+        key: The key of the backlog item. Required. Must be unique.
+             Must not be empty, must not contain whitespace and must
+             not contain any of the characters , . ; : ( ) [ ] { }.
+        title: The title of the backlog item. Required.
+        story_points: The story points of the backlog item.
+        status: The status of the backlog item.
+        parent_key: The key of the parent backlog item. Optional.
+                    Must exist as a key in the backlog.
+        release: The release of the backlog item. Optional.
+                 Follows the same character rules as the key.
+                 Must not be empty string.
+        depends_on_f2s: The list of keys of the backlog items that must
+                        have been finished before the current item can
+                        start. May be empty.
+        depends_on_f2f: The list of keys of the backlog items that must
+                        have been finished before the current item can
+                        finish. May be empty.
+        depends_on_s2s: The list of keys of the backlog items that must
+                        have been started before the current item can
+                        start. May be empty.
+        planned_ready_date: The planned ready date of the backlog item.
+                            The date that is communicated to the
+                            customer. Optional.
+        estimated_ready_date: The estimated ready date of the backlog
+                              item. Optional.
+        extra_fields: Additional input fields not used by the backlog
+                      operations, stored by name.
+    """
 
     key: str
     title: str
     story_points: int
     status: Status
+    parent_key: Optional[str] = None
+    release: Optional[str] = None
+    depends_on_f2s: list[str] = field(default_factory=list)
+    depends_on_f2f: list[str] = field(default_factory=list)
+    depends_on_s2s: list[str] = field(default_factory=list)
+    planned_ready_date: Optional[date] = None
+    estimated_ready_date: Optional[date] = None
     extra_fields: dict[str, object] = field(default_factory=dict)
 
     def __getitem__(self, field_name: str) -> object:
@@ -62,240 +110,57 @@ class BacklogItem:
             result[field_name] = value
         return result
 
+    def _check_field_types(self, stderr_file: TextIO) -> None:
+        """Check that every field holds a value of its declared type."""
+        field_types = field_type_hints(BacklogItem)
+        for item_field in fields(BacklogItem):
+            value = getattr(self, item_field.name)
+            data_type = field_types.get(item_field.name, item_field.type)
+            if not value_matches_type(value, data_type):
+                report_wrong_type(item_field.name, value, data_type,
+                                  stderr_file)
+
+    def _check_key_constraints(self, stderr_file: TextIO) -> None:
+        """Check the key, release and dependency keys for valid syntax."""
+        check_key_syntax('key', self.key, stderr_file)
+        if self.release is not None:
+            check_key_syntax('release', self.release, stderr_file)
+        for dep_field in DEPENDENCY_FIELDS:
+            for index, dep_key in enumerate(getattr(self, dep_field)):
+                check_key_syntax(f'{dep_field}[{index}]', dep_key, stderr_file)
+
+    def check_consistency(self, stderr_file: TextIO = sys.stderr) -> None:
+        """Check the internal consistency of the backlog item.
+
+        The documented constraints are checked on all member variables.
+        Field types are verified, and the key, release and dependency
+        keys are checked for valid syntax. References between items are
+        not checked here; that is done by :func:`check_backlog_consistency`.
+
+        Args:
+            stderr_file: The file to report errors to.
+
+        Raises:
+            TypeError: If a field has the wrong type.
+            ValueError: If a field value violates a constraint.
+        """
+        self._check_field_types(stderr_file)
+        self._check_key_constraints(stderr_file)
+
 
 type Backlog = list[BacklogItem]
 """Internal representation of a backlog."""
-
-
-def _field_types() -> dict[str, object]:
-    """Return resolved type hints for backlog item fields."""
-    return get_type_hints(BacklogItem)
-
-
-def _is_mandatory(item_field: Field[object]) -> bool:
-    """Return True if a dataclass field must be supplied by input data."""
-    return (item_field.init and item_field.default is MISSING and
-            item_field.default_factory is MISSING)
-
-
-def _enum_type(data_type: object) -> Optional[type[Enum]]:
-    """Return the enum class for an enum type hint, if any."""
-    if isinstance(data_type, type) and issubclass(data_type, Enum):
-        return data_type
-    return None
-
-
-def _is_extra_map(item_field: Field[object],
-                  field_types: dict[str, object]) -> bool:
-    """Return True if a field is the extra field mapping."""
-    data_type = field_types.get(item_field.name)
-    type_args = get_args(data_type)
-    return (item_field.default_factory is not MISSING and
-            get_origin(data_type) is dict and len(type_args) == 2 and
-            type_args[0] is str and type_args[1] is object)
-
-
-def _extra_map_name(field_types: dict[str, object]) -> Optional[str]:
-    """Return the name of the field used for unknown input keys."""
-    for item_field in fields(BacklogItem):
-        if _is_extra_map(item_field, field_types):
-            return item_field.name
-    return None
-
-
-def _type_name(data_type: object) -> str:
-    """Return a readable name for a type hint."""
-    if data_type is object:
-        return 'object'
-    if isinstance(data_type, type):
-        return data_type.__name__
-    return str(data_type).replace('typing.', '')
-
-
-def _missing_field(field_name: str, stderr_file: TextIO) -> NoReturn:
-    """Report and raise an error for a missing mandatory field."""
-    message = f'Missing mandatory backlog item field: {field_name}'
-    print(message, file=stderr_file)
-    raise KeyError(message)
-
-
-def _wrong_type(field_name: str, value: object, data_type: object,
-                stderr_file: TextIO) -> NoReturn:
-    """Report and raise an error for a field with an invalid value."""
-    message = (
-        f'Backlog item field {field_name!r} expected '
-        f'{_type_name(data_type)}, got {type(value).__name__}: {value!r}'
-    )
-    print(message, file=stderr_file)
-    raise TypeError(message)
-
-
-def _is_union_type(data_type: object) -> bool:
-    """Return True if a type hint is a union type."""
-    return get_origin(data_type) in (Union, UnionType)
-
-
-def _matches_class(value: object, data_type: type[object]) -> bool:
-    """Return True if a value matches a non-parameterized class."""
-    if data_type is int:
-        return isinstance(value, int) and not isinstance(value, bool)
-    return isinstance(value, data_type)
-
-
-def _matches_list(value: object, type_args: tuple[object, ...]) -> bool:
-    """Return True if a value matches a list type hint."""
-    if not isinstance(value, list):
-        return False
-    if not type_args:
-        return True
-    return all(_matches_type(item, type_args[0]) for item in value)
-
-
-def _matches_dict(value: object, type_args: tuple[object, ...]) -> bool:
-    """Return True if a value matches a dict type hint."""
-    if not isinstance(value, dict):
-        return False
-    if len(type_args) != 2:
-        return True
-    key_type = type_args[0]
-    value_type = type_args[1]
-    return all(_matches_type(key, key_type) and
-               _matches_type(item, value_type)
-               for key, item in value.items())
-
-
-def _matches_tuple(value: object, type_args: tuple[object, ...]) -> bool:
-    """Return True if a value matches a tuple type hint."""
-    if not isinstance(value, tuple):
-        return False
-    if not type_args:
-        return True
-    if len(type_args) == 2 and type_args[1] is Ellipsis:
-        return all(_matches_type(item, type_args[0]) for item in value)
-    if len(value) != len(type_args):
-        return False
-    return all(_matches_type(item, data_type)
-               for item, data_type in zip(value, type_args))
-
-
-def _matches_origin(value: object, origin: object,
-                    type_args: tuple[object, ...]) -> Optional[bool]:
-    """Return a match result for a parameterized type origin."""
-    if origin is list:
-        return _matches_list(value, type_args)
-    if origin is dict:
-        return _matches_dict(value, type_args)
-    if origin is tuple:
-        return _matches_tuple(value, type_args)
-    if isinstance(origin, type):
-        return isinstance(value, origin)
-    return None
-
-
-def _matches_type(value: object, data_type: object) -> bool:
-    """Return True if a value matches a supported type hint."""
-    if data_type is object:
-        return True
-    if _is_union_type(data_type):
-        return any(_matches_type(value, item) for item in get_args(data_type))
-    enum_type = _enum_type(data_type)
-    if enum_type is not None:
-        return isinstance(value, enum_type)
-    origin_match = _matches_origin(value, get_origin(data_type),
-                                   get_args(data_type))
-    if origin_match is not None:
-        return origin_match
-    if isinstance(data_type, type):
-        return _matches_class(value, data_type)
-    return True
-
-
-def _convert_enum(field_name: str, value: object, data_type: type[Enum],
-                  stderr_file: TextIO) -> Enum:
-    """Return an enum value from an enum member, name or raw value."""
-    if isinstance(value, data_type):
-        return value
-    if isinstance(value, str):
-        member = data_type.__members__.get(value)
-        if member is not None:
-            return member
-    if isinstance(value, bool):
-        _wrong_type(field_name, value, data_type, stderr_file)
-    try:
-        return data_type(value)
-    except (TypeError, ValueError):
-        _wrong_type(field_name, value, data_type, stderr_file)
-
-
-def _convert_value(field_name: str, value: object, data_type: object,
-                   stderr_file: TextIO) -> object:
-    """Return a field value converted and checked against its type hint."""
-    enum_type = _enum_type(data_type)
-    if enum_type is not None:
-        return _convert_enum(field_name, value, enum_type, stderr_file)
-    if not _matches_type(value, data_type):
-        _wrong_type(field_name, value, data_type, stderr_file)
-    return value
-
-
-def _extra_values(data: dict[str, object], known_names: set[str],
-                  extra_name: str, data_type: object,
-                  stderr_file: TextIO) -> dict[str, object]:
-    """Return values for the extra fields mapping."""
-    result: dict[str, object] = {}
-    if extra_name in data:
-        value = _convert_value(extra_name, data[extra_name], data_type,
-                               stderr_file)
-        assert isinstance(value, dict)
-        for key, item in value.items():
-            assert isinstance(key, str)
-            result[key] = item
-    for field_name, value in data.items():
-        if field_name not in known_names:
-            result[field_name] = value
-    return result
-
-
-def _item_kwargs(data: dict[str, object],
-                 stderr_file: TextIO) -> dict[str, object]:
-    """Return constructor keyword arguments for a backlog item."""
-    field_types = _field_types()
-    item_fields = fields(BacklogItem)
-    known_names = {item_field.name for item_field in item_fields}
-    extra_name = _extra_map_name(field_types)
-    result: dict[str, object] = {}
-    for item_field in item_fields:
-        if not item_field.init or item_field.name == extra_name:
-            continue
-        data_type = field_types.get(item_field.name, item_field.type)
-        if item_field.name in data:
-            result[item_field.name] = _convert_value(item_field.name,
-                                                     data[item_field.name],
-                                                     data_type, stderr_file)
-        elif _is_mandatory(item_field):
-            _missing_field(item_field.name, stderr_file)
-    if extra_name is not None:
-        data_type = field_types.get(extra_name, dict[str, object])
-        result[extra_name] = _extra_values(data, known_names, extra_name,
-                                           data_type, stderr_file)
-    return result
-
-
-def _create_item(item_kwargs: dict[str, object]) -> BacklogItem:
-    """Return a backlog item from checked dynamic constructor arguments."""
-    item_factory = cast(Callable[..., BacklogItem], BacklogItem)
-    return item_factory(**item_kwargs)
 
 
 def get_backlog_item(data: dict[str, object],
                      stderr_file: TextIO = sys.stderr) -> BacklogItem:
     """Get a backlog item from a dictionary.
 
-    The dictionary is expected to have the mandatory fields of the
-    BacklogItem dataclass and any extra fields. The mandatory fields
-    must have the correct type as specified in the BacklogItem class.
-    Runtime types are checked and errors are reported to the given file
-    object.
+    The dictionary is expected to hold the mandatory fields of the
+    BacklogItem dataclass and any number of extra fields. Field values
+    are converted to their declared types (for example ISO date strings
+    to ``date`` and status names to ``Status``) and checked. Errors are
+    reported to the given file object.
 
     Args:
         data: The dictionary to get the backlog item from.
@@ -303,23 +168,23 @@ def get_backlog_item(data: dict[str, object],
 
     Raises:
         KeyError: If a mandatory field is missing.
-        TypeError: If a mandatory field has the wrong type.
+        TypeError: If a field has a type that cannot be converted.
 
     Returns:
         The backlog item.
     """
-    return _create_item(_item_kwargs(data, stderr_file))
+    field_types = field_type_hints(BacklogItem)
+    item_kwargs = build_item_kwargs(fields(BacklogItem), field_types, data,
+                                    stderr_file)
+    return construct(BacklogItem, item_kwargs)
 
 
 def get_backlog(datalist: list[dict[str, object]],
                 stderr_file: TextIO = sys.stderr) -> Backlog:
     """Get a backlog from a list of dictionaries.
 
-    The dictionaries are expected to have the mandatory fields of the
-    BacklogItem dataclass and any extra fields. The mandatory fields
-    must have the correct type as specified in the BacklogItem class.
-    Runtime types are checked and errors are reported to the given file
-    object.
+    Each dictionary is converted to a backlog item as documented for
+    :func:`get_backlog_item`.
 
     Args:
         datalist: The list of dictionaries to get the backlog from.
@@ -327,12 +192,126 @@ def get_backlog(datalist: list[dict[str, object]],
 
     Raises:
         KeyError: If a mandatory field is missing.
-        TypeError: If a mandatory field has the wrong type.
+        TypeError: If a field has a type that cannot be converted.
 
     Returns:
         The backlog.
     """
     return [get_backlog_item(data, stderr_file) for data in datalist]
+
+
+def check_unique_keys(backlog: Backlog,
+                      stderr_file: TextIO = sys.stderr) -> set[str]:
+    """Check that all backlog item keys are unique.
+
+    Args:
+        backlog: The backlog to check.
+        stderr_file: The file to report errors to.
+
+    Returns:
+        The set of all keys, for reuse by later checks.
+
+    Raises:
+        ValueError: If two items share the same key.
+    """
+    keys: set[str] = set()
+    for item in backlog:
+        if item.key in keys:
+            report_bad_value('key', item.key, 'duplicate backlog item key',
+                             stderr_file)
+        keys.add(item.key)
+    return keys
+
+
+def check_key_references(backlog: Backlog, known_keys: set[str],
+                         stderr_file: TextIO = sys.stderr) -> None:
+    """Check that parent and dependency keys reference existing items.
+
+    Args:
+        backlog: The backlog to check.
+        known_keys: The set of keys that exist in the backlog.
+        stderr_file: The file to report errors to.
+
+    Raises:
+        KeyError: If a parent_key or dependency key is unknown.
+    """
+    for item in backlog:
+        if item.parent_key is not None and \
+                item.parent_key not in known_keys:
+            report_unknown_reference('parent_key', item.key, item.parent_key,
+                                     stderr_file)
+        for dep_field in DEPENDENCY_FIELDS:
+            for dep_key in getattr(item, dep_field):
+                if dep_key not in known_keys:
+                    report_unknown_reference(dep_field, item.key, dep_key,
+                                             stderr_file)
+
+
+def build_dependency_graph(backlog: Backlog) -> dict[str, list[str]]:
+    """Return the dependency graph of a backlog.
+
+    Each item key maps to the keys it depends on across the
+    finish-to-start, finish-to-finish and start-to-start relations.
+
+    Args:
+        backlog: The backlog to build the graph from.
+
+    Returns:
+        A mapping from each item key to the keys it depends on.
+    """
+    graph: dict[str, list[str]] = {}
+    for item in backlog:
+        dependencies: list[str] = []
+        for dep_field in DEPENDENCY_FIELDS:
+            dependencies.extend(getattr(item, dep_field))
+        graph[item.key] = dependencies
+    return graph
+
+
+def check_no_cycles(backlog: Backlog,
+                    stderr_file: TextIO = sys.stderr) -> None:
+    """Check that the dependency graph of a backlog has no cycles.
+
+    A self dependency is treated as a cycle of length one.
+
+    Args:
+        backlog: The backlog to check.
+        stderr_file: The file to report errors to.
+
+    Raises:
+        ValueError: If a dependency cycle is found.
+    """
+    cycle = find_cycle(build_dependency_graph(backlog))
+    if cycle is not None:
+        message = 'Dependency cycle in backlog: ' + ' -> '.join(cycle)
+        print(message, file=stderr_file)
+        raise ValueError(message)
+
+
+def check_backlog_consistency(backlog: Backlog,
+                              stderr_file: TextIO = sys.stderr) -> None:
+    """Check the consistency of a backlog.
+
+    Every item is checked for internal consistency, all keys are checked
+    for uniqueness, parent and dependency keys are checked to reference
+    existing items, and the dependency graph is checked to be free of
+    cycles.
+
+    Args:
+        backlog: The backlog to check.
+        stderr_file: The file to report errors to.
+
+    Raises:
+        KeyError: If a key reference is invalid.
+        TypeError: If a field has the wrong type.
+        ValueError: If a field value violates a constraint, if keys are
+            not unique, or if there is a dependency cycle.
+    """
+    for item in backlog:
+        item.check_consistency(stderr_file)
+    known_keys = check_unique_keys(backlog, stderr_file)
+    check_key_references(backlog, known_keys, stderr_file)
+    check_no_cycles(backlog, stderr_file)
 
 
 if __name__ == '__main__':

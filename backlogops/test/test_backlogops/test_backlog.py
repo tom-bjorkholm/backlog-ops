@@ -1,21 +1,37 @@
 #! /usr/local/bin/python3
-"""Tests for backlog item conversion."""
+"""Tests for backlog item conversion and consistency checks."""
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+from datetime import date
 from io import StringIO
 
 import pytest
 
 from backlogops.backlog import BacklogItem, Status, get_backlog
-from backlogops.backlog import get_backlog_item
+from backlogops.backlog import get_backlog_item, check_backlog_consistency
 
 
 def _valid_data(status: object = Status.TODO) -> dict[str, object]:
     """Return dictionary data for one valid backlog item."""
     return {'key': 'BI-1', 'title': 'Create backlog', 'story_points': 3,
             'status': status}
+
+
+def _valid_item() -> BacklogItem:
+    """Return one minimal valid backlog item."""
+    return BacklogItem(key='BI-1', title='Title', story_points=3,
+                       status=Status.TODO)
+
+
+def _backlog_pair() -> list[BacklogItem]:
+    """Return a small consistent backlog of two related items."""
+    return [BacklogItem(key='BI-1', title='A', story_points=1,
+                        status=Status.TODO),
+            BacklogItem(key='BI-2', title='B', story_points=2,
+                        status=Status.TODO, parent_key='BI-1',
+                        depends_on_f2s=['BI-1'])]
 
 
 def test_item_from_dict() -> None:
@@ -37,11 +53,71 @@ def test_item_converts_status(status_value: object) -> None:
     assert item.status == Status.TODO
 
 
+@pytest.mark.parametrize('value, expected', [
+    ('TODO', Status.TODO),
+    ('todo', Status.TODO),
+    ('Done', Status.DONE),
+    ('IN_PROGRESS', Status.IN_PROGRESS),
+    (1, Status.TODO),
+    (2, Status.IN_PROGRESS),
+    (Status.REJECTED, Status.REJECTED)])
+def test_status_best_match(value: object, expected: Status) -> None:
+    """Test status names, raw values and members are all accepted."""
+    assert get_backlog_item(_valid_data(value)).status == expected
+
+
 def test_get_backlog() -> None:
     """Test creating a backlog from a list of dictionaries."""
     data = [_valid_data('TODO'), _valid_data('DONE')]
     backlog = get_backlog(data)
     assert [item.status for item in backlog] == [Status.TODO, Status.DONE]
+
+
+def test_item_optional_fields() -> None:
+    """Test optional scalar and dependency fields are converted."""
+    data = _valid_data()
+    data['parent_key'] = 'BI-0'
+    data['release'] = 'R1'
+    data['depends_on_f2s'] = ['BI-2', 'BI-3']
+    item = get_backlog_item(data)
+    assert item.parent_key == 'BI-0'
+    assert item.release == 'R1'
+    assert item.depends_on_f2s == ['BI-2', 'BI-3']
+
+
+def test_item_converts_dates() -> None:
+    """Test ISO 8601 date strings are converted to date objects."""
+    data = _valid_data()
+    data['planned_ready_date'] = '2026-06-12'
+    data['estimated_ready_date'] = '2026-07-01'
+    item = get_backlog_item(data)
+    assert item.planned_ready_date == date(2026, 6, 12)
+    assert item.estimated_ready_date == date(2026, 7, 1)
+
+
+def test_item_date_obj() -> None:
+    """Test an existing date object is accepted unchanged."""
+    data = _valid_data()
+    data['planned_ready_date'] = date(2026, 6, 12)
+    item = get_backlog_item(data)
+    assert item.planned_ready_date == date(2026, 6, 12)
+
+
+def test_optional_date_none() -> None:
+    """Test an explicit None is accepted for an optional date field."""
+    data = _valid_data()
+    data['planned_ready_date'] = None
+    item = get_backlog_item(data)
+    assert item.planned_ready_date is None
+
+
+@pytest.mark.parametrize('value', ['not-a-date', '2026-13-01', 42])
+def test_bad_date_errors(value: object) -> None:
+    """Test invalid date values are reported and rejected."""
+    data = _valid_data()
+    data['planned_ready_date'] = value
+    with pytest.raises(TypeError):
+        get_backlog_item(data, StringIO())
 
 
 @pytest.mark.parametrize('field_name', [
@@ -77,3 +153,92 @@ def test_bad_field_errors(field_name: str, value: object) -> None:
     error_text = stderr_file.getvalue()
     assert field_name in error_text
     assert repr(value) in error_text
+
+
+def test_internal_ok() -> None:
+    """Test a fully populated valid item passes the internal check."""
+    item = BacklogItem(key='BI-1', title='Title', story_points=3,
+                       status=Status.TODO, release='R1',
+                       depends_on_f2s=['BI-2'],
+                       planned_ready_date=date(2026, 6, 12))
+    item.check_consistency(StringIO())
+
+
+@pytest.mark.parametrize('field_name, value', [
+    ('story_points', 'three'),
+    ('key', 7),
+    ('status', 'TODO')])
+def test_internal_type_errors(field_name: str, value: object) -> None:
+    """Test wrong field types are reported by the internal check."""
+    item = _valid_item()
+    setattr(item, field_name, value)
+    with pytest.raises(TypeError):
+        item.check_consistency(StringIO())
+
+
+@pytest.mark.parametrize('field_name, value', [
+    ('key', ''),
+    ('key', 'BI 1'),
+    ('key', 'BI,1'),
+    ('key', 'a(b)'),
+    ('release', ''),
+    ('release', 'R 1')])
+def test_internal_value_err(field_name: str, value: object) -> None:
+    """Test invalid key or release syntax is reported as a ValueError."""
+    item = _valid_item()
+    setattr(item, field_name, value)
+    with pytest.raises(ValueError):
+        item.check_consistency(StringIO())
+
+
+def test_internal_bad_dep() -> None:
+    """Test an invalid dependency key is reported as a ValueError."""
+    item = _valid_item()
+    item.depends_on_f2s = ['bad key']
+    with pytest.raises(ValueError):
+        item.check_consistency(StringIO())
+
+
+def test_backlog_valid_passes() -> None:
+    """Test a consistent backlog passes the backlog check."""
+    check_backlog_consistency(_backlog_pair(), StringIO())
+
+
+def test_dup_keys() -> None:
+    """Test duplicate item keys are reported as a ValueError."""
+    backlog = _backlog_pair()
+    backlog[1].key = 'BI-1'
+    with pytest.raises(ValueError):
+        check_backlog_consistency(backlog, StringIO())
+
+
+def test_unknown_parent() -> None:
+    """Test an unknown parent_key is reported as a KeyError."""
+    backlog = _backlog_pair()
+    backlog[1].parent_key = 'BI-9'
+    with pytest.raises(KeyError):
+        check_backlog_consistency(backlog, StringIO())
+
+
+def test_unknown_dep() -> None:
+    """Test an unknown dependency key is reported as a KeyError."""
+    backlog = _backlog_pair()
+    backlog[1].depends_on_f2s = ['BI-9']
+    with pytest.raises(KeyError):
+        check_backlog_consistency(backlog, StringIO())
+
+
+def test_self_dep() -> None:
+    """Test a self dependency is reported as a ValueError."""
+    backlog = _backlog_pair()
+    backlog[0].depends_on_s2s = ['BI-1']
+    with pytest.raises(ValueError):
+        check_backlog_consistency(backlog, StringIO())
+
+
+def test_backlog_cycle() -> None:
+    """Test a dependency cycle is reported as a ValueError."""
+    backlog = _backlog_pair()
+    backlog[0].depends_on_f2s = ['BI-2']
+    with pytest.raises(ValueError):
+        check_backlog_consistency(backlog, StringIO())
