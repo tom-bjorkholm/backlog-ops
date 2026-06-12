@@ -190,7 +190,7 @@ def test_is_mandatory_field() -> None:
 
 def test_build_construct() -> None:
     """Test building kwargs from data and constructing an item."""
-    data: dict[str, object] = {'key': 'BI-1', 'title': 'T',
+    data: dict[str, object] = {'key': 'BI-1', 'level': 1, 'title': 'T',
                                'story_points': 2, 'status': 'TODO',
                                'note': 'hi'}
     hints = field_type_hints(BacklogItem)

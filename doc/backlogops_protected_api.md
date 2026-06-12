@@ -50,13 +50,27 @@
     * [\_check\_field\_types](#backlogops.backlog.BacklogItem._check_field_types)
     * [\_check\_key\_constraints](#backlogops.backlog.BacklogItem._check_key_constraints)
     * [check\_consistency](#backlogops.backlog.BacklogItem.check_consistency)
+  * [prepare\_item\_data](#backlogops.backlog.prepare_item_data)
   * [get\_backlog\_item](#backlogops.backlog.get_backlog_item)
   * [get\_backlog](#backlogops.backlog.get_backlog)
   * [check\_unique\_keys](#backlogops.backlog.check_unique_keys)
   * [check\_key\_references](#backlogops.backlog.check_key_references)
+  * [event\_start](#backlogops.backlog.event_start)
+  * [event\_finish](#backlogops.backlog.event_finish)
+  * [item\_dependency\_edges](#backlogops.backlog.item_dependency_edges)
   * [build\_dependency\_graph](#backlogops.backlog.build_dependency_graph)
   * [check\_no\_cycles](#backlogops.backlog.check_no_cycles)
+  * [check\_parent\_levels](#backlogops.backlog.check_parent_levels)
   * [check\_backlog\_consistency](#backlogops.backlog.check_backlog_consistency)
+* [backlogops.levels](#backlogops.levels)
+  * [Level](#backlogops.levels.Level)
+    * [\_check\_level\_type](#backlogops.levels.Level._check_level_type)
+    * [\_check\_labels](#backlogops.levels.Level._check_labels)
+    * [check\_consistency](#backlogops.levels.Level.check_consistency)
+  * [DEFAULT\_LEVELS](#backlogops.levels.DEFAULT_LEVELS)
+  * [report\_duplicate\_label](#backlogops.levels.report_duplicate_label)
+  * [check\_levels\_consistency](#backlogops.levels.check_levels_consistency)
+  * [level\_number\_from\_name](#backlogops.levels.level_number_from_name)
 
 <a id="backlogops.backlog_helpers"></a>
 
@@ -851,11 +865,18 @@ Fields:
     key: The key of the backlog item. Required. Must be unique.
          Must not be empty, must not contain whitespace and must
          not contain any of the characters , . ; : ( ) [ ] { }.
+    level: The level of the backlog item. Required. Must be an integer.
     title: The title of the backlog item. Required.
     story_points: The story points of the backlog item.
     status: The status of the backlog item.
     parent_key: The key of the parent backlog item. Optional.
                 Must exist as a key in the backlog.
+                Parent keys are used to build the hierarchy of the backlog.
+                The parent key must be at a higher level than the current
+                item. Parent keys introduce implicit dependencies between
+                items: the current item cannot start before the parent
+                item starts, and the parent item cannot finish before
+                all its children have finished.
     release: The release of the backlog item. Optional.
              Follows the same character rules as the key.
              Must not be empty string.
@@ -961,12 +982,46 @@ not checked here; that is done by :func:`check_backlog_consistency`.
 - `TypeError` - If a field has the wrong type.
 - `ValueError` - If a field value violates a constraint.
 
+<a id="backlogops.backlog.prepare_item_data"></a>
+
+#### prepare\_item\_data
+
+```python
+def prepare_item_data(data: dict[str, object],
+                      levels: Levels,
+                      stderr_file: TextIO = sys.stderr) -> dict[str, object]
+```
+
+Return item data with a string level resolved to its number.
+
+A ``level`` given as a string is matched against the level names and
+aliases in ``levels`` and replaced by the level number. Integer
+levels and absent levels are returned unchanged, so that type and
+missing-field checks happen as usual when the data is converted.
+
+**Arguments**:
+
+- `data` - The raw input data for one backlog item.
+- `levels` - The levels used to resolve a string level.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  The input data, with a string level replaced by its number.
+  
+
+**Raises**:
+
+- `ValueError` - If a string level matches no level name or alias.
+
 <a id="backlogops.backlog.get_backlog_item"></a>
 
 #### get\_backlog\_item
 
 ```python
 def get_backlog_item(data: dict[str, object],
+                     levels: Optional[Levels] = None,
                      stderr_file: TextIO = sys.stderr) -> BacklogItem
 ```
 
@@ -975,12 +1030,16 @@ Get a backlog item from a dictionary.
 The dictionary is expected to hold the mandatory fields of the
 BacklogItem dataclass and any number of extra fields. Field values
 are converted to their declared types (for example ISO date strings
-to ``date`` and status names to ``Status``) and checked. Errors are
+to ``date`` and status names to ``Status``) and checked. A ``level``
+given as a string is resolved to its level number using ``levels``.
+When ``levels`` is None the default levels are used. Errors are
 reported to the given file object.
 
 **Arguments**:
 
 - `data` - The dictionary to get the backlog item from.
+- `levels` - The levels used to resolve a string level, or None to
+  use :data:`DEFAULT_LEVELS`.
 - `stderr_file` - The file to report errors to.
   
 
@@ -988,6 +1047,7 @@ reported to the given file object.
 
 - `KeyError` - If a mandatory field is missing.
 - `TypeError` - If a field has a type that cannot be converted.
+- `ValueError` - If a string level matches no level name or alias.
   
 
 **Returns**:
@@ -1000,6 +1060,7 @@ reported to the given file object.
 
 ```python
 def get_backlog(datalist: list[dict[str, object]],
+                levels: Optional[Levels] = None,
                 stderr_file: TextIO = sys.stderr) -> Backlog
 ```
 
@@ -1011,6 +1072,8 @@ Each dictionary is converted to a backlog item as documented for
 **Arguments**:
 
 - `datalist` - The list of dictionaries to get the backlog from.
+- `levels` - The levels used to convert level names to level numbers,
+  or None to use :data:`DEFAULT_LEVELS`.
 - `stderr_file` - The file to report errors to.
   
 
@@ -1018,6 +1081,7 @@ Each dictionary is converted to a backlog item as documented for
 
 - `KeyError` - If a mandatory field is missing.
 - `TypeError` - If a field has a type that cannot be converted.
+- `ValueError` - If a string level matches no level name or alias.
   
 
 **Returns**:
@@ -1073,6 +1137,53 @@ Check that parent and dependency keys reference existing items.
 
 - `KeyError` - If a parent_key or dependency key is unknown.
 
+<a id="backlogops.backlog.event_start"></a>
+
+#### event\_start
+
+```python
+def event_start(key: str) -> str
+```
+
+Return the start-event node name for a backlog item key.
+
+<a id="backlogops.backlog.event_finish"></a>
+
+#### event\_finish
+
+```python
+def event_finish(key: str) -> str
+```
+
+Return the finish-event node name for a backlog item key.
+
+<a id="backlogops.backlog.item_dependency_edges"></a>
+
+#### item\_dependency\_edges
+
+```python
+def item_dependency_edges(item: BacklogItem) -> list[tuple[str, str]]
+```
+
+Return the directed scheduling edges implied by one item.
+
+Each item has a start event and a finish event. An edge ``a -> b``
+means that event ``a`` cannot happen before event ``b`` (``a``
+depends on ``b``). An item finish depends on its own start. The
+dependency lists add finish-to-start, finish-to-finish and
+start-to-start edges. A parent relation adds two implicit edges: the
+child cannot start before the parent starts, and the parent cannot
+finish before the child finishes.
+
+**Arguments**:
+
+- `item` - The backlog item to take the edges from.
+  
+
+**Returns**:
+
+  The directed (source, target) event edges of the item.
+
 <a id="backlogops.backlog.build_dependency_graph"></a>
 
 #### build\_dependency\_graph
@@ -1081,10 +1192,14 @@ Check that parent and dependency keys reference existing items.
 def build_dependency_graph(backlog: Backlog) -> dict[str, list[str]]
 ```
 
-Return the dependency graph of a backlog.
+Return the scheduling-event dependency graph of a backlog.
 
-Each item key maps to the keys it depends on across the
-finish-to-start, finish-to-finish and start-to-start relations.
+The nodes are the start and finish events of the items, named
+``'<key>:start'`` and ``'<key>:finish'`` (``:`` cannot appear in a
+key). The edges combine the explicit dependency lists with the
+implicit parent relations, as described in
+:func:`item_dependency_edges`. A cycle in this graph is an
+unsatisfiable set of scheduling constraints.
 
 **Arguments**:
 
@@ -1093,7 +1208,7 @@ finish-to-start, finish-to-finish and start-to-start relations.
 
 **Returns**:
 
-  A mapping from each item key to the keys it depends on.
+  A mapping from each event node to the events it depends on.
 
 <a id="backlogops.backlog.check_no_cycles"></a>
 
@@ -1104,9 +1219,12 @@ def check_no_cycles(backlog: Backlog,
                     stderr_file: TextIO = sys.stderr) -> None
 ```
 
-Check that the dependency graph of a backlog has no cycles.
+Check that the scheduling-event graph of a backlog has no cycles.
 
-A self dependency is treated as a cycle of length one.
+The graph combines the explicit dependencies with the implicit
+parent relations. A self dependency is treated as a cycle of length
+one. A valid parent and child nesting is not a cycle, because the
+parent and child start and finish events stay distinct.
 
 **Arguments**:
 
@@ -1117,6 +1235,34 @@ A self dependency is treated as a cycle of length one.
 **Raises**:
 
 - `ValueError` - If a dependency cycle is found.
+
+<a id="backlogops.backlog.check_parent_levels"></a>
+
+#### check\_parent\_levels
+
+```python
+def check_parent_levels(backlog: Backlog,
+                        items_by_key: dict[str, BacklogItem],
+                        stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check that each parent is at a higher level than its child.
+
+A parent is a bigger backlog item than its children, so its level
+number must be strictly higher than the item that references it. The
+parent references are assumed to exist, as already checked by
+:func:`check_key_references`.
+
+**Arguments**:
+
+- `backlog` - The backlog to check.
+- `items_by_key` - A mapping from each key to its backlog item.
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `ValueError` - If a parent is not at a higher level than its child.
 
 <a id="backlogops.backlog.check_backlog_consistency"></a>
 
@@ -1131,7 +1277,8 @@ Check the consistency of a backlog.
 
 Every item is checked for internal consistency, all keys are checked
 for uniqueness, parent and dependency keys are checked to reference
-existing items, and the dependency graph is checked to be free of
+existing items, each parent is checked to be at a higher level than
+its child, and the scheduling-event graph is checked to be free of
 cycles.
 
 **Arguments**:
@@ -1145,5 +1292,178 @@ cycles.
 - `KeyError` - If a key reference is invalid.
 - `TypeError` - If a field has the wrong type.
 - `ValueError` - If a field value violates a constraint, if keys are
-  not unique, or if there is a dependency cycle.
+  not unique, if a parent is not at a higher level than its
+  child, or if there is a dependency cycle.
+
+<a id="backlogops.levels"></a>
+
+# backlogops.levels
+
+Levels of a backlog item.
+
+<a id="backlogops.levels.Level"></a>
+
+## Level Objects
+
+```python
+@dataclass
+class Level()
+```
+
+A level of a backlog item.
+
+Fields:
+    level: The level of the backlog item. Required. Must be an integer.
+           Usually a positive integer, but can be negative for special
+           cases. A higher level means a bigger backlog item.
+           A lower level means a smaller, more detailed backlog item.
+    name: The name of the level. Required. Must be a string.
+          Must not be empty, must not contain whitespace and must
+          not contain any of the characters , . ; : ( ) [ ] { }.
+          Must be unique within the Levels.
+    aliases: The aliases of the level. Optional. Must be a list of strings.
+             For instance if level 1 is called "Story", it may have the
+             aliases "Task" and "Bug".
+             The aliases are used if a backlog item is converted from a
+             tool that have different names for the same level.
+             Each alias must not be empty, must not contain whitespace and
+             must not contain any of the characters , . ; : ( ) [ ] { }.
+             Must be unique within the Levels and must not be the same
+             as any name used in the Levels.
+
+<a id="backlogops.levels.Level._check_level_type"></a>
+
+#### \_check\_level\_type
+
+```python
+def _check_level_type(stderr_file: TextIO) -> None
+```
+
+Check that the level number is an integer (not a bool).
+
+<a id="backlogops.levels.Level._check_labels"></a>
+
+#### \_check\_labels
+
+```python
+def _check_labels(stderr_file: TextIO) -> None
+```
+
+Check the name and each alias for valid label syntax.
+
+<a id="backlogops.levels.Level.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the consistency of the level.
+
+The documented constraints are checked on all member variables.
+The name and aliases follow the same character rules as a backlog
+item key. Uniqueness across levels is checked by
+:func:`check_levels_consistency`, not here.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If a field value violates a constraint.
+
+<a id="backlogops.levels.DEFAULT_LEVELS"></a>
+
+#### DEFAULT\_LEVELS
+
+The default levels for backlog items.
+
+<a id="backlogops.levels.report_duplicate_label"></a>
+
+#### report\_duplicate\_label
+
+```python
+def report_duplicate_label(label: str,
+                           existing: str,
+                           stderr_file: TextIO = sys.stderr) -> NoReturn
+```
+
+Report a duplicate level name or alias and raise ``KeyError``.
+
+**Arguments**:
+
+- `label` - The label that duplicates an earlier one.
+- `existing` - The earlier label it collides with.
+- `stderr_file` - The file to report the error to.
+  
+
+**Raises**:
+
+- `KeyError` - Always, after reporting the message.
+
+<a id="backlogops.levels.check_levels_consistency"></a>
+
+#### check\_levels\_consistency
+
+```python
+def check_levels_consistency(levels: Levels,
+                             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the consistency of the levels.
+
+The documented constraints are checked on all levels. Each dict key
+must match the ``level`` field of its value. Names and aliases are
+checked for uniqueness across all levels using case-insensitive
+comparison, so that a name and an alias may not differ only in case.
+
+**Arguments**:
+
+- `levels` - The levels to check.
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If a field value violates a constraint, or a dict key
+  does not match its level number.
+- `KeyError` - If a name or alias is not unique (case-insensitive).
+
+<a id="backlogops.levels.level_number_from_name"></a>
+
+#### level\_number\_from\_name
+
+```python
+def level_number_from_name(name: str,
+                           levels: Levels,
+                           stderr_file: TextIO = sys.stderr) -> int
+```
+
+Return the level number whose name or alias matches ``name``.
+
+Matching is case-insensitive but otherwise exact (no prefix or
+fuzzy matching). The level name and all of its aliases are
+considered. The levels are assumed to be consistent, as checked by
+:func:`check_levels_consistency`.
+
+**Arguments**:
+
+- `name` - The level name or alias to look up.
+- `levels` - The levels to search.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  The level number of the matching level.
+  
+
+**Raises**:
+
+- `ValueError` - If no level name or alias matches ``name``.
 

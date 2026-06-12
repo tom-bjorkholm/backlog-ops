@@ -9,6 +9,7 @@ from datetime import date
 from dataclasses import dataclass, field, fields
 from enum import IntEnum, auto
 from typing import Optional, TextIO
+from backlogops.levels import Levels, DEFAULT_LEVELS, level_number_from_name
 from backlogops.backlog_helpers import build_item_kwargs, check_key_syntax
 from backlogops.backlog_helpers import construct, field_type_hints, find_cycle
 from backlogops.backlog_helpers import report_bad_value, report_wrong_type
@@ -41,11 +42,18 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
         key: The key of the backlog item. Required. Must be unique.
              Must not be empty, must not contain whitespace and must
              not contain any of the characters , . ; : ( ) [ ] { }.
+        level: The level of the backlog item. Required. Must be an integer.
         title: The title of the backlog item. Required.
         story_points: The story points of the backlog item.
         status: The status of the backlog item.
         parent_key: The key of the parent backlog item. Optional.
                     Must exist as a key in the backlog.
+                    Parent keys are used to build the hierarchy of the backlog.
+                    The parent key must be at a higher level than the current
+                    item. Parent keys introduce implicit dependencies between
+                    items: the current item cannot start before the parent
+                    item starts, and the parent item cannot finish before
+                    all its children have finished.
         release: The release of the backlog item. Optional.
                  Follows the same character rules as the key.
                  Must not be empty string.
@@ -68,6 +76,7 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
     """
 
     key: str
+    level: int
     title: str
     story_points: int
     status: Status
@@ -152,34 +161,69 @@ type Backlog = list[BacklogItem]
 """Internal representation of a backlog."""
 
 
-def get_backlog_item(data: dict[str, object],
+def prepare_item_data(data: dict[str, object], levels: Levels,
+                      stderr_file: TextIO = sys.stderr) -> dict[str, object]:
+    """Return item data with a string level resolved to its number.
+
+    A ``level`` given as a string is matched against the level names and
+    aliases in ``levels`` and replaced by the level number. Integer
+    levels and absent levels are returned unchanged, so that type and
+    missing-field checks happen as usual when the data is converted.
+
+    Args:
+        data: The raw input data for one backlog item.
+        levels: The levels used to resolve a string level.
+        stderr_file: The file to report errors to.
+
+    Returns:
+        The input data, with a string level replaced by its number.
+
+    Raises:
+        ValueError: If a string level matches no level name or alias.
+    """
+    level_value = data.get('level')
+    if not isinstance(level_value, str):
+        return data
+    number = level_number_from_name(level_value, levels, stderr_file)
+    return {**data, 'level': number}
+
+
+def get_backlog_item(data: dict[str, object], levels: Optional[Levels] = None,
                      stderr_file: TextIO = sys.stderr) -> BacklogItem:
     """Get a backlog item from a dictionary.
 
     The dictionary is expected to hold the mandatory fields of the
     BacklogItem dataclass and any number of extra fields. Field values
     are converted to their declared types (for example ISO date strings
-    to ``date`` and status names to ``Status``) and checked. Errors are
+    to ``date`` and status names to ``Status``) and checked. A ``level``
+    given as a string is resolved to its level number using ``levels``.
+    When ``levels`` is None the default levels are used. Errors are
     reported to the given file object.
 
     Args:
         data: The dictionary to get the backlog item from.
+        levels: The levels used to resolve a string level, or None to
+                use :data:`DEFAULT_LEVELS`.
         stderr_file: The file to report errors to.
 
     Raises:
         KeyError: If a mandatory field is missing.
         TypeError: If a field has a type that cannot be converted.
+        ValueError: If a string level matches no level name or alias.
 
     Returns:
         The backlog item.
     """
+    chosen_levels = DEFAULT_LEVELS if levels is None else levels
     field_types = field_type_hints(BacklogItem)
-    item_kwargs = build_item_kwargs(fields(BacklogItem), field_types, data,
+    prepared = prepare_item_data(data, chosen_levels, stderr_file)
+    item_kwargs = build_item_kwargs(fields(BacklogItem), field_types, prepared,
                                     stderr_file)
     return construct(BacklogItem, item_kwargs)
 
 
 def get_backlog(datalist: list[dict[str, object]],
+                levels: Optional[Levels] = None,
                 stderr_file: TextIO = sys.stderr) -> Backlog:
     """Get a backlog from a list of dictionaries.
 
@@ -188,16 +232,19 @@ def get_backlog(datalist: list[dict[str, object]],
 
     Args:
         datalist: The list of dictionaries to get the backlog from.
+        levels: The levels used to convert level names to level numbers,
+                or None to use :data:`DEFAULT_LEVELS`.
         stderr_file: The file to report errors to.
 
     Raises:
         KeyError: If a mandatory field is missing.
         TypeError: If a field has a type that cannot be converted.
+        ValueError: If a string level matches no level name or alias.
 
     Returns:
         The backlog.
     """
-    return [get_backlog_item(data, stderr_file) for data in datalist]
+    return [get_backlog_item(data, levels, stderr_file) for data in datalist]
 
 
 def check_unique_keys(backlog: Backlog,
@@ -247,32 +294,76 @@ def check_key_references(backlog: Backlog, known_keys: set[str],
                                              stderr_file)
 
 
-def build_dependency_graph(backlog: Backlog) -> dict[str, list[str]]:
-    """Return the dependency graph of a backlog.
+def event_start(key: str) -> str:
+    """Return the start-event node name for a backlog item key."""
+    return f'{key}:start'
 
-    Each item key maps to the keys it depends on across the
-    finish-to-start, finish-to-finish and start-to-start relations.
+
+def event_finish(key: str) -> str:
+    """Return the finish-event node name for a backlog item key."""
+    return f'{key}:finish'
+
+
+def item_dependency_edges(item: BacklogItem) -> list[tuple[str, str]]:
+    """Return the directed scheduling edges implied by one item.
+
+    Each item has a start event and a finish event. An edge ``a -> b``
+    means that event ``a`` cannot happen before event ``b`` (``a``
+    depends on ``b``). An item finish depends on its own start. The
+    dependency lists add finish-to-start, finish-to-finish and
+    start-to-start edges. A parent relation adds two implicit edges: the
+    child cannot start before the parent starts, and the parent cannot
+    finish before the child finishes.
+
+    Args:
+        item: The backlog item to take the edges from.
+
+    Returns:
+        The directed (source, target) event edges of the item.
+    """
+    start = event_start(item.key)
+    finish = event_finish(item.key)
+    edges = [(finish, start)]
+    edges += [(start, event_finish(dep)) for dep in item.depends_on_f2s]
+    edges += [(finish, event_finish(dep)) for dep in item.depends_on_f2f]
+    edges += [(start, event_start(dep)) for dep in item.depends_on_s2s]
+    if item.parent_key is not None:
+        edges.append((start, event_start(item.parent_key)))
+        edges.append((event_finish(item.parent_key), finish))
+    return edges
+
+
+def build_dependency_graph(backlog: Backlog) -> dict[str, list[str]]:
+    """Return the scheduling-event dependency graph of a backlog.
+
+    The nodes are the start and finish events of the items, named
+    ``'<key>:start'`` and ``'<key>:finish'`` (``:`` cannot appear in a
+    key). The edges combine the explicit dependency lists with the
+    implicit parent relations, as described in
+    :func:`item_dependency_edges`. A cycle in this graph is an
+    unsatisfiable set of scheduling constraints.
 
     Args:
         backlog: The backlog to build the graph from.
 
     Returns:
-        A mapping from each item key to the keys it depends on.
+        A mapping from each event node to the events it depends on.
     """
     graph: dict[str, list[str]] = {}
     for item in backlog:
-        dependencies: list[str] = []
-        for dep_field in DEPENDENCY_FIELDS:
-            dependencies.extend(getattr(item, dep_field))
-        graph[item.key] = dependencies
+        for source, target in item_dependency_edges(item):
+            graph.setdefault(source, []).append(target)
     return graph
 
 
 def check_no_cycles(backlog: Backlog,
                     stderr_file: TextIO = sys.stderr) -> None:
-    """Check that the dependency graph of a backlog has no cycles.
+    """Check that the scheduling-event graph of a backlog has no cycles.
 
-    A self dependency is treated as a cycle of length one.
+    The graph combines the explicit dependencies with the implicit
+    parent relations. A self dependency is treated as a cycle of length
+    one. A valid parent and child nesting is not a cycle, because the
+    parent and child start and finish events stay distinct.
 
     Args:
         backlog: The backlog to check.
@@ -288,13 +379,41 @@ def check_no_cycles(backlog: Backlog,
         raise ValueError(message)
 
 
+def check_parent_levels(backlog: Backlog, items_by_key: dict[str, BacklogItem],
+                        stderr_file: TextIO = sys.stderr) -> None:
+    """Check that each parent is at a higher level than its child.
+
+    A parent is a bigger backlog item than its children, so its level
+    number must be strictly higher than the item that references it. The
+    parent references are assumed to exist, as already checked by
+    :func:`check_key_references`.
+
+    Args:
+        backlog: The backlog to check.
+        items_by_key: A mapping from each key to its backlog item.
+        stderr_file: The file to report errors to.
+
+    Raises:
+        ValueError: If a parent is not at a higher level than its child.
+    """
+    for item in backlog:
+        if item.parent_key is None:
+            continue
+        parent = items_by_key[item.parent_key]
+        if parent.level <= item.level:
+            report_bad_value('parent_key', item.parent_key,
+                             f'parent level {parent.level} is not higher '
+                             f'than item level {item.level}', stderr_file)
+
+
 def check_backlog_consistency(backlog: Backlog,
                               stderr_file: TextIO = sys.stderr) -> None:
     """Check the consistency of a backlog.
 
     Every item is checked for internal consistency, all keys are checked
     for uniqueness, parent and dependency keys are checked to reference
-    existing items, and the dependency graph is checked to be free of
+    existing items, each parent is checked to be at a higher level than
+    its child, and the scheduling-event graph is checked to be free of
     cycles.
 
     Args:
@@ -305,17 +424,20 @@ def check_backlog_consistency(backlog: Backlog,
         KeyError: If a key reference is invalid.
         TypeError: If a field has the wrong type.
         ValueError: If a field value violates a constraint, if keys are
-            not unique, or if there is a dependency cycle.
+            not unique, if a parent is not at a higher level than its
+            child, or if there is a dependency cycle.
     """
     for item in backlog:
         item.check_consistency(stderr_file)
     known_keys = check_unique_keys(backlog, stderr_file)
+    items_by_key = {item.key: item for item in backlog}
     check_key_references(backlog, known_keys, stderr_file)
+    check_parent_levels(backlog, items_by_key, stderr_file)
     check_no_cycles(backlog, stderr_file)
 
 
 if __name__ == '__main__':
-    a = BacklogItem(key='123', title='Test', story_points=1,
+    a = BacklogItem(key='123', level=1, title='Test', story_points=1,
                     status=Status.TODO)
     print(f'Key: {a["key"]}')
     a.extra_fields['description'] = 'Test description'
