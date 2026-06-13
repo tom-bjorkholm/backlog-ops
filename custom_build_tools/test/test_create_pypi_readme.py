@@ -52,3 +52,44 @@ def test_api_title() -> None:
     """Test API README title uses the package name."""
     assert create_pypi_readme_venv.TITLES[
         create_pypi_readme_venv.ReadmeType.BACKLOGOPS_API] == 'backlogops'
+
+
+def _generate_readme(readme_type: create_pypi_readme_venv.ReadmeType,
+                     tmp_path: Path) -> str:
+    """Generate a README_pypi.md with a known include and return it."""
+    (tmp_path / 'include_pypi.md').write_text('## Include\n\nbody\n',
+                                              encoding='utf-8')
+    readme_path = tmp_path / 'README_pypi.md'
+    create_pypi_readme_venv.create_pypi_readme(readme_type, readme_path)
+    return readme_path.read_text(encoding='utf-8')
+
+
+@pytest.mark.parametrize('readme_type', [
+    create_pypi_readme_venv.ReadmeType.BACKLOGOPS_API,
+    create_pypi_readme_venv.ReadmeType.BACKLOGOPS_CLI,
+    create_pypi_readme_venv.ReadmeType.BACKLOGOPS_GUI])
+def test_include_in_readme(readme_type: create_pypi_readme_venv.ReadmeType,
+                           tmp_path: Path) -> None:
+    """Test include content is inserted before the Test summary heading."""
+    content = _generate_readme(readme_type, tmp_path)
+    assert content.index('## Include') < content.index('## Test summary')
+    assert content.rstrip().endswith('## Test summary')
+
+
+def test_cli_list_in_readme(tmp_path: Path) -> None:
+    """Test cli list output follows the include and precedes the summary."""
+    content = _generate_readme(
+        create_pypi_readme_venv.ReadmeType.BACKLOGOPS_CLI, tmp_path)
+    assert 'backlogops_cli.list' in content
+    fence = content.index('````text')
+    assert content.index('## Include') < fence
+    assert fence < content.index('## Test summary')
+
+
+@pytest.mark.parametrize('readme_type', [
+    create_pypi_readme_venv.ReadmeType.BACKLOGOPS_API,
+    create_pypi_readme_venv.ReadmeType.BACKLOGOPS_GUI])
+def test_non_cli_has_no_list(readme_type: create_pypi_readme_venv.ReadmeType,
+                             tmp_path: Path) -> None:
+    """Test the list code block is only added for the cli package."""
+    assert '````text' not in _generate_readme(readme_type, tmp_path)

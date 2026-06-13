@@ -26,9 +26,24 @@ To install backlogops-cli on Microsoft Windows, run the following command:
 pip install --upgrade backlogops-cli
 ````
 
+## Command line backlog operations
+
+backlogops_cli serves 2 purposes:
+
+- as a command line utility collection for manipulating backlogs
+
+- as an example of how to write your own programs that use the backlogops library
+
+### Currently available commands
+
+````text
+  python3 -m backlogops_cli.list
+     List all commands available in backlogops_cli
+````
+
 ## Test summary
 
-- Test result: 447 passed in 5s
+- Test result: 453 passed in 6s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

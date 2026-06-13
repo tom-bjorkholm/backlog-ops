@@ -12,6 +12,7 @@ from typing import NamedTuple, TypedDict
 
 from mformat.factory import OptArgsDict, create_mf
 from mformat.mformat import MultiFormat
+from backlogops_cli import list as cli_list
 
 
 class ReadmeType(IntEnum):
@@ -96,6 +97,31 @@ def _write_installing(mft: MultiFormat, readme_type: ReadmeType) -> None:
                          programming_language='sh')
 
 
+def _read_include(readme_path: Path) -> str:
+    """Return include_pypi.md content from the README's folder."""
+    include_path = readme_path.parent / 'include_pypi.md'
+    return include_path.read_text(encoding='utf-8').strip()
+
+
+def _list_command_output() -> str:
+    """Return the backlogops_cli.list command listing as text."""
+    return cli_list.format_listing(cli_list.command_modules())
+
+
+def _format_code_block(text: str) -> str:
+    """Format text as a markdown fenced code block (mformat style)."""
+    return f'````text\n{text}\n````\n'
+
+
+def _append_extra(readme_type: ReadmeType, readme_path: Path) -> None:
+    """Append include content, optional list output and Test summary."""
+    with open(readme_path, 'a', encoding='utf-8') as file:
+        file.write(f'\n{_read_include(readme_path)}\n')
+        if readme_type == ReadmeType.BACKLOGOPS_CLI:
+            file.write(f'\n{_format_code_block(_list_command_output())}')
+        file.write('\n## Test summary\n')
+
+
 def create_pypi_readme(readme_type: ReadmeType, path: Path) -> None:
     """Create the README_pypi.md file."""
     args: OptArgsDict = {'file_exists_callback': file_exists_callback}
@@ -105,7 +131,7 @@ def create_pypi_readme(readme_type: ReadmeType, path: Path) -> None:
         for item in B1:
             mft.new_bullet_item(text=item)
         _write_installing(mft, readme_type)
-        mft.new_heading(level=2, text='Test summary')
+    _append_extra(readme_type, path)
     print(f'Created {str(path)} file for {readme_type.name}', file=sys.stderr)
 
 

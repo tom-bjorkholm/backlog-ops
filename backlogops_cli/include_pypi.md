@@ -6,3 +6,4 @@ backlogops_cli serves 2 purposes:
 
 - as an example of how to write your own programs that use the backlogops library
 
+### Currently available commands
