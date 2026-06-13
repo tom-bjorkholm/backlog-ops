@@ -57,6 +57,10 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
         release: The release of the backlog item. Optional.
                  Follows the same character rules as the key.
                  Must not be empty string.
+        team: The team responsible for the backlog item. Optional.
+              Must not be empty string. Must be a valid team name.
+              If None the item can be done by any team. If not None.
+              the item can only be done by the specified team.
         depends_on_f2s: The list of keys of the backlog items that must
                         have been finished before the current item can
                         start. May be empty.
@@ -82,6 +86,7 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
     status: Status
     parent_key: Optional[str] = None
     release: Optional[str] = None
+    team: Optional[str] = None
     depends_on_f2s: list[str] = field(default_factory=list)
     depends_on_f2f: list[str] = field(default_factory=list)
     depends_on_s2s: list[str] = field(default_factory=list)
