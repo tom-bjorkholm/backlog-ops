@@ -12,9 +12,8 @@ from typing import Optional, TextIO
 from backlogops.levels import Levels, DEFAULT_LEVELS, level_number_from_name
 from backlogops.backlog_helpers import build_item_kwargs, check_key_syntax
 from backlogops.backlog_helpers import construct, field_type_hints, find_cycle
-from backlogops.backlog_helpers import report_bad_value, report_wrong_type
+from backlogops.backlog_helpers import report_bad_value, check_field_types
 from backlogops.backlog_helpers import report_unknown_reference
-from backlogops.backlog_helpers import value_matches_type
 
 DEPENDENCY_FIELDS = ('depends_on_f2s', 'depends_on_f2f', 'depends_on_s2s')
 """Names of the fields that hold dependency keys of a backlog item."""
@@ -126,13 +125,7 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
 
     def _check_field_types(self, stderr_file: TextIO) -> None:
         """Check that every field holds a value of its declared type."""
-        field_types = field_type_hints(BacklogItem)
-        for item_field in fields(BacklogItem):
-            value = getattr(self, item_field.name)
-            data_type = field_types.get(item_field.name, item_field.type)
-            if not value_matches_type(value, data_type):
-                report_wrong_type(item_field.name, value, data_type,
-                                  stderr_file)
+        check_field_types(self, stderr_file)
 
     def _check_key_constraints(self, stderr_file: TextIO) -> None:
         """Check the key, release and dependency keys for valid syntax."""

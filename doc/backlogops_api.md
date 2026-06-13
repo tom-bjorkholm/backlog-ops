@@ -1,5 +1,11 @@
 # Table of Contents
 
+* [backlogops.available\_teams](#backlogops.available_teams)
+  * [membership\_fte\_on](#backlogops.available_teams.membership_fte_on)
+  * [candidate\_days](#backlogops.available_teams.candidate_days)
+  * [check\_person\_capacity](#backlogops.available_teams.check_person_capacity)
+  * [AvailableTeams](#backlogops.available_teams.AvailableTeams)
+    * [check\_consistency](#backlogops.available_teams.AvailableTeams.check_consistency)
 * [backlogops.backlog\_helpers](#backlogops.backlog_helpers)
   * [FORBIDDEN\_KEY\_CHARS](#backlogops.backlog_helpers.FORBIDDEN_KEY_CHARS)
   * [field\_type\_hints](#backlogops.backlog_helpers.field_type_hints)
@@ -13,6 +19,7 @@
   * [report\_wrong\_type](#backlogops.backlog_helpers.report_wrong_type)
   * [report\_bad\_value](#backlogops.backlog_helpers.report_bad_value)
   * [report\_unknown\_reference](#backlogops.backlog_helpers.report_unknown_reference)
+  * [check\_field\_types](#backlogops.backlog_helpers.check_field_types)
   * [convert\_to\_enum](#backlogops.backlog_helpers.convert_to_enum)
   * [convert\_to\_date](#backlogops.backlog_helpers.convert_to_date)
   * [convert\_field\_value](#backlogops.backlog_helpers.convert_field_value)
@@ -23,6 +30,10 @@
   * [construct](#backlogops.backlog_helpers.construct)
   * [check\_key\_syntax](#backlogops.backlog_helpers.check_key_syntax)
   * [find\_cycle](#backlogops.backlog_helpers.find_cycle)
+* [backlogops.person](#backlogops.person)
+  * [Person](#backlogops.person.Person)
+    * [name](#backlogops.person.Person.name)
+    * [exceptions](#backlogops.person.Person.exceptions)
 * [backlogops.no\_text\_io](#backlogops.no_text_io)
   * [NoTextIO](#backlogops.no_text_io.NoTextIO)
     * [write](#backlogops.no_text_io.NoTextIO.write)
@@ -32,6 +43,13 @@
     * [seek](#backlogops.no_text_io.NoTextIO.seek)
     * [tell](#backlogops.no_text_io.NoTextIO.tell)
     * [truncate](#backlogops.no_text_io.NoTextIO.truncate)
+* [backlogops.team](#backlogops.team)
+  * [FteException](#backlogops.team.FteException)
+    * [check\_consistency](#backlogops.team.FteException.check_consistency)
+  * [Membership](#backlogops.team.Membership)
+    * [check\_consistency](#backlogops.team.Membership.check_consistency)
+  * [Team](#backlogops.team.Team)
+    * [check\_consistency](#backlogops.team.Team.check_consistency)
 * [backlogops.backlog](#backlogops.backlog)
   * [DEPENDENCY\_FIELDS](#backlogops.backlog.DEPENDENCY_FIELDS)
   * [Status](#backlogops.backlog.Status)
@@ -50,6 +68,9 @@
   * [check\_no\_cycles](#backlogops.backlog.check_no_cycles)
   * [check\_parent\_levels](#backlogops.backlog.check_parent_levels)
   * [check\_backlog\_consistency](#backlogops.backlog.check_backlog_consistency)
+* [backlogops.date\_ranges](#backlogops.date_ranges)
+  * [check\_date\_range](#backlogops.date_ranges.check_date_range)
+  * [check\_no\_overlap](#backlogops.date_ranges.check_no_overlap)
 * [backlogops.levels](#backlogops.levels)
   * [Level](#backlogops.levels.Level)
     * [check\_consistency](#backlogops.levels.Level.check_consistency)
@@ -57,6 +78,146 @@
   * [report\_duplicate\_label](#backlogops.levels.report_duplicate_label)
   * [check\_levels\_consistency](#backlogops.levels.check_levels_consistency)
   * [level\_number\_from\_name](#backlogops.levels.level_number_from_name)
+* [backlogops.work\_hours](#backlogops.work_hours)
+  * [WeekDay](#backlogops.work_hours.WeekDay)
+  * [DEFAULT\_WORK\_WEEK](#backlogops.work_hours.DEFAULT_WORK_WEEK)
+  * [ExceptionWorkHours](#backlogops.work_hours.ExceptionWorkHours)
+    * [check\_consistency](#backlogops.work_hours.ExceptionWorkHours.check_consistency)
+  * [CompanyWorkHours](#backlogops.work_hours.CompanyWorkHours)
+    * [check\_consistency](#backlogops.work_hours.CompanyWorkHours.check_consistency)
+
+<a id="backlogops.available_teams"></a>
+
+# backlogops.available\_teams
+
+Define the available workforce: persons and teams.
+
+<a id="backlogops.available_teams.membership_fte_on"></a>
+
+#### membership\_fte\_on
+
+```python
+def membership_fte_on(membership: Membership, day: date) -> float
+```
+
+Return the full-time equivalent of a membership on a given day.
+
+Days outside the membership date range give 0.0. A day covered by an
+fte_exception gives that exception's full-time equivalent. Otherwise
+the membership's base full-time equivalent applies.
+
+**Arguments**:
+
+- `membership` - The membership to evaluate.
+- `day` - The day to evaluate the membership on.
+  
+
+**Returns**:
+
+  The full-time equivalent the person gives to the team on the day.
+
+<a id="backlogops.available_teams.candidate_days"></a>
+
+#### candidate\_days
+
+```python
+def candidate_days(memberships: list[Membership]) -> set[date]
+```
+
+Return the days where the summed full-time equivalent can change.
+
+The summed full-time equivalent is constant between the start and end
+boundaries of the memberships and their fte_exceptions, so checking
+those boundary days is enough to find its maximum. When there are no
+boundaries (all memberships are fully open) a single day is returned,
+on which every membership contributes its base full-time equivalent.
+
+**Arguments**:
+
+- `memberships` - The memberships of one person across all teams.
+  
+
+**Returns**:
+
+  The set of days on which to evaluate the summed full-time
+  equivalent.
+
+<a id="backlogops.available_teams.check_person_capacity"></a>
+
+#### check\_person\_capacity
+
+```python
+def check_person_capacity(person_name: str,
+                          memberships: list[Membership],
+                          stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check a person is not allocated more than full time on any day.
+
+The summed full-time equivalent over all of the person's memberships
+is evaluated on every boundary day and must not exceed 1.0.
+
+**Arguments**:
+
+- `person_name` - The name of the person, for error messages.
+- `memberships` - The memberships of the person across all teams.
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `ValueError` - If the summed full-time equivalent exceeds 1.0 on any
+  day.
+
+<a id="backlogops.available_teams.AvailableTeams"></a>
+
+## AvailableTeams Objects
+
+```python
+@dataclass
+class AvailableTeams()
+```
+
+Define the available workforce that can do work.
+
+The persons registry holds every person once, keyed by the lower-case
+person name, so that personal availability is entered in a single
+place. Teams reference their members by person name into this
+registry. This lets a person move between teams or split time across
+teams without duplicating the person.
+
+Fields:
+    persons: The registry of persons, keyed by lower-case person name.
+    teams: The list of teams that are available to do work.
+    company_work_hours: The company work hours that apply to everyone.
+
+<a id="backlogops.available_teams.AvailableTeams.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the consistency of the available workforce.
+
+Field types are verified, the company work hours and every person
+and team are checked, team names and aliases are checked to be
+unique case-insensitively across all teams, every membership is
+checked to reference a known person, and no person is allocated
+more than full time on any day.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If a field value violates a constraint, if team
+  labels are not unique, or if a person is over-allocated.
+- `KeyError` - If a membership references an unknown person.
 
 <a id="backlogops.backlog_helpers"></a>
 
@@ -254,7 +415,8 @@ Report a missing mandatory field and raise ``KeyError``.
 def report_wrong_type(field_name: str,
                       value: object,
                       data_type: object,
-                      stderr_file: TextIO = sys.stderr) -> NoReturn
+                      stderr_file: TextIO = sys.stderr,
+                      subject: str = 'Backlog item') -> NoReturn
 ```
 
 Report a value of the wrong type and raise ``TypeError``.
@@ -265,6 +427,8 @@ Report a value of the wrong type and raise ``TypeError``.
 - `value` - The value that has the wrong type.
 - `data_type` - The type hint the value was expected to match.
 - `stderr_file` - The file to report the error to.
+- `subject` - What owns the field, used to start the message (for
+  example ``'Backlog item'``, ``'Person'`` or ``'Team'``).
   
 
 **Raises**:
@@ -279,7 +443,8 @@ Report a value of the wrong type and raise ``TypeError``.
 def report_bad_value(field_name: str,
                      value: object,
                      reason: str,
-                     stderr_file: TextIO = sys.stderr) -> NoReturn
+                     stderr_file: TextIO = sys.stderr,
+                     subject: str = 'Backlog item') -> NoReturn
 ```
 
 Report a value that violates a constraint and raise ``ValueError``.
@@ -290,6 +455,8 @@ Report a value that violates a constraint and raise ``ValueError``.
 - `value` - The value that violates the constraint.
 - `reason` - A human readable explanation of the constraint.
 - `stderr_file` - The file to report the error to.
+- `subject` - What owns the field, used to start the message (for
+  example ``'Backlog item'``, ``'Person'`` or ``'Team'``).
   
 
 **Raises**:
@@ -304,7 +471,8 @@ Report a value that violates a constraint and raise ``ValueError``.
 def report_unknown_reference(field_name: str,
                              owner_key: str,
                              referenced_key: str,
-                             stderr_file: TextIO = sys.stderr) -> NoReturn
+                             stderr_file: TextIO = sys.stderr,
+                             subject: str = 'Backlog item') -> NoReturn
 ```
 
 Report a reference to a missing key and raise ``KeyError``.
@@ -313,13 +481,43 @@ Report a reference to a missing key and raise ``KeyError``.
 
 - `field_name` - The field that holds the reference.
 - `owner_key` - The key of the item that owns the reference.
-- `referenced_key` - The key that does not exist in the backlog.
+- `referenced_key` - The key that does not exist.
 - `stderr_file` - The file to report the error to.
+- `subject` - What owns the field, used to start the message (for
+  example ``'Backlog item'`` or ``'Team'``).
   
 
 **Raises**:
 
 - `KeyError` - Always, after reporting the message.
+
+<a id="backlogops.backlog_helpers.check_field_types"></a>
+
+#### check\_field\_types
+
+```python
+def check_field_types(instance: object,
+                      stderr_file: TextIO = sys.stderr,
+                      subject: str = 'Backlog item') -> None
+```
+
+Check that every field of a dataclass holds its declared type.
+
+The instance must be a dataclass instance. Each field value is
+compared with its resolved type hint using
+:func:`value_matches_type`, and the first mismatch is reported with
+:func:`report_wrong_type`.
+
+**Arguments**:
+
+- `instance` - The dataclass instance to check.
+- `stderr_file` - The file to report errors to.
+- `subject` - What owns the fields, used to start error messages.
+  
+
+**Raises**:
+
+- `TypeError` - If a field holds a value of the wrong type.
 
 <a id="backlogops.backlog_helpers.convert_to_enum"></a>
 
@@ -567,7 +765,8 @@ Construct an instance from validated keyword arguments.
 ```python
 def check_key_syntax(field_name: str,
                      value: object,
-                     stderr_file: TextIO = sys.stderr) -> None
+                     stderr_file: TextIO = sys.stderr,
+                     subject: str = 'Backlog item') -> None
 ```
 
 Check that a value is a well formed backlog key.
@@ -583,6 +782,7 @@ digits, ``-``, ``_`` and signs such as ``#`` or ``$``, are allowed.
 - `field_name` - The name of the field being checked.
 - `value` - The value that should be a valid key.
 - `stderr_file` - The file to report errors to.
+- `subject` - What owns the field, used to start error messages.
   
 
 **Raises**:
@@ -614,6 +814,40 @@ reference is reported as ``[node, node]``.
 
   The nodes that form a cycle (with the start node repeated at the
   end), or None when the graph has no cycle.
+
+<a id="backlogops.person"></a>
+
+# backlogops.person
+
+Define a person including any exceptions in work hours.
+
+<a id="backlogops.person.Person"></a>
+
+## Person Objects
+
+```python
+@dataclass
+class Person()
+```
+
+Define a person including any exceptions in work hours.
+
+<a id="backlogops.person.Person.name"></a>
+
+#### name
+
+The name of the person.
+
+<a id="backlogops.person.Person.exceptions"></a>
+
+#### exceptions
+
+Any exceptions in work hours for the person.
+
+These exceptions are used to mark personal vacation days,
+and other planned days off. They can also mark any period
+of time the person has other work hours, for instance periods
+of part-time work or ordered over-time work.
 
 <a id="backlogops.no_text_io"></a>
 
@@ -728,6 +962,170 @@ Truncate the NoTextIO object.
 
 This method does nothing and returns 0.
 
+<a id="backlogops.team"></a>
+
+# backlogops.team
+
+Define a team, its memberships and their availability over time.
+
+<a id="backlogops.team.FteException"></a>
+
+## FteException Objects
+
+```python
+@dataclass
+class FteException()
+```
+
+Define a full-time equivalent exception.
+
+The full-time equivalent exception is used to override the default
+full-time equivalent for a specific period. This can be used to mark
+a learning period for a new team member, or a period of time when the
+team member works part-time outside of this team.
+
+Fields:
+    start_date: The first day of the exception (inclusive).
+    end_date: The last day of the exception (inclusive). Must not be
+              before start_date.
+    fte: The full-time equivalent during the exception. Must not be
+         negative.
+
+<a id="backlogops.team.FteException.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the consistency of the full-time equivalent exception.
+
+Field types are verified, the date range must be non-empty, and
+the full-time equivalent must not be negative.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If the range is empty or the fte is negative.
+
+<a id="backlogops.team.Membership"></a>
+
+## Membership Objects
+
+```python
+@dataclass
+class Membership()
+```
+
+Define how a person belongs to a team over a period of time.
+
+A membership links a person, by name, to the team that holds it. The
+person name is looked up in the central person registry of
+:class:`~backlogops.available_teams.AvailableTeams`. A person may have
+several memberships, in the same or in different teams, which models a
+person moving between teams or splitting time across teams over time.
+
+Fields:
+    person_name: The name of the person, used as a key into the
+                 person registry. Compared case-insensitively. Must
+                 not be empty.
+    fte: The full-time equivalent the person gives to this team
+         outside of any fte_exceptions. 1.0 means full time. Must not
+         be negative.
+    start_date: The first day of the membership (inclusive), or None
+                for a membership that is open at the start.
+    end_date: The last day of the membership (inclusive), or None for
+              a membership that is open at the end.
+    fte_exceptions: Periods with a full-time equivalent that differs
+                    from fte, for example a learning period or a period
+                    of part-time work in another team. The periods must
+                    not overlap.
+
+<a id="backlogops.team.Membership.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the consistency of the membership.
+
+Field types are verified, the person name must not be empty, the
+full-time equivalent must not be negative, the membership date
+range (when both ends are given) must be non-empty, every
+fte_exception must be consistent, and the fte_exceptions must not
+overlap.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If a value is invalid or two fte_exceptions
+  overlap.
+
+<a id="backlogops.team.Team"></a>
+
+## Team Objects
+
+```python
+@dataclass
+class Team()
+```
+
+Define a team.
+
+Fields:
+    name: The name of the team. Compared case-insensitively. Must be
+          unique across all teams and must not be empty.
+    velocity: The velocity of the team. Must not be negative.
+    sum_fte_at_velocity: The sum of the full-time equivalents of the
+                         team members when velocity was measured. Used
+                         to rescale the velocity when the team capacity
+                         changes. Must be positive.
+    sprint_length: The length of the sprint in working days. Must be
+                   positive.
+    aliases: The aliases for the team. A backlog might refer to the
+             team using the team name or an alias. Compared
+             case-insensitively. Each alias must be unique and not
+             empty.
+    members: The list of memberships of the team.
+
+<a id="backlogops.team.Team.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the consistency of the team.
+
+Field types are verified, the numeric fields must be within their
+documented ranges, and every membership must be consistent.
+Uniqueness of the name and aliases across teams is checked by
+:meth:`AvailableTeams.check_consistency`, not here.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If a field value violates a constraint.
+
 <a id="backlogops.backlog"></a>
 
 # backlogops.backlog
@@ -785,6 +1183,10 @@ Fields:
     release: The release of the backlog item. Optional.
              Follows the same character rules as the key.
              Must not be empty string.
+    team: The team responsible for the backlog item. Optional.
+          Must not be empty string. Must be a valid team name.
+          If None the item can be done by any team. If not None.
+          the item can only be done by the specified team.
     depends_on_f2s: The list of keys of the backlog items that must
                     have been finished before the current item can
                     start. May be empty.
@@ -1150,6 +1552,71 @@ cycles.
   not unique, if a parent is not at a higher level than its
   child, or if there is a dependency cycle.
 
+<a id="backlogops.date_ranges"></a>
+
+# backlogops.date\_ranges
+
+Helpers for validating inclusive date ranges.
+
+<a id="backlogops.date_ranges.check_date_range"></a>
+
+#### check\_date\_range
+
+```python
+def check_date_range(field_name: str,
+                     start: date,
+                     end: date,
+                     stderr_file: TextIO = sys.stderr,
+                     subject: str = 'Backlog item') -> None
+```
+
+Check that an inclusive date range is not empty.
+
+The range covers every day from ``start`` to ``end`` inclusive, so
+``start`` must not be after ``end``.
+
+**Arguments**:
+
+- `field_name` - The name of the field that holds the range.
+- `start` - The first day of the range.
+- `end` - The last day of the range.
+- `stderr_file` - The file to report errors to.
+- `subject` - What owns the field, used to start error messages.
+  
+
+**Raises**:
+
+- `ValueError` - If ``start`` is after ``end``.
+
+<a id="backlogops.date_ranges.check_no_overlap"></a>
+
+#### check\_no\_overlap
+
+```python
+def check_no_overlap(field_name: str,
+                     ranges: list[tuple[date, date]],
+                     stderr_file: TextIO = sys.stderr,
+                     subject: str = 'Backlog item') -> None
+```
+
+Check that inclusive date ranges do not share a day.
+
+Each range must already be valid (start not after end). The ranges
+are sorted by start day and each is compared with the next, so an
+overlap is found in a single pass.
+
+**Arguments**:
+
+- `field_name` - The name of the field that holds the ranges.
+- `ranges` - The inclusive ``(start, end)`` ranges to check.
+- `stderr_file` - The file to report errors to.
+- `subject` - What owns the field, used to start error messages.
+  
+
+**Raises**:
+
+- `ValueError` - If two ranges share a day.
+
 <a id="backlogops.levels"></a>
 
 # backlogops.levels
@@ -1301,4 +1768,133 @@ considered. The levels are assumed to be consistent, as checked by
 **Raises**:
 
 - `ValueError` - If no level name or alias matches ``name``.
+
+<a id="backlogops.work_hours"></a>
+
+# backlogops.work\_hours
+
+Work hours schedule and exceptions.
+
+<a id="backlogops.work_hours.WeekDay"></a>
+
+## WeekDay Objects
+
+```python
+class WeekDay(IntEnum)
+```
+
+Week day.
+
+<a id="backlogops.work_hours.DEFAULT_WORK_WEEK"></a>
+
+#### DEFAULT\_WORK\_WEEK
+
+The default work week.
+
+<a id="backlogops.work_hours.ExceptionWorkHours"></a>
+
+## ExceptionWorkHours Objects
+
+```python
+@dataclass
+class ExceptionWorkHours()
+```
+
+Exception work hours for a specific period.
+
+The exception work hours are used to override the default work hours
+for a specific period. This can be used to mark holidays or other days
+with different work hours. It can also be used to mark a period with
+ordered over-time work.
+When used for an individual employee, the company exceptions are seen
+as part of the schedule.
+
+Fields:
+    start_date: The first day of the exception (inclusive).
+    end_date: The last day of the exception (inclusive). Must not be
+              before start_date.
+    hours_per_day: The work hours per day during the exception. Must
+                   not be negative.
+    new_work_days: If True, the exception adds new work days compared
+                   to the schedule. That is the hours per day also
+                   applies to days with no work hours in the schedule.
+                   If False, the exception does not add new work days.
+                   That is the hours per day only applies to days with
+                   work hours in the schedule.
+                   If an individual employee has an exception to work
+                   during days the company is closed, the new_work_days
+                   flag must be True.
+
+Exceptions in one list (a company or a person) must not overlap, so
+that the work hours of any day are defined by at most one exception.
+
+<a id="backlogops.work_hours.ExceptionWorkHours.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the consistency of the exception work hours.
+
+Field types are verified, the date range must be non-empty, and
+the work hours per day must not be negative.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If the range is empty or the hours are negative.
+
+<a id="backlogops.work_hours.CompanyWorkHours"></a>
+
+## CompanyWorkHours Objects
+
+```python
+@dataclass
+class CompanyWorkHours()
+```
+
+Company work hours.
+
+The company work hours are used to define the work hours for a company.
+
+Fields:
+    work_hours: The work hours schedule for the company. Every week
+                day must have non-negative work hours.
+    exceptions: The list of exception work hours for the company.
+                This should list national holidays and other days with
+                different work hours. This should also include any days
+                the company is closed for any reason (such as company
+                wide vacations). The exceptions must not overlap.
+
+<a id="backlogops.work_hours.CompanyWorkHours.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the consistency of the company work hours.
+
+Field types are verified, the schedule must define non-negative
+work hours for every week day, every exception must be consistent,
+and the exceptions must not overlap.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If the schedule or an exception is invalid, or if
+  two exceptions overlap.
 

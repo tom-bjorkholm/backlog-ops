@@ -230,3 +230,21 @@ def test_report_unknown_ref() -> None:
     with pytest.raises(KeyError):
         report_unknown_reference('parent_key', 'BI-2', 'BI-9', err)
     assert 'BI-9' in err.getvalue()
+
+
+def test_subject_default() -> None:
+    """Test the default subject names a backlog item field."""
+    err = StringIO()
+    with pytest.raises(ValueError):
+        report_bad_value('k', 1, 'bad', err)
+    assert err.getvalue().startswith("Backlog item field 'k'")
+
+
+def test_subject_custom() -> None:
+    """Test a custom subject replaces the backlog item wording."""
+    err = StringIO()
+    with pytest.raises(TypeError):
+        report_wrong_type('name', 1, str, err, 'Person')
+    message = err.getvalue()
+    assert message.startswith("Person field 'name'")
+    assert 'Backlog item' not in message

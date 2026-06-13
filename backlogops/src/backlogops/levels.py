@@ -42,15 +42,16 @@ class Level:
     def _check_level_type(self, stderr_file: TextIO) -> None:
         """Check that the level number is an integer (not a bool)."""
         if not isinstance(self.level, int) or isinstance(self.level, bool):
-            report_wrong_type('level', self.level, int, stderr_file)
+            report_wrong_type('level', self.level, int, stderr_file, 'Level')
 
     def _check_labels(self, stderr_file: TextIO) -> None:
         """Check the name and each alias for valid label syntax."""
-        check_key_syntax('name', self.name, stderr_file)
+        check_key_syntax('name', self.name, stderr_file, 'Level')
         if not isinstance(self.aliases, list):
-            report_wrong_type('aliases', self.aliases, list, stderr_file)
+            report_wrong_type('aliases', self.aliases, list, stderr_file,
+                              'Level')
         for index, alias in enumerate(self.aliases):
-            check_key_syntax(f'aliases[{index}]', alias, stderr_file)
+            check_key_syntax(f'aliases[{index}]', alias, stderr_file, 'Level')
 
     def check_consistency(self, stderr_file: TextIO = sys.stderr) -> None:
         """Check the consistency of the level.
@@ -125,7 +126,8 @@ def check_levels_consistency(levels: Levels,
         level.check_consistency(stderr_file)
         if level.level != number:
             report_bad_value('level', level.level,
-                             f'does not match dict key {number}', stderr_file)
+                             f'does not match dict key {number}', stderr_file,
+                             'Level')
         for label in [level.name, *level.aliases]:
             lowered = label.lower()
             if lowered in seen_labels:
@@ -159,4 +161,5 @@ def level_number_from_name(name: str, levels: Levels,
         if any(label.lower() == lowered
                for label in [level.name, *level.aliases]):
             return level.level
-    report_bad_value('level', name, 'unknown level name or alias', stderr_file)
+    report_bad_value('level', name, 'unknown level name or alias', stderr_file,
+                     'Level')

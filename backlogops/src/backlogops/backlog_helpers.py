@@ -211,7 +211,8 @@ def report_missing_field(field_name: str,
 
 
 def report_wrong_type(field_name: str, value: object, data_type: object,
-                      stderr_file: TextIO = sys.stderr) -> NoReturn:
+                      stderr_file: TextIO = sys.stderr,
+                      subject: str = 'Backlog item') -> NoReturn:
     """Report a value of the wrong type and raise ``TypeError``.
 
     Args:
@@ -219,11 +220,13 @@ def report_wrong_type(field_name: str, value: object, data_type: object,
         value: The value that has the wrong type.
         data_type: The type hint the value was expected to match.
         stderr_file: The file to report the error to.
+        subject: What owns the field, used to start the message (for
+            example ``'Backlog item'``, ``'Person'`` or ``'Team'``).
 
     Raises:
         TypeError: Always, after reporting the message.
     """
-    message = (f'Backlog item field {field_name!r} expected '
+    message = (f'{subject} field {field_name!r} expected '
                f'{_type_name(data_type)}, got {type(value).__name__}: '
                f'{value!r}')
     print(message, file=stderr_file)
@@ -231,7 +234,8 @@ def report_wrong_type(field_name: str, value: object, data_type: object,
 
 
 def report_bad_value(field_name: str, value: object, reason: str,
-                     stderr_file: TextIO = sys.stderr) -> NoReturn:
+                     stderr_file: TextIO = sys.stderr,
+                     subject: str = 'Backlog item') -> NoReturn:
     """Report a value that violates a constraint and raise ``ValueError``.
 
     Args:
@@ -239,11 +243,13 @@ def report_bad_value(field_name: str, value: object, reason: str,
         value: The value that violates the constraint.
         reason: A human readable explanation of the constraint.
         stderr_file: The file to report the error to.
+        subject: What owns the field, used to start the message (for
+            example ``'Backlog item'``, ``'Person'`` or ``'Team'``).
 
     Raises:
         ValueError: Always, after reporting the message.
     """
-    message = (f'Backlog item field {field_name!r} has invalid value '
+    message = (f'{subject} field {field_name!r} has invalid value '
                f'{value!r}: {reason}')
     print(message, file=stderr_file)
     raise ValueError(message)
@@ -251,22 +257,50 @@ def report_bad_value(field_name: str, value: object, reason: str,
 
 def report_unknown_reference(field_name: str, owner_key: str,
                              referenced_key: str,
-                             stderr_file: TextIO = sys.stderr) -> NoReturn:
+                             stderr_file: TextIO = sys.stderr,
+                             subject: str = 'Backlog item') -> NoReturn:
     """Report a reference to a missing key and raise ``KeyError``.
 
     Args:
         field_name: The field that holds the reference.
         owner_key: The key of the item that owns the reference.
-        referenced_key: The key that does not exist in the backlog.
+        referenced_key: The key that does not exist.
         stderr_file: The file to report the error to.
+        subject: What owns the field, used to start the message (for
+            example ``'Backlog item'`` or ``'Team'``).
 
     Raises:
         KeyError: Always, after reporting the message.
     """
-    message = (f'Backlog item {owner_key!r} field {field_name!r} '
+    message = (f'{subject} {owner_key!r} field {field_name!r} '
                f'references unknown key {referenced_key!r}')
     print(message, file=stderr_file)
     raise KeyError(message)
+
+
+def check_field_types(instance: object, stderr_file: TextIO = sys.stderr,
+                      subject: str = 'Backlog item') -> None:
+    """Check that every field of a dataclass holds its declared type.
+
+    The instance must be a dataclass instance. Each field value is
+    compared with its resolved type hint using
+    :func:`value_matches_type`, and the first mismatch is reported with
+    :func:`report_wrong_type`.
+
+    Args:
+        instance: The dataclass instance to check.
+        stderr_file: The file to report errors to.
+        subject: What owns the fields, used to start error messages.
+
+    Raises:
+        TypeError: If a field holds a value of the wrong type.
+    """
+    field_types = field_type_hints(type(instance))
+    for field_name, data_type in field_types.items():
+        value = getattr(instance, field_name)
+        if not value_matches_type(value, data_type):
+            report_wrong_type(field_name, value, data_type, stderr_file,
+                              subject)
 
 
 def convert_to_enum(field_name: str, value: object, enum_class: type[Enum],
@@ -501,7 +535,8 @@ def construct(item_cls: Callable[..., T], item_kwargs: dict[str, object]) -> T:
 
 
 def check_key_syntax(field_name: str, value: object,
-                     stderr_file: TextIO = sys.stderr) -> None:
+                     stderr_file: TextIO = sys.stderr,
+                     subject: str = 'Backlog item') -> None:
     """Check that a value is a well formed backlog key.
 
     A backlog key (used by ``key`` and ``release`` and by the entries of
@@ -514,6 +549,7 @@ def check_key_syntax(field_name: str, value: object,
         field_name: The name of the field being checked.
         value: The value that should be a valid key.
         stderr_file: The file to report errors to.
+        subject: What owns the field, used to start error messages.
 
     Raises:
         TypeError: If the value is not a string.
@@ -521,17 +557,18 @@ def check_key_syntax(field_name: str, value: object,
             character.
     """
     if not isinstance(value, str):
-        report_wrong_type(field_name, value, str, stderr_file)
+        report_wrong_type(field_name, value, str, stderr_file, subject)
     if value == '':
-        report_bad_value(field_name, value, 'must not be empty', stderr_file)
+        report_bad_value(field_name, value, 'must not be empty', stderr_file,
+                         subject)
     if any(char.isspace() for char in value):
         report_bad_value(field_name, value, 'must not contain whitespace',
-                         stderr_file)
+                         stderr_file, subject)
     forbidden = sorted(set(value) & FORBIDDEN_KEY_CHARS)
     if forbidden:
         report_bad_value(field_name, value,
                          'must not contain any of ' + ''.join(forbidden),
-                         stderr_file)
+                         stderr_file, subject)
 
 
 def find_cycle(graph: dict[str, list[str]]) -> Optional[list[str]]:
