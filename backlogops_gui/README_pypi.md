@@ -28,7 +28,7 @@ pip install --upgrade backlogops-gui
 
 ## Test summary
 
-- Test result: 430 passed in 5s
+- Test result: 433 passed in 5s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

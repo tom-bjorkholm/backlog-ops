@@ -210,6 +210,31 @@ def test_internal_bad_dep() -> None:
         item.check_consistency(NoTextIO())
 
 
+def test_setitem_named_field() -> None:
+    """Test setting a named field does not write into extra_fields."""
+    item = _valid_item()
+    item['title'] = 'New title'
+    assert item.title == 'New title'
+    assert 'title' not in item.extra_fields
+    assert item.to_dict()['title'] == 'New title'
+
+
+def test_setitem_extra_field() -> None:
+    """Test setting an unknown field writes into extra_fields."""
+    item = _valid_item()
+    item['note'] = 'a note'
+    assert item.extra_fields == {'note': 'a note'}
+    assert item['note'] == 'a note'
+
+
+def test_internal_shadow() -> None:
+    """Test an extra field shadowing a named field is a ValueError."""
+    item = _valid_item()
+    item.extra_fields['title'] = 'Shadow'
+    with pytest.raises(ValueError):
+        item.check_consistency(NoTextIO())
+
+
 def test_backlog_valid_passes() -> None:
     """Test a consistent backlog passes the backlog check."""
     check_backlog_consistency(_backlog_pair(), NoTextIO())

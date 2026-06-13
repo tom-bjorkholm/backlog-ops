@@ -75,6 +75,7 @@
     * [to\_dict](#backlogops.backlog.BacklogItem.to_dict)
     * [\_check\_field\_types](#backlogops.backlog.BacklogItem._check_field_types)
     * [\_check\_key\_constraints](#backlogops.backlog.BacklogItem._check_key_constraints)
+    * [\_check\_no\_field\_shadow](#backlogops.backlog.BacklogItem._check_no_field_shadow)
     * [check\_consistency](#backlogops.backlog.BacklogItem.check_consistency)
   * [prepare\_item\_data](#backlogops.backlog.prepare_item_data)
   * [get\_backlog\_item](#backlogops.backlog.get_backlog_item)
@@ -1449,6 +1450,16 @@ def _check_key_constraints(stderr_file: TextIO) -> None
 
 Check the key, release and dependency keys for valid syntax.
 
+<a id="backlogops.backlog.BacklogItem._check_no_field_shadow"></a>
+
+#### \_check\_no\_field\_shadow
+
+```python
+def _check_no_field_shadow(stderr_file: TextIO) -> None
+```
+
+Check that no extra field shadows a named field.
+
 <a id="backlogops.backlog.BacklogItem.check_consistency"></a>
 
 #### check\_consistency
@@ -1460,9 +1471,10 @@ def check_consistency(stderr_file: TextIO = sys.stderr) -> None
 Check the internal consistency of the backlog item.
 
 The documented constraints are checked on all member variables.
-Field types are verified, and the key, release and dependency
-keys are checked for valid syntax. References between items are
-not checked here; that is done by :func:`check_backlog_consistency`.
+Field types are verified, the key, release and dependency keys
+are checked for valid syntax, and the extra fields are checked
+not to shadow a named field. References between items are not
+checked here; that is done by :func:`check_backlog_consistency`.
 
 **Arguments**:
 
@@ -1472,7 +1484,8 @@ not checked here; that is done by :func:`check_backlog_consistency`.
 **Raises**:
 
 - `TypeError` - If a field has the wrong type.
-- `ValueError` - If a field value violates a constraint.
+- `ValueError` - If a field value violates a constraint, or if an
+  extra field shadows a named field.
 
 <a id="backlogops.backlog.prepare_item_data"></a>
 

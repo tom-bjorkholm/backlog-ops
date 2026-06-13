@@ -1225,9 +1225,10 @@ def check_consistency(stderr_file: TextIO = sys.stderr) -> None
 Check the internal consistency of the backlog item.
 
 The documented constraints are checked on all member variables.
-Field types are verified, and the key, release and dependency
-keys are checked for valid syntax. References between items are
-not checked here; that is done by :func:`check_backlog_consistency`.
+Field types are verified, the key, release and dependency keys
+are checked for valid syntax, and the extra fields are checked
+not to shadow a named field. References between items are not
+checked here; that is done by :func:`check_backlog_consistency`.
 
 **Arguments**:
 
@@ -1237,7 +1238,8 @@ not checked here; that is done by :func:`check_backlog_consistency`.
 **Raises**:
 
 - `TypeError` - If a field has the wrong type.
-- `ValueError` - If a field value violates a constraint.
+- `ValueError` - If a field value violates a constraint, or if an
+  extra field shadows a named field.
 
 <a id="backlogops.backlog.prepare_item_data"></a>
 

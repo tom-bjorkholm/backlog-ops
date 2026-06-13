@@ -105,7 +105,8 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
         # pylint: disable-next=no-member
         if field_name in self.__dataclass_fields__:
             setattr(self, field_name, value)
-        self.extra_fields[field_name] = value
+        else:
+            self.extra_fields[field_name] = value
 
     def __contains__(self, field_name: str) -> bool:
         """Check if a mandatory or extra field exists by name."""
@@ -136,23 +137,36 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
             for index, dep_key in enumerate(getattr(self, dep_field)):
                 check_key_syntax(f'{dep_field}[{index}]', dep_key, stderr_file)
 
+    def _check_no_field_shadow(self, stderr_file: TextIO) -> None:
+        """Check that no extra field shadows a named field."""
+        # pylint: disable-next=no-member
+        named = set(self.__dataclass_fields__)
+        for extra_key in self.extra_fields:
+            if extra_key in named:
+                report_bad_value('extra_fields', extra_key,
+                                 'shadows a named backlog item field',
+                                 stderr_file)
+
     def check_consistency(self, stderr_file: TextIO = sys.stderr) -> None:
         """Check the internal consistency of the backlog item.
 
         The documented constraints are checked on all member variables.
-        Field types are verified, and the key, release and dependency
-        keys are checked for valid syntax. References between items are
-        not checked here; that is done by :func:`check_backlog_consistency`.
+        Field types are verified, the key, release and dependency keys
+        are checked for valid syntax, and the extra fields are checked
+        not to shadow a named field. References between items are not
+        checked here; that is done by :func:`check_backlog_consistency`.
 
         Args:
             stderr_file: The file to report errors to.
 
         Raises:
             TypeError: If a field has the wrong type.
-            ValueError: If a field value violates a constraint.
+            ValueError: If a field value violates a constraint, or if an
+                extra field shadows a named field.
         """
         self._check_field_types(stderr_file)
         self._check_key_constraints(stderr_file)
+        self._check_no_field_shadow(stderr_file)
 
 
 type Backlog = list[BacklogItem]
