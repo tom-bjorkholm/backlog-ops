@@ -4,6 +4,9 @@
   * [command\_modules](#backlogops_cli.list.command_modules)
   * [format\_listing](#backlogops_cli.list.format_listing)
   * [main](#backlogops_cli.list.main)
+* [backlogops\_cli.teams\_wizard](#backlogops_cli.teams_wizard)
+  * [build\_parser](#backlogops_cli.teams_wizard.build_parser)
+  * [main](#backlogops_cli.teams_wizard.main)
 
 <a id="backlogops_cli.list"></a>
 
@@ -40,4 +43,43 @@ def main() -> None
 ```
 
 Print the list of available backlogops_cli commands.
+
+<a id="backlogops_cli.teams_wizard"></a>
+
+# backlogops\_cli.teams\_wizard
+
+Run the available-teams wizard and store the result to a file.
+
+<a id="backlogops_cli.teams_wizard.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the teams wizard command.
+
+<a id="backlogops_cli.teams_wizard.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Run the interactive wizard and write the workforce configuration.
+
+The output filename receives the ``.cfg`` extension when it is not
+already present.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the entered workforce is rejected or
+  cannot be written.
 

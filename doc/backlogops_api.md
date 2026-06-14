@@ -34,6 +34,8 @@
   * [Person](#backlogops.person.Person)
     * [name](#backlogops.person.Person.name)
     * [exceptions](#backlogops.person.Person.exceptions)
+* [backlogops.available\_teams\_wizard](#backlogops.available_teams_wizard)
+  * [available\_teams\_wizard](#backlogops.available_teams_wizard.available_teams_wizard)
 * [backlogops.no\_text\_io](#backlogops.no_text_io)
   * [NoTextIO](#backlogops.no_text_io.NoTextIO)
     * [write](#backlogops.no_text_io.NoTextIO.write)
@@ -68,6 +70,39 @@
   * [check\_no\_cycles](#backlogops.backlog.check_no_cycles)
   * [check\_parent\_levels](#backlogops.backlog.check_parent_levels)
   * [check\_backlog\_consistency](#backlogops.backlog.check_backlog_consistency)
+* [backlogops.available\_teams\_config](#backlogops.available_teams_config)
+  * [FteExceptionConfig](#backlogops.available_teams_config.FteExceptionConfig)
+    * [\_\_init\_\_](#backlogops.available_teams_config.FteExceptionConfig.__init__)
+    * [get\_validation\_plan](#backlogops.available_teams_config.FteExceptionConfig.get_validation_plan)
+    * [serialize\_converters](#backlogops.available_teams_config.FteExceptionConfig.serialize_converters)
+  * [ExceptionWorkHoursConfig](#backlogops.available_teams_config.ExceptionWorkHoursConfig)
+    * [\_\_init\_\_](#backlogops.available_teams_config.ExceptionWorkHoursConfig.__init__)
+    * [get\_validation\_plan](#backlogops.available_teams_config.ExceptionWorkHoursConfig.get_validation_plan)
+    * [serialize\_converters](#backlogops.available_teams_config.ExceptionWorkHoursConfig.serialize_converters)
+  * [MembershipConfig](#backlogops.available_teams_config.MembershipConfig)
+    * [\_\_init\_\_](#backlogops.available_teams_config.MembershipConfig.__init__)
+    * [nested\_configs](#backlogops.available_teams_config.MembershipConfig.nested_configs)
+    * [get\_validation\_plan](#backlogops.available_teams_config.MembershipConfig.get_validation_plan)
+    * [serialize\_converters](#backlogops.available_teams_config.MembershipConfig.serialize_converters)
+  * [TeamConfig](#backlogops.available_teams_config.TeamConfig)
+    * [\_\_init\_\_](#backlogops.available_teams_config.TeamConfig.__init__)
+    * [nested\_configs](#backlogops.available_teams_config.TeamConfig.nested_configs)
+    * [get\_validation\_plan](#backlogops.available_teams_config.TeamConfig.get_validation_plan)
+  * [PersonConfig](#backlogops.available_teams_config.PersonConfig)
+    * [\_\_init\_\_](#backlogops.available_teams_config.PersonConfig.__init__)
+    * [nested\_configs](#backlogops.available_teams_config.PersonConfig.nested_configs)
+    * [get\_validation\_plan](#backlogops.available_teams_config.PersonConfig.get_validation_plan)
+  * [CompanyWorkHoursConfig](#backlogops.available_teams_config.CompanyWorkHoursConfig)
+    * [\_\_init\_\_](#backlogops.available_teams_config.CompanyWorkHoursConfig.__init__)
+    * [nested\_configs](#backlogops.available_teams_config.CompanyWorkHoursConfig.nested_configs)
+    * [get\_validation\_plan](#backlogops.available_teams_config.CompanyWorkHoursConfig.get_validation_plan)
+    * [serialize\_converters](#backlogops.available_teams_config.CompanyWorkHoursConfig.serialize_converters)
+  * [AvailableTeamsConfig](#backlogops.available_teams_config.AvailableTeamsConfig)
+    * [\_\_init\_\_](#backlogops.available_teams_config.AvailableTeamsConfig.__init__)
+    * [nested\_configs](#backlogops.available_teams_config.AvailableTeamsConfig.nested_configs)
+    * [get\_validation\_plan](#backlogops.available_teams_config.AvailableTeamsConfig.get_validation_plan)
+  * [write\_available\_teams](#backlogops.available_teams_config.write_available_teams)
+  * [read\_available\_teams](#backlogops.available_teams_config.read_available_teams)
 * [backlogops.date\_ranges](#backlogops.date_ranges)
   * [check\_date\_range](#backlogops.date_ranges.check_date_range)
   * [check\_no\_overlap](#backlogops.date_ranges.check_no_overlap)
@@ -849,6 +884,50 @@ and other planned days off. They can also mark any period
 of time the person has other work hours, for instance periods
 of part-time work or ordered over-time work.
 
+<a id="backlogops.available_teams_wizard"></a>
+
+# backlogops.available\_teams\_wizard
+
+Interactively build an AvailableTeams workforce configuration.
+
+The public helper :func:`available_teams_wizard` asks the user for the
+company work hours, the persons and their personal work-hour exceptions,
+and the teams with their members. It takes a ``WizardUiBridge`` (the same
+bridge abstraction used by ``tableio_cfg_json``) so the same wizard logic
+can drive a console text interface or a graphical user interface.
+
+Individual field values are validated as they are entered, and date
+ranges are kept non-empty. Cross-item rules that span a whole workforce,
+such as non-overlapping exception periods and per-person capacity, are
+checked when the result is stored; an invalid combination is reported
+then and the workforce must be entered again.
+
+<a id="backlogops.available_teams_wizard.available_teams_wizard"></a>
+
+#### available\_teams\_wizard
+
+```python
+def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams
+```
+
+Interactively create an available workforce configuration.
+
+**Arguments**:
+
+- `ui_bridge` - Bridge between the wizard and the user interface.
+  
+
+**Returns**:
+
+  The workforce entered by the user. Field values are individually
+  valid, but whole-workforce consistency is only enforced when the
+  result is stored.
+  
+
+**Raises**:
+
+- `EOFError` - The input ended before all required answers were read.
+
 <a id="backlogops.no_text_io"></a>
 
 # backlogops.no\_text\_io
@@ -1553,6 +1632,402 @@ cycles.
 - `ValueError` - If a field value violates a constraint, if keys are
   not unique, if a parent is not at a higher level than its
   child, or if there is a dependency cycle.
+
+<a id="backlogops.available_teams_config"></a>
+
+# backlogops.available\_teams\_config
+
+Store and load AvailableTeams as a config-as-json configuration.
+
+This module bridges the framework-neutral workforce data model in
+:mod:`backlogops.available_teams` to the ``config_as_json`` library, in
+the same way ``tableio_cfg_json`` bridges TableIO ``ConfigData`` with
+``TioJsonConfig``. Each neutral data class gets a small bridge class that
+multiply inherits from the data class and from ``Config``. The bridge
+classes add JSON reading, writing, and validation, while the neutral data
+classes stay the single source of truth for the data shape and the
+consistency rules.
+
+Application code that only wants to persist an ``AvailableTeams`` can use
+:func:`write_available_teams` and :func:`read_available_teams` and never
+touch the bridge classes directly.
+
+<a id="backlogops.available_teams_config.FteExceptionConfig"></a>
+
+## FteExceptionConfig Objects
+
+```python
+class FteExceptionConfig(FteException, _BridgeConfig)
+```
+
+JSON bridge for one full-time-equivalent exception.
+
+<a id="backlogops.available_teams_config.FteExceptionConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create placeholder defaults, then read one FTE exception.
+
+<a id="backlogops.available_teams_config.FteExceptionConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Parse the date members, then check exception consistency.
+
+<a id="backlogops.available_teams_config.FteExceptionConfig.serialize_converters"></a>
+
+#### serialize\_converters
+
+```python
+@override
+def serialize_converters() -> SerializeConverters
+```
+
+Format the date members as ISO strings on write.
+
+<a id="backlogops.available_teams_config.ExceptionWorkHoursConfig"></a>
+
+## ExceptionWorkHoursConfig Objects
+
+```python
+class ExceptionWorkHoursConfig(ExceptionWorkHours, _BridgeConfig)
+```
+
+JSON bridge for one work-hours exception (holiday or special).
+
+<a id="backlogops.available_teams_config.ExceptionWorkHoursConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create placeholder defaults, then read one work-hours exception.
+
+<a id="backlogops.available_teams_config.ExceptionWorkHoursConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Parse the date members, then check exception consistency.
+
+<a id="backlogops.available_teams_config.ExceptionWorkHoursConfig.serialize_converters"></a>
+
+#### serialize\_converters
+
+```python
+@override
+def serialize_converters() -> SerializeConverters
+```
+
+Format the date members as ISO strings on write.
+
+<a id="backlogops.available_teams_config.MembershipConfig"></a>
+
+## MembershipConfig Objects
+
+```python
+class MembershipConfig(Membership, _BridgeConfig)
+```
+
+JSON bridge for one team membership.
+
+<a id="backlogops.available_teams_config.MembershipConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create placeholder defaults, then read one membership.
+
+<a id="backlogops.available_teams_config.MembershipConfig.nested_configs"></a>
+
+#### nested\_configs
+
+```python
+@override
+def nested_configs() -> NestedConfigs
+```
+
+Declare the fte_exceptions list as nested Config objects.
+
+<a id="backlogops.available_teams_config.MembershipConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Parse the optional dates, then check membership consistency.
+
+<a id="backlogops.available_teams_config.MembershipConfig.serialize_converters"></a>
+
+#### serialize\_converters
+
+```python
+@override
+def serialize_converters() -> SerializeConverters
+```
+
+Format the date members as ISO strings on write.
+
+<a id="backlogops.available_teams_config.TeamConfig"></a>
+
+## TeamConfig Objects
+
+```python
+class TeamConfig(Team, _BridgeConfig)
+```
+
+JSON bridge for one team.
+
+<a id="backlogops.available_teams_config.TeamConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create placeholder defaults, then read one team.
+
+<a id="backlogops.available_teams_config.TeamConfig.nested_configs"></a>
+
+#### nested\_configs
+
+```python
+@override
+def nested_configs() -> NestedConfigs
+```
+
+Declare the members list as nested Config objects.
+
+<a id="backlogops.available_teams_config.TeamConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check the team consistency.
+
+<a id="backlogops.available_teams_config.PersonConfig"></a>
+
+## PersonConfig Objects
+
+```python
+class PersonConfig(Person, _BridgeConfig)
+```
+
+JSON bridge for one person.
+
+<a id="backlogops.available_teams_config.PersonConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create placeholder defaults, then read one person.
+
+<a id="backlogops.available_teams_config.PersonConfig.nested_configs"></a>
+
+#### nested\_configs
+
+```python
+@override
+def nested_configs() -> NestedConfigs
+```
+
+Declare the work-hour exceptions as nested Config objects.
+
+<a id="backlogops.available_teams_config.PersonConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+No extra person-level checks beyond the nested exceptions.
+
+<a id="backlogops.available_teams_config.CompanyWorkHoursConfig"></a>
+
+## CompanyWorkHoursConfig Objects
+
+```python
+class CompanyWorkHoursConfig(CompanyWorkHours, _BridgeConfig)
+```
+
+JSON bridge for the company work hours.
+
+<a id="backlogops.available_teams_config.CompanyWorkHoursConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create defaults, then read the company work hours.
+
+<a id="backlogops.available_teams_config.CompanyWorkHoursConfig.nested_configs"></a>
+
+#### nested\_configs
+
+```python
+@override
+def nested_configs() -> NestedConfigs
+```
+
+Declare the work-hour exceptions as nested Config objects.
+
+<a id="backlogops.available_teams_config.CompanyWorkHoursConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Normalize the week-day schedule, then check consistency.
+
+<a id="backlogops.available_teams_config.CompanyWorkHoursConfig.serialize_converters"></a>
+
+#### serialize\_converters
+
+```python
+@override
+def serialize_converters() -> SerializeConverters
+```
+
+Write the week-day schedule with day-name keys.
+
+<a id="backlogops.available_teams_config.AvailableTeamsConfig"></a>
+
+## AvailableTeamsConfig Objects
+
+```python
+class AvailableTeamsConfig(AvailableTeams, _BridgeConfig)
+```
+
+JSON bridge for the available workforce (persons and teams).
+
+<a id="backlogops.available_teams_config.AvailableTeamsConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(*,
+             neutral: Optional[AvailableTeams] = None,
+             from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create the bridge from a neutral workforce or from JSON.
+
+``AvailableTeams.__init__`` is intentionally not invoked because
+it requires ``persons`` and ``teams`` arguments that the bridge
+does not duplicate. ``Config.copy_initial_data`` establishes the
+schema from the supplied or default neutral workforce instead.
+
+<a id="backlogops.available_teams_config.AvailableTeamsConfig.nested_configs"></a>
+
+#### nested\_configs
+
+```python
+@override
+def nested_configs() -> NestedConfigs
+```
+
+Declare the persons dict, teams list, and company work hours.
+
+<a id="backlogops.available_teams_config.AvailableTeamsConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check the whole-workforce consistency.
+
+<a id="backlogops.available_teams_config.write_available_teams"></a>
+
+#### write\_available\_teams
+
+```python
+def write_available_teams(teams: AvailableTeams,
+                          filename: PathOrStr,
+                          stderr_file: TextIO = sys.stderr) -> None
+```
+
+Validate and write an available workforce to a JSON file.
+
+**Arguments**:
+
+- `teams` - The workforce to store.
+- `filename` - Destination JSON configuration file.
+- `stderr_file` - Stream used for user-facing diagnostics.
+
+<a id="backlogops.available_teams_config.read_available_teams"></a>
+
+#### read\_available\_teams
+
+```python
+def read_available_teams(
+        filename: PathOrStr,
+        stderr_file: TextIO = sys.stderr) -> AvailableTeamsConfig
+```
+
+Read an available workforce from a JSON configuration file.
+
+**Arguments**:
+
+- `filename` - Source JSON configuration file.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The loaded workforce. The returned object is an ``AvailableTeams``.
 
 <a id="backlogops.date_ranges"></a>
 

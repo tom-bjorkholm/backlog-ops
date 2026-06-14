@@ -39,11 +39,13 @@ backlogops_cli serves 2 purposes:
 ````text
   python3 -m backlogops_cli.list
      List all commands available in backlogops_cli
+  python3 -m backlogops_cli.teams_wizard
+     Create an AvailableTeams configuration file via a wizard
 ````
 
 ## Test summary
 
-- Test result: 453 passed in 6s
+- Test result: 479 passed in 7s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

@@ -22,6 +22,9 @@ from backlogops.levels import (
 from backlogops.person import Person
 from backlogops.team import FteException, Membership, Team
 from backlogops.available_teams import AvailableTeams
+from backlogops.available_teams_config import (
+    AvailableTeamsConfig, read_available_teams, write_available_teams)
+from backlogops.available_teams_wizard import available_teams_wizard
 from backlogops.work_hours import (
     WeekDay, ScheduleWorkHours, DEFAULT_WORK_WEEK, ExceptionWorkHours,
     CompanyWorkHours)
@@ -34,6 +37,7 @@ __all__ = [
     'item_dependency_edges', 'event_start', 'event_finish', 'find_cycle',
     'Level', 'Levels', 'DEFAULT_LEVELS', 'check_levels_consistency',
     'level_number_from_name', 'Person', 'FteException', 'Membership', 'Team',
-    'AvailableTeams', 'WeekDay', 'ScheduleWorkHours', 'DEFAULT_WORK_WEEK',
-    'ExceptionWorkHours', 'CompanyWorkHours', 'check_date_range',
-    'check_no_overlap', 'NoTextIO']
+    'AvailableTeams', 'AvailableTeamsConfig', 'read_available_teams',
+    'write_available_teams', 'available_teams_wizard', 'WeekDay',
+    'ScheduleWorkHours', 'DEFAULT_WORK_WEEK', 'ExceptionWorkHours',
+    'CompanyWorkHours', 'check_date_range', 'check_no_overlap', 'NoTextIO']
