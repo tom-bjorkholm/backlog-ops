@@ -85,6 +85,22 @@
     * [update\_releases](#backlogops.backlog_releases.BacklogReleases.update_releases)
     * [check\_release\_xref](#backlogops.backlog_releases.BacklogReleases.check_release_xref)
     * [check\_consistency](#backlogops.backlog_releases.BacklogReleases.check_consistency)
+* [backlogops.demo\_backlog](#backlogops.demo_backlog)
+  * [\_POINTS](#backlogops.demo_backlog._POINTS)
+  * [\_STATUSES](#backlogops.demo_backlog._STATUSES)
+  * [\_NEXT\_KEYS](#backlogops.demo_backlog._NEXT_KEYS)
+  * [\_LATER\_KEYS](#backlogops.demo_backlog._LATER_KEYS)
+  * [\_DEPENDENCIES](#backlogops.demo_backlog._DEPENDENCIES)
+  * [\_make\_item](#backlogops.demo_backlog._make_item)
+  * [\_epics](#backlogops.demo_backlog._epics)
+  * [\_story\_parent](#backlogops.demo_backlog._story_parent)
+  * [\_stories](#backlogops.demo_backlog._stories)
+  * [\_tasks](#backlogops.demo_backlog._tasks)
+  * [\_apply\_releases](#backlogops.demo_backlog._apply_releases)
+  * [\_apply\_dependencies](#backlogops.demo_backlog._apply_dependencies)
+  * [\_mixed\_order](#backlogops.demo_backlog._mixed_order)
+  * [\_one\_month\_ahead](#backlogops.demo_backlog._one_month_ahead)
+  * [get\_demo\_backlog](#backlogops.demo_backlog.get_demo_backlog)
 * [backlogops.no\_text\_io](#backlogops.no_text_io)
   * [NoTextIO](#backlogops.no_text_io.NoTextIO)
     * [write](#backlogops.no_text_io.NoTextIO.write)
@@ -228,6 +244,7 @@
   * [RELEASE\_FIELDS](#backlogops.backlog_releases_io.RELEASE_FIELDS)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
+  * [BORDER\_STYLE](#backlogops.backlog_releases_io.BORDER_STYLE)
   * [\_is\_empty](#backlogops.backlog_releases_io._is_empty)
   * [\_date\_cell](#backlogops.backlog_releases_io._date_cell)
   * [\_cell\_from\_field](#backlogops.backlog_releases_io._cell_from_field)
@@ -244,6 +261,7 @@
   * [\_is\_release\_table](#backlogops.backlog_releases_io._is_release_table)
   * [\_collect\_tables](#backlogops.backlog_releases_io._collect_tables)
   * [read\_backlog\_releases](#backlogops.backlog_releases_io.read_backlog_releases)
+  * [\_write\_capabilities](#backlogops.backlog_releases_io._write_capabilities)
   * [\_backlog\_order](#backlogops.backlog_releases_io._backlog_order)
   * [\_write\_table](#backlogops.backlog_releases_io._write_table)
   * [\_ordered\_sections](#backlogops.backlog_releases_io._ordered_sections)
@@ -1684,6 +1702,166 @@ is checked to be present in the releases list.
   release names are not unique.
 - `KeyError` - If a key reference is invalid, or if a release
   named by the backlog is not in the releases list.
+
+<a id="backlogops.demo_backlog"></a>
+
+# backlogops.demo\_backlog
+
+A demonstration backlog and releases for manual tests and examples.
+
+The demo data has three level-2 items (epics), twenty level-1 items
+(stories) and two level-0 items (tasks). The two tasks share the same
+story as parent, and fifteen of the stories have an epic as parent. A few
+dependencies are added between items. Two releases exist: ``Next`` with a
+planned date one month ahead, and ``Later`` with no planned date. Five
+items are assigned to ``Next`` and five to ``Later``; the rest have no
+release. The items are returned in a deliberately mixed order, so the
+backlog is neither dependency-ordered nor release-ordered, while still
+passing all consistency checks.
+
+<a id="backlogops.demo_backlog._POINTS"></a>
+
+#### \_POINTS
+
+Story point values cycled over the demo items.
+
+<a id="backlogops.demo_backlog._STATUSES"></a>
+
+#### \_STATUSES
+
+Statuses cycled over the demo items.
+
+<a id="backlogops.demo_backlog._NEXT_KEYS"></a>
+
+#### \_NEXT\_KEYS
+
+Demo items delivered in the ``Next`` release.
+
+<a id="backlogops.demo_backlog._LATER_KEYS"></a>
+
+#### \_LATER\_KEYS
+
+Demo items delivered in the ``Later`` release.
+
+<a id="backlogops.demo_backlog._DEPENDENCIES"></a>
+
+#### \_DEPENDENCIES
+
+A few demo dependencies as (item key, dependency field, target key).
+
+<a id="backlogops.demo_backlog._make_item"></a>
+
+#### \_make\_item
+
+```python
+def _make_item(key: str,
+               level: int,
+               title: str,
+               index: int,
+               parent_key: Optional[str] = None) -> BacklogItem
+```
+
+Build one demo backlog item with cycled points and status.
+
+<a id="backlogops.demo_backlog._epics"></a>
+
+#### \_epics
+
+```python
+def _epics() -> list[BacklogItem]
+```
+
+Return the three level-2 epics.
+
+<a id="backlogops.demo_backlog._story_parent"></a>
+
+#### \_story\_parent
+
+```python
+def _story_parent(index: int) -> Optional[str]
+```
+
+Return the epic parent for a story, or None for the last five.
+
+<a id="backlogops.demo_backlog._stories"></a>
+
+#### \_stories
+
+```python
+def _stories() -> list[BacklogItem]
+```
+
+Return the twenty level-1 stories, fifteen with an epic parent.
+
+<a id="backlogops.demo_backlog._tasks"></a>
+
+#### \_tasks
+
+```python
+def _tasks() -> list[BacklogItem]
+```
+
+Return the two level-0 tasks, both children of story ``S1``.
+
+<a id="backlogops.demo_backlog._apply_releases"></a>
+
+#### \_apply\_releases
+
+```python
+def _apply_releases(by_key: dict[str, BacklogItem]) -> None
+```
+
+Assign the ``Next`` and ``Later`` releases to five items each.
+
+<a id="backlogops.demo_backlog._apply_dependencies"></a>
+
+#### \_apply\_dependencies
+
+```python
+def _apply_dependencies(by_key: dict[str, BacklogItem]) -> None
+```
+
+Add the demo dependencies between items.
+
+<a id="backlogops.demo_backlog._mixed_order"></a>
+
+#### \_mixed\_order
+
+```python
+def _mixed_order(epics: list[BacklogItem], stories: list[BacklogItem],
+                 tasks: list[BacklogItem]) -> list[BacklogItem]
+```
+
+Interleave the items so they are neither level nor release sorted.
+
+<a id="backlogops.demo_backlog._one_month_ahead"></a>
+
+#### \_one\_month\_ahead
+
+```python
+def _one_month_ahead() -> date
+```
+
+Return the date one calendar month after today.
+
+<a id="backlogops.demo_backlog.get_demo_backlog"></a>
+
+#### get\_demo\_backlog
+
+```python
+def get_demo_backlog() -> BacklogReleases
+```
+
+Return a demonstration backlog and its releases.
+
+The returned data passes :meth:`BacklogReleases.check_consistency`.
+It is useful for manual tests and for developers building
+applications on top of this library.
+
+**Returns**:
+
+  A backlog with epics, stories and tasks, and the ``Next`` and
+  ``Later`` releases.
 
 <a id="backlogops.no_text_io"></a>
 
@@ -3901,6 +4079,12 @@ Heading written before the backlog table.
 
 Heading written before the releases table.
 
+<a id="backlogops.backlog_releases_io.BORDER_STYLE"></a>
+
+#### BORDER\_STYLE
+
+Thick outer and first-row borders with thin inner lines.
+
 <a id="backlogops.backlog_releases_io._is_empty"></a>
 
 #### \_is\_empty
@@ -4095,6 +4279,20 @@ checked here.
 - `TypeError` - A field value has a type that cannot be converted.
 - `ValueError` - A table cannot be classified as backlog or releases.
 
+<a id="backlogops.backlog_releases_io._write_capabilities"></a>
+
+#### \_write\_capabilities
+
+```python
+def _write_capabilities(stderr_file: TextIO) -> Capabilities
+```
+
+Return CREATE capabilities that prefer borders and a filter area.
+
+The border and filter features are requested as ignorable, so a
+backend that supports them (such as an Excel writer) is preferred,
+while formats without them (such as CSV) are still allowed.
+
 <a id="backlogops.backlog_releases_io._backlog_order"></a>
 
 #### \_backlog\_order
@@ -4114,7 +4312,7 @@ def _write_table(tableio: TableIO, heading: str, rows: DictData[Value],
                  column_order: list[str], names: dict[str, str]) -> None
 ```
 
-Write one heading and one table with externally named columns.
+Write one heading and one bordered, filterable table.
 
 <a id="backlogops.backlog_releases_io._ordered_sections"></a>
 

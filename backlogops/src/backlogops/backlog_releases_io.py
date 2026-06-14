@@ -26,8 +26,8 @@ from dataclasses import fields
 from datetime import date
 from typing import Optional, TextIO
 from config_as_json import PathOrStr
-from tableio import DictData, FileAccess, TableIO, Value, \
-    access_capabilities, tio_config_create
+from tableio import CAP_IGNORABLE, Capabilities, DictData, FileAccess, \
+    TableBorderStyle, TableIO, Value, access_capabilities, tio_config_create
 from backlogops.backlog import Backlog, BacklogItem, DEPENDENCY_FIELDS, \
     Status, get_backlog_item
 from backlogops.backlog_releases import BacklogReleases
@@ -47,6 +47,9 @@ BACKLOG_HEADING = 'Backlog'
 
 RELEASE_HEADING = 'Releases'
 """Heading written before the releases table."""
+
+BORDER_STYLE = TableBorderStyle.OUTER_FIRST_ROW_THICK_INNER_THIN
+"""Thick outer and first-row borders with thin inner lines."""
 
 
 def _is_empty(value: object) -> bool:
@@ -220,6 +223,18 @@ def read_backlog_releases(data_file: PathOrStr, config: InputFormatConfig,
     return BacklogReleases(backlog=backlog, releases=releases)
 
 
+def _write_capabilities(stderr_file: TextIO) -> Capabilities:
+    """Return CREATE capabilities that prefer borders and a filter area.
+
+    The border and filter features are requested as ignorable, so a
+    backend that supports them (such as an Excel writer) is preferred,
+    while formats without them (such as CSV) are still allowed.
+    """
+    base = access_capabilities(FileAccess.CREATE, error_file=stderr_file)
+    return base._replace(filtered_data_range=CAP_IGNORABLE,
+                         can_write_borders=CAP_IGNORABLE)
+
+
 def _backlog_order(backlog: Backlog) -> list[str]:
     """Return the backlog column order, with extra fields appended."""
     extra = sorted({name for item in backlog for name in item.extra_fields})
@@ -228,12 +243,13 @@ def _backlog_order(backlog: Backlog) -> list[str]:
 
 def _write_table(tableio: TableIO, heading: str, rows: DictData[Value],
                  column_order: list[str], names: dict[str, str]) -> None:
-    """Write one heading and one table with externally named columns."""
+    """Write one heading and one bordered, filterable table."""
     tableio.write_heading(heading)
     external_rows = [_rename(row, names) for row in rows]
     external_order = [names.get(name, name) for name in column_order]
     tableio.write_table_dictdata(external_rows, column_order=external_order,
-                                 missing_ok=True)
+                                 missing_ok=True, filtered_data_range=True,
+                                 border_style=BORDER_STYLE)
 
 
 def _ordered_sections(data: BacklogReleases, backlog_first: bool
@@ -265,8 +281,7 @@ def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
         backlog_first: Whether to write the backlog before the releases.
         stderr_file: Stream used for user-facing diagnostics.
     """
-    capabilities = access_capabilities(FileAccess.CREATE,
-                                       error_file=stderr_file)
+    capabilities = _write_capabilities(stderr_file)
     sections = _ordered_sections(data, backlog_first)
     with tio_config_create(config=config.tableio, file_name=data_file,
                            file_access=FileAccess.CREATE,

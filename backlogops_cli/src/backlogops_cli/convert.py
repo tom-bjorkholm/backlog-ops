@@ -14,9 +14,9 @@ named preset stored in the teams configuration file.
 import argparse
 import sys
 from typing import Optional
-from backlogops import InputFormatConfig, OutputFormatConfig, \
-    read_available_teams, read_backlog_releases, resolve_input_config, \
-    resolve_output_config, write_backlog_releases
+from backlogops import BacklogReleases, InputFormatConfig, \
+    read_available_teams, read_backlog_releases, resolve_input_config
+from backlogops_cli._command_io import add_output_args, run_write
 
 DESCRIPTION = 'Convert a backlog and releases between table file formats'
 
@@ -28,16 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
                         help='Input data file to read.')
     parser.add_argument('-I', '--input-config', dest='input_config',
                         help='Input format: a config file or a preset name.')
-    parser.add_argument('-o', '--output', dest='output', required=True,
-                        help='Output data file to create.')
-    parser.add_argument('-O', '--output-config', dest='output_config',
-                        help='Output format: a config file or a preset name.')
-    parser.add_argument('--io-config', dest='io_config',
-                        help='Configuration file holding the named presets '
-                        '(by default the teams configuration file).')
-    parser.add_argument('--releases-first', dest='releases_first',
-                        action='store_true',
-                        help='Write the releases before the backlog.')
+    add_output_args(parser)
     return parser
 
 
@@ -49,26 +40,15 @@ def _input_presets(io_config: Optional[str]
     return read_available_teams(io_config, sys.stderr).input_configs
 
 
-def _output_presets(io_config: Optional[str]
-                    ) -> Optional[dict[str, OutputFormatConfig]]:
-    """Return the named output presets from a presets file, if given."""
-    if io_config is None:
-        return None
-    return read_available_teams(io_config, sys.stderr).output_configs
-
-
-def _convert(parsed: argparse.Namespace) -> None:
-    """Read the input file and write the output file."""
-    input_config = resolve_input_config(
-        parsed.input_config, data_file=parsed.input,
-        presets=_input_presets(parsed.io_config))
-    output_config = resolve_output_config(
-        parsed.output_config, data_file=parsed.output,
-        presets=_output_presets(parsed.io_config))
+def _read(parsed: argparse.Namespace) -> BacklogReleases:
+    """Read and validate the backlog and releases from the input file."""
+    presets = _input_presets(parsed.io_config)
+    input_config = resolve_input_config(parsed.input_config,
+                                        data_file=parsed.input,
+                                        presets=presets)
     data = read_backlog_releases(parsed.input, input_config)
     data.check_consistency(sys.stderr)
-    write_backlog_releases(data, parsed.output, output_config,
-                           backlog_first=not parsed.releases_first)
+    return data
 
 
 def main(args: Optional[list[str]] = None) -> int:
@@ -82,13 +62,7 @@ def main(args: Optional[list[str]] = None) -> int:
         or written.
     """
     parsed = build_parser().parse_args(args)
-    try:
-        _convert(parsed)
-    except (ValueError, TypeError, KeyError, OSError) as error:
-        print(f'Could not convert: {error}', file=sys.stderr)
-        return 1
-    print(f'Wrote {parsed.output}')
-    return 0
+    return run_write(parsed, lambda: _read(parsed))
 
 
 if __name__ == '__main__':

@@ -44,6 +44,8 @@
     * [update\_releases](#backlogops.backlog_releases.BacklogReleases.update_releases)
     * [check\_release\_xref](#backlogops.backlog_releases.BacklogReleases.check_release_xref)
     * [check\_consistency](#backlogops.backlog_releases.BacklogReleases.check_consistency)
+* [backlogops.demo\_backlog](#backlogops.demo_backlog)
+  * [get\_demo\_backlog](#backlogops.demo_backlog.get_demo_backlog)
 * [backlogops.no\_text\_io](#backlogops.no_text_io)
   * [NoTextIO](#backlogops.no_text_io.NoTextIO)
     * [write](#backlogops.no_text_io.NoTextIO.write)
@@ -144,6 +146,7 @@
   * [RELEASE\_FIELDS](#backlogops.backlog_releases_io.RELEASE_FIELDS)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
+  * [BORDER\_STYLE](#backlogops.backlog_releases_io.BORDER_STYLE)
   * [item\_to\_row](#backlogops.backlog_releases_io.item_to_row)
   * [release\_to\_row](#backlogops.backlog_releases_io.release_to_row)
   * [row\_to\_item](#backlogops.backlog_releases_io.row_to_item)
@@ -1147,6 +1150,41 @@ is checked to be present in the releases list.
   release names are not unique.
 - `KeyError` - If a key reference is invalid, or if a release
   named by the backlog is not in the releases list.
+
+<a id="backlogops.demo_backlog"></a>
+
+# backlogops.demo\_backlog
+
+A demonstration backlog and releases for manual tests and examples.
+
+The demo data has three level-2 items (epics), twenty level-1 items
+(stories) and two level-0 items (tasks). The two tasks share the same
+story as parent, and fifteen of the stories have an epic as parent. A few
+dependencies are added between items. Two releases exist: ``Next`` with a
+planned date one month ahead, and ``Later`` with no planned date. Five
+items are assigned to ``Next`` and five to ``Later``; the rest have no
+release. The items are returned in a deliberately mixed order, so the
+backlog is neither dependency-ordered nor release-ordered, while still
+passing all consistency checks.
+
+<a id="backlogops.demo_backlog.get_demo_backlog"></a>
+
+#### get\_demo\_backlog
+
+```python
+def get_demo_backlog() -> BacklogReleases
+```
+
+Return a demonstration backlog and its releases.
+
+The returned data passes :meth:`BacklogReleases.check_consistency`.
+It is useful for manual tests and for developers building
+applications on top of this library.
+
+**Returns**:
+
+  A backlog with epics, stories and tasks, and the ``Next`` and
+  ``Later`` releases.
 
 <a id="backlogops.no_text_io"></a>
 
@@ -2879,6 +2917,12 @@ Heading written before the backlog table.
 #### RELEASE\_HEADING
 
 Heading written before the releases table.
+
+<a id="backlogops.backlog_releases_io.BORDER_STYLE"></a>
+
+#### BORDER\_STYLE
+
+Thick outer and first-row borders with thin inner lines.
 
 <a id="backlogops.backlog_releases_io.item_to_row"></a>
 

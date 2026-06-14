@@ -23,6 +23,7 @@ from backlogops.person import Person
 from backlogops.team import FteException, Membership, Team
 from backlogops.releases import Release, Releases, get_release, get_releases
 from backlogops.backlog_releases import BacklogReleases
+from backlogops.demo_backlog import get_demo_backlog
 from backlogops.available_teams import AvailableTeams
 from backlogops.available_teams_config import (
     AvailableTeamsConfig, read_available_teams, write_available_teams)
@@ -47,6 +48,7 @@ __all__ = [
     'Level', 'Levels', 'DEFAULT_LEVELS', 'check_levels_consistency',
     'level_number_from_name', 'Person', 'FteException', 'Membership', 'Team',
     'Release', 'Releases', 'get_release', 'get_releases', 'BacklogReleases',
+    'get_demo_backlog',
     'AvailableTeams', 'AvailableTeamsConfig', 'read_available_teams',
     'write_available_teams', 'InputFormatConfig', 'OutputFormatConfig',
     'resolve_input_config', 'resolve_output_config', 'make_input_config',

@@ -7,14 +7,20 @@
   * [\_description\_lines](#backlogops_cli.list._description_lines)
   * [format\_listing](#backlogops_cli.list.format_listing)
   * [main](#backlogops_cli.list.main)
+* [backlogops\_cli.demo\_backlog](#backlogops_cli.demo_backlog)
+  * [build\_parser](#backlogops_cli.demo_backlog.build_parser)
+  * [main](#backlogops_cli.demo_backlog.main)
 * [backlogops\_cli.teams\_wizard](#backlogops_cli.teams_wizard)
   * [build\_parser](#backlogops_cli.teams_wizard.build_parser)
   * [main](#backlogops_cli.teams_wizard.main)
+* [backlogops\_cli.\_command\_io](#backlogops_cli._command_io)
+  * [add\_output\_args](#backlogops_cli._command_io.add_output_args)
+  * [\_output\_presets](#backlogops_cli._command_io._output_presets)
+  * [run\_write](#backlogops_cli._command_io.run_write)
 * [backlogops\_cli.convert](#backlogops_cli.convert)
   * [build\_parser](#backlogops_cli.convert.build_parser)
   * [\_input\_presets](#backlogops_cli.convert._input_presets)
-  * [\_output\_presets](#backlogops_cli.convert._output_presets)
-  * [\_convert](#backlogops_cli.convert._convert)
+  * [\_read](#backlogops_cli.convert._read)
   * [main](#backlogops_cli.convert.main)
 
 <a id="backlogops_cli.list"></a>
@@ -83,6 +89,46 @@ def main() -> None
 
 Print the list of available backlogops_cli commands.
 
+<a id="backlogops_cli.demo_backlog"></a>
+
+# backlogops\_cli.demo\_backlog
+
+Write a demonstration backlog and releases to a file.
+
+The data comes from :func:`backlogops.get_demo_backlog`. The output
+format is inferred from the output file name extension, but can be
+overridden by a configuration file or by a named preset stored in the
+teams configuration file.
+
+<a id="backlogops_cli.demo_backlog.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the demo backlog command.
+
+<a id="backlogops_cli.demo_backlog.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Write the demonstration backlog and releases to the output file.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the data cannot be written.
+
 <a id="backlogops_cli.teams_wizard"></a>
 
 # backlogops\_cli.teams\_wizard
@@ -122,6 +168,61 @@ already present.
   ``0`` on success, ``1`` when the entered workforce is rejected or
   cannot be written.
 
+<a id="backlogops_cli._command_io"></a>
+
+# backlogops\_cli.\_command\_io
+
+Shared command helpers for resolving output configs and writing.
+
+The helpers here are used by more than one command (for example by the
+``convert`` command and the ``demo_backlog`` command). The leading
+underscore in the module name keeps it out of the command listing.
+
+<a id="backlogops_cli._command_io.add_output_args"></a>
+
+#### add\_output\_args
+
+```python
+def add_output_args(parser: argparse.ArgumentParser) -> None
+```
+
+Add the output-file, output-config and ordering arguments.
+
+<a id="backlogops_cli._command_io._output_presets"></a>
+
+#### \_output\_presets
+
+```python
+def _output_presets(
+        io_config: Optional[str]) -> Optional[dict[str, OutputFormatConfig]]
+```
+
+Return the named output presets from a presets file, if given.
+
+<a id="backlogops_cli._command_io.run_write"></a>
+
+#### run\_write
+
+```python
+def run_write(parsed: argparse.Namespace,
+              data_source: Callable[[], BacklogReleases]) -> int
+```
+
+Build the data, write it to the output file, and report the result.
+
+**Arguments**:
+
+- `parsed` - Parsed command line arguments holding the output options
+  added by :func:`add_output_args`.
+- `data_source` - Callable that returns the backlog and releases to
+  write. It is called inside the error handling so that reading
+  failures are reported like writing failures.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the data cannot be built or written.
+
 <a id="backlogops_cli.convert"></a>
 
 # backlogops\_cli.convert
@@ -155,26 +256,15 @@ def _input_presets(
 
 Return the named input presets from a presets file, if given.
 
-<a id="backlogops_cli.convert._output_presets"></a>
+<a id="backlogops_cli.convert._read"></a>
 
-#### \_output\_presets
-
-```python
-def _output_presets(
-        io_config: Optional[str]) -> Optional[dict[str, OutputFormatConfig]]
-```
-
-Return the named output presets from a presets file, if given.
-
-<a id="backlogops_cli.convert._convert"></a>
-
-#### \_convert
+#### \_read
 
 ```python
-def _convert(parsed: argparse.Namespace) -> None
+def _read(parsed: argparse.Namespace) -> BacklogReleases
 ```
 
-Read the input file and write the output file.
+Read and validate the backlog and releases from the input file.
 
 <a id="backlogops_cli.convert.main"></a>
 
