@@ -22,11 +22,12 @@ import sys
 from datetime import date
 from typing import Optional, Sequence, TextIO, override
 from config_as_json import CallingWholeConfigValidator, Config, \
-    ConfigNesting, ConfigNestingKind, JsonType, MemberValidationStep, \
-    MemberValidator, NestedConfigs, ParseConverter, PathOrStr, \
-    SerializeConverter, SerializeConverters, ValidationPlan, \
-    WholeConfigValidationStep
+    ConfigNesting, ConfigNestingKind, ConfigPath, JsonType, \
+    MemberValidationStep, MemberValidator, NestedConfigs, ParseConverter, \
+    PathOrStr, ReadOldConfiguration, SerializeConverter, SerializeConverters, \
+    ValidationPlan, WholeConfigValidationStep
 from backlogops.available_teams import AvailableTeams
+from backlogops.io_config import InputFormatConfig, OutputFormatConfig
 from backlogops.backlog_helpers import convert_to_date, convert_to_enum, \
     report_wrong_type
 from backlogops.person import Person
@@ -321,6 +322,20 @@ class CompanyWorkHoursConfig(CompanyWorkHours, _BridgeConfig):
                                                  args={})}
 
 
+class _TeamsReadOldConfig(ReadOldConfiguration):
+    """Fill the input/output preset maps when an old file omits them.
+
+    The named input and output configuration presets were added to the
+    workforce file after the first released file shape. Files written
+    before that addition have neither member. This supplies an empty
+    preset map for each missing member so old files keep loading.
+    """
+
+    def get_missing_path_values(self) -> dict[ConfigPath, object]:
+        """Return empty preset maps for the members old files may omit."""
+        return {('input_configs',): {}, ('output_configs',): {}}
+
+
 class AvailableTeamsConfig(AvailableTeams, _BridgeConfig):
     """JSON bridge for the available workforce (persons and teams)."""
 
@@ -335,16 +350,26 @@ class AvailableTeamsConfig(AvailableTeams, _BridgeConfig):
         it requires ``persons`` and ``teams`` arguments that the bridge
         does not duplicate. ``Config.copy_initial_data`` establishes the
         schema from the supplied or default neutral workforce instead.
+        The named input and output TableIO presets are not part of the
+        neutral workforce; they are added here as the bridge's own
+        members.
         """
         if neutral is None:
             neutral = AvailableTeams(persons={}, teams=[])
         Config.copy_initial_data(neutral, self)
+        self.input_configs: dict[str, InputFormatConfig] = {}
+        self.output_configs: dict[str, OutputFormatConfig] = {}
         _BridgeConfig.__init__(self, from_json_data_text, from_json_filename,
                                stderr_file)
 
     @override
+    def _get_read_old_config(self) -> ReadOldConfiguration:
+        """Accept old files written before the preset members existed."""
+        return _TeamsReadOldConfig()
+
+    @override
     def nested_configs(self) -> NestedConfigs:
-        """Declare the persons dict, teams list, and company work hours."""
+        """Declare the persons, teams, work hours and TableIO presets."""
         return {
             'persons': ConfigNesting(kind=ConfigNestingKind.DICT_VALUE,
                                      config_type=PersonConfig),
@@ -352,7 +377,11 @@ class AvailableTeamsConfig(AvailableTeams, _BridgeConfig):
                                    config_type=TeamConfig),
             'company_work_hours': ConfigNesting(
                 kind=ConfigNestingKind.MEMBER,
-                config_type=CompanyWorkHoursConfig)}
+                config_type=CompanyWorkHoursConfig),
+            'input_configs': ConfigNesting(kind=ConfigNestingKind.DICT_VALUE,
+                                           config_type=InputFormatConfig),
+            'output_configs': ConfigNesting(kind=ConfigNestingKind.DICT_VALUE,
+                                            config_type=OutputFormatConfig)}
 
     @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:

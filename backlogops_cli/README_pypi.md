@@ -37,6 +37,8 @@ backlogops_cli serves 2 purposes:
 ### Currently available commands
 
 ````text
+  python3 -m backlogops_cli.convert
+     Convert a backlog and releases between table file formats
   python3 -m backlogops_cli.list
      List all commands available in backlogops_cli
   python3 -m backlogops_cli.teams_wizard
@@ -45,7 +47,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 525 passed in 7s
+- Test result: 581 passed in 10s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

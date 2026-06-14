@@ -8,9 +8,10 @@ import io
 from pathlib import Path
 import pytest
 from backlogops import (
-    AvailableTeams, Membership, NoTextIO, Person, Team, read_available_teams)
+    AvailableTeams, AvailableTeamsConfig, Membership, NoTextIO, Person, Team,
+    read_available_teams)
 from backlogops_cli.list import command_modules
-import backlogops_cli.teams_wizard as teams_wizard
+from backlogops_cli import teams_wizard
 
 
 def test_in_command_list() -> None:
@@ -28,7 +29,7 @@ def test_requires_output() -> None:
 def test_main_writes_file(tmp_path: Path,
                           monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the command adds the .cfg extension and writes a readable file."""
-    answers = ['', '', '', '', '', '', '', '', '', '']
+    answers = [''] * 12
     monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
     assert teams_wizard.main(['-o', str(tmp_path / 'teams')]) == 0
     written = tmp_path / 'teams.cfg'
@@ -40,7 +41,7 @@ def test_main_writes_file(tmp_path: Path,
 def test_main_reports_failure(tmp_path: Path,
                               monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an inconsistent workforce makes the command return 1."""
-    def _bad_wizard(_bridge: object) -> AvailableTeams:
+    def _bad_wizard(_bridge: object) -> AvailableTeamsConfig:
         """Return an over-allocated workforce that fails validation."""
         persons = {'ada': Person(name='Ada')}
         first = Team(name='A', velocity=1.0, sum_fte_at_velocity=1.0,
@@ -48,7 +49,8 @@ def test_main_reports_failure(tmp_path: Path,
         second = Team(name='B', velocity=1.0, sum_fte_at_velocity=1.0,
                       sprint_length=10,
                       members=[Membership(person_name='Ada', fte=0.5)])
-        return AvailableTeams(persons=persons, teams=[first, second])
-    monkeypatch.setattr(teams_wizard, 'available_teams_wizard', _bad_wizard)
+        bad = AvailableTeams(persons=persons, teams=[first, second])
+        return AvailableTeamsConfig(neutral=bad)
+    monkeypatch.setattr(teams_wizard, 'teams_config_wizard', _bad_wizard)
     assert teams_wizard.main(['-o', str(tmp_path / 'teams')]) == 1
     assert not (tmp_path / 'teams.cfg').exists()

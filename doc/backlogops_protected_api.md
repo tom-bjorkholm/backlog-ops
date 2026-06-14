@@ -71,6 +71,13 @@
   * [\_ask\_membership\_end](#backlogops.available_teams_wizard._ask_membership_end)
   * [\_build\_fte\_exceptions](#backlogops.available_teams_wizard._build_fte_exceptions)
   * [\_ask\_fte\_exception](#backlogops.available_teams_wizard._ask_fte_exception)
+  * [teams\_config\_wizard](#backlogops.available_teams_wizard.teams_config_wizard)
+  * [\_caps](#backlogops.available_teams_wizard._caps)
+  * [\_collect\_presets](#backlogops.available_teams_wizard._collect_presets)
+  * [\_build\_input\_presets](#backlogops.available_teams_wizard._build_input_presets)
+  * [\_build\_output\_presets](#backlogops.available_teams_wizard._build_output_presets)
+  * [\_ask\_preset\_name](#backlogops.available_teams_wizard._ask_preset_name)
+  * [\_build\_column\_map](#backlogops.available_teams_wizard._build_column_map)
 * [backlogops.backlog\_releases](#backlogops.backlog_releases)
   * [BacklogReleases](#backlogops.backlog_releases.BacklogReleases)
     * [add\_to\_releases](#backlogops.backlog_releases.BacklogReleases.add_to_releases)
@@ -165,8 +172,11 @@
     * [nested\_configs](#backlogops.available_teams_config.CompanyWorkHoursConfig.nested_configs)
     * [get\_validation\_plan](#backlogops.available_teams_config.CompanyWorkHoursConfig.get_validation_plan)
     * [serialize\_converters](#backlogops.available_teams_config.CompanyWorkHoursConfig.serialize_converters)
+  * [\_TeamsReadOldConfig](#backlogops.available_teams_config._TeamsReadOldConfig)
+    * [get\_missing\_path\_values](#backlogops.available_teams_config._TeamsReadOldConfig.get_missing_path_values)
   * [AvailableTeamsConfig](#backlogops.available_teams_config.AvailableTeamsConfig)
     * [\_\_init\_\_](#backlogops.available_teams_config.AvailableTeamsConfig.__init__)
+    * [\_get\_read\_old\_config](#backlogops.available_teams_config.AvailableTeamsConfig._get_read_old_config)
     * [nested\_configs](#backlogops.available_teams_config.AvailableTeamsConfig.nested_configs)
     * [get\_validation\_plan](#backlogops.available_teams_config.AvailableTeamsConfig.get_validation_plan)
   * [write\_available\_teams](#backlogops.available_teams_config.write_available_teams)
@@ -178,6 +188,29 @@
   * [get\_release](#backlogops.releases.get_release)
   * [get\_releases](#backlogops.releases.get_releases)
   * [check\_releases](#backlogops.releases.check_releases)
+* [backlogops.io\_config](#backlogops.io_config)
+  * [EXTENSION\_FORMATS](#backlogops.io_config.EXTENSION_FORMATS)
+  * [PRESET\_NAME\_RE](#backlogops.io_config.PRESET_NAME_RE)
+  * [\_capabilities](#backlogops.io_config._capabilities)
+  * [\_tio\_default](#backlogops.io_config._tio_default)
+  * [\_tio\_from\_json](#backlogops.io_config._tio_from_json)
+  * [\_FormatConfig](#backlogops.io_config._FormatConfig)
+    * [\_\_init\_\_](#backlogops.io_config._FormatConfig.__init__)
+    * [\_tio\_factory](#backlogops.io_config._FormatConfig._tio_factory)
+    * [nested\_configs](#backlogops.io_config._FormatConfig.nested_configs)
+    * [get\_validation\_plan](#backlogops.io_config._FormatConfig.get_validation_plan)
+  * [InputFormatConfig](#backlogops.io_config.InputFormatConfig)
+    * [\_\_init\_\_](#backlogops.io_config.InputFormatConfig.__init__)
+  * [OutputFormatConfig](#backlogops.io_config.OutputFormatConfig)
+    * [\_\_init\_\_](#backlogops.io_config.OutputFormatConfig.__init__)
+  * [make\_input\_config](#backlogops.io_config.make_input_config)
+  * [make\_output\_config](#backlogops.io_config.make_output_config)
+  * [\_format\_from\_suffix](#backlogops.io_config._format_from_suffix)
+  * [\_default\_input](#backlogops.io_config._default_input)
+  * [\_default\_output](#backlogops.io_config._default_output)
+  * [\_preset](#backlogops.io_config._preset)
+  * [resolve\_input\_config](#backlogops.io_config.resolve_input_config)
+  * [resolve\_output\_config](#backlogops.io_config.resolve_output_config)
 * [backlogops.date\_ranges](#backlogops.date_ranges)
   * [check\_date\_range](#backlogops.date_ranges.check_date_range)
   * [check\_no\_overlap](#backlogops.date_ranges.check_no_overlap)
@@ -190,6 +223,31 @@
   * [report\_duplicate\_label](#backlogops.levels.report_duplicate_label)
   * [check\_levels\_consistency](#backlogops.levels.check_levels_consistency)
   * [level\_number\_from\_name](#backlogops.levels.level_number_from_name)
+* [backlogops.backlog\_releases\_io](#backlogops.backlog_releases_io)
+  * [BACKLOG\_FIELDS](#backlogops.backlog_releases_io.BACKLOG_FIELDS)
+  * [RELEASE\_FIELDS](#backlogops.backlog_releases_io.RELEASE_FIELDS)
+  * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
+  * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
+  * [\_is\_empty](#backlogops.backlog_releases_io._is_empty)
+  * [\_date\_cell](#backlogops.backlog_releases_io._date_cell)
+  * [\_cell\_from\_field](#backlogops.backlog_releases_io._cell_from_field)
+  * [\_extra\_cell](#backlogops.backlog_releases_io._extra_cell)
+  * [item\_to\_row](#backlogops.backlog_releases_io.item_to_row)
+  * [release\_to\_row](#backlogops.backlog_releases_io.release_to_row)
+  * [\_split\_deps](#backlogops.backlog_releases_io._split_deps)
+  * [\_maybe\_int](#backlogops.backlog_releases_io._maybe_int)
+  * [\_present\_cells](#backlogops.backlog_releases_io._present_cells)
+  * [row\_to\_item](#backlogops.backlog_releases_io.row_to_item)
+  * [row\_to\_release](#backlogops.backlog_releases_io.row_to_release)
+  * [\_rename](#backlogops.backlog_releases_io._rename)
+  * [\_is\_backlog\_table](#backlogops.backlog_releases_io._is_backlog_table)
+  * [\_is\_release\_table](#backlogops.backlog_releases_io._is_release_table)
+  * [\_collect\_tables](#backlogops.backlog_releases_io._collect_tables)
+  * [read\_backlog\_releases](#backlogops.backlog_releases_io.read_backlog_releases)
+  * [\_backlog\_order](#backlogops.backlog_releases_io._backlog_order)
+  * [\_write\_table](#backlogops.backlog_releases_io._write_table)
+  * [\_ordered\_sections](#backlogops.backlog_releases_io._ordered_sections)
+  * [write\_backlog\_releases](#backlogops.backlog_releases_io.write_backlog_releases)
 * [backlogops.work\_hours](#backlogops.work_hours)
   * [WeekDay](#backlogops.work_hours.WeekDay)
   * [DEFAULT\_WORK\_WEEK](#backlogops.work_hours.DEFAULT_WORK_WEEK)
@@ -1377,6 +1435,100 @@ def _ask_fte_exception(ui_bridge: WizardUiBridge) -> FteException
 ```
 
 Ask for one full-time-equivalent exception period.
+
+<a id="backlogops.available_teams_wizard.teams_config_wizard"></a>
+
+#### teams\_config\_wizard
+
+```python
+def teams_config_wizard(ui_bridge: WizardUiBridge) -> AvailableTeamsConfig
+```
+
+Interactively create a workforce with optional TableIO presets.
+
+The workforce is entered as by :func:`available_teams_wizard`, and the
+user may then add any number of named input and output TableIO
+configuration presets that are stored alongside the workforce.
+
+**Arguments**:
+
+- `ui_bridge` - Bridge between the wizard and the user interface.
+  
+
+**Returns**:
+
+  The workforce configuration, ready to be written to a file.
+  
+
+**Raises**:
+
+- `EOFError` - The input ended before all required answers were read.
+
+<a id="backlogops.available_teams_wizard._caps"></a>
+
+#### \_caps
+
+```python
+def _caps(file_access: FileAccess, ui_bridge: WizardUiBridge) -> Capabilities
+```
+
+Return the TableIO capabilities for one file access mode.
+
+<a id="backlogops.available_teams_wizard._collect_presets"></a>
+
+#### \_collect\_presets
+
+```python
+def _collect_presets(
+        ui_bridge: WizardUiBridge, file_access: FileAccess, label: str,
+        from_label: str,
+        to_label: str) -> list[tuple[str, TioJsonConfig, dict[str, str]]]
+```
+
+Loop asking for named TableIO presets of one direction.
+
+<a id="backlogops.available_teams_wizard._build_input_presets"></a>
+
+#### \_build\_input\_presets
+
+```python
+def _build_input_presets(
+        ui_bridge: WizardUiBridge) -> dict[str, InputFormatConfig]
+```
+
+Return the named input presets entered by the user.
+
+<a id="backlogops.available_teams_wizard._build_output_presets"></a>
+
+#### \_build\_output\_presets
+
+```python
+def _build_output_presets(
+        ui_bridge: WizardUiBridge) -> dict[str, OutputFormatConfig]
+```
+
+Return the named output presets entered by the user.
+
+<a id="backlogops.available_teams_wizard._ask_preset_name"></a>
+
+#### \_ask\_preset\_name
+
+```python
+def _ask_preset_name(ui_bridge: WizardUiBridge, used: set[str]) -> str
+```
+
+Ask for a preset name of letters and digits that is not used yet.
+
+<a id="backlogops.available_teams_wizard._build_column_map"></a>
+
+#### \_build\_column\_map
+
+```python
+def _build_column_map(ui_bridge: WizardUiBridge, from_label: str,
+                      to_label: str) -> dict[str, str]
+```
+
+Loop asking for column-name mappings of one direction.
 
 <a id="backlogops.backlog_releases"></a>
 
@@ -2831,6 +2983,31 @@ def serialize_converters() -> SerializeConverters
 
 Write the week-day schedule with day-name keys.
 
+<a id="backlogops.available_teams_config._TeamsReadOldConfig"></a>
+
+## \_TeamsReadOldConfig Objects
+
+```python
+class _TeamsReadOldConfig(ReadOldConfiguration)
+```
+
+Fill the input/output preset maps when an old file omits them.
+
+The named input and output configuration presets were added to the
+workforce file after the first released file shape. Files written
+before that addition have neither member. This supplies an empty
+preset map for each missing member so old files keep loading.
+
+<a id="backlogops.available_teams_config._TeamsReadOldConfig.get_missing_path_values"></a>
+
+#### get\_missing\_path\_values
+
+```python
+def get_missing_path_values() -> dict[ConfigPath, object]
+```
+
+Return empty preset maps for the members old files may omit.
+
 <a id="backlogops.available_teams_config.AvailableTeamsConfig"></a>
 
 ## AvailableTeamsConfig Objects
@@ -2859,6 +3036,20 @@ Create the bridge from a neutral workforce or from JSON.
 it requires ``persons`` and ``teams`` arguments that the bridge
 does not duplicate. ``Config.copy_initial_data`` establishes the
 schema from the supplied or default neutral workforce instead.
+The named input and output TableIO presets are not part of the
+neutral workforce; they are added here as the bridge's own
+members.
+
+<a id="backlogops.available_teams_config.AvailableTeamsConfig._get_read_old_config"></a>
+
+#### \_get\_read\_old\_config
+
+```python
+@override
+def _get_read_old_config() -> ReadOldConfiguration
+```
+
+Accept old files written before the preset members existed.
 
 <a id="backlogops.available_teams_config.AvailableTeamsConfig.nested_configs"></a>
 
@@ -2869,7 +3060,7 @@ schema from the supplied or default neutral workforce instead.
 def nested_configs() -> NestedConfigs
 ```
 
-Declare the persons dict, teams list, and company work hours.
+Declare the persons, teams, work hours and TableIO presets.
 
 <a id="backlogops.available_teams_config.AvailableTeamsConfig.get_validation_plan"></a>
 
@@ -3105,6 +3296,328 @@ to be unique.
 - `TypeError` - If a field has the wrong type.
 - `ValueError` - If a name violates the key syntax constraint, or if
   two releases share the same name.
+
+<a id="backlogops.io_config"></a>
+
+# backlogops.io\_config
+
+Configuration for reading and writing tables with TableIO.
+
+A backlog and its releases are read from and written to tabular files
+(Excel, ODS, CSV, and more) using TableIO. The durable TableIO settings
+for one input or one output are stored as a :class:`TioJsonConfig`. On
+top of that this module adds a per-endpoint column-name map, so the
+columns shown to a user can have other names than the internal field
+names of the data model.
+
+An input endpoint is described by an :class:`InputFormatConfig` and an
+output endpoint by an :class:`OutputFormatConfig`. Both wrap one
+``TioJsonConfig`` and one direction-specific name map:
+
+* an input map (``to_internal``) translates an external column name to
+  an internal field name, and several external names may map to the same
+  internal field;
+* an output map (``to_external``) translates an internal field name to
+  the external column name to write.
+
+:func:`resolve_input_config` and :func:`resolve_output_config` turn a
+command-line value into such a configuration. The value may be empty
+(then the format is inferred from the data file name extension), a preset
+name (looked up among named presets stored elsewhere, typically in the
+teams configuration file), or the name of a stand-alone configuration
+file.
+
+<a id="backlogops.io_config.EXTENSION_FORMATS"></a>
+
+#### EXTENSION\_FORMATS
+
+Map a data file name extension to a TableIO format name.
+
+<a id="backlogops.io_config.PRESET_NAME_RE"></a>
+
+#### PRESET\_NAME\_RE
+
+A configuration value made only of letters and digits is a preset.
+
+<a id="backlogops.io_config._capabilities"></a>
+
+#### \_capabilities
+
+```python
+def _capabilities(file_access: FileAccess,
+                  stderr_file: TextIO) -> Capabilities
+```
+
+Return the TableIO capabilities implied by a file access mode.
+
+<a id="backlogops.io_config._tio_default"></a>
+
+#### \_tio\_default
+
+```python
+def _tio_default(file_access: FileAccess,
+                 format_name: Optional[str] = None,
+                 stderr_file: TextIO = sys.stderr) -> TioJsonConfig
+```
+
+Return a default TableIO config for a format and file access.
+
+<a id="backlogops.io_config._tio_from_json"></a>
+
+#### \_tio\_from\_json
+
+```python
+def _tio_from_json(file_access: FileAccess, from_json_data_text: Optional[str],
+                   from_json_filename: Optional[PathOrStr],
+                   stderr_file: TextIO) -> TioJsonConfig
+```
+
+Return a TableIO config read from JSON for a file access mode.
+
+<a id="backlogops.io_config._FormatConfig"></a>
+
+## \_FormatConfig Objects
+
+```python
+class _FormatConfig(Config)
+```
+
+Shared behavior for one input or output TableIO endpoint config.
+
+A concrete subclass fixes the file access mode and the name of its
+column-name map member, and declares that map member before calling
+the constructor. The wrapped ``TioJsonConfig`` is created here and
+declared as a nested configuration so it reads and writes itself.
+
+<a id="backlogops.io_config._FormatConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create default settings or read them from a JSON source.
+
+<a id="backlogops.io_config._FormatConfig._tio_factory"></a>
+
+#### \_tio\_factory
+
+```python
+def _tio_factory(*,
+                 from_json_data_text: Optional[str] = None,
+                 from_json_filename: Optional[PathOrStr] = None,
+                 stderr_file: TextIO = sys.stderr) -> TioJsonConfig
+```
+
+Construct the nested TableIO config from JSON when reading.
+
+<a id="backlogops.io_config._FormatConfig.nested_configs"></a>
+
+#### nested\_configs
+
+```python
+@override
+def nested_configs() -> NestedConfigs
+```
+
+Declare the wrapped TableIO config as a nested configuration.
+
+<a id="backlogops.io_config._FormatConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check that the column-name map is a mapping of string to string.
+
+<a id="backlogops.io_config.InputFormatConfig"></a>
+
+## InputFormatConfig Objects
+
+```python
+class InputFormatConfig(_FormatConfig)
+```
+
+TableIO input endpoint with an external-to-internal column map.
+
+<a id="backlogops.io_config.InputFormatConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create the input map default, then run the shared constructor.
+
+<a id="backlogops.io_config.OutputFormatConfig"></a>
+
+## OutputFormatConfig Objects
+
+```python
+class OutputFormatConfig(_FormatConfig)
+```
+
+TableIO output endpoint with an internal-to-external column map.
+
+<a id="backlogops.io_config.OutputFormatConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create the output map default, then run the shared constructor.
+
+<a id="backlogops.io_config.make_input_config"></a>
+
+#### make\_input\_config
+
+```python
+def make_input_config(tableio: TioJsonConfig,
+                      to_internal: dict[str, str],
+                      stderr_file: TextIO = sys.stderr) -> InputFormatConfig
+```
+
+Return an input config from a TableIO config and a column map.
+
+<a id="backlogops.io_config.make_output_config"></a>
+
+#### make\_output\_config
+
+```python
+def make_output_config(tableio: TioJsonConfig,
+                       to_external: dict[str, str],
+                       stderr_file: TextIO = sys.stderr) -> OutputFormatConfig
+```
+
+Return an output config from a TableIO config and a column map.
+
+<a id="backlogops.io_config._format_from_suffix"></a>
+
+#### \_format\_from\_suffix
+
+```python
+def _format_from_suffix(data_file: PathOrStr) -> str
+```
+
+Return the TableIO format name implied by a data file extension.
+
+<a id="backlogops.io_config._default_input"></a>
+
+#### \_default\_input
+
+```python
+def _default_input(data_file: PathOrStr,
+                   stderr_file: TextIO) -> InputFormatConfig
+```
+
+Return an input config with the format inferred from the file name.
+
+<a id="backlogops.io_config._default_output"></a>
+
+#### \_default\_output
+
+```python
+def _default_output(data_file: PathOrStr,
+                    stderr_file: TextIO) -> OutputFormatConfig
+```
+
+Return an output config with the format inferred from the file name.
+
+<a id="backlogops.io_config._preset"></a>
+
+#### \_preset
+
+```python
+def _preset(value: str,
+            presets: Optional[Mapping[str, _FormatConfig]]) -> _FormatConfig
+```
+
+Return the named preset, or raise when it cannot be found.
+
+<a id="backlogops.io_config.resolve_input_config"></a>
+
+#### resolve\_input\_config
+
+```python
+def resolve_input_config(
+        value: Optional[str],
+        *,
+        data_file: PathOrStr,
+        presets: Optional[dict[str, InputFormatConfig]] = None,
+        stderr_file: TextIO = sys.stderr) -> InputFormatConfig
+```
+
+Resolve a command-line input config value to an input config.
+
+An empty ``value`` infers the format from ``data_file``. A value of
+only letters and digits is a preset name looked up in ``presets``.
+Any other value is the path of a stand-alone input config file.
+
+**Arguments**:
+
+- `value` - The ``--input-config`` value, or None for inference.
+- `data_file` - The input data file, used for format inference.
+- `presets` - Named input presets, typically from the teams config.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The resolved input configuration.
+  
+
+**Raises**:
+
+- `ValueError` - The format cannot be inferred or the preset is unknown.
+
+<a id="backlogops.io_config.resolve_output_config"></a>
+
+#### resolve\_output\_config
+
+```python
+def resolve_output_config(
+        value: Optional[str],
+        *,
+        data_file: PathOrStr,
+        presets: Optional[dict[str, OutputFormatConfig]] = None,
+        stderr_file: TextIO = sys.stderr) -> OutputFormatConfig
+```
+
+Resolve a command-line output config value to an output config.
+
+An empty ``value`` infers the format from ``data_file``. A value of
+only letters and digits is a preset name looked up in ``presets``.
+Any other value is the path of a stand-alone output config file.
+
+**Arguments**:
+
+- `value` - The ``--output-config`` value, or None for inference.
+- `data_file` - The output data file, used for format inference.
+- `presets` - Named output presets, typically from the teams config.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The resolved output configuration.
+  
+
+**Raises**:
+
+- `ValueError` - The format cannot be inferred or the preset is unknown.
 
 <a id="backlogops.date_ranges"></a>
 
@@ -3342,6 +3855,305 @@ considered. The levels are assumed to be consistent, as checked by
 **Raises**:
 
 - `ValueError` - If no level name or alias matches ``name``.
+
+<a id="backlogops.backlog_releases_io"></a>
+
+# backlogops.backlog\_releases\_io
+
+Read and write a backlog and its releases as tables with TableIO.
+
+A backlog and its releases form two tables. They are written to one file
+(and read back) using TableIO, which supports several tables in one sheet
+separated by headings. Reading walks the tables in the file and tells a
+backlog table from a releases table by their columns: a table with a
+``key`` column is the backlog, a table with a ``name`` column is the
+releases.
+
+The internal field names of the data model can differ from the column
+names in the file. An :class:`InputFormatConfig` carries a map from
+external column name to internal field name, and an
+:class:`OutputFormatConfig` carries a map from internal field name to
+external column name. The dependency lists of a backlog item are stored
+as one space separated string per dependency kind, and the extra fields
+of a backlog item become extra columns.
+
+<a id="backlogops.backlog_releases_io.BACKLOG_FIELDS"></a>
+
+#### BACKLOG\_FIELDS
+
+Internal backlog column names, in a stable write order.
+
+<a id="backlogops.backlog_releases_io.RELEASE_FIELDS"></a>
+
+#### RELEASE\_FIELDS
+
+Internal release column names, in a stable write order.
+
+<a id="backlogops.backlog_releases_io.BACKLOG_HEADING"></a>
+
+#### BACKLOG\_HEADING
+
+Heading written before the backlog table.
+
+<a id="backlogops.backlog_releases_io.RELEASE_HEADING"></a>
+
+#### RELEASE\_HEADING
+
+Heading written before the releases table.
+
+<a id="backlogops.backlog_releases_io._is_empty"></a>
+
+#### \_is\_empty
+
+```python
+def _is_empty(value: object) -> bool
+```
+
+Return whether a cell value should be treated as absent.
+
+<a id="backlogops.backlog_releases_io._date_cell"></a>
+
+#### \_date\_cell
+
+```python
+def _date_cell(value: Optional[date]) -> Value
+```
+
+Return a date as an ISO string cell, or None when absent.
+
+<a id="backlogops.backlog_releases_io._cell_from_field"></a>
+
+#### \_cell\_from\_field
+
+```python
+def _cell_from_field(name: str, value: object) -> Value
+```
+
+Return the cell value for one named backlog item field.
+
+<a id="backlogops.backlog_releases_io._extra_cell"></a>
+
+#### \_extra\_cell
+
+```python
+def _extra_cell(value: object) -> Value
+```
+
+Return an extra field value as a cell value.
+
+<a id="backlogops.backlog_releases_io.item_to_row"></a>
+
+#### item\_to\_row
+
+```python
+def item_to_row(item: BacklogItem) -> dict[str, Value]
+```
+
+Return one backlog item as a row keyed by internal field name.
+
+<a id="backlogops.backlog_releases_io.release_to_row"></a>
+
+#### release\_to\_row
+
+```python
+def release_to_row(release: Release) -> dict[str, Value]
+```
+
+Return one release as a row keyed by internal field name.
+
+<a id="backlogops.backlog_releases_io._split_deps"></a>
+
+#### \_split\_deps
+
+```python
+def _split_deps(value: object) -> list[str]
+```
+
+Return the dependency keys parsed from one space separated cell.
+
+<a id="backlogops.backlog_releases_io._maybe_int"></a>
+
+#### \_maybe\_int
+
+```python
+def _maybe_int(value: object) -> object
+```
+
+Return an integer when a numeric cell should be one, else the value.
+
+<a id="backlogops.backlog_releases_io._present_cells"></a>
+
+#### \_present\_cells
+
+```python
+def _present_cells(row: Mapping[str, object]) -> dict[str, object]
+```
+
+Return the row without cells that are absent (None or empty).
+
+<a id="backlogops.backlog_releases_io.row_to_item"></a>
+
+#### row\_to\_item
+
+```python
+def row_to_item(row: Mapping[str, object],
+                levels: Optional[Levels] = None,
+                stderr_file: TextIO = sys.stderr) -> BacklogItem
+```
+
+Return a backlog item from a row keyed by internal field name.
+
+<a id="backlogops.backlog_releases_io.row_to_release"></a>
+
+#### row\_to\_release
+
+```python
+def row_to_release(row: Mapping[str, object],
+                   stderr_file: TextIO = sys.stderr) -> Release
+```
+
+Return a release from a row keyed by internal field name.
+
+<a id="backlogops.backlog_releases_io._rename"></a>
+
+#### \_rename
+
+```python
+def _rename(row: dict[str, Value], names: dict[str, str]) -> dict[str, Value]
+```
+
+Return the row with its keys translated through a name map.
+
+<a id="backlogops.backlog_releases_io._is_backlog_table"></a>
+
+#### \_is\_backlog\_table
+
+```python
+def _is_backlog_table(rows: DictData[Value]) -> bool
+```
+
+Return whether a table of internal-named rows is the backlog.
+
+<a id="backlogops.backlog_releases_io._is_release_table"></a>
+
+#### \_is\_release\_table
+
+```python
+def _is_release_table(rows: DictData[Value]) -> bool
+```
+
+Return whether a table of internal-named rows is the releases.
+
+<a id="backlogops.backlog_releases_io._collect_tables"></a>
+
+#### \_collect\_tables
+
+```python
+def _collect_tables(
+        config: InputFormatConfig, data_file: PathOrStr,
+        stderr_file: TextIO) -> tuple[DictData[Value], DictData[Value]]
+```
+
+Read every table and split it into backlog and release rows.
+
+<a id="backlogops.backlog_releases_io.read_backlog_releases"></a>
+
+#### read\_backlog\_releases
+
+```python
+def read_backlog_releases(data_file: PathOrStr,
+                          config: InputFormatConfig,
+                          levels: Optional[Levels] = None,
+                          stderr_file: TextIO = sys.stderr) -> BacklogReleases
+```
+
+Read a backlog, releases, or both from one file.
+
+Each table in the file is read and classified by its columns. The
+column names are translated to internal field names through the input
+configuration before classification and conversion. Field values are
+converted to their internal types; consistency across items is not
+checked here.
+
+**Arguments**:
+
+- `data_file` - The data file to read.
+- `config` - The input configuration (format and column-name map).
+- `levels` - The levels used to resolve a string level, or None for
+  the default levels.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The backlog and releases found in the file. Either may be empty.
+  
+
+**Raises**:
+
+- `KeyError` - A mandatory field is missing in a row.
+- `TypeError` - A field value has a type that cannot be converted.
+- `ValueError` - A table cannot be classified as backlog or releases.
+
+<a id="backlogops.backlog_releases_io._backlog_order"></a>
+
+#### \_backlog\_order
+
+```python
+def _backlog_order(backlog: Backlog) -> list[str]
+```
+
+Return the backlog column order, with extra fields appended.
+
+<a id="backlogops.backlog_releases_io._write_table"></a>
+
+#### \_write\_table
+
+```python
+def _write_table(tableio: TableIO, heading: str, rows: DictData[Value],
+                 column_order: list[str], names: dict[str, str]) -> None
+```
+
+Write one heading and one table with externally named columns.
+
+<a id="backlogops.backlog_releases_io._ordered_sections"></a>
+
+#### \_ordered\_sections
+
+```python
+def _ordered_sections(
+        data: BacklogReleases,
+        backlog_first: bool) -> list[tuple[str, DictData[Value], list[str]]]
+```
+
+Return the non-empty tables to write, in the requested order.
+
+<a id="backlogops.backlog_releases_io.write_backlog_releases"></a>
+
+#### write\_backlog\_releases
+
+```python
+def write_backlog_releases(data: BacklogReleases,
+                           data_file: PathOrStr,
+                           config: OutputFormatConfig,
+                           backlog_first: bool = True,
+                           stderr_file: TextIO = sys.stderr) -> None
+```
+
+Write a backlog, releases, or both to one file.
+
+Each non-empty table is written with a heading before it, so several
+tables can share one file. Internal field names are translated to
+external column names through the output configuration. When both
+tables are present, ``backlog_first`` decides their order.
+
+**Arguments**:
+
+- `data` - The backlog and releases to write.
+- `data_file` - The data file to create.
+- `config` - The output configuration (format and column-name map).
+- `backlog_first` - Whether to write the backlog before the releases.
+- `stderr_file` - Stream used for user-facing diagnostics.
 
 <a id="backlogops.work_hours"></a>
 

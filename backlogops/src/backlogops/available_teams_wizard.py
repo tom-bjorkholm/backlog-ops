@@ -20,8 +20,13 @@ then and the workforce must be entered again.
 from datetime import date
 from typing import Optional, Sequence
 from config_as_json import string_best_match
-from tableio_cfg_json import WizardUiBridge
+from tableio import Capabilities, FileAccess, access_capabilities
+from tableio_cfg_json import TioJsonConfig, WizardUiBridge, \
+    tio_json_config_wizard
 from backlogops.available_teams import AvailableTeams
+from backlogops.available_teams_config import AvailableTeamsConfig
+from backlogops.io_config import InputFormatConfig, OutputFormatConfig, \
+    PRESET_NAME_RE, make_input_config, make_output_config
 from backlogops.person import Person
 from backlogops.team import FteException, Membership, Team
 from backlogops.work_hours import CompanyWorkHours, DEFAULT_WORK_WEEK, \
@@ -343,3 +348,87 @@ def _ask_fte_exception(ui_bridge: WizardUiBridge) -> FteException:
     fte = _ask_number(ui_bridge, 'Full-time equivalent during the period', 1.0,
                       0.0, 1.0)
     return FteException(start_date=start_date, end_date=end_date, fte=fte)
+
+
+def teams_config_wizard(ui_bridge: WizardUiBridge) -> AvailableTeamsConfig:
+    """Interactively create a workforce with optional TableIO presets.
+
+    The workforce is entered as by :func:`available_teams_wizard`, and the
+    user may then add any number of named input and output TableIO
+    configuration presets that are stored alongside the workforce.
+
+    Args:
+        ui_bridge: Bridge between the wizard and the user interface.
+
+    Returns:
+        The workforce configuration, ready to be written to a file.
+
+    Raises:
+        EOFError: The input ended before all required answers were read.
+    """
+    teams = available_teams_wizard(ui_bridge)
+    config = AvailableTeamsConfig(neutral=teams)
+    config.input_configs = _build_input_presets(ui_bridge)
+    config.output_configs = _build_output_presets(ui_bridge)
+    return config
+
+
+def _caps(file_access: FileAccess, ui_bridge: WizardUiBridge) -> Capabilities:
+    """Return the TableIO capabilities for one file access mode."""
+    return access_capabilities(file_access, error_file=ui_bridge.error_file())
+
+
+def _collect_presets(ui_bridge: WizardUiBridge, file_access: FileAccess,
+                     label: str, from_label: str, to_label: str
+                     ) -> list[tuple[str, TioJsonConfig, dict[str, str]]]:
+    """Loop asking for named TableIO presets of one direction."""
+    result: list[tuple[str, TioJsonConfig, dict[str, str]]] = []
+    while _ask_yes_no(ui_bridge, f'Add a named {label} configuration?', False):
+        used = {name for name, _, _ in result}
+        name = _ask_preset_name(ui_bridge, used)
+        tableio = tio_json_config_wizard(_caps(file_access, ui_bridge),
+                                         file_access, ui_bridge)
+        column_map = _build_column_map(ui_bridge, from_label, to_label)
+        result.append((name, tableio, column_map))
+    return result
+
+
+def _build_input_presets(ui_bridge: WizardUiBridge
+                         ) -> dict[str, InputFormatConfig]:
+    """Return the named input presets entered by the user."""
+    entries = _collect_presets(ui_bridge, FileAccess.READ, 'input',
+                               'external column', 'internal field')
+    return {name: make_input_config(tableio, column_map)
+            for name, tableio, column_map in entries}
+
+
+def _build_output_presets(ui_bridge: WizardUiBridge
+                          ) -> dict[str, OutputFormatConfig]:
+    """Return the named output presets entered by the user."""
+    entries = _collect_presets(ui_bridge, FileAccess.CREATE, 'output',
+                               'internal field', 'external column')
+    return {name: make_output_config(tableio, column_map)
+            for name, tableio, column_map in entries}
+
+
+def _ask_preset_name(ui_bridge: WizardUiBridge, used: set[str]) -> str:
+    """Ask for a preset name of letters and digits that is not used yet."""
+    while True:
+        name = _ask_text(ui_bridge, 'Preset name (letters and digits)')
+        if PRESET_NAME_RE.match(name) is None:
+            ui_bridge.show('Use only letters and digits for a preset name.')
+        elif name in used:
+            ui_bridge.show(f'A preset named {name!r} already exists.')
+        else:
+            return name
+
+
+def _build_column_map(ui_bridge: WizardUiBridge, from_label: str,
+                      to_label: str) -> dict[str, str]:
+    """Loop asking for column-name mappings of one direction."""
+    mapping: dict[str, str] = {}
+    while _ask_yes_no(ui_bridge, 'Add a column-name mapping?', False):
+        source = _ask_text(ui_bridge, f'{from_label} name')
+        target = _ask_text(ui_bridge, f'{to_label} name')
+        mapping[source] = target
+    return mapping

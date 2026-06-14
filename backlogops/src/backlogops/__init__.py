@@ -21,10 +21,19 @@ from backlogops.levels import (
     level_number_from_name)
 from backlogops.person import Person
 from backlogops.team import FteException, Membership, Team
+from backlogops.releases import Release, Releases, get_release, get_releases
+from backlogops.backlog_releases import BacklogReleases
 from backlogops.available_teams import AvailableTeams
 from backlogops.available_teams_config import (
     AvailableTeamsConfig, read_available_teams, write_available_teams)
-from backlogops.available_teams_wizard import available_teams_wizard
+from backlogops.io_config import (
+    InputFormatConfig, OutputFormatConfig, resolve_input_config,
+    resolve_output_config, make_input_config, make_output_config)
+from backlogops.backlog_releases_io import (
+    read_backlog_releases, write_backlog_releases, item_to_row, row_to_item,
+    release_to_row, row_to_release)
+from backlogops.available_teams_wizard import (
+    available_teams_wizard, teams_config_wizard)
 from backlogops.work_hours import (
     WeekDay, ScheduleWorkHours, DEFAULT_WORK_WEEK, ExceptionWorkHours,
     CompanyWorkHours)
@@ -37,7 +46,12 @@ __all__ = [
     'item_dependency_edges', 'event_start', 'event_finish', 'find_cycle',
     'Level', 'Levels', 'DEFAULT_LEVELS', 'check_levels_consistency',
     'level_number_from_name', 'Person', 'FteException', 'Membership', 'Team',
+    'Release', 'Releases', 'get_release', 'get_releases', 'BacklogReleases',
     'AvailableTeams', 'AvailableTeamsConfig', 'read_available_teams',
-    'write_available_teams', 'available_teams_wizard', 'WeekDay',
+    'write_available_teams', 'InputFormatConfig', 'OutputFormatConfig',
+    'resolve_input_config', 'resolve_output_config', 'make_input_config',
+    'make_output_config', 'read_backlog_releases', 'write_backlog_releases',
+    'item_to_row', 'row_to_item', 'release_to_row', 'row_to_release',
+    'available_teams_wizard', 'teams_config_wizard', 'WeekDay',
     'ScheduleWorkHours', 'DEFAULT_WORK_WEEK', 'ExceptionWorkHours',
     'CompanyWorkHours', 'check_date_range', 'check_no_overlap', 'NoTextIO']

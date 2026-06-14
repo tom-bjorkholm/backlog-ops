@@ -9,7 +9,7 @@ import sys
 from typing import Optional
 from config_as_json.file_extension import fix_file_extension
 from tableio_cfg_json import WizardUiBridgeConsole
-from backlogops import available_teams_wizard, write_available_teams
+from backlogops import teams_config_wizard
 
 DESCRIPTION = 'Create an AvailableTeams configuration file via a wizard'
 CONFIG_EXTENSION = '.cfg'
@@ -41,8 +41,8 @@ def main(args: Optional[list[str]] = None) -> int:
     output = fix_file_extension(parsed.output, CONFIG_EXTENSION)
     bridge = WizardUiBridgeConsole(sys.stdout, sys.stdin, sys.stderr)
     try:
-        teams = available_teams_wizard(bridge)
-        write_available_teams(teams, output, sys.stderr)
+        config = teams_config_wizard(bridge)
+        config.write(to_json_filename=output, stderr_file=sys.stderr)
     except (ValueError, TypeError, KeyError, EOFError, OSError) as error:
         print(f'Could not create the configuration: {error}', file=sys.stderr)
         return 1
