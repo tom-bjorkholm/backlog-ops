@@ -7,13 +7,25 @@
 from dataclasses import dataclass
 from typing import TextIO
 import sys
-from backlogops.backlog import Backlog
-from backlogops.releases import Releases
+from backlogops.backlog import Backlog, check_backlog_consistency
+from backlogops.backlog_helpers import report_unknown_reference
+from backlogops.releases import Release, Releases, check_releases
 
 
 @dataclass
 class BacklogReleases:
-    """A backlog and its related releases."""
+    """A backlog and its related releases.
+
+    The releases list describes the releases that the backlog items are
+    delivered in. A backlog item refers to its release by name through
+    its ``release`` field. The releases list may hold releases that no
+    backlog item refers to yet, but every release named by a backlog
+    item is expected to be present in the releases list.
+
+    Fields:
+        backlog: The backlog of items.
+        releases: The releases the backlog items are delivered in.
+    """
 
     backlog: Backlog
     releases: Releases
@@ -22,73 +34,100 @@ class BacklogReleases:
     def add_to_releases(backlog: Backlog, releases: Releases) -> Releases:
         """Add all releases mentioned in the backlog to the releases list.
 
-        For each BacklogItem with in the backlog that has a release,
-        add the release to the releases list if it is not already there.
+        For each backlog item that names a release, a release with that
+        name is added to the releases list when no release of that name
+        is present yet. A release added this way has no planned or
+        estimated date, because a backlog item only carries the release
+        name. The order of the existing releases is kept and any new
+        releases are appended in the order they are first met in the
+        backlog.
 
         Args:
-            backlog: The backlog to add the releases to.
-            releases: The releases to add the releases to.
+            backlog: The backlog to take the release names from.
+            releases: The releases to add the missing releases to.
                       The argument is not modified.
 
         Returns:
-            The releases list with the added releases.
-            If all releases are already in the list, the argument
-            object is returned unchanged.
-            If any new releases are added, a new list is returned.
+            The releases list with the added releases. If all releases
+            named by the backlog are already present, the argument
+            object is returned unchanged. If any new releases are added,
+            a new list is returned.
         """
-        # to be implemented
-        return releases
+        known = {release.name for release in releases}
+        added: Releases = []
+        for item in backlog:
+            if item.release is not None and item.release not in known:
+                known.add(item.release)
+                added.append(Release(name=item.release))
+        return releases + added if added else releases
 
     @staticmethod
     def check_in_releases(backlog: Backlog, releases: Releases,
                           stderr_file: TextIO = sys.stderr) -> None:
         """Check that all releases in the backlog are in the releases list.
 
-        For each BacklogItem with in the backlog that has a release,
-        check that the release is in the releases list.
+        For each backlog item that names a release, the release is
+        checked to be present by name in the releases list.
 
         Args:
             backlog: The backlog to check.
-            releases: The releases to check.
+            releases: The releases to check the backlog against.
             stderr_file: The file to report errors to.
 
         Raises:
-            KeyError: If a release mentioned in the backlog is not in
-                      the releases list.
+            KeyError: If a release named by the backlog is not present in
+                the releases list.
         """
-        # to be implemented
+        known = {release.name for release in releases}
+        for item in backlog:
+            if item.release is not None and item.release not in known:
+                report_unknown_reference('release', item.key, item.release,
+                                         stderr_file)
 
     def update_releases(self) -> None:
         """Update the releases list to include all releases in the backlog.
 
-        For each BacklogItem with in the backlog that has a release,
-        add the release to the releases list if it is not already there.
+        For each backlog item that names a release, the release is added
+        to the releases list when it is not already present, as
+        documented for :meth:`add_to_releases`.
         """
         self.releases = self.add_to_releases(self.backlog, self.releases)
 
     def check_release_xref(self, stderr_file: TextIO = sys.stderr) -> None:
         """Check that all releases in the backlog are in the releases list.
 
-        For each BacklogItem with in the backlog that has a release,
-        check that the release is in the releases list.
+        This is the cross reference check documented for
+        :meth:`check_in_releases`, applied to the member backlog and
+        releases.
+
+        Args:
+            stderr_file: The file to report errors to.
+
+        Raises:
+            KeyError: If a release named by the backlog is not present in
+                the releases list.
         """
         self.check_in_releases(self.backlog, self.releases, stderr_file)
 
     def check_consistency(self, stderr_file: TextIO = sys.stderr) -> None:
         """Check the internal consistency of the backlog and releases.
 
-        The documented constraints are checked on all member variables.
-        Field types are verified. The releases are checked to be unique
-        by name. The backlog is checked to have all releases mentioned
-        in the backlog in the releases list.
+        The backlog is checked for full consistency as documented for
+        :func:`check_backlog_consistency`, the releases are checked for
+        internal consistency and unique names as documented for
+        :func:`check_releases`, and every release named by the backlog
+        is checked to be present in the releases list.
 
         Args:
             stderr_file: The file to report errors to.
 
         Raises:
             TypeError: If a field has the wrong type.
-            ValueError: If a field value violates a constraint.
-            KeyError: If a release mentioned in the backlog is not in
-                      the releases list.
+            ValueError: If a field value violates a constraint, or if
+                release names are not unique.
+            KeyError: If a key reference is invalid, or if a release
+                named by the backlog is not in the releases list.
         """
-        # to be implemented
+        check_backlog_consistency(self.backlog, stderr_file)
+        check_releases(self.releases, stderr_file)
+        self.check_in_releases(self.backlog, self.releases, stderr_file)

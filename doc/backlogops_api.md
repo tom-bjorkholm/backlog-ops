@@ -36,6 +36,13 @@
     * [exceptions](#backlogops.person.Person.exceptions)
 * [backlogops.available\_teams\_wizard](#backlogops.available_teams_wizard)
   * [available\_teams\_wizard](#backlogops.available_teams_wizard.available_teams_wizard)
+* [backlogops.backlog\_releases](#backlogops.backlog_releases)
+  * [BacklogReleases](#backlogops.backlog_releases.BacklogReleases)
+    * [add\_to\_releases](#backlogops.backlog_releases.BacklogReleases.add_to_releases)
+    * [check\_in\_releases](#backlogops.backlog_releases.BacklogReleases.check_in_releases)
+    * [update\_releases](#backlogops.backlog_releases.BacklogReleases.update_releases)
+    * [check\_release\_xref](#backlogops.backlog_releases.BacklogReleases.check_release_xref)
+    * [check\_consistency](#backlogops.backlog_releases.BacklogReleases.check_consistency)
 * [backlogops.no\_text\_io](#backlogops.no_text_io)
   * [NoTextIO](#backlogops.no_text_io.NoTextIO)
     * [write](#backlogops.no_text_io.NoTextIO.write)
@@ -103,6 +110,13 @@
     * [get\_validation\_plan](#backlogops.available_teams_config.AvailableTeamsConfig.get_validation_plan)
   * [write\_available\_teams](#backlogops.available_teams_config.write_available_teams)
   * [read\_available\_teams](#backlogops.available_teams_config.read_available_teams)
+* [backlogops.releases](#backlogops.releases)
+  * [Release](#backlogops.releases.Release)
+    * [check\_consistency](#backlogops.releases.Release.check_consistency)
+  * [report\_unknown\_keys](#backlogops.releases.report_unknown_keys)
+  * [get\_release](#backlogops.releases.get_release)
+  * [get\_releases](#backlogops.releases.get_releases)
+  * [check\_releases](#backlogops.releases.check_releases)
 * [backlogops.date\_ranges](#backlogops.date_ranges)
   * [check\_date\_range](#backlogops.date_ranges.check_date_range)
   * [check\_no\_overlap](#backlogops.date_ranges.check_no_overlap)
@@ -927,6 +941,161 @@ Interactively create an available workforce configuration.
 **Raises**:
 
 - `EOFError` - The input ended before all required answers were read.
+
+<a id="backlogops.backlog_releases"></a>
+
+# backlogops.backlog\_releases
+
+Backlog and and its related releases.
+
+<a id="backlogops.backlog_releases.BacklogReleases"></a>
+
+## BacklogReleases Objects
+
+```python
+@dataclass
+class BacklogReleases()
+```
+
+A backlog and its related releases.
+
+The releases list describes the releases that the backlog items are
+delivered in. A backlog item refers to its release by name through
+its ``release`` field. The releases list may hold releases that no
+backlog item refers to yet, but every release named by a backlog
+item is expected to be present in the releases list.
+
+Fields:
+    backlog: The backlog of items.
+    releases: The releases the backlog items are delivered in.
+
+<a id="backlogops.backlog_releases.BacklogReleases.add_to_releases"></a>
+
+#### add\_to\_releases
+
+```python
+@staticmethod
+def add_to_releases(backlog: Backlog, releases: Releases) -> Releases
+```
+
+Add all releases mentioned in the backlog to the releases list.
+
+For each backlog item that names a release, a release with that
+name is added to the releases list when no release of that name
+is present yet. A release added this way has no planned or
+estimated date, because a backlog item only carries the release
+name. The order of the existing releases is kept and any new
+releases are appended in the order they are first met in the
+backlog.
+
+**Arguments**:
+
+- `backlog` - The backlog to take the release names from.
+- `releases` - The releases to add the missing releases to.
+  The argument is not modified.
+  
+
+**Returns**:
+
+  The releases list with the added releases. If all releases
+  named by the backlog are already present, the argument
+  object is returned unchanged. If any new releases are added,
+  a new list is returned.
+
+<a id="backlogops.backlog_releases.BacklogReleases.check_in_releases"></a>
+
+#### check\_in\_releases
+
+```python
+@staticmethod
+def check_in_releases(backlog: Backlog,
+                      releases: Releases,
+                      stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check that all releases in the backlog are in the releases list.
+
+For each backlog item that names a release, the release is
+checked to be present by name in the releases list.
+
+**Arguments**:
+
+- `backlog` - The backlog to check.
+- `releases` - The releases to check the backlog against.
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `KeyError` - If a release named by the backlog is not present in
+  the releases list.
+
+<a id="backlogops.backlog_releases.BacklogReleases.update_releases"></a>
+
+#### update\_releases
+
+```python
+def update_releases() -> None
+```
+
+Update the releases list to include all releases in the backlog.
+
+For each backlog item that names a release, the release is added
+to the releases list when it is not already present, as
+documented for :meth:`add_to_releases`.
+
+<a id="backlogops.backlog_releases.BacklogReleases.check_release_xref"></a>
+
+#### check\_release\_xref
+
+```python
+def check_release_xref(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check that all releases in the backlog are in the releases list.
+
+This is the cross reference check documented for
+:meth:`check_in_releases`, applied to the member backlog and
+releases.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `KeyError` - If a release named by the backlog is not present in
+  the releases list.
+
+<a id="backlogops.backlog_releases.BacklogReleases.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the internal consistency of the backlog and releases.
+
+The backlog is checked for full consistency as documented for
+:func:`check_backlog_consistency`, the releases are checked for
+internal consistency and unique names as documented for
+:func:`check_releases`, and every release named by the backlog
+is checked to be present in the releases list.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If a field value violates a constraint, or if
+  release names are not unique.
+- `KeyError` - If a key reference is invalid, or if a release
+  named by the backlog is not in the releases list.
 
 <a id="backlogops.no_text_io"></a>
 
@@ -2028,6 +2197,190 @@ Read an available workforce from a JSON configuration file.
 **Returns**:
 
   The loaded workforce. The returned object is an ``AvailableTeams``.
+
+<a id="backlogops.releases"></a>
+
+# backlogops.releases
+
+Releases related to a backlog.
+
+<a id="backlogops.releases.Release"></a>
+
+## Release Objects
+
+```python
+@dataclass
+class Release()
+```
+
+A release of some BacklogItems.
+
+A release groups backlog items that are delivered together. A
+backlog item refers to its release by name through its ``release``
+field, so the release name must follow the same syntax rules as a
+backlog item key.
+
+Fields:
+    name: The name of the release. Required. Must be unique among
+          the releases. Must not be empty, must not contain
+          whitespace and must not contain any of the characters
+          , . ; : ( ) [ ] { }.
+    planned_date: The planned date of the release. Optional.
+                  The date that is communicated to the customer.
+    estimated_date: The estimated date of the release. Optional.
+                    The date that the content of the release is
+                    estimated to be ready. The estimated date and
+                    the planned date are independent of each other;
+                    no ordering between them is required.
+
+<a id="backlogops.releases.Release.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the internal consistency of the release.
+
+The field types are verified and the name is checked to be a
+well formed key (a non-empty string with no whitespace and none
+of the forbidden separator characters). Uniqueness of the name
+among several releases is not checked here; that is done by
+:func:`check_releases`.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If the name violates the key syntax constraint.
+
+<a id="backlogops.releases.report_unknown_keys"></a>
+
+#### report\_unknown\_keys
+
+```python
+def report_unknown_keys(unknown: set[str],
+                        stderr_file: TextIO = sys.stderr) -> NoReturn
+```
+
+Report unknown release input keys and raise ``KeyError``.
+
+**Arguments**:
+
+- `unknown` - The input keys that match no field of :class:`Release`.
+- `stderr_file` - The file to report the error to.
+  
+
+**Raises**:
+
+- `KeyError` - Always, after reporting the message.
+
+<a id="backlogops.releases.get_release"></a>
+
+#### get\_release
+
+```python
+def get_release(data: dict[str, object],
+                stderr_file: TextIO = sys.stderr,
+                strict: bool = True) -> Release
+```
+
+Get a release from a dictionary.
+
+The dictionary is expected to hold the mandatory ``name`` field and
+may hold the optional ``planned_date`` and ``estimated_date``
+fields. Date fields given as ISO 8601 strings (such as
+``'2026-06-12'``) are converted to ``date`` objects.
+
+**Arguments**:
+
+- `data` - The dictionary to get the release from.
+- `stderr_file` - The file to report errors to.
+- `strict` - When True (the default), any input key that matches no
+  field of :class:`Release` is an error. When False such
+  keys are silently ignored.
+  
+
+**Returns**:
+
+  The release.
+  
+
+**Raises**:
+
+- `KeyError` - If the mandatory ``name`` field is missing, or if
+  ``strict`` is True and the data has a key that is not a
+  release field.
+- `TypeError` - If a field has a type that cannot be converted.
+
+<a id="backlogops.releases.get_releases"></a>
+
+#### get\_releases
+
+```python
+def get_releases(datalist: list[dict[str, object]],
+                 stderr_file: TextIO = sys.stderr,
+                 strict: bool = True) -> Releases
+```
+
+Get a list of releases from a list of dictionaries.
+
+Each dictionary is converted to a release as documented for
+:func:`get_release`, with the same ``strict`` handling of keys that
+do not match a release field.
+
+**Arguments**:
+
+- `datalist` - The list of dictionaries to get the releases from.
+- `stderr_file` - The file to report errors to.
+- `strict` - Passed to :func:`get_release` for each dictionary. When
+  True (the default), unknown keys are an error; when
+  False they are ignored.
+  
+
+**Returns**:
+
+  The list of releases.
+  
+
+**Raises**:
+
+- `KeyError` - If a mandatory ``name`` field is missing, or if
+  ``strict`` is True and a dictionary has a key that is not a
+  release field.
+- `TypeError` - If a field has a type that cannot be converted.
+
+<a id="backlogops.releases.check_releases"></a>
+
+#### check\_releases
+
+```python
+def check_releases(releases: Releases,
+                   stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the internal consistency of a list of releases.
+
+Every release is checked for internal consistency as documented for
+:meth:`Release.check_consistency`, and the release names are checked
+to be unique.
+
+**Arguments**:
+
+- `releases` - The list of releases to check.
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If a name violates the key syntax constraint, or if
+  two releases share the same name.
 
 <a id="backlogops.date_ranges"></a>
 
