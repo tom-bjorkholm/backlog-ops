@@ -5,6 +5,7 @@ The helpers here are used by more than one command (for example by the
 ``convert`` command and the ``demo_backlog`` command). The leading
 underscore in the module name keeps it out of the command listing.
 """
+# PYTHON_ARGCOMPLETE_OK
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
@@ -13,9 +14,58 @@ import argparse
 import sys
 from collections.abc import Callable
 from typing import Optional
+import argcomplete
 from backlogops import (
-    BacklogReleases, OutputFormatConfig, read_available_teams,
+    BacklogReleases, InputFormatConfig, OutputFormatConfig,
+    read_available_teams, read_backlog_releases, resolve_input_config,
     resolve_output_config, write_backlog_releases)
+
+
+def parsed_args(parser: argparse.ArgumentParser,
+                args: Optional[list[str]]) -> argparse.Namespace:
+    """Enable shell completion and parse the command line arguments."""
+    argcomplete.autocomplete(parser)
+    return parser.parse_args(args)
+
+
+def add_input_args(parser: argparse.ArgumentParser) -> None:
+    """Add the input-file and input-config arguments."""
+    parser.add_argument('-i', '--input', dest='input', required=True,
+                        help='Input data file to read.')
+    parser.add_argument('-I', '--input-config', dest='input_config',
+                        help='Input format: a config file or a preset name.')
+
+
+def _input_presets(io_config: Optional[str]
+                   ) -> Optional[dict[str, InputFormatConfig]]:
+    """Return the named input presets from a presets file, if given."""
+    if io_config is None:
+        return None
+    return read_available_teams(io_config, sys.stderr).input_configs
+
+
+def read_input(parsed: argparse.Namespace) -> BacklogReleases:
+    """Read and validate the backlog and releases from the input file.
+
+    The input format is resolved from the ``--input-config`` value, which
+    may be empty (inferred from the file name), a preset name looked up in
+    the presets file given by ``--io-config``, or a config file path.
+
+    Args:
+        parsed: Parsed command line arguments holding the input options
+            added by :func:`add_input_args` and, optionally, the
+            ``--io-config`` option added by :func:`add_output_args`.
+
+    Returns:
+        The validated backlog and releases read from the input file.
+    """
+    io_config = getattr(parsed, 'io_config', None)
+    presets = _input_presets(io_config)
+    config = resolve_input_config(parsed.input_config, data_file=parsed.input,
+                                  presets=presets)
+    data = read_backlog_releases(parsed.input, config)
+    data.check_consistency(sys.stderr)
+    return data
 
 
 def add_output_args(parser: argparse.ArgumentParser) -> None:

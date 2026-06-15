@@ -135,26 +135,24 @@ class BacklogReleases:
 
     def move_keys_first(self, keys: Sequence[str],
                         stderr_file: TextIO = sys.stderr) -> None:
-        """Move keys to the beginning of the backlog.
+        """Move the items named by ``keys`` to the front of the backlog.
 
-        The BacklogItem identified by the first key is moved first.
-        For each subsequent key, the BacklogItem is inserted right after
-        the BacklogItem identified by the previous key.
-        However, if a BacklogItem identified by a key is the (direct or
-        indirect) parent of other BacklogItems that are further down
-        in the backlog, they are moved to a position right before their
-        parent.
-        As keys identifies BacklogItems at different levels, a BackogItem
-        may be moved to a later position in the backlog when its own
-        key is processed.
-        A BacklogItem is never moved to a later position in the backlog
-        due to a key of its (direct or indirect) parent.
+        The named items lead the backlog in the order of ``keys``. Each
+        named item is preceded by its descendants in post order: a child
+        comes right before its own parent, and that parent right before
+        the grandparent, up to the named item. Siblings keep their
+        original backlog order. A named descendant is placed by its own
+        key instead, so it may end up after its named parent. A descendant
+        is pulled to the front only when it appears after its named
+        ancestor in the backlog, so that no item is moved to a later
+        position because of an ancestor's key. The remaining items keep
+        their original order after the front block. The behavior is the
+        one documented for :func:`backlogops.move_keys_first`.
 
         Args:
-        keys: The keys to move to the beginning of the backlog item.
-              The keys must be unique and must exist in the backlog.
-        stderr_file: The file to report errors to.
-
+            keys: The keys to move to the front, in the wanted order. The
+                keys must be unique and must exist in the backlog.
+            stderr_file: The file to report errors to.
 
         Raises:
             KeyError: If a key is not found in the backlog.

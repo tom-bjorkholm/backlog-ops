@@ -32,9 +32,9 @@ To be written
 
 ## Test summary
 
-- Test result: 595 passed in 10s
+- Test result: 649 passed in 11s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.
 - Built version(s): 0.0.1
-- Build and test using Python 3.14.5
+- Build and test using Python 3.14.6

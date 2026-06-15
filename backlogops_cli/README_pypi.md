@@ -41,17 +41,21 @@ backlogops_cli serves 2 purposes:
      Convert a backlog and releases between table file formats
   python3 -m backlogops_cli.demo_backlog
      Write a demonstration backlog and releases to a file
+  python3 -m backlogops_cli.extract_keys
+     Extract backlog keys at the given levels to a key list
   python3 -m backlogops_cli.list
      List all commands available in backlogops_cli
+  python3 -m backlogops_cli.order
+     Reorder a backlog so that key-list items come first
   python3 -m backlogops_cli.teams_wizard
      Create an AvailableTeams configuration file via a wizard
 ````
 
 ## Test summary
 
-- Test result: 595 passed in 10s
+- Test result: 649 passed in 11s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.
 - Built version(s): 0.0.1
-- Build and test using Python 3.14.5
+- Build and test using Python 3.14.6

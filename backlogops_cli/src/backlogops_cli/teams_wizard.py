@@ -1,6 +1,7 @@
 #! /usr/local/bin/python3
 """Run the available-teams wizard and store the result to a file."""
 
+# PYTHON_ARGCOMPLETE_OK
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
@@ -10,6 +11,7 @@ from typing import Optional
 from config_as_json.file_extension import fix_file_extension
 from tableio_cfg_json import WizardUiBridgeConsole
 from backlogops import teams_config_wizard
+from backlogops_cli._command_io import parsed_args
 
 DESCRIPTION = 'Create an AvailableTeams configuration file via a wizard'
 CONFIG_EXTENSION = '.cfg'
@@ -37,7 +39,7 @@ def main(args: Optional[list[str]] = None) -> int:
         ``0`` on success, ``1`` when the entered workforce is rejected or
         cannot be written.
     """
-    parsed = build_parser().parse_args(args)
+    parsed = parsed_args(build_parser(), args)
     output = fix_file_extension(parsed.output, CONFIG_EXTENSION)
     bridge = WizardUiBridgeConsole(sys.stdout, sys.stdin, sys.stderr)
     try:

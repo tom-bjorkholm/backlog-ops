@@ -30,6 +30,11 @@
   * [construct](#backlogops.backlog_helpers.construct)
   * [check\_key\_syntax](#backlogops.backlog_helpers.check_key_syntax)
   * [find\_cycle](#backlogops.backlog_helpers.find_cycle)
+* [backlogops.key\_list\_io](#backlogops.key_list_io)
+  * [TEXT\_EXTENSIONS](#backlogops.key_list_io.TEXT_EXTENSIONS)
+  * [KEY\_COLUMN\_NAME](#backlogops.key_list_io.KEY_COLUMN_NAME)
+  * [read\_key\_list](#backlogops.key_list_io.read_key_list)
+  * [write\_key\_list](#backlogops.key_list_io.write_key_list)
 * [backlogops.person](#backlogops.person)
   * [Person](#backlogops.person.Person)
     * [name](#backlogops.person.Person.name)
@@ -44,6 +49,7 @@
     * [update\_releases](#backlogops.backlog_releases.BacklogReleases.update_releases)
     * [check\_release\_xref](#backlogops.backlog_releases.BacklogReleases.check_release_xref)
     * [check\_consistency](#backlogops.backlog_releases.BacklogReleases.check_consistency)
+    * [move\_keys\_first](#backlogops.backlog_releases.BacklogReleases.move_keys_first)
 * [backlogops.demo\_backlog](#backlogops.demo_backlog)
   * [get\_demo\_backlog](#backlogops.demo_backlog.get_demo_backlog)
 * [backlogops.no\_text\_io](#backlogops.no_text_io)
@@ -153,6 +159,9 @@
   * [row\_to\_release](#backlogops.backlog_releases_io.row_to_release)
   * [read\_backlog\_releases](#backlogops.backlog_releases_io.read_backlog_releases)
   * [write\_backlog\_releases](#backlogops.backlog_releases_io.write_backlog_releases)
+* [backlogops.move\_keys\_first](#backlogops.move_keys_first)
+  * [move\_keys\_first](#backlogops.move_keys_first.move_keys_first)
+  * [get\_keys\_in\_order](#backlogops.move_keys_first.get_keys_in_order)
 * [backlogops.work\_hours](#backlogops.work_hours)
   * [WeekDay](#backlogops.work_hours.WeekDay)
   * [DEFAULT\_WORK\_WEEK](#backlogops.work_hours.DEFAULT_WORK_WEEK)
@@ -890,6 +899,131 @@ reference is reported as ``[node, node]``.
   The nodes that form a cycle (with the start node repeated at the
   end), or None when the graph has no cycle.
 
+<a id="backlogops.key_list_io"></a>
+
+# backlogops.key\_list\_io
+
+Read and write a key list as its own file.
+
+A key list is an ordered list of backlog item keys stored on its own,
+separate from the backlog. The file format is chosen from the file name
+extension: a ``.txt`` or ``.dat`` file is plain UTF-8 text, and any
+extension that TableIO supports (such as ``.csv``, ``.ods`` or ``.xlsx``)
+is a one column table.
+
+Two options apply to both shapes and describe whether the file carries a
+column name. ``skip_column_names`` tells the reader that the first
+row/line is a column name to skip, and ``add_column_name`` tells the
+writer to write such a column name (``Keys``).
+
+For a text file without a column name every whitespace separated word is
+a key, in the order the words appear; with a column name the heading line
+is skipped and every following non empty line holds exactly one key.
+
+For a table file without a column name every row is data (read with list
+reading); with a column name the first row names the column (read with
+dict reading). A single column table usually has no column name, but it
+may have one. Either way the table must have exactly one column.
+
+<a id="backlogops.key_list_io.TEXT_EXTENSIONS"></a>
+
+#### TEXT\_EXTENSIONS
+
+File name extensions read and written as plain UTF-8 text.
+
+<a id="backlogops.key_list_io.KEY_COLUMN_NAME"></a>
+
+#### KEY\_COLUMN\_NAME
+
+Column name of the single column of a key list table.
+
+<a id="backlogops.key_list_io.read_key_list"></a>
+
+#### read\_key\_list
+
+```python
+def read_key_list(file_name: PathOrStr,
+                  *,
+                  skip_column_names: bool = False,
+                  stderr_file: TextIO = sys.stderr) -> list[str]
+```
+
+Read a key list from a file.
+
+The file type is chosen from the file name extension. A ``.txt`` or
+``.dat`` file is read as UTF-8 text; any other extension is read as a
+TableIO table whose single column holds the keys.
+
+``skip_column_names`` tells whether the file starts with a column
+name. For a text file, when it is False the file is a free word list
+and every whitespace separated word is a key, in the order the words
+appear; when it is True the first line is a column heading and is
+skipped, and every following non empty line must hold exactly one
+word, which is a key. For a table file, when it is False every row is
+data (list reading); when it is True the first row names the column
+and is skipped (dict reading). A table must have exactly one column.
+
+**Arguments**:
+
+- `file_name` - The file to read the key list from.
+- `skip_column_names` - Whether the file starts with a column name to
+  skip.
+- `stderr_file` - The stream to report errors to.
+  
+
+**Returns**:
+
+  The keys in the order they appear in the file.
+  
+
+**Raises**:
+
+- `FileNotFoundError` - If the file does not exist.
+- `IsADirectoryError` - If the file is a directory.
+- `PermissionError` - If the file is not readable.
+- `UnicodeDecodeError` - If a text file is not valid UTF-8.
+- `ValueError` - If a column text line holds more than one word, if a
+  table has more than one column, or if the extension is not a
+  supported table format.
+
+<a id="backlogops.key_list_io.write_key_list"></a>
+
+#### write\_key\_list
+
+```python
+def write_key_list(key_list: Sequence[str],
+                   file_name: PathOrStr,
+                   *,
+                   add_column_name: bool = False,
+                   stderr_file: TextIO = sys.stderr) -> None
+```
+
+Write a key list to a file.
+
+The file type is chosen from the file name extension. A ``.txt`` or
+``.dat`` file is written as UTF-8 text with one key per line; any
+other extension is written as a TableIO table with a single column.
+
+``add_column_name`` decides whether the column name ``Keys`` is
+written before the keys: as a heading line for a text file, and as a
+header row for a table file. When it is False a text file holds only
+the keys and a table file holds only data rows (list writing).
+
+**Arguments**:
+
+- `key_list` - The keys to write, in order.
+- `file_name` - The file to create.
+- `add_column_name` - Whether to write the column name ``Keys`` first.
+- `stderr_file` - The stream to report errors to.
+  
+
+**Raises**:
+
+- `FileExistsError` - If the file already exists.
+- `IsADirectoryError` - If the file is a directory.
+- `PermissionError` - If the file is not writable.
+- `ValueError` - If the extension is not a supported table format.
+
 <a id="backlogops.person"></a>
 
 # backlogops.person
@@ -1150,6 +1284,41 @@ is checked to be present in the releases list.
   release names are not unique.
 - `KeyError` - If a key reference is invalid, or if a release
   named by the backlog is not in the releases list.
+
+<a id="backlogops.backlog_releases.BacklogReleases.move_keys_first"></a>
+
+#### move\_keys\_first
+
+```python
+def move_keys_first(keys: Sequence[str],
+                    stderr_file: TextIO = sys.stderr) -> None
+```
+
+Move the items named by ``keys`` to the front of the backlog.
+
+The named items lead the backlog in the order of ``keys``. Each
+named item is preceded by its descendants in post order: a child
+comes right before its own parent, and that parent right before
+the grandparent, up to the named item. Siblings keep their
+original backlog order. A named descendant is placed by its own
+key instead, so it may end up after its named parent. A descendant
+is pulled to the front only when it appears after its named
+ancestor in the backlog, so that no item is moved to a later
+position because of an ancestor's key. The remaining items keep
+their original order after the front block. The behavior is the
+one documented for :func:`backlogops.move_keys_first`.
+
+**Arguments**:
+
+- `keys` - The keys to move to the front, in the wanted order. The
+  keys must be unique and must exist in the backlog.
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `KeyError` - If a key is not found in the backlog.
+- `ValueError` - If a key is not unique.
 
 <a id="backlogops.demo_backlog"></a>
 
@@ -3032,6 +3201,94 @@ tables are present, ``backlog_first`` decides their order.
 - `config` - The output configuration (format and column-name map).
 - `backlog_first` - Whether to write the backlog before the releases.
 - `stderr_file` - Stream used for user-facing diagnostics.
+
+<a id="backlogops.move_keys_first"></a>
+
+# backlogops.move\_keys\_first
+
+Reorder a backlog from a key list and extract keys by level.
+
+<a id="backlogops.move_keys_first.move_keys_first"></a>
+
+#### move\_keys\_first
+
+```python
+def move_keys_first(backlog: Backlog,
+                    keys: Sequence[str],
+                    stderr_file: TextIO = sys.stderr) -> Backlog
+```
+
+Move the items named by ``keys`` to the front of the backlog.
+
+A new backlog is returned; the argument is not modified. The named
+items lead the backlog in the order of ``keys``. Each named item is
+preceded by its descendants in post order: a child comes right before
+its own parent, and that parent right before the grandparent, all the
+way up to the named item. For example, if ``E`` is a parent of ``S1``
+and ``S2`` and ``S2`` is a parent of ``T``, moving ``E`` first yields
+``S1, T, S2, E``. Siblings keep their original backlog order. A named
+descendant is not pulled in this way; it is placed by its own key, so
+it may end up after its named parent. A descendant is pulled to the
+front only when it appears after its named ancestor in the backlog, so
+that no item is moved to a later position because of an ancestor's
+key. All items that are neither named nor pulled to the front keep
+their original order after the front block.
+
+**Arguments**:
+
+- `backlog` - The backlog to reorder. The argument is not modified.
+- `keys` - The keys to move to the front, in the wanted order. The keys
+  must be unique and must exist in the backlog.
+- `stderr_file` - The stream to report errors to.
+  
+
+**Returns**:
+
+  A new backlog with the named items moved to the front.
+  
+
+**Raises**:
+
+- `KeyError` - If a key is not found in the backlog.
+- `ValueError` - If a key is not unique.
+
+<a id="backlogops.move_keys_first.get_keys_in_order"></a>
+
+#### get\_keys\_in\_order
+
+```python
+def get_keys_in_order(backlog: Backlog,
+                      only_levels: int | str | Sequence[int | str],
+                      levels: Optional[Levels] = None) -> list[str]
+```
+
+Return the keys of the backlog items at the given levels, in order.
+
+The keys are returned in the order they appear in the backlog, keeping
+only the items whose level is among ``only_levels``. A level may be
+given as a level number or as a level name or alias. A name or alias
+is resolved through ``levels`` (the default levels when ``levels`` is
+None). A level number is used as is and need not be one of ``levels``.
+
+**Arguments**:
+
+- `backlog` - The backlog to take the keys from.
+- `only_levels` - The levels to keep, as a single int or str or as a
+  sequence of ints and strs.
+- `levels` - The levels used to resolve a level name or alias, or None
+  to use :data:`DEFAULT_LEVELS`.
+  
+
+**Returns**:
+
+  The keys of the matching items, in backlog order.
+  
+
+**Raises**:
+
+- `TypeError` - If ``only_levels`` is not an int, a str, or a sequence
+  of ints and strs.
+- `ValueError` - If a level name or alias matches no level.
 
 <a id="backlogops.work_hours"></a>
 

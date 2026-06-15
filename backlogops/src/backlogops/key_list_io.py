@@ -1,49 +1,202 @@
 #! /usr/bin/env python3
-"""IO for key lists."""
+"""Read and write a key list as its own file.
+
+A key list is an ordered list of backlog item keys stored on its own,
+separate from the backlog. The file format is chosen from the file name
+extension: a ``.txt`` or ``.dat`` file is plain UTF-8 text, and any
+extension that TableIO supports (such as ``.csv``, ``.ods`` or ``.xlsx``)
+is a one column table.
+
+Two options apply to both shapes and describe whether the file carries a
+column name. ``skip_column_names`` tells the reader that the first
+row/line is a column name to skip, and ``add_column_name`` tells the
+writer to write such a column name (``Keys``).
+
+For a text file without a column name every whitespace separated word is
+a key, in the order the words appear; with a column name the heading line
+is skipped and every following non empty line holds exactly one key.
+
+For a table file without a column name every row is data (read with list
+reading); with a column name the first row names the column (read with
+dict reading). A single column table usually has no column name, but it
+may have one. Either way the table must have exactly one column.
+"""
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+from pathlib import Path
 from typing import TextIO
 from collections.abc import Sequence
 import sys
 from config_as_json import PathOrStr
+from tableio import DictData, FileAccess, ListData, Value, \
+    access_capabilities, tio_config_create
+from backlogops.backlog_helpers import report_bad_value
+from backlogops.io_config import resolve_input_config, resolve_output_config
+
+TEXT_EXTENSIONS = {'.txt', '.dat'}
+"""File name extensions read and written as plain UTF-8 text."""
+
+KEY_COLUMN_NAME = 'Keys'
+"""Column name of the single column of a key list table."""
+
+
+def _is_text(file_name: PathOrStr) -> bool:
+    """Return whether a key list file is plain text rather than a table."""
+    return Path(file_name).suffix.lower() in TEXT_EXTENSIONS
+
+
+def _column_keys(text: str, stderr_file: TextIO) -> list[str]:
+    """Return one key per line of a column text file, after the heading.
+
+    The first line is the column heading and is skipped. Every following
+    non empty line must hold exactly one word, which is the key.
+    """
+    keys: list[str] = []
+    for line in text.splitlines()[1:]:
+        words = line.split()
+        if not words:
+            continue
+        if len(words) > 1:
+            report_bad_value('key', line.strip(),
+                             'a column key list allows only one key per line',
+                             stderr_file, 'Key list')
+        keys.append(words[0])
+    return keys
+
+
+def _read_text(file_name: PathOrStr, skip_column_names: bool,
+               stderr_file: TextIO) -> list[str]:
+    """Return the keys of a plain text key list file."""
+    text = Path(file_name).read_text(encoding='utf-8')
+    if skip_column_names:
+        return _column_keys(text, stderr_file)
+    return text.split()
+
+
+def _check_one_column(width: int, stderr_file: TextIO) -> None:
+    """Report a table that does not have exactly one column."""
+    if width > 1:
+        report_bad_value('columns', width,
+                         'a key list table must have exactly one column',
+                         stderr_file, 'Key list')
+
+
+def _cell_keys(values: list[Value]) -> list[str]:
+    """Return the non empty cell values of one table column as strings."""
+    return [str(value) for value in values
+            if value is not None and str(value) != '']
+
+
+def _keys_from_dict(rows: DictData[Value], stderr_file: TextIO) -> list[str]:
+    """Return the keys of a one column table read with dict reading."""
+    if not rows:
+        return []
+    _check_one_column(len(rows[0]), stderr_file)
+    column = next(iter(rows[0]))
+    return _cell_keys([row[column] for row in rows])
+
+
+def _keys_from_list(rows: ListData[Value], stderr_file: TextIO) -> list[str]:
+    """Return the keys of a one column table read with list reading."""
+    if not rows:
+        return []
+    _check_one_column(len(rows[0]), stderr_file)
+    return _cell_keys([row[0] for row in rows])
+
+
+def _read_table(file_name: PathOrStr, skip_column_names: bool,
+                stderr_file: TextIO) -> list[str]:
+    """Return the keys of a key list stored as a one column table."""
+    config = resolve_input_config(None, data_file=file_name,
+                                  stderr_file=stderr_file).tableio
+    capabilities = access_capabilities(FileAccess.READ, error_file=stderr_file)
+    with tio_config_create(config=config, file_name=file_name,
+                           file_access=FileAccess.READ,
+                           capabilities=capabilities) as tableio:
+        if skip_column_names:
+            keys = _keys_from_dict(tableio.read_table_dictdata().data,
+                                   stderr_file)
+        else:
+            keys = _keys_from_list(tableio.read_table_listdata().data,
+                                   stderr_file)
+    return keys
 
 
 def read_key_list(file_name: PathOrStr, *, skip_column_names: bool = False,
                   stderr_file: TextIO = sys.stderr) -> list[str]:
     """Read a key list from a file.
 
-    Read a key list from a file.
+    The file type is chosen from the file name extension. A ``.txt`` or
+    ``.dat`` file is read as UTF-8 text; any other extension is read as a
+    TableIO table whose single column holds the keys.
 
-    The file type is determined by the file extension. If the file extension
-    is .txt or .dat, the file is read as a text file, using utf-8 encoding.
-    If skip_column_names is False a text file every work found in the text
-    file is added to the key list in the order they appear in the file.
-    If skip_column_names is True the first line of the text file is skipped,
-    and the first word in each subsequent line is added to the key list.
-
-    If the file extension is one of the supported tableio file extensions,
-    the file is read as a table and the first column is read as the key list.
+    ``skip_column_names`` tells whether the file starts with a column
+    name. For a text file, when it is False the file is a free word list
+    and every whitespace separated word is a key, in the order the words
+    appear; when it is True the first line is a column heading and is
+    skipped, and every following non empty line must hold exactly one
+    word, which is a key. For a table file, when it is False every row is
+    data (list reading); when it is True the first row names the column
+    and is skipped (dict reading). A table must have exactly one column.
 
     Args:
-        file_name: The name of the file to read the key list from.
-        skip_column_names: Whether to skip the first line of the text file.
-        stderr_file: The file to report errors to.
+        file_name: The file to read the key list from.
+        skip_column_names: Whether the file starts with a column name to
+            skip.
+        stderr_file: The stream to report errors to.
+
+    Returns:
+        The keys in the order they appear in the file.
 
     Raises:
         FileNotFoundError: If the file does not exist.
         IsADirectoryError: If the file is a directory.
         PermissionError: If the file is not readable.
-        ValueError: If the file is not a valid key list file.
-                    If the file is a table with more than one column.
-        UnicodeDecodeError: If the file is not a valid UTF-8 encoded text file.
-
-    Returns:
-        The key list.
+        UnicodeDecodeError: If a text file is not valid UTF-8.
+        ValueError: If a column text line holds more than one word, if a
+            table has more than one column, or if the extension is not a
+            supported table format.
     """
-    # implement this
-    return []
+    if _is_text(file_name):
+        return _read_text(file_name, skip_column_names, stderr_file)
+    return _read_table(file_name, skip_column_names, stderr_file)
+
+
+def _ensure_absent(file_name: PathOrStr, stderr_file: TextIO) -> None:
+    """Raise ``FileExistsError`` when the target file already exists."""
+    if Path(file_name).exists():
+        message = f'File already exists: {file_name}'
+        print(message, file=stderr_file)
+        raise FileExistsError(message)
+
+
+def _write_text(key_list: Sequence[str], file_name: PathOrStr,
+                add_column_name: bool) -> None:
+    """Write a key list as plain text, one key per line."""
+    lines = [KEY_COLUMN_NAME, *key_list] if add_column_name else list(key_list)
+    text = ''.join(f'{line}\n' for line in lines)
+    Path(file_name).write_text(text, encoding='utf-8')
+
+
+def _write_table(key_list: Sequence[str], file_name: PathOrStr,
+                 add_column_name: bool, stderr_file: TextIO) -> None:
+    """Write a key list as a one column TableIO table."""
+    config = resolve_output_config(None, data_file=file_name,
+                                   stderr_file=stderr_file).tableio
+    capabilities = access_capabilities(FileAccess.CREATE,
+                                       error_file=stderr_file)
+    with tio_config_create(config=config, file_name=file_name,
+                           file_access=FileAccess.CREATE,
+                           capabilities=capabilities) as tableio:
+        if add_column_name:
+            dict_rows: DictData[Value] = [{KEY_COLUMN_NAME: key}
+                                          for key in key_list]
+            tableio.write_table_dictdata(dict_rows,
+                                         column_order=[KEY_COLUMN_NAME])
+        else:
+            tableio.write_table_listdata([[key] for key in key_list])
 
 
 def write_key_list(key_list: Sequence[str], file_name: PathOrStr, *,
@@ -51,27 +204,29 @@ def write_key_list(key_list: Sequence[str], file_name: PathOrStr, *,
                    stderr_file: TextIO = sys.stderr) -> None:
     """Write a key list to a file.
 
-    Write a key list to a file.
-    The file type is determined by the file extension. If the file extension
-    is .txt or .dat, the file is written as a text file, using utf-8 encoding.
-    The key list is written to the file one per line in the order of the keys.
+    The file type is chosen from the file name extension. A ``.txt`` or
+    ``.dat`` file is written as UTF-8 text with one key per line; any
+    other extension is written as a TableIO table with a single column.
 
-    If the file extension is one of the supported tableio file extensions,
-    the key list is written as a table with only one column.
-
-    If add_column_name is True the first row of the table or text file is the
-    column name "Keys".
+    ``add_column_name`` decides whether the column name ``Keys`` is
+    written before the keys: as a heading line for a text file, and as a
+    header row for a table file. When it is False a text file holds only
+    the keys and a table file holds only data rows (list writing).
 
     Args:
-        key_list: The key list to write.
-        file_name: The name of the file to write the key list to.
-        add_column_names: Whether to add the column name "Keys"
-                          as the first row of the table or text file.
-        stderr_file: The file to report errors to.
+        key_list: The keys to write, in order.
+        file_name: The file to create.
+        add_column_name: Whether to write the column name ``Keys`` first.
+        stderr_file: The stream to report errors to.
 
     Raises:
         FileExistsError: If the file already exists.
         IsADirectoryError: If the file is a directory.
         PermissionError: If the file is not writable.
+        ValueError: If the extension is not a supported table format.
     """
-    # implement this
+    _ensure_absent(file_name, stderr_file)
+    if _is_text(file_name):
+        _write_text(key_list, file_name, add_column_name)
+    else:
+        _write_table(key_list, file_name, add_column_name, stderr_file)
