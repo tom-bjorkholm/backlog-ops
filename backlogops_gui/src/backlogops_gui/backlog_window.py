@@ -112,8 +112,8 @@ class BacklogWindow:
         tree.configure(yscrollcommand=scroll.set)
         scroll.pack(side='right', fill='y')
         if narrow:
-            frame.pack(padx=8, pady=6, fill='x')
-            tree.pack(side='left', fill='x')
+            frame.pack(padx=8, pady=6, anchor='w')
+            tree.pack(side='left')
         else:
             frame.pack(padx=8, pady=6, fill='both', expand=True)
             tree.pack(side='left', fill='both', expand=True)
