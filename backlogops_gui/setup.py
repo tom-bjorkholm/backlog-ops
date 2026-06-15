@@ -20,6 +20,7 @@ setup(
   },
   install_requires=[
     'backlogops >= 0.0.1',
+    'argcomplete >= 3.6.3',
     'pip >= 26.1.1',
     'setuptools >= 82.0.1',
     'build >= 1.5.0',
