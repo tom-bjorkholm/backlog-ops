@@ -4,11 +4,13 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+from datetime import date
 from typing import Optional
 import pytest
+from backlogops import DependencyMode
 from backlogops_gui.io_dialogs import (
-    MODE_FILE, MODE_INFER, MODE_PRESET, ReadOptions, WriteOptions,
-    format_value)
+    MODE_FILE, MODE_INFER, MODE_PRESET, DepOptions, ReadOptions, StartChoice,
+    WriteOptions, format_value)
 
 
 @pytest.mark.parametrize('mode,preset,path,expected', [
@@ -29,3 +31,13 @@ def test_option_dataclasses() -> None:
     write = WriteOptions('preset', True)
     assert write.config_value == 'preset'
     assert write.releases_first is True
+
+
+def test_action_dataclasses() -> None:
+    """Test the action dataclasses hold the entered selection."""
+    options = DepOptions(True, DependencyMode.EARLY, ['A'])
+    assert options.later is True
+    assert options.mode is DependencyMode.EARLY
+    assert options.space_around == ['A']
+    assert StartChoice(None).start_date is None
+    assert StartChoice(date(2026, 6, 15)).start_date == date(2026, 6, 15)

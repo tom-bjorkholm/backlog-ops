@@ -31,6 +31,7 @@
     * [\_\_init\_\_](#backlogops_gui.application.BacklogApp.__init__)
     * [in\_presets](#backlogops_gui.application.BacklogApp.in_presets)
     * [out\_presets](#backlogops_gui.application.BacklogApp.out_presets)
+    * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
     * [show\_info](#backlogops_gui.application.BacklogApp.show_info)
     * [start](#backlogops_gui.application.BacklogApp.start)
@@ -59,12 +60,26 @@
   * [check\_tcltk\_version](#backlogops_gui.tcltk_version.check_tcltk_version)
 * [backlogops\_gui.backlog\_window](#backlogops_gui.backlog_window)
   * [save\_backlog](#backlogops_gui.backlog_window.save_backlog)
+  * [\_apply\_change](#backlogops_gui.backlog_window._apply_change)
+  * [order\_by\_keys](#backlogops_gui.backlog_window.order_by_keys)
+  * [order\_by\_deps](#backlogops_gui.backlog_window.order_by_deps)
+  * [estimate\_date](#backlogops_gui.backlog_window.estimate_date)
+  * [set\_plan](#backlogops_gui.backlog_window.set_plan)
+  * [extract\_keys](#backlogops_gui.backlog_window.extract_keys)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
+    * [\_build\_tables](#backlogops_gui.backlog_window.BacklogWindow._build_tables)
+    * [\_refresh\_tables](#backlogops_gui.backlog_window.BacklogWindow._refresh_tables)
     * [\_add\_menu](#backlogops_gui.backlog_window.BacklogWindow._add_menu)
+    * [\_add\_actions](#backlogops_gui.backlog_window.BacklogWindow._add_actions)
     * [\_add\_table](#backlogops_gui.backlog_window.BacklogWindow._add_table)
     * [\_make\_tree](#backlogops_gui.backlog_window.BacklogWindow._make_tree)
     * [\_save](#backlogops_gui.backlog_window.BacklogWindow._save)
+    * [\_order\_by\_keys](#backlogops_gui.backlog_window.BacklogWindow._order_by_keys)
+    * [\_order\_by\_deps](#backlogops_gui.backlog_window.BacklogWindow._order_by_deps)
+    * [\_estimate\_date](#backlogops_gui.backlog_window.BacklogWindow._estimate_date)
+    * [\_set\_plan](#backlogops_gui.backlog_window.BacklogWindow._set_plan)
+    * [\_extract\_keys](#backlogops_gui.backlog_window.BacklogWindow._extract_keys)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
   * [format\_value](#backlogops_gui.io_dialogs.format_value)
   * [ReadOptions](#backlogops_gui.io_dialogs.ReadOptions)
@@ -72,19 +87,49 @@
   * [choose\_input\_file](#backlogops_gui.io_dialogs.choose_input_file)
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
+  * [\_ModalDialog](#backlogops_gui.io_dialogs._ModalDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._ModalDialog.__init__)
+    * [\_show](#backlogops_gui.io_dialogs._ModalDialog._show)
+    * [\_add\_buttons](#backlogops_gui.io_dialogs._ModalDialog._add_buttons)
+    * [\_confirm](#backlogops_gui.io_dialogs._ModalDialog._confirm)
+    * [\_cancel](#backlogops_gui.io_dialogs._ModalDialog._cancel)
   * [\_FormatDialog](#backlogops_gui.io_dialogs._FormatDialog)
     * [\_\_init\_\_](#backlogops_gui.io_dialogs._FormatDialog.__init__)
     * [\_build](#backlogops_gui.io_dialogs._FormatDialog._build)
     * [\_add\_radio](#backlogops_gui.io_dialogs._FormatDialog._add_radio)
     * [\_add\_preset\_row](#backlogops_gui.io_dialogs._FormatDialog._add_preset_row)
     * [\_add\_file\_row](#backlogops_gui.io_dialogs._FormatDialog._add_file_row)
-    * [\_add\_buttons](#backlogops_gui.io_dialogs._FormatDialog._add_buttons)
     * [\_browse](#backlogops_gui.io_dialogs._FormatDialog._browse)
     * [\_confirm](#backlogops_gui.io_dialogs._FormatDialog._confirm)
     * [\_selected\_value](#backlogops_gui.io_dialogs._FormatDialog._selected_value)
-    * [\_cancel](#backlogops_gui.io_dialogs._FormatDialog._cancel)
   * [ask\_read\_options](#backlogops_gui.io_dialogs.ask_read_options)
   * [ask\_write\_options](#backlogops_gui.io_dialogs.ask_write_options)
+  * [choose\_key\_list\_output](#backlogops_gui.io_dialogs.choose_key_list_output)
+  * [DepOptions](#backlogops_gui.io_dialogs.DepOptions)
+  * [StartChoice](#backlogops_gui.io_dialogs.StartChoice)
+  * [\_KeysDialog](#backlogops_gui.io_dialogs._KeysDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._KeysDialog.__init__)
+    * [\_build\_text](#backlogops_gui.io_dialogs._KeysDialog._build_text)
+    * [\_load](#backlogops_gui.io_dialogs._KeysDialog._load)
+    * [\_confirm](#backlogops_gui.io_dialogs._KeysDialog._confirm)
+  * [\_DepOptionsDialog](#backlogops_gui.io_dialogs._DepOptionsDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._DepOptionsDialog.__init__)
+    * [\_build](#backlogops_gui.io_dialogs._DepOptionsDialog._build)
+    * [\_build\_mode](#backlogops_gui.io_dialogs._DepOptionsDialog._build_mode)
+    * [\_build\_space](#backlogops_gui.io_dialogs._DepOptionsDialog._build_space)
+    * [\_confirm](#backlogops_gui.io_dialogs._DepOptionsDialog._confirm)
+  * [\_StartDateDialog](#backlogops_gui.io_dialogs._StartDateDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._StartDateDialog.__init__)
+    * [\_build](#backlogops_gui.io_dialogs._StartDateDialog._build)
+    * [\_confirm](#backlogops_gui.io_dialogs._StartDateDialog._confirm)
+  * [\_LevelsDialog](#backlogops_gui.io_dialogs._LevelsDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._LevelsDialog.__init__)
+    * [\_build](#backlogops_gui.io_dialogs._LevelsDialog._build)
+    * [\_confirm](#backlogops_gui.io_dialogs._LevelsDialog._confirm)
+  * [ask\_keys](#backlogops_gui.io_dialogs.ask_keys)
+  * [ask\_dep\_options](#backlogops_gui.io_dialogs.ask_dep_options)
+  * [ask\_start\_date](#backlogops_gui.io_dialogs.ask_start_date)
+  * [ask\_levels](#backlogops_gui.io_dialogs.ask_levels)
 * [backlogops\_gui.log\_buffer](#backlogops_gui.log_buffer)
   * [LogBuffer](#backlogops_gui.log_buffer.LogBuffer)
     * [\_\_init\_\_](#backlogops_gui.log_buffer.LogBuffer.__init__)
@@ -468,6 +513,16 @@ def out_presets() -> Optional[dict[str, OutputFormatConfig]]
 
 Return the output presets of the current configuration.
 
+<a id="backlogops_gui.application.BacklogApp.available_teams"></a>
+
+#### available\_teams
+
+```python
+def available_teams() -> Optional[AvailableTeams]
+```
+
+Return the loaded teams configuration, or None when absent.
+
 <a id="backlogops_gui.application.BacklogApp.show_error"></a>
 
 #### show\_error
@@ -776,6 +831,88 @@ Ask where and how to save a backlog and write it.
 - `on_error` - Callback used to report a write failure.
 - `on_info` - Callback used to report a successful write.
 
+<a id="backlogops_gui.backlog_window._apply_change"></a>
+
+#### \_apply\_change
+
+```python
+def _apply_change(change: Callable[[], None], refresh: Callable[[], None],
+                  on_error: Callable[[str, str],
+                                     None], on_info: Callable[[str, str],
+                                                              None],
+                  fail_title: str, ok_title: str, ok_message: str) -> None
+```
+
+Run a backlog change, refresh the view and report the outcome.
+
+A change that raises one of the known data errors is reported through
+``on_error`` and leaves the view unchanged. A successful change
+refreshes the view and is reported through ``on_info``.
+
+<a id="backlogops_gui.backlog_window.order_by_keys"></a>
+
+#### order\_by\_keys
+
+```python
+def order_by_keys(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                  refresh: Callable[[], None], on_error: Callable[[str, str],
+                                                                  None],
+                  on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for leading keys and move those items to the front.
+
+<a id="backlogops_gui.backlog_window.order_by_deps"></a>
+
+#### order\_by\_deps
+
+```python
+def order_by_deps(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                  refresh: Callable[[], None], on_error: Callable[[str, str],
+                                                                  None],
+                  on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for the options and order the backlog by dependencies.
+
+<a id="backlogops_gui.backlog_window.estimate_date"></a>
+
+#### estimate\_date
+
+```python
+def estimate_date(parent: tk.Misc, data: BacklogReleases,
+                  teams: Optional[AvailableTeams], sink: TextIO,
+                  refresh: Callable[[], None], on_error: Callable[[str, str],
+                                                                  None],
+                  on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for the start date and estimate the ready dates.
+
+<a id="backlogops_gui.backlog_window.set_plan"></a>
+
+#### set\_plan
+
+```python
+def set_plan(data: BacklogReleases, sink: TextIO, refresh: Callable[[], None],
+             on_error: Callable[[str, str], None],
+             on_info: Callable[[str, str], None]) -> None
+```
+
+Copy the estimated ready dates to the planned ready dates.
+
+<a id="backlogops_gui.backlog_window.extract_keys"></a>
+
+#### extract\_keys
+
+```python
+def extract_keys(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                 on_error: Callable[[str, str], None],
+                 on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for levels and a file, then write the backlog keys to it.
+
 <a id="backlogops_gui.backlog_window.BacklogWindow"></a>
 
 ## BacklogWindow Objects
@@ -793,8 +930,10 @@ A top-level window showing one backlog and its releases.
 ```python
 def __init__(root: tk.Misc, data: BacklogReleases, title: str,
              presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
-             sink: TextIO, on_error: Callable[[str, str], None],
-             on_info: Callable[[str, str], None]) -> None
+             teams: Callable[[], Optional[AvailableTeams]], sink: TextIO,
+             on_error: Callable[[str, str],
+                                None], on_info: Callable[[str, str],
+                                                         None]) -> None
 ```
 
 Build the window, its menu and the two tables.
@@ -805,9 +944,30 @@ Build the window, its menu and the two tables.
 - `data` - The backlog and releases to show.
 - `title` - The window title, typically the source file name.
 - `presets` - Callable returning the current output presets.
+- `teams` - Callable returning the loaded teams configuration.
 - `sink` - Stream that receives low-level write diagnostics.
 - `on_error` - Callback used to report a write failure.
 - `on_info` - Callback used to report a successful write.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._build_tables"></a>
+
+#### \_build\_tables
+
+```python
+def _build_tables() -> None
+```
+
+Build the backlog and releases tables from the current data.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._refresh_tables"></a>
+
+#### \_refresh\_tables
+
+```python
+def _refresh_tables() -> None
+```
+
+Rebuild the tables after the backlog data has changed.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._add_menu"></a>
 
@@ -817,7 +977,17 @@ Build the window, its menu and the two tables.
 def _add_menu() -> None
 ```
 
-Add the backlog menu with the save and close actions.
+Add the backlog menu with the action, save and close items.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._add_actions"></a>
+
+#### \_add\_actions
+
+```python
+def _add_actions(menu: tk.Menu) -> None
+```
+
+Add the backlog operation items to the menu.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._add_table"></a>
 
@@ -825,10 +995,10 @@ Add the backlog menu with the save and close actions.
 
 ```python
 def _add_table(heading: str, columns: list[str], rows: list[list[str]],
-               narrow: bool) -> None
+               narrow: bool) -> tk.Widget
 ```
 
-Add one labeled, scrollable table to the window.
+Add one labeled, scrollable table and return its frame.
 
 The narrow table keeps its few columns at a fixed width and does
 not take the spare space, so it stays clearly narrower than the
@@ -855,6 +1025,56 @@ def _save() -> None
 ```
 
 Save the backlog through the shared save helper.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._order_by_keys"></a>
+
+#### \_order\_by\_keys
+
+```python
+def _order_by_keys() -> None
+```
+
+Order the backlog by leading keys and refresh the tables.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._order_by_deps"></a>
+
+#### \_order\_by\_deps
+
+```python
+def _order_by_deps() -> None
+```
+
+Order the backlog by dependencies and refresh the tables.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._estimate_date"></a>
+
+#### \_estimate\_date
+
+```python
+def _estimate_date() -> None
+```
+
+Estimate the ready dates and refresh the tables.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._set_plan"></a>
+
+#### \_set\_plan
+
+```python
+def _set_plan() -> None
+```
+
+Copy the estimated dates to the planned dates and refresh.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._extract_keys"></a>
+
+#### \_extract\_keys
+
+```python
+def _extract_keys() -> None
+```
+
+Extract backlog keys at chosen levels to a key list file.
 
 <a id="backlogops_gui.io_dialogs"></a>
 
@@ -934,12 +1154,72 @@ def choose_config_file(parent: tk.Misc) -> Optional[str]
 
 Ask for a configuration file to create, or None when cancelled.
 
+<a id="backlogops_gui.io_dialogs._ModalDialog"></a>
+
+## \_ModalDialog Objects
+
+```python
+class _ModalDialog()
+```
+
+Base for small modal dialogs with OK and Cancel buttons.
+
+<a id="backlogops_gui.io_dialogs._ModalDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, title: str) -> None
+```
+
+Create the modal top-level window and its close handler.
+
+<a id="backlogops_gui.io_dialogs._ModalDialog._show"></a>
+
+#### \_show
+
+```python
+def _show() -> None
+```
+
+Add the buttons, grab the focus and wait for the close.
+
+<a id="backlogops_gui.io_dialogs._ModalDialog._add_buttons"></a>
+
+#### \_add\_buttons
+
+```python
+def _add_buttons() -> None
+```
+
+Add the confirm and cancel buttons.
+
+<a id="backlogops_gui.io_dialogs._ModalDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Close the dialog; subclasses override to store their values.
+
+<a id="backlogops_gui.io_dialogs._ModalDialog._cancel"></a>
+
+#### \_cancel
+
+```python
+def _cancel() -> None
+```
+
+Mark the dialog cancelled and close it.
+
 <a id="backlogops_gui.io_dialogs._FormatDialog"></a>
 
 ## \_FormatDialog Objects
 
 ```python
-class _FormatDialog()
+class _FormatDialog(_ModalDialog)
 ```
 
 Modal dialog collecting the format selection for one file.
@@ -995,16 +1275,6 @@ def _add_file_row() -> None
 
 Add the configuration-file radio button, entry and browse.
 
-<a id="backlogops_gui.io_dialogs._FormatDialog._add_buttons"></a>
-
-#### \_add\_buttons
-
-```python
-def _add_buttons() -> None
-```
-
-Add the confirm and cancel buttons.
-
 <a id="backlogops_gui.io_dialogs._FormatDialog._browse"></a>
 
 #### \_browse
@@ -1035,16 +1305,6 @@ def _selected_value() -> Optional[str]
 
 Return the format value for the selected mode.
 
-<a id="backlogops_gui.io_dialogs._FormatDialog._cancel"></a>
-
-#### \_cancel
-
-```python
-def _cancel() -> None
-```
-
-Mark the dialog cancelled and close it.
-
 <a id="backlogops_gui.io_dialogs.ask_read_options"></a>
 
 #### ask\_read\_options
@@ -1068,6 +1328,268 @@ def ask_write_options(
 ```
 
 Ask how to write a file, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.io_dialogs.choose_key_list_output"></a>
+
+#### choose\_key\_list\_output
+
+```python
+def choose_key_list_output(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for a key list file to create, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.DepOptions"></a>
+
+## DepOptions Objects
+
+```python
+@dataclass
+class DepOptions()
+```
+
+The options selected for ordering a backlog by dependencies.
+
+<a id="backlogops_gui.io_dialogs.StartChoice"></a>
+
+## StartChoice Objects
+
+```python
+@dataclass
+class StartChoice()
+```
+
+The start date selected for estimating ready dates.
+
+<a id="backlogops_gui.io_dialogs._KeysDialog"></a>
+
+## \_KeysDialog Objects
+
+```python
+class _KeysDialog(_ModalDialog)
+```
+
+Modal dialog collecting the leading keys for a reordering.
+
+<a id="backlogops_gui.io_dialogs._KeysDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, sink: TextIO) -> None
+```
+
+Build, show and wait for the key entry dialog.
+
+<a id="backlogops_gui.io_dialogs._KeysDialog._build_text"></a>
+
+#### \_build\_text
+
+```python
+def _build_text() -> tk.Text
+```
+
+Add the entry label, text box and the load-from-file button.
+
+<a id="backlogops_gui.io_dialogs._KeysDialog._load"></a>
+
+#### \_load
+
+```python
+def _load() -> None
+```
+
+Read a key list file into the text box, reporting failures.
+
+<a id="backlogops_gui.io_dialogs._KeysDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Split the text on whitespace and close the dialog.
+
+<a id="backlogops_gui.io_dialogs._DepOptionsDialog"></a>
+
+## \_DepOptionsDialog Objects
+
+```python
+class _DepOptionsDialog(_ModalDialog)
+```
+
+Modal dialog collecting the order-by-dependencies options.
+
+<a id="backlogops_gui.io_dialogs._DepOptionsDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the dependency options dialog.
+
+<a id="backlogops_gui.io_dialogs._DepOptionsDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the later check box, the mode chooser and the key entry.
+
+<a id="backlogops_gui.io_dialogs._DepOptionsDialog._build_mode"></a>
+
+#### \_build\_mode
+
+```python
+def _build_mode() -> None
+```
+
+Add the placement-mode label and chooser.
+
+<a id="backlogops_gui.io_dialogs._DepOptionsDialog._build_space"></a>
+
+#### \_build\_space
+
+```python
+def _build_space() -> None
+```
+
+Add the space-around label and key entry.
+
+<a id="backlogops_gui.io_dialogs._DepOptionsDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the selected options and close the dialog.
+
+<a id="backlogops_gui.io_dialogs._StartDateDialog"></a>
+
+## \_StartDateDialog Objects
+
+```python
+class _StartDateDialog(_ModalDialog)
+```
+
+Modal dialog collecting the start date for the estimate.
+
+<a id="backlogops_gui.io_dialogs._StartDateDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the start date dialog.
+
+<a id="backlogops_gui.io_dialogs._StartDateDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the start date label and entry.
+
+<a id="backlogops_gui.io_dialogs._StartDateDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Parse the date, keeping the dialog open on a bad value.
+
+<a id="backlogops_gui.io_dialogs._LevelsDialog"></a>
+
+## \_LevelsDialog Objects
+
+```python
+class _LevelsDialog(_ModalDialog)
+```
+
+Modal dialog selecting the levels to extract keys at.
+
+<a id="backlogops_gui.io_dialogs._LevelsDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the level selection dialog.
+
+<a id="backlogops_gui.io_dialogs._LevelsDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> dict[int, tk.BooleanVar]
+```
+
+Add a check box for each default level and return its variables.
+
+<a id="backlogops_gui.io_dialogs._LevelsDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the chosen levels, requiring at least one selection.
+
+<a id="backlogops_gui.io_dialogs.ask_keys"></a>
+
+#### ask\_keys
+
+```python
+def ask_keys(parent: tk.Misc, sink: TextIO) -> Optional[list[str]]
+```
+
+Ask for the leading keys, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_dep_options"></a>
+
+#### ask\_dep\_options
+
+```python
+def ask_dep_options(parent: tk.Misc) -> Optional[DepOptions]
+```
+
+Ask for the dependency options, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_start_date"></a>
+
+#### ask\_start\_date
+
+```python
+def ask_start_date(parent: tk.Misc) -> Optional[StartChoice]
+```
+
+Ask for the start date, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_levels"></a>
+
+#### ask\_levels
+
+```python
+def ask_levels(parent: tk.Misc) -> Optional[list[int]]
+```
+
+Ask for the levels to extract, or None when cancelled.
 
 <a id="backlogops_gui.log_buffer"></a>
 

@@ -24,8 +24,8 @@ from typing import Optional, TextIO
 import argcomplete
 from config_as_json.file_extension import fix_file_extension
 from backlogops import (
-    AvailableTeamsConfig, BacklogReleases, InputFormatConfig, NoTextIO,
-    OutputFormatConfig, get_demo_backlog, get_available_teams,
+    AvailableTeams, AvailableTeamsConfig, BacklogReleases, InputFormatConfig,
+    NoTextIO, OutputFormatConfig, get_demo_backlog, get_available_teams,
     teams_config_wizard)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
@@ -94,6 +94,10 @@ class BacklogApp:
     def out_presets(self) -> Optional[dict[str, OutputFormatConfig]]:
         """Return the output presets of the current configuration."""
         return self.config.output_configs if self.config else None
+
+    def available_teams(self) -> Optional[AvailableTeams]:
+        """Return the loaded teams configuration, or None when absent."""
+        return self.config
 
     def show_error(self, title: str, message: str) -> None:
         """Show an error message to the user."""
@@ -192,8 +196,9 @@ class BacklogApp:
 
     def open_backlog(self, data: BacklogReleases, title: str) -> None:
         """Open one backlog and its releases in a new window."""
-        BacklogWindow(self.root, data, title, self.out_presets, self.log,
-                      self.show_error, self.show_info)
+        BacklogWindow(self.root, data, title, self.out_presets,
+                      self.available_teams, self.log, self.show_error,
+                      self.show_info)
 
     def build_menu(self) -> None:
         """Build the menu bar of the main window."""

@@ -13,13 +13,16 @@ returned as a single value understood by the resolver in
 # MIT License
 
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 from dataclasses import dataclass
-from typing import Optional, Sequence
+from datetime import date
+from typing import Optional, Sequence, TextIO
+from backlogops import DependencyMode, DEFAULT_LEVELS, read_key_list
 
 MODE_INFER = 0
 MODE_PRESET = 1
 MODE_FILE = 2
+KEY_READ_ERRORS = (ValueError, TypeError, KeyError, OSError)
 
 
 def format_value(mode: int, preset: str, path: str) -> Optional[str]:
@@ -70,28 +73,60 @@ def choose_config_file(parent: tk.Misc) -> Optional[str]:
 
 
 # pylint: disable-next=too-few-public-methods
-class _FormatDialog:  # pylint: disable=too-many-instance-attributes
+class _ModalDialog:
+    """Base for small modal dialogs with OK and Cancel buttons."""
+
+    def __init__(self, parent: tk.Misc, title: str) -> None:
+        """Create the modal top-level window and its close handler."""
+        self.cancelled = False
+        self._win = tk.Toplevel(parent)
+        self._win.title(title)
+        if isinstance(parent, tk.Wm):
+            self._win.transient(parent)
+        self._win.protocol('WM_DELETE_WINDOW', self._cancel)
+
+    def _show(self) -> None:
+        """Add the buttons, grab the focus and wait for the close."""
+        self._add_buttons()
+        self._win.grab_set()
+        self._win.wait_window()
+
+    def _add_buttons(self) -> None:
+        """Add the confirm and cancel buttons."""
+        button_bar = tk.Frame(self._win)
+        button_bar.pack(padx=12, pady=10, fill='x')
+        tk.Button(button_bar, text='OK',
+                  command=self._confirm).pack(side='left')
+        tk.Button(button_bar, text='Cancel',
+                  command=self._cancel).pack(side='right')
+
+    def _confirm(self) -> None:
+        """Close the dialog; subclasses override to store their values."""
+        self._win.destroy()
+
+    def _cancel(self) -> None:
+        """Mark the dialog cancelled and close it."""
+        self.cancelled = True
+        self._win.destroy()
+
+
+# pylint: disable-next=too-few-public-methods,too-many-instance-attributes
+class _FormatDialog(_ModalDialog):
     """Modal dialog collecting the format selection for one file."""
 
     def __init__(self, parent: tk.Misc, presets: Sequence[str],
                  with_releases_first: bool) -> None:
         """Build, show and wait for the modal format dialog."""
-        self.cancelled = False
+        super().__init__(parent, 'File format')
         self.value: Optional[str] = None
         self.releases_first = False
         self._presets = presets
-        self._win = tk.Toplevel(parent)
-        self._win.title('File format')
-        if isinstance(parent, tk.Wm):
-            self._win.transient(parent)
-        self._win.protocol('WM_DELETE_WINDOW', self._cancel)
         self._mode = tk.IntVar(self._win, MODE_INFER)
         self._preset = tk.StringVar(self._win)
         self._path = tk.StringVar(self._win)
         self._rel_first = tk.BooleanVar(self._win, False)
         self._build(with_releases_first)
-        self._win.grab_set()
-        self._win.wait_window()
+        self._show()
 
     def _build(self, with_releases_first: bool) -> None:
         """Create the radio buttons, inputs and action buttons."""
@@ -102,7 +137,6 @@ class _FormatDialog:  # pylint: disable=too-many-instance-attributes
             check = tk.Checkbutton(self._win, variable=self._rel_first,
                                    text='Write releases before backlog')
             check.pack(anchor='w', padx=12, pady=4)
-        self._add_buttons()
 
     def _add_radio(self, text: str, mode: int) -> None:
         """Add one mode radio button."""
@@ -127,16 +161,6 @@ class _FormatDialog:  # pylint: disable=too-many-instance-attributes
         tk.Button(row, text='Browse', command=self._browse).pack(side='left',
                                                                  padx=6)
 
-    def _add_buttons(self) -> None:
-        """Add the confirm and cancel buttons."""
-        button_bar = tk.Frame(self._win)
-        button_bar.pack(padx=12, pady=10, fill='x')
-        ok_button = tk.Button(button_bar, text='OK', command=self._confirm)
-        ok_button.pack(side='left')
-        cancel_button = tk.Button(button_bar, text='Cancel',
-                                  command=self._cancel)
-        cancel_button.pack(side='right')
-
     def _browse(self) -> None:
         """Pick a configuration file and select the file mode."""
         name = filedialog.askopenfilename(parent=self._win,
@@ -149,17 +173,12 @@ class _FormatDialog:  # pylint: disable=too-many-instance-attributes
         """Store the selected format value and close the dialog."""
         self.value = self._selected_value()
         self.releases_first = self._rel_first.get()
-        self._win.destroy()
+        super()._confirm()
 
     def _selected_value(self) -> Optional[str]:
         """Return the format value for the selected mode."""
         return format_value(self._mode.get(), self._preset.get(),
                             self._path.get())
-
-    def _cancel(self) -> None:
-        """Mark the dialog cancelled and close it."""
-        self.cancelled = True
-        self._win.destroy()
 
 
 def ask_read_options(parent: tk.Misc, presets: Optional[Sequence[str]]
@@ -179,3 +198,217 @@ def ask_write_options(parent: tk.Misc, presets: Optional[Sequence[str]]
         return None
     return WriteOptions(config_value=dialog.value,
                         releases_first=dialog.releases_first)
+
+
+def choose_key_list_output(parent: tk.Misc) -> Optional[str]:
+    """Ask for a key list file to create, or None when cancelled."""
+    name = filedialog.asksaveasfilename(parent=parent, title='Write keys')
+    return name or None
+
+
+@dataclass
+class DepOptions:
+    """The options selected for ordering a backlog by dependencies."""
+
+    later: bool
+    mode: DependencyMode
+    space_around: Optional[list[str]]
+
+
+@dataclass
+class StartChoice:
+    """The start date selected for estimating ready dates."""
+
+    start_date: Optional[date]
+
+
+# pylint: disable-next=too-few-public-methods
+class _KeysDialog(_ModalDialog):
+    """Modal dialog collecting the leading keys for a reordering."""
+
+    def __init__(self, parent: tk.Misc, sink: TextIO) -> None:
+        """Build, show and wait for the key entry dialog."""
+        super().__init__(parent, 'Order by keys')
+        self.keys: Optional[list[str]] = None
+        self._sink = sink
+        self._text = self._build_text()
+        self._show()
+
+    def _build_text(self) -> tk.Text:
+        """Add the entry label, text box and the load-from-file button."""
+        tk.Label(self._win, text='Enter keys separated by spaces or '
+                 'newlines:').pack(anchor='w', padx=12, pady=(10, 2))
+        text = tk.Text(self._win, width=40, height=8)
+        text.pack(padx=12, pady=2)
+        tk.Button(self._win, text='Load from file…',
+                  command=self._load).pack(anchor='w', padx=12, pady=4)
+        return text
+
+    def _load(self) -> None:
+        """Read a key list file into the text box, reporting failures."""
+        name = filedialog.askopenfilename(parent=self._win,
+                                          title='Read key list')
+        if not name:
+            return
+        try:
+            keys = read_key_list(name, stderr_file=self._sink)
+        except KEY_READ_ERRORS as error:
+            messagebox.showerror('Could not read key list', str(error),
+                                 parent=self._win)
+            return
+        self._text.delete('1.0', 'end')
+        self._text.insert('end', '\n'.join(keys))
+
+    def _confirm(self) -> None:
+        """Split the text on whitespace and close the dialog."""
+        self.keys = self._text.get('1.0', 'end').split()
+        super()._confirm()
+
+
+# pylint: disable-next=too-few-public-methods
+class _DepOptionsDialog(_ModalDialog):
+    """Modal dialog collecting the order-by-dependencies options."""
+
+    def __init__(self, parent: tk.Misc) -> None:
+        """Build, show and wait for the dependency options dialog."""
+        super().__init__(parent, 'Order by dependencies')
+        self.options: Optional[DepOptions] = None
+        self._later = tk.BooleanVar(self._win, False)
+        self._mode = tk.StringVar(self._win, DependencyMode.KEEP.name)
+        self._space = tk.StringVar(self._win)
+        self._build()
+        self._show()
+
+    def _build(self) -> None:
+        """Add the later check box, the mode chooser and the key entry."""
+        tk.Checkbutton(self._win, variable=self._later,
+                       text='Push dependent items later instead of pulling '
+                       'prerequisites earlier').pack(anchor='w', padx=12,
+                                                     pady=(10, 2))
+        self._build_mode()
+        self._build_space()
+
+    def _build_mode(self) -> None:
+        """Add the placement-mode label and chooser."""
+        tk.Label(self._win, text='Placement of dependency items:'
+                 ).pack(anchor='w', padx=12, pady=(6, 2))
+        names = [mode.name for mode in DependencyMode]
+        ttk.Combobox(self._win, textvariable=self._mode, values=names,
+                     state='readonly').pack(anchor='w', padx=12)
+
+    def _build_space(self) -> None:
+        """Add the space-around label and key entry."""
+        tk.Label(self._win, text='Keys to keep far from dependencies '
+                 '(optional, space separated):').pack(anchor='w', padx=12,
+                                                      pady=(6, 2))
+        tk.Entry(self._win, textvariable=self._space,
+                 width=40).pack(anchor='w', padx=12)
+
+    def _confirm(self) -> None:
+        """Store the selected options and close the dialog."""
+        space = self._space.get().split()
+        self.options = DepOptions(later=self._later.get(),
+                                  mode=DependencyMode[self._mode.get()],
+                                  space_around=space or None)
+        super()._confirm()
+
+
+# pylint: disable-next=too-few-public-methods
+class _StartDateDialog(_ModalDialog):
+    """Modal dialog collecting the start date for the estimate."""
+
+    def __init__(self, parent: tk.Misc) -> None:
+        """Build, show and wait for the start date dialog."""
+        super().__init__(parent, 'Estimate ready date')
+        self.choice: Optional[StartChoice] = None
+        self._date = tk.StringVar(self._win, date.today().isoformat())
+        self._build()
+        self._show()
+
+    def _build(self) -> None:
+        """Add the start date label and entry."""
+        tk.Label(self._win, text='Start date (ISO, empty for today):'
+                 ).pack(anchor='w', padx=12, pady=(10, 2))
+        tk.Entry(self._win, textvariable=self._date,
+                 width=20).pack(anchor='w', padx=12)
+
+    def _confirm(self) -> None:
+        """Parse the date, keeping the dialog open on a bad value."""
+        text = self._date.get().strip()
+        if text == '':
+            self.choice = StartChoice(start_date=None)
+            super()._confirm()
+            return
+        try:
+            self.choice = StartChoice(start_date=date.fromisoformat(text))
+        except ValueError as error:
+            messagebox.showerror('Invalid date', str(error), parent=self._win)
+            return
+        super()._confirm()
+
+
+# pylint: disable-next=too-few-public-methods
+class _LevelsDialog(_ModalDialog):
+    """Modal dialog selecting the levels to extract keys at."""
+
+    def __init__(self, parent: tk.Misc) -> None:
+        """Build, show and wait for the level selection dialog."""
+        super().__init__(parent, 'Extract keys')
+        self.levels: Optional[list[int]] = None
+        self._chosen = self._build()
+        self._show()
+
+    def _build(self) -> dict[int, tk.BooleanVar]:
+        """Add a check box for each default level and return its variables."""
+        tk.Label(self._win, text='Select levels to extract keys at:'
+                 ).pack(anchor='w', padx=12, pady=(10, 2))
+        chosen: dict[int, tk.BooleanVar] = {}
+        for number in sorted(DEFAULT_LEVELS):
+            var = tk.BooleanVar(self._win, False)
+            chosen[number] = var
+            tk.Checkbutton(self._win, variable=var,
+                           text=DEFAULT_LEVELS[number].name).pack(anchor='w',
+                                                                  padx=24)
+        return chosen
+
+    def _confirm(self) -> None:
+        """Store the chosen levels, requiring at least one selection."""
+        selected = [n for n, var in self._chosen.items() if var.get()]
+        if not selected:
+            messagebox.showerror('No levels', 'Select at least one level.',
+                                 parent=self._win)
+            return
+        self.levels = selected
+        super()._confirm()
+
+
+def ask_keys(parent: tk.Misc, sink: TextIO) -> Optional[list[str]]:
+    """Ask for the leading keys, or None when the dialog is cancelled."""
+    dialog = _KeysDialog(parent, sink)
+    if dialog.cancelled:
+        return None
+    return dialog.keys
+
+
+def ask_dep_options(parent: tk.Misc) -> Optional[DepOptions]:
+    """Ask for the dependency options, or None when cancelled."""
+    dialog = _DepOptionsDialog(parent)
+    if dialog.cancelled:
+        return None
+    return dialog.options
+
+
+def ask_start_date(parent: tk.Misc) -> Optional[StartChoice]:
+    """Ask for the start date, or None when the dialog is cancelled."""
+    dialog = _StartDateDialog(parent)
+    if dialog.cancelled:
+        return None
+    return dialog.choice
+
+
+def ask_levels(parent: tk.Misc) -> Optional[list[int]]:
+    """Ask for the levels to extract, or None when cancelled."""
+    dialog = _LevelsDialog(parent)
+    if dialog.cancelled:
+        return None
+    return dialog.levels

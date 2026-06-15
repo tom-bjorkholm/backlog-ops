@@ -14,6 +14,7 @@
     * [\_\_init\_\_](#backlogops_gui.application.BacklogApp.__init__)
     * [in\_presets](#backlogops_gui.application.BacklogApp.in_presets)
     * [out\_presets](#backlogops_gui.application.BacklogApp.out_presets)
+    * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
     * [show\_info](#backlogops_gui.application.BacklogApp.show_info)
     * [start](#backlogops_gui.application.BacklogApp.start)
@@ -31,6 +32,11 @@
   * [check\_tcltk\_version](#backlogops_gui.tcltk_version.check_tcltk_version)
 * [backlogops\_gui.backlog\_window](#backlogops_gui.backlog_window)
   * [save\_backlog](#backlogops_gui.backlog_window.save_backlog)
+  * [order\_by\_keys](#backlogops_gui.backlog_window.order_by_keys)
+  * [order\_by\_deps](#backlogops_gui.backlog_window.order_by_deps)
+  * [estimate\_date](#backlogops_gui.backlog_window.estimate_date)
+  * [set\_plan](#backlogops_gui.backlog_window.set_plan)
+  * [extract\_keys](#backlogops_gui.backlog_window.extract_keys)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
@@ -42,6 +48,13 @@
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
   * [ask\_read\_options](#backlogops_gui.io_dialogs.ask_read_options)
   * [ask\_write\_options](#backlogops_gui.io_dialogs.ask_write_options)
+  * [choose\_key\_list\_output](#backlogops_gui.io_dialogs.choose_key_list_output)
+  * [DepOptions](#backlogops_gui.io_dialogs.DepOptions)
+  * [StartChoice](#backlogops_gui.io_dialogs.StartChoice)
+  * [ask\_keys](#backlogops_gui.io_dialogs.ask_keys)
+  * [ask\_dep\_options](#backlogops_gui.io_dialogs.ask_dep_options)
+  * [ask\_start\_date](#backlogops_gui.io_dialogs.ask_start_date)
+  * [ask\_levels](#backlogops_gui.io_dialogs.ask_levels)
 * [backlogops\_gui.log\_buffer](#backlogops_gui.log_buffer)
   * [LogBuffer](#backlogops_gui.log_buffer.LogBuffer)
     * [\_\_init\_\_](#backlogops_gui.log_buffer.LogBuffer.__init__)
@@ -248,6 +261,16 @@ def out_presets() -> Optional[dict[str, OutputFormatConfig]]
 
 Return the output presets of the current configuration.
 
+<a id="backlogops_gui.application.BacklogApp.available_teams"></a>
+
+#### available\_teams
+
+```python
+def available_teams() -> Optional[AvailableTeams]
+```
+
+Return the loaded teams configuration, or None when absent.
+
 <a id="backlogops_gui.application.BacklogApp.show_error"></a>
 
 #### show\_error
@@ -446,6 +469,70 @@ Ask where and how to save a backlog and write it.
 - `on_error` - Callback used to report a write failure.
 - `on_info` - Callback used to report a successful write.
 
+<a id="backlogops_gui.backlog_window.order_by_keys"></a>
+
+#### order\_by\_keys
+
+```python
+def order_by_keys(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                  refresh: Callable[[], None], on_error: Callable[[str, str],
+                                                                  None],
+                  on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for leading keys and move those items to the front.
+
+<a id="backlogops_gui.backlog_window.order_by_deps"></a>
+
+#### order\_by\_deps
+
+```python
+def order_by_deps(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                  refresh: Callable[[], None], on_error: Callable[[str, str],
+                                                                  None],
+                  on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for the options and order the backlog by dependencies.
+
+<a id="backlogops_gui.backlog_window.estimate_date"></a>
+
+#### estimate\_date
+
+```python
+def estimate_date(parent: tk.Misc, data: BacklogReleases,
+                  teams: Optional[AvailableTeams], sink: TextIO,
+                  refresh: Callable[[], None], on_error: Callable[[str, str],
+                                                                  None],
+                  on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for the start date and estimate the ready dates.
+
+<a id="backlogops_gui.backlog_window.set_plan"></a>
+
+#### set\_plan
+
+```python
+def set_plan(data: BacklogReleases, sink: TextIO, refresh: Callable[[], None],
+             on_error: Callable[[str, str], None],
+             on_info: Callable[[str, str], None]) -> None
+```
+
+Copy the estimated ready dates to the planned ready dates.
+
+<a id="backlogops_gui.backlog_window.extract_keys"></a>
+
+#### extract\_keys
+
+```python
+def extract_keys(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                 on_error: Callable[[str, str], None],
+                 on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for levels and a file, then write the backlog keys to it.
+
 <a id="backlogops_gui.backlog_window.BacklogWindow"></a>
 
 ## BacklogWindow Objects
@@ -463,8 +550,10 @@ A top-level window showing one backlog and its releases.
 ```python
 def __init__(root: tk.Misc, data: BacklogReleases, title: str,
              presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
-             sink: TextIO, on_error: Callable[[str, str], None],
-             on_info: Callable[[str, str], None]) -> None
+             teams: Callable[[], Optional[AvailableTeams]], sink: TextIO,
+             on_error: Callable[[str, str],
+                                None], on_info: Callable[[str, str],
+                                                         None]) -> None
 ```
 
 Build the window, its menu and the two tables.
@@ -475,6 +564,7 @@ Build the window, its menu and the two tables.
 - `data` - The backlog and releases to show.
 - `title` - The window title, typically the source file name.
 - `presets` - Callable returning the current output presets.
+- `teams` - Callable returning the loaded teams configuration.
 - `sink` - Stream that receives low-level write diagnostics.
 - `on_error` - Callback used to report a write failure.
 - `on_info` - Callback used to report a successful write.
@@ -580,6 +670,78 @@ def ask_write_options(
 ```
 
 Ask how to write a file, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.io_dialogs.choose_key_list_output"></a>
+
+#### choose\_key\_list\_output
+
+```python
+def choose_key_list_output(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for a key list file to create, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.DepOptions"></a>
+
+## DepOptions Objects
+
+```python
+@dataclass
+class DepOptions()
+```
+
+The options selected for ordering a backlog by dependencies.
+
+<a id="backlogops_gui.io_dialogs.StartChoice"></a>
+
+## StartChoice Objects
+
+```python
+@dataclass
+class StartChoice()
+```
+
+The start date selected for estimating ready dates.
+
+<a id="backlogops_gui.io_dialogs.ask_keys"></a>
+
+#### ask\_keys
+
+```python
+def ask_keys(parent: tk.Misc, sink: TextIO) -> Optional[list[str]]
+```
+
+Ask for the leading keys, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_dep_options"></a>
+
+#### ask\_dep\_options
+
+```python
+def ask_dep_options(parent: tk.Misc) -> Optional[DepOptions]
+```
+
+Ask for the dependency options, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_start_date"></a>
+
+#### ask\_start\_date
+
+```python
+def ask_start_date(parent: tk.Misc) -> Optional[StartChoice]
+```
+
+Ask for the start date, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_levels"></a>
+
+#### ask\_levels
+
+```python
+def ask_levels(parent: tk.Misc) -> Optional[list[int]]
+```
+
+Ask for the levels to extract, or None when cancelled.
 
 <a id="backlogops_gui.log_buffer"></a>
 
