@@ -37,6 +37,12 @@
   * [build\_parser](#backlogops_cli.order_by_keys.build_parser)
   * [\_reordered](#backlogops_cli.order_by_keys._reordered)
   * [main](#backlogops_cli.order_by_keys.main)
+* [backlogops\_cli.estimate\_ready\_date](#backlogops_cli.estimate_ready_date)
+  * [build\_parser](#backlogops_cli.estimate_ready_date.build_parser)
+  * [\_start\_date](#backlogops_cli.estimate_ready_date._start_date)
+  * [\_load\_teams](#backlogops_cli.estimate_ready_date._load_teams)
+  * [\_estimated](#backlogops_cli.estimate_ready_date._estimated)
+  * [main](#backlogops_cli.estimate_ready_date.main)
 
 <a id="backlogops_cli.list"></a>
 
@@ -505,5 +511,81 @@ Reorder the backlog from the key list and write the output file.
 **Returns**:
 
   ``0`` on success, ``1`` when the data cannot be read, reordered
+  or written.
+
+<a id="backlogops_cli.estimate_ready_date"></a>
+
+# backlogops\_cli.estimate\_ready\_date
+
+Estimate ready dates for a backlog and write the result.
+
+The command reads a backlog and its releases from an input file and
+estimates the ready date of each backlog item from the available teams,
+as documented for :func:`backlogops.estimate_ready_date`. The teams
+configuration (velocity, work hours, vacations and so on) is taken from
+the file given by ``--config`` or, when that is absent, from the
+configured teams file. The backlog with the estimated dates and the
+releases are written to the output file. The input and output formats are
+inferred from the file name extensions, but can be overridden by a
+configuration file or by a named preset.
+
+<a id="backlogops_cli.estimate_ready_date.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the estimate command.
+
+<a id="backlogops_cli.estimate_ready_date._start_date"></a>
+
+#### \_start\_date
+
+```python
+def _start_date(parsed: argparse.Namespace) -> Optional[date]
+```
+
+Return the start date from the command line, or None for today.
+
+<a id="backlogops_cli.estimate_ready_date._load_teams"></a>
+
+#### \_load\_teams
+
+```python
+def _load_teams(config: Optional[str]) -> AvailableTeams
+```
+
+Return the available teams, mapping a missing file to ValueError.
+
+<a id="backlogops_cli.estimate_ready_date._estimated"></a>
+
+#### \_estimated
+
+```python
+def _estimated(parsed: argparse.Namespace) -> BacklogReleases
+```
+
+Read the backlog and return it with estimated ready dates.
+
+<a id="backlogops_cli.estimate_ready_date.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Estimate the ready dates and write the output file.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the data cannot be read, estimated
   or written.
 

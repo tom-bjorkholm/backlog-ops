@@ -51,6 +51,8 @@
     * [check\_consistency](#backlogops.backlog_releases.BacklogReleases.check_consistency)
     * [move\_keys\_first](#backlogops.backlog_releases.BacklogReleases.move_keys_first)
     * [order\_by\_dependencies](#backlogops.backlog_releases.BacklogReleases.order_by_dependencies)
+    * [estimate\_ready\_date](#backlogops.backlog_releases.BacklogReleases.estimate_ready_date)
+    * [set\_plan\_from\_estimate](#backlogops.backlog_releases.BacklogReleases.set_plan_from_estimate)
 * [backlogops.demo\_backlog](#backlogops.demo_backlog)
   * [get\_demo\_backlog](#backlogops.demo_backlog.get_demo_backlog)
 * [backlogops.no\_text\_io](#backlogops.no_text_io)
@@ -167,6 +169,9 @@
 * [backlogops.move\_keys\_first](#backlogops.move_keys_first)
   * [move\_keys\_first](#backlogops.move_keys_first.move_keys_first)
   * [get\_keys\_in\_order](#backlogops.move_keys_first.get_keys_in_order)
+* [backlogops.estimate\_ready\_date](#backlogops.estimate_ready_date)
+  * [estimate\_ready\_date](#backlogops.estimate_ready_date.estimate_ready_date)
+  * [set\_plan\_from\_estimate](#backlogops.estimate_ready_date.set_plan_from_estimate)
 * [backlogops.work\_hours](#backlogops.work_hours)
   * [WeekDay](#backlogops.work_hours.WeekDay)
   * [DEFAULT\_WORK\_WEEK](#backlogops.work_hours.DEFAULT_WORK_WEEK)
@@ -1371,6 +1376,49 @@ documented for :func:`backlogops.order_by_dependencies`.
 - `RuntimeError` - If space_around names more keys than allowed:
   more than five, or more than ten percent of a backlog of
   fewer than fifty items.
+
+<a id="backlogops.backlog_releases.BacklogReleases.estimate_ready_date"></a>
+
+#### estimate\_ready\_date
+
+```python
+def estimate_ready_date(available_teams: AvailableTeams,
+                        start_date: Optional[date] = None,
+                        stderr_file: TextIO = sys.stderr) -> None
+```
+
+Estimate the ready date of the member backlog items.
+
+The member backlog is replaced by a backlog whose items carry the
+estimated ready date. The teams start working on the start date,
+which defaults to today when None is given. The behavior is the
+one documented for :func:`backlogops.estimate_ready_date`.
+
+**Arguments**:
+
+- `available_teams` - The available teams used to estimate the
+  ready date, including absence, velocity and work
+  hours.
+- `start_date` - The day the teams start working, or None for today.
+- `stderr_file` - The file to report warnings to.
+
+<a id="backlogops.backlog_releases.BacklogReleases.set_plan_from_estimate"></a>
+
+#### set\_plan\_from\_estimate
+
+```python
+def set_plan_from_estimate(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Set the planned ready dates from the estimated ready dates.
+
+The member backlog is replaced by a backlog whose items carry the
+planned ready date taken from the estimated ready date, as
+documented for :func:`backlogops.set_plan_from_estimate`.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
 
 <a id="backlogops.demo_backlog"></a>
 
@@ -3503,6 +3551,95 @@ None). A level number is used as is and need not be one of ``levels``.
 - `TypeError` - If ``only_levels`` is not an int, a str, or a sequence
   of ints and strs.
 - `ValueError` - If a level name or alias matches no level.
+
+<a id="backlogops.estimate_ready_date"></a>
+
+# backlogops.estimate\_ready\_date
+
+Estimate the ready date of backlog items.
+
+<a id="backlogops.estimate_ready_date.estimate_ready_date"></a>
+
+#### estimate\_ready\_date
+
+```python
+def estimate_ready_date(backlog: Backlog,
+                        available_teams: AvailableTeams,
+                        start_date: Optional[date] = None,
+                        stderr_file: TextIO = sys.stderr) -> Backlog
+```
+
+Estimate the ready date of backlog items.
+
+The teams start working on the start date, which defaults to today
+when None is given. The backlog items are worked in their given
+order. Each item is worked by its assigned team, or, when it names
+no team, by the team that becomes free earliest. Only one team works
+an item, and a team works one item at a time, so a team's next item
+starts the day after it finishes the current one.
+
+The story points an item still needs are turned into calendar time
+from the team's velocity, rescaled by the team's effective capacity
+on each day. That capacity follows every member's full-time
+equivalent and actual work hours, so weekends, company holidays,
+personal vacation, learning periods and ordered over-time all change
+the pace. A standard work day is the longest day in the company
+weekly schedule. The story points of TODO and IN_PROGRESS items are
+all treated as still left to do; DONE and REJECTED items need no work
+and get no estimated date. See also the Status enum.
+
+A parent's estimated date is lifted to be no earlier than its latest
+child's, applied through the whole hierarchy, because a parent cannot
+be ready before its children even though work on the parent itself
+may be scheduled earlier. A finished child does not delay its parent.
+
+Dependencies between items are not considered; the backlog is assumed
+to be ordered so that the teams can work the items in order. When an
+item names a team that is not in the workforce, when no team is
+available, or when the chosen team has no capacity for the item, the
+item gets no estimated date and a warning is reported.
+
+**Arguments**:
+
+- `backlog` - The backlog to estimate the ready date of. The argument
+  is not modified. The backlog must be ordered so that the
+  teams can work the items in order.
+- `available_teams` - The available teams used to estimate the ready
+  date, including absence, velocity and work hours.
+- `start_date` - The day the teams start working, or None for today.
+- `stderr_file` - The file to report warnings to.
+  
+
+**Returns**:
+
+  A new backlog whose items carry the estimated ready date. The
+  other fields are copied unchanged from the given items.
+
+<a id="backlogops.estimate_ready_date.set_plan_from_estimate"></a>
+
+#### set\_plan\_from\_estimate
+
+```python
+def set_plan_from_estimate(backlog: Backlog,
+                           stderr_file: TextIO = sys.stderr) -> Backlog
+```
+
+Set the planned ready dates from the estimated ready dates.
+
+For each backlog item the planned ready date is set to the estimated
+ready date, copying None when the estimated ready date is None.
+
+**Arguments**:
+
+- `backlog` - The backlog to set the planned ready dates of. The
+  argument is not modified.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  A new backlog whose items carry the planned ready date taken from
+  the estimated ready date. The other fields are copied unchanged.
 
 <a id="backlogops.work_hours"></a>
 

@@ -5,6 +5,7 @@
 # MIT License
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Optional, TextIO, Sequence
 import sys
 from backlogops.backlog import Backlog, check_backlog_consistency
@@ -13,6 +14,9 @@ from backlogops.releases import Release, Releases, check_releases
 from backlogops.move_keys_first import move_keys_first
 from backlogops.order_by_dependencies import order_by_dependencies, \
     DependencyMode
+from backlogops.estimate_ready_date import estimate_ready_date, \
+    set_plan_from_estimate
+from backlogops.available_teams import AvailableTeams
 
 
 @dataclass
@@ -203,3 +207,35 @@ class BacklogReleases:
                                              mode=mode,
                                              space_around=space_around,
                                              stderr_file=stderr_file)
+
+    def estimate_ready_date(self, available_teams: AvailableTeams,
+                            start_date: Optional[date] = None,
+                            stderr_file: TextIO = sys.stderr) -> None:
+        """Estimate the ready date of the member backlog items.
+
+        The member backlog is replaced by a backlog whose items carry the
+        estimated ready date. The teams start working on the start date,
+        which defaults to today when None is given. The behavior is the
+        one documented for :func:`backlogops.estimate_ready_date`.
+
+        Args:
+            available_teams: The available teams used to estimate the
+                         ready date, including absence, velocity and work
+                         hours.
+            start_date: The day the teams start working, or None for today.
+            stderr_file: The file to report warnings to.
+        """
+        self.backlog = estimate_ready_date(self.backlog, available_teams,
+                                           start_date, stderr_file)
+
+    def set_plan_from_estimate(self, stderr_file: TextIO = sys.stderr) -> None:
+        """Set the planned ready dates from the estimated ready dates.
+
+        The member backlog is replaced by a backlog whose items carry the
+        planned ready date taken from the estimated ready date, as
+        documented for :func:`backlogops.set_plan_from_estimate`.
+
+        Args:
+            stderr_file: The file to report errors to.
+        """
+        self.backlog = set_plan_from_estimate(self.backlog, stderr_file)

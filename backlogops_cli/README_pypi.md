@@ -41,6 +41,8 @@ backlogops_cli serves 2 purposes:
      Convert a backlog and releases between table file formats
   python3 -m backlogops_cli.demo_backlog
      Write a demonstration backlog and releases to a file
+  python3 -m backlogops_cli.estimate_ready_date
+     Estimate ready dates for the backlog items
   python3 -m backlogops_cli.extract_keys
      Extract backlog keys at the given levels to a key list
   python3 -m backlogops_cli.list
@@ -55,7 +57,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 698 passed in 12s
+- Test result: 733 passed in 12s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.
