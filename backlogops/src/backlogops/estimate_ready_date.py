@@ -78,6 +78,20 @@ def _person_hours(person: Person, company: CompanyWorkHours,
     return _apply_exception(base, exception)
 
 
+@dataclass(frozen=True, order=True)
+class _Cursor:
+    """A team's progress: the day it works and points spent that day.
+
+    Keeping the points already spent on the current day lets a team
+    finish several small items on the same day instead of losing the
+    rest of the day to one item. Cursors order by day and then by spent
+    points, so a smaller cursor is the team that is free earlier.
+    """
+
+    day: date
+    used: float
+
+
 @dataclass(frozen=True)
 class _Workforce:
     """The workforce together with the length of a full work day.
@@ -133,27 +147,32 @@ class _Workforce:
         per_day = team.velocity / team.sprint_length
         return per_day * self._team_fte(team, day) / team.sum_fte_at_velocity
 
-    def finish(self, team: Team, points: int,
-               start: date) -> Optional[tuple[date, date]]:
-        """Return the ready date and next free date for some work.
+    def advance(self, team: Team, points: int,
+                cursor: _Cursor) -> Optional[tuple[date, _Cursor]]:
+        """Return the ready date and new cursor after doing some work.
 
-        The team starts on ``start`` and completes ``points`` story
-        points. The ready date is the day the work is finished. The next
-        free date is the first day the team can start the following item.
-        Work with no story points is ready at once and frees the team the
-        same day. None is returned when the work does not finish within
-        the horizon, which means the team has no capacity for it.
+        The team works from the cursor, which is the day it is on and
+        the story points already spent on that day, so the day's leftover
+        capacity carries to the next item and several small items can
+        finish on the same day. The ready date is the day the work is
+        finished. Work with no story points is ready at the cursor day
+        and leaves the cursor unchanged. None is returned when the work
+        does not finish within the horizon, which means the team has no
+        capacity for it.
         """
         if points <= 0:
-            return start, start
+            return cursor.day, cursor
         remaining = float(points)
-        day = start
-        limit = start + _HORIZON
+        day, used = cursor.day, cursor.used
+        limit = day + _HORIZON
         while day <= limit:
-            remaining -= self.points_on(team, day)
-            if remaining <= _EPSILON:
-                return day, day + _ONE_DAY
+            available = self.points_on(team, day) - used
+            if available > 0.0:
+                if remaining <= available + _EPSILON:
+                    return day, _Cursor(day, used + remaining)
+                remaining -= available
             day += _ONE_DAY
+            used = 0.0
         return None
 
 
@@ -161,13 +180,14 @@ class _Workforce:
 class _Estimator:
     """Assign teams to backlog items and date the team's own work.
 
-    The estimator keeps, for each team, the first day it is free. It
-    dates the work a team itself does on an item; lifting a parent's
-    date to its children is done afterwards by :class:`_ParentRollup`.
+    The estimator keeps, for each team, a cursor with the day and the
+    points spent that day. It dates the work a team itself does on an
+    item; lifting a parent's date to its children is done afterwards by
+    :class:`_ParentRollup`.
     """
 
     workforce: _Workforce
-    free_date: dict[str, date]
+    cursor: dict[str, _Cursor]
     by_label: dict[str, Team]
     stderr_file: TextIO
 
@@ -175,12 +195,12 @@ class _Estimator:
     def create(teams: AvailableTeams, start: date,
                stderr_file: TextIO) -> '_Estimator':
         """Create an estimator with every team free on the start date."""
-        free_date = {team.name: start for team in teams.teams}
+        cursor = {team.name: _Cursor(start, 0.0) for team in teams.teams}
         by_label: dict[str, Team] = {}
         for team in teams.teams:
             for label in [team.name, *team.aliases]:
                 by_label[label.lower()] = team
-        return _Estimator(_Workforce.create(teams), free_date, by_label,
+        return _Estimator(_Workforce.create(teams), cursor, by_label,
                           stderr_file)
 
     def _warn(self, item: BacklogItem, reason: str) -> None:
@@ -194,7 +214,7 @@ class _Estimator:
             return None
         best = teams[0]
         for team in teams[1:]:
-            if self.free_date[team.name] < self.free_date[best.name]:
+            if self.cursor[team.name] < self.cursor[best.name]:
                 best = team
         return best
 
@@ -215,22 +235,22 @@ class _Estimator:
 
         Done and rejected items consume no team time and get no date.
         Other items are worked by their assigned team, or by the team
-        that is free earliest, from when that team is free. When the
-        team has no capacity for the item, or no team is available, the
-        item gets no date and a warning is reported.
+        that is free earliest, from where that team's cursor stands. When
+        the team has no capacity for the item, or no team is available,
+        the item gets no date and a warning is reported.
         """
         if item.status in (Status.DONE, Status.REJECTED):
             return None
         team = self._team_for(item)
         if team is None:
             return None
-        start = self.free_date[team.name]
-        result = self.workforce.finish(team, item.story_points, start)
+        position = self.cursor[team.name]
+        result = self.workforce.advance(team, item.story_points, position)
         if result is None:
             self._warn(item, f'team {team.name!r} has no capacity for it')
             return None
-        ready, next_free = result
-        self.free_date[team.name] = next_free
+        ready, moved = result
+        self.cursor[team.name] = moved
         return ready
 
 
@@ -290,8 +310,10 @@ def estimate_ready_date(backlog: Backlog, available_teams: AvailableTeams,
     when None is given. The backlog items are worked in their given
     order. Each item is worked by its assigned team, or, when it names
     no team, by the team that becomes free earliest. Only one team works
-    an item, and a team works one item at a time, so a team's next item
-    starts the day after it finishes the current one.
+    an item, and a team works one item at a time, in backlog order. When
+    a team's daily capacity covers more than one item, several items
+    finish on the same day, and the next item carries on from the
+    leftover capacity of the day the current one finished.
 
     The story points an item still needs are turned into calendar time
     from the team's velocity, rescaled by the team's effective capacity

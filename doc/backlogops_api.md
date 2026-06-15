@@ -3575,8 +3575,10 @@ The teams start working on the start date, which defaults to today
 when None is given. The backlog items are worked in their given
 order. Each item is worked by its assigned team, or, when it names
 no team, by the team that becomes free earliest. Only one team works
-an item, and a team works one item at a time, so a team's next item
-starts the day after it finishes the current one.
+an item, and a team works one item at a time, in backlog order. When
+a team's daily capacity covers more than one item, several items
+finish on the same day, and the next item carries on from the
+leftover capacity of the day the current one finished.
 
 The story points an item still needs are turned into calendar time
 from the team's velocity, rescaled by the team's effective capacity

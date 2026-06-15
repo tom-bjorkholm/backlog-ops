@@ -137,6 +137,28 @@ def test_part_time_slower() -> None:
     assert run([item('a', 3)], one_team(fte=0.5)) == {'a': date(2026, 6, 22)}
 
 
+def fast_team(persons: list[Person]) -> AvailableTeams:
+    """Build a workforce of one team doing ten story points a day."""
+    members = [member(p.name) for p in persons]
+    quick = Team(name='F', velocity=10.0, sum_fte_at_velocity=1.0,
+                 sprint_length=1, members=members)
+    return workforce([quick], persons)
+
+
+def test_many_per_day() -> None:
+    """A team with spare daily capacity finishes items the same day."""
+    force = fast_team([person('Ann')])
+    backlog = [item('a', 1), item('b', 1), item('c', 1)]
+    assert run(backlog, force) == {'a': MON, 'b': MON, 'c': MON}
+
+
+def test_carryover() -> None:
+    """Leftover capacity of a finishing day is used by the next item."""
+    force = fast_team([person('Ann')])
+    backlog = [item('a', 7), item('b', 7)]
+    assert run(backlog, force) == {'a': MON, 'b': date(2026, 6, 16)}
+
+
 def test_velocity_rescale() -> None:
     """Velocity measured at a higher summed FTE scales the pace down."""
     ann = person('Ann')

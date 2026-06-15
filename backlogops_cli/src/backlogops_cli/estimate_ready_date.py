@@ -34,7 +34,9 @@ def build_parser() -> argparse.ArgumentParser:
     add_input_args(parser)
     parser.add_argument('-c', '--config', dest='config',
                         help='Teams configuration file (velocity, work '
-                        'hours, vacations). Default: the configured file.')
+                        'hours, vacations). Without -c the file is found '
+                        'from $BACKLOGOPS_CFG, else backlogops.cfg in '
+                        '$BACKLOGOPS_DIR, else $HOME/.backlogops.cfg.')
     parser.add_argument('-d', '--start-date', dest='start_date',
                         metavar='ISO_DATE',
                         help='Day the teams start working (default today).')

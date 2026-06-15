@@ -330,11 +330,12 @@
   * [\_apply\_exception](#backlogops.estimate_ready_date._apply_exception)
   * [\_scheduled\_hours](#backlogops.estimate_ready_date._scheduled_hours)
   * [\_person\_hours](#backlogops.estimate_ready_date._person_hours)
+  * [\_Cursor](#backlogops.estimate_ready_date._Cursor)
   * [\_Workforce](#backlogops.estimate_ready_date._Workforce)
     * [create](#backlogops.estimate_ready_date._Workforce.create)
     * [\_team\_fte](#backlogops.estimate_ready_date._Workforce._team_fte)
     * [points\_on](#backlogops.estimate_ready_date._Workforce.points_on)
-    * [finish](#backlogops.estimate_ready_date._Workforce.finish)
+    * [advance](#backlogops.estimate_ready_date._Workforce.advance)
   * [\_Estimator](#backlogops.estimate_ready_date._Estimator)
     * [create](#backlogops.estimate_ready_date._Estimator.create)
     * [\_warn](#backlogops.estimate_ready_date._Estimator._warn)
@@ -5497,6 +5498,22 @@ The company schedule, including the company exceptions, is the
 person's baseline. A personal work-hours exception overrides that
 baseline, modelling vacation, part-time or ordered over-time.
 
+<a id="backlogops.estimate_ready_date._Cursor"></a>
+
+## \_Cursor Objects
+
+```python
+@dataclass(frozen=True, order=True)
+class _Cursor()
+```
+
+A team's progress: the day it works and points spent that day.
+
+Keeping the points already spent on the current day lets a team
+finish several small items on the same day instead of losing the
+rest of the day to one item. Cursors order by day and then by spent
+points, so a smaller cursor is the team that is free earlier.
+
 <a id="backlogops.estimate_ready_date._Workforce"></a>
 
 ## \_Workforce Objects
@@ -5554,23 +5571,25 @@ recorded summed full-time equivalent. It is rescaled by the
 team's effective full-time equivalent on the day and spread over
 the working days of a sprint.
 
-<a id="backlogops.estimate_ready_date._Workforce.finish"></a>
+<a id="backlogops.estimate_ready_date._Workforce.advance"></a>
 
-#### finish
+#### advance
 
 ```python
-def finish(team: Team, points: int,
-           start: date) -> Optional[tuple[date, date]]
+def advance(team: Team, points: int,
+            cursor: _Cursor) -> Optional[tuple[date, _Cursor]]
 ```
 
-Return the ready date and next free date for some work.
+Return the ready date and new cursor after doing some work.
 
-The team starts on ``start`` and completes ``points`` story
-points. The ready date is the day the work is finished. The next
-free date is the first day the team can start the following item.
-Work with no story points is ready at once and frees the team the
-same day. None is returned when the work does not finish within
-the horizon, which means the team has no capacity for it.
+The team works from the cursor, which is the day it is on and
+the story points already spent on that day, so the day's leftover
+capacity carries to the next item and several small items can
+finish on the same day. The ready date is the day the work is
+finished. Work with no story points is ready at the cursor day
+and leaves the cursor unchanged. None is returned when the work
+does not finish within the horizon, which means the team has no
+capacity for it.
 
 <a id="backlogops.estimate_ready_date._Estimator"></a>
 
@@ -5583,9 +5602,10 @@ class _Estimator()
 
 Assign teams to backlog items and date the team's own work.
 
-The estimator keeps, for each team, the first day it is free. It
-dates the work a team itself does on an item; lifting a parent's
-date to its children is done afterwards by :class:`_ParentRollup`.
+The estimator keeps, for each team, a cursor with the day and the
+points spent that day. It dates the work a team itself does on an
+item; lifting a parent's date to its children is done afterwards by
+:class:`_ParentRollup`.
 
 <a id="backlogops.estimate_ready_date._Estimator.create"></a>
 
@@ -5641,9 +5661,9 @@ Return the date the team finishes the item's own work.
 
 Done and rejected items consume no team time and get no date.
 Other items are worked by their assigned team, or by the team
-that is free earliest, from when that team is free. When the
-team has no capacity for the item, or no team is available, the
-item gets no date and a warning is reported.
+that is free earliest, from where that team's cursor stands. When
+the team has no capacity for the item, or no team is available,
+the item gets no date and a warning is reported.
 
 <a id="backlogops.estimate_ready_date._ParentRollup"></a>
 
@@ -5701,8 +5721,10 @@ The teams start working on the start date, which defaults to today
 when None is given. The backlog items are worked in their given
 order. Each item is worked by its assigned team, or, when it names
 no team, by the team that becomes free earliest. Only one team works
-an item, and a team works one item at a time, so a team's next item
-starts the day after it finishes the current one.
+an item, and a team works one item at a time, in backlog order. When
+a team's daily capacity covers more than one item, several items
+finish on the same day, and the next item carries on from the
+leftover capacity of the day the current one finished.
 
 The story points an item still needs are turned into calendar time
 from the team's velocity, rescaled by the team's effective capacity
