@@ -5,11 +5,12 @@
 # MIT License
 
 from dataclasses import dataclass
-from typing import TextIO
+from typing import TextIO, Sequence
 import sys
 from backlogops.backlog import Backlog, check_backlog_consistency
 from backlogops.backlog_helpers import report_unknown_reference
 from backlogops.releases import Release, Releases, check_releases
+from backlogops.move_keys_first import move_keys_first
 
 
 @dataclass
@@ -131,3 +132,32 @@ class BacklogReleases:
         check_backlog_consistency(self.backlog, stderr_file)
         check_releases(self.releases, stderr_file)
         self.check_in_releases(self.backlog, self.releases, stderr_file)
+
+    def move_keys_first(self, keys: Sequence[str],
+                        stderr_file: TextIO = sys.stderr) -> None:
+        """Move keys to the beginning of the backlog.
+
+        The BacklogItem identified by the first key is moved first.
+        For each subsequent key, the BacklogItem is inserted right after
+        the BacklogItem identified by the previous key.
+        However, if a BacklogItem identified by a key is the (direct or
+        indirect) parent of other BacklogItems that are further down
+        in the backlog, they are moved to a position right before their
+        parent.
+        As keys identifies BacklogItems at different levels, a BackogItem
+        may be moved to a later position in the backlog when its own
+        key is processed.
+        A BacklogItem is never moved to a later position in the backlog
+        due to a key of its (direct or indirect) parent.
+
+        Args:
+        keys: The keys to move to the beginning of the backlog item.
+              The keys must be unique and must exist in the backlog.
+        stderr_file: The file to report errors to.
+
+
+        Raises:
+            KeyError: If a key is not found in the backlog.
+            ValueError: If a key is not unique.
+        """
+        self.backlog = move_keys_first(self.backlog, keys, stderr_file)
