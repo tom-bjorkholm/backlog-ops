@@ -416,3 +416,40 @@ def read_available_teams(filename: PathOrStr, stderr_file: TextIO = sys.stderr
     """
     return AvailableTeamsConfig(from_json_filename=filename,
                                 stderr_file=stderr_file)
+
+
+def get_available_teams(filename: Optional[PathOrStr],
+                        stderr_file: TextIO = sys.stderr
+                        ) -> AvailableTeamsConfig:
+    """Convinience get the AvailableTeamsConfig to use.
+
+    If a filename is provided, the file is read and the AvailableTeamsConfig
+    is stored and returned.
+    If no filename is provided and there is a stored AvailableTeamsConfig,
+    it is returned.
+    If no filename is provided and there is no stored AvailableTeamsConfig,
+    this function will look for these in order of precedence:
+    - File named in $BACKLOGOPS_CFG environment variable
+    - File backlogops.cfg in folder specified by $BACKLOGOPS_DIR
+      environment variable
+    - $HOME/.backlogops.cfg
+    If a file is found, it is read and the AvailableTeamsConfig is stored and
+    returned. If no file is found, an exception is raised.
+
+    Args:
+        filename: Source JSON configuration file.
+        stderr_file: Stream used for user-facing diagnostics.
+
+    Raises:
+        FileNotFoundError: If $BACKLOGOPS_CFG is set but the file does not
+                           exist.
+        DirectoryNotFoundError: If $BACKLOGOPS_DIR is set but the directory
+                               does not exist.
+        RuntimeError: If no filename is provided and no stored
+                      AvailableTeamsConfig is found and no file is found in
+                      the order of precedence.
+    Returns:
+        The loaded workforce. The returned object is an
+        ``AvailableTeamsConfig``.
+    """
+    # implement this

@@ -5,12 +5,14 @@
 # MIT License
 
 from dataclasses import dataclass
-from typing import TextIO, Sequence
+from typing import Optional, TextIO, Sequence
 import sys
 from backlogops.backlog import Backlog, check_backlog_consistency
 from backlogops.backlog_helpers import report_unknown_reference
 from backlogops.releases import Release, Releases, check_releases
 from backlogops.move_keys_first import move_keys_first
+from backlogops.order_by_dependencies import order_by_dependencies, \
+    DependencyMode
 
 
 @dataclass
@@ -159,3 +161,55 @@ class BacklogReleases:
             ValueError: If a key is not unique.
         """
         self.backlog = move_keys_first(self.backlog, keys, stderr_file)
+
+    def order_by_dependencies(self, *, later: bool = False,
+                              mode: DependencyMode = DependencyMode.KEEP,
+                              space_around: Optional[str | Sequence[str]]
+                              = None, stderr_file: TextIO = sys.stderr) \
+            -> Backlog:
+        """Order a backlog by dependencies.
+
+        The backlog is ordered so that the team(s) can work on the items in the
+        backlog order without violating dependencies. This is achieved by
+        moving items with dependencies to a position after/later than the item
+        it depends on, or to a position before/earlier than the item it
+        depends on.
+        Items without dependencies are not normally moved, but can be moved
+        between items that depend on each other, if one of the items is named
+        by space_around or mode is EVEN.
+
+        Args:
+            backlog: The backlog to order. The argument is not modified.
+            later: If True an item that depends on another item is moved
+                   after/later than the item it depends on.
+                   If False an item that depends on another item is moved
+                   before/earlier than the item it depends on.
+            mode: Mode to determine backlog position of items with
+                  dependencies, in relation to items without dependencies.
+                  The default is KEEP.
+            space_around: Key(s) of items in the backlog that should have as
+                    much space between them and the items they depend on or
+                    items that depend on them as possible.
+                    This means that as many other backlog items as possible
+                    are placed between them and the items they depend on,
+                    and between them and items that depend on them.
+                    This is useful when there is a big risk of delays in
+                    a chain of dependencies.
+                    Notice that this only works for one or very few items.
+                    If None, no items receive this extra care.
+            stderr_file: The file to report errors to.
+
+        Raises:
+            KeyError:   If a key in space_around is not found in the backlog.
+            RuntimeError: If the number of items in space_around is more than
+                          5 (more than 10% of the total number of items in the
+                          backlog if there are less than 50 items in the
+                          backlog).
+            TypeError: If the space_around is not a string or a sequence of
+                       strings.
+
+        """
+        self.backlog = order_by_dependencies(self.backlog, later=later,
+                                             mode=mode,
+                                             space_around=space_around,
+                                             stderr_file=stderr_file)
