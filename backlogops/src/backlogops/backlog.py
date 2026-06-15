@@ -20,7 +20,24 @@ DEPENDENCY_FIELDS = ('depends_on_f2s', 'depends_on_f2f', 'depends_on_s2s')
 
 
 class Status(IntEnum):
-    """Status of a backlog item."""
+    """Status of a backlog item.
+
+    The meaning of each status is:
+    - TODO: The backlog item is not started yet. It will be done
+            sometimes in the future. The complete story points on 
+            the item consumes FTE time.
+    - IN_PROGRESS: The backlog item is in progress. We do not know
+            how much of it is done, so the complete story points on
+            the item consumes FTE time.
+    - DONE: The backlog item is finished. No work left to do.
+            The story points on the item will not consume any more
+            FTE time.
+    - REJECTED: The backlog item is rejected. The work will not be done.
+            This is only present in the backlog to record the explicit
+            decision not to do the work.
+            The story points on the item will not consume any more
+            FTE time.
+    """
 
     TODO = auto()
     IN_PROGRESS = auto()
