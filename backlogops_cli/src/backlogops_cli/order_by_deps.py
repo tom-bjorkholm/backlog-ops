@@ -21,7 +21,7 @@ from backlogops import BacklogReleases, DependencyMode
 from backlogops_cli._command_io import (
     add_input_args, add_output_args, parsed_args, read_input, run_write)
 
-DESCRIPTION = 'Reorder a backlog so that dependencies come first'
+DESCRIPTION = 'Reorder a backlog so that dependencies are fulfilled'
 
 
 def build_parser() -> argparse.ArgumentParser:

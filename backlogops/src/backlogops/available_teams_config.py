@@ -461,6 +461,16 @@ def _config_from_home() -> Optional[Path]:
     return path if path.is_file() else None
 
 
+def _searched_locations() -> str:
+    """Describe the locations searched for a configuration file."""
+    named_dir = os.environ.get('BACKLOGOPS_DIR')
+    in_dir = (str(Path(named_dir) / 'backlogops.cfg') if named_dir is not None
+              else '$BACKLOGOPS_DIR (not set)')
+    return ('  $BACKLOGOPS_CFG (not set)\n'
+            f'  {in_dir}\n'
+            f'  {Path.home() / ".backlogops.cfg"}')
+
+
 def _config_path_from_env() -> Path:
     """Return the configuration file found by the documented precedence.
 
@@ -480,7 +490,8 @@ def _config_path_from_env() -> Path:
     path = _config_from_home()
     if path is not None:
         return path
-    raise RuntimeError('No teams configuration file found')
+    raise RuntimeError('No teams configuration file found. Looked for:\n'
+                       + _searched_locations())
 
 
 def get_available_teams(filename: Optional[PathOrStr],

@@ -97,17 +97,28 @@ def test_even_mode() -> None:
 
 
 def test_space_moves_item() -> None:
-    """Test space_around puts more items between an item and its chain."""
+    """Test a key with only prerequisites is pushed to the back."""
     backlog = [_item('A'), _item('B', f2s=['A']), _item('C', f2s=['B']),
                _item('F1'), _item('F2'), _item('F3')]
     assert _run(backlog, space_around='C') == \
-        ['A', 'B', 'F1', 'C', 'F2', 'F3']
+        ['A', 'B', 'F1', 'F2', 'F3', 'C']
 
 
 def test_space_sequence() -> None:
     """Test space_around accepts a sequence of keys."""
     backlog = [_item('A'), _item('B', f2s=['A']), _item('F1'), _item('F2')]
-    assert _run(backlog, space_around=['B']) == ['A', 'F1', 'B', 'F2']
+    assert _run(backlog, space_around=['B']) == ['A', 'F1', 'F2', 'B']
+
+
+def test_space_chain() -> None:
+    """Test space_around spreads a named item far from its chain."""
+    backlog = [_item('S1'), _item('D2'), _item('D3', f2s=['D2']),
+               _item('D4', f2s=['D3']), _item('S5'), _item('S6'),
+               _item('S7')]
+    assert _run(backlog, space_around='D3') == \
+        ['D2', 'S1', 'S5', 'D3', 'S6', 'S7', 'D4']
+    assert _run(backlog, space_around='D2') == \
+        ['D2', 'S1', 'S5', 'S6', 'S7', 'D3', 'D4']
 
 
 @pytest.mark.parametrize('bad', [123, ['ok', 7], object()])

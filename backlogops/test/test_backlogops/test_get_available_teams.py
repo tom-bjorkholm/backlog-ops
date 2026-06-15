@@ -83,3 +83,13 @@ def test_no_config_found() -> None:
     """Test a RuntimeError is raised when no configuration is found."""
     with pytest.raises(RuntimeError):
         get_available_teams(None, NO_OUTPUT)
+
+
+def test_not_found_lists() -> None:
+    """Test the not-found error names the locations that were searched."""
+    with pytest.raises(RuntimeError) as info:
+        get_available_teams(None, NO_OUTPUT)
+    message = str(info.value)
+    assert 'BACKLOGOPS_CFG' in message
+    assert 'BACKLOGOPS_DIR' in message
+    assert '.backlogops.cfg' in message

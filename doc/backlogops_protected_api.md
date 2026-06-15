@@ -219,6 +219,7 @@
   * [\_config\_from\_named\_file](#backlogops.available_teams_config._config_from_named_file)
   * [\_config\_from\_named\_dir](#backlogops.available_teams_config._config_from_named_dir)
   * [\_config\_from\_home](#backlogops.available_teams_config._config_from_home)
+  * [\_searched\_locations](#backlogops.available_teams_config._searched_locations)
   * [\_config\_path\_from\_env](#backlogops.available_teams_config._config_path_from_env)
   * [get\_available\_teams](#backlogops.available_teams_config.get_available_teams)
 * [backlogops.releases](#backlogops.releases)
@@ -3727,6 +3728,16 @@ def _config_from_home() -> Optional[Path]
 
 Return $HOME/.backlogops.cfg if that file exists.
 
+<a id="backlogops.available_teams_config._searched_locations"></a>
+
+#### \_searched\_locations
+
+```python
+def _searched_locations() -> str
+```
+
+Describe the locations searched for a configuration file.
+
 <a id="backlogops.available_teams_config._config_path_from_env"></a>
 
 #### \_config\_path\_from\_env
@@ -5080,15 +5091,18 @@ Return the must-start-before and must-start-after item relations.
 #### \_space\_one
 
 ```python
-def _space_one(order: Sequence[str], key: str, before: set[str],
-               after: set[str]) -> list[str]
+def _space_one(order: Sequence[str], key: str, prereqs: set[str],
+               dependents: set[str]) -> list[str]
 ```
 
-Reposition one key to the middle of its dependency slack.
+Reposition one key to maximize the space to its dependencies.
 
-The key is moved as far as possible from both its prerequisites and
-the items that depend on it, while staying after every prerequisite
-and before every dependent. The other items keep their order.
+The prerequisites of the key are moved as early as possible and the
+items that depend on the key are moved as late as possible, keeping
+their relative order. The key is then placed among the remaining
+items: at the front when it has no prerequisite, at the back when it
+has no dependent, and in the middle otherwise. This places as many
+other items as possible between the key and its dependencies.
 
 <a id="backlogops.order_by_dependencies._apply_space_around"></a>
 
@@ -5143,10 +5157,12 @@ not move an item by itself.
 - `space_around` - Key or keys of items that should have as many other
   items as possible placed between them and the items they
   depend on, and between them and the items that depend on them.
-  Each named item is moved to the middle of the range left free
-  by its dependencies. This is useful when there is a big risk
-  of delays in a chain of dependencies. It only works well for
-  one or very few items. None means no item is treated this way.
+  For each named item the prerequisites are pulled as early as
+  possible and the items that depend on it are pushed as late as
+  possible, and the named item is centered among the remaining
+  items. This is useful when there is a big risk of delays in a
+  chain of dependencies. It only works well for one or very few
+  items. None means no item is treated this way.
 - `stderr_file` - The file to report errors to.
   
 

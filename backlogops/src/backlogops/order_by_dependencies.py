@@ -284,23 +284,28 @@ def _precedence(backlog: Backlog) -> tuple[dict[str, set[str]],
     return before, after
 
 
-def _space_one(order: Sequence[str], key: str, before: set[str],
-               after: set[str]) -> list[str]:
-    """Reposition one key to the middle of its dependency slack.
+def _space_one(order: Sequence[str], key: str, prereqs: set[str],
+               dependents: set[str]) -> list[str]:
+    """Reposition one key to maximize the space to its dependencies.
 
-    The key is moved as far as possible from both its prerequisites and
-    the items that depend on it, while staying after every prerequisite
-    and before every dependent. The other items keep their order.
+    The prerequisites of the key are moved as early as possible and the
+    items that depend on the key are moved as late as possible, keeping
+    their relative order. The key is then placed among the remaining
+    items: at the front when it has no prerequisite, at the back when it
+    has no dependent, and in the middle otherwise. This places as many
+    other items as possible between the key and its dependencies.
     """
-    others = [other for other in order if other != key]
-    prereq_at = [index for index, other in enumerate(others)
-                 if other in before]
-    dependent_at = [index for index, other in enumerate(others)
-                    if other in after]
-    low = max(prereq_at) + 1 if prereq_at else 0
-    high = min(dependent_at) if dependent_at else len(others)
-    insert = (low + high) // 2 if low <= high else low
-    return others[:insert] + [key] + others[insert:]
+    front = [item for item in order if item in prereqs]
+    back = [item for item in order if item in dependents]
+    middle = [item for item in order if item != key
+              and item not in prereqs and item not in dependents]
+    if not prereqs:
+        insert = 0
+    elif not dependents:
+        insert = len(middle)
+    else:
+        insert = len(middle) // 2
+    return front + middle[:insert] + [key] + middle[insert:] + back
 
 
 def _apply_space_around(order: list[str], keys: Sequence[str],
@@ -344,10 +349,12 @@ def order_by_dependencies(backlog: Backlog, *, later: bool = False,
         space_around: Key or keys of items that should have as many other
             items as possible placed between them and the items they
             depend on, and between them and the items that depend on them.
-            Each named item is moved to the middle of the range left free
-            by its dependencies. This is useful when there is a big risk
-            of delays in a chain of dependencies. It only works well for
-            one or very few items. None means no item is treated this way.
+            For each named item the prerequisites are pulled as early as
+            possible and the items that depend on it are pushed as late as
+            possible, and the named item is centered among the remaining
+            items. This is useful when there is a big risk of delays in a
+            chain of dependencies. It only works well for one or very few
+            items. None means no item is treated this way.
         stderr_file: The file to report errors to.
 
     Returns:

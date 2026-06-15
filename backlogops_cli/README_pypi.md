@@ -46,7 +46,7 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.list
      List all commands available in backlogops_cli
   python3 -m backlogops_cli.order_by_deps
-     Reorder a backlog so that dependencies come first
+     Reorder a backlog so that dependencies are fulfilled
   python3 -m backlogops_cli.order_by_keys
      Reorder a backlog so that key-list items come first
   python3 -m backlogops_cli.teams_wizard
@@ -55,7 +55,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 696 passed in 12s
+- Test result: 698 passed in 12s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

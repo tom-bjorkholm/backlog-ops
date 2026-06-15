@@ -3391,10 +3391,12 @@ not move an item by itself.
 - `space_around` - Key or keys of items that should have as many other
   items as possible placed between them and the items they
   depend on, and between them and the items that depend on them.
-  Each named item is moved to the middle of the range left free
-  by its dependencies. This is useful when there is a big risk
-  of delays in a chain of dependencies. It only works well for
-  one or very few items. None means no item is treated this way.
+  For each named item the prerequisites are pulled as early as
+  possible and the items that depend on it are pushed as late as
+  possible, and the named item is centered among the remaining
+  items. This is useful when there is a big risk of delays in a
+  chain of dependencies. It only works well for one or very few
+  items. None means no item is treated this way.
 - `stderr_file` - The file to report errors to.
   
 
