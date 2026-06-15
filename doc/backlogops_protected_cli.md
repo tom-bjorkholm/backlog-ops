@@ -29,10 +29,10 @@
   * [\_level\_value](#backlogops_cli.extract_keys._level_value)
   * [\_emit](#backlogops_cli.extract_keys._emit)
   * [main](#backlogops_cli.extract_keys.main)
-* [backlogops\_cli.order](#backlogops_cli.order)
-  * [build\_parser](#backlogops_cli.order.build_parser)
-  * [\_reordered](#backlogops_cli.order._reordered)
-  * [main](#backlogops_cli.order.main)
+* [backlogops\_cli.order\_by\_keys](#backlogops_cli.order_by_keys)
+  * [build\_parser](#backlogops_cli.order_by_keys.build_parser)
+  * [\_reordered](#backlogops_cli.order_by_keys._reordered)
+  * [main](#backlogops_cli.order_by_keys.main)
 
 <a id="backlogops_cli.list"></a>
 
@@ -395,9 +395,9 @@ Extract the backlog keys at the given levels and emit them.
   ``0`` on success, ``1`` when the backlog cannot be read or the
   keys cannot be written.
 
-<a id="backlogops_cli.order"></a>
+<a id="backlogops_cli.order_by_keys"></a>
 
-# backlogops\_cli.order
+# backlogops\_cli.order\_by\_keys
 
 Reorder a backlog from a key list and write the result.
 
@@ -409,7 +409,7 @@ releases are written to the output file. The input and output formats are
 inferred from the file name extensions, but can be overridden by a
 configuration file or by a named preset.
 
-<a id="backlogops_cli.order.build_parser"></a>
+<a id="backlogops_cli.order_by_keys.build_parser"></a>
 
 #### build\_parser
 
@@ -417,9 +417,9 @@ configuration file or by a named preset.
 def build_parser() -> argparse.ArgumentParser
 ```
 
-Build the command line parser for the order command.
+Build the command line parser for the order_by_keys command.
 
-<a id="backlogops_cli.order._reordered"></a>
+<a id="backlogops_cli.order_by_keys._reordered"></a>
 
 #### \_reordered
 
@@ -429,7 +429,7 @@ def _reordered(parsed: argparse.Namespace) -> BacklogReleases
 
 Read the backlog and key list and return the reordered data.
 
-<a id="backlogops_cli.order.main"></a>
+<a id="backlogops_cli.order_by_keys.main"></a>
 
 #### main
 

@@ -24,7 +24,7 @@ class Status(IntEnum):
 
     The meaning of each status is:
     - TODO: The backlog item is not started yet. It will be done
-            sometimes in the future. The complete story points on 
+            sometimes in the future. The complete story points on
             the item consumes FTE time.
     - IN_PROGRESS: The backlog item is in progress. We do not know
             how much of it is done, so the complete story points on

@@ -31,33 +31,50 @@ def _order(backlog: Backlog) -> list[str]:
     return [item.key for item in backlog]
 
 
-def test_children_before() -> None:
-    """Test descendants are pulled to just before their named parent."""
-    result = move_keys_first(_hierarchy(), ['E1', 'S3'], NO_OUTPUT)
-    assert _order(result) == ['S1', 'S2', 'E1', 'S3', 'E2']
+# Reference cases for move_keys_first. Each case is a (specs, keys,
+# expected) triple where specs are (key, level, parent) tuples in the
+# original backlog order. The id of each case names the rule it pins
+# down, so a case a user brings up can be pointed at directly.
+REORDER_CASES = [
+    ([('A', 1, None), ('B', 1, None), ('C', 1, None), ('D', 1, None)],
+     ['C', 'A'], ['C', 'A', 'B', 'D']),
+    ([('E1', 2, None), ('E2', 2, None), ('S1', 1, 'E1'), ('S2', 1, 'E1'),
+      ('S3', 1, 'E2')],
+     ['E1', 'S3'], ['S1', 'S2', 'E1', 'S3', 'E2']),
+    ([('E45', 2, None), ('S451', 1, 'E45'), ('S452', 1, 'E45'),
+      ('T4521', 0, 'S452')],
+     ['E45'], ['S451', 'T4521', 'S452', 'E45']),
+    ([('I1', 3, None), ('E1', 2, 'I1'), ('S1', 1, 'E1')],
+     ['I1'], ['S1', 'E1', 'I1']),
+    ([('I1', 3, None), ('E1', 2, 'I1'), ('S1', 1, 'E1')],
+     ['I1', 'E1'], ['I1', 'S1', 'E1']),
+    ([('E1', 2, None), ('S1', 1, 'E1'), ('S2', 1, 'E1')],
+     ['E1', 'S1'], ['S2', 'E1', 'S1']),
+    ([('E1', 2, None), ('S2', 1, 'E1'), ('S1', 1, 'E1')],
+     ['E1'], ['S2', 'S1', 'E1']),
+    ([('E1', 2, None), ('E2', 2, None), ('S1', 1, 'E1'), ('S2', 1, 'E2'),
+      ('G1', 0, 'S1')],
+     ['E2', 'E1'], ['S2', 'E2', 'G1', 'S1', 'E1']),
+    ([('E1', 2, None), ('S1', 1, 'E1'), ('T1', 0, 'S1'), ('T2', 0, 'S1'),
+      ('S2', 1, 'E1'), ('T3', 0, 'S2')],
+     ['E1'], ['T1', 'T2', 'S1', 'T3', 'S2', 'E1']),
+    ([('A', 1, None), ('E1', 2, None), ('S1', 1, 'E1'), ('B', 1, None)],
+     ['E1'], ['S1', 'E1', 'A', 'B'])]
+REORDER_IDS = [
+    'flat_keeps_rest_order', 'children_before_named_parent',
+    'grandchild_nested_postorder', 'chain_postorder',
+    'chain_named_epic_after_initiative', 'named_child_after_named_parent',
+    'siblings_keep_backlog_order', 'two_subtrees_in_key_order',
+    'several_grandchildren', 'unrelated_items_kept_last']
 
 
-def test_named_child_after() -> None:
-    """Test a named child is placed by its own key, after its named parent."""
-    result = move_keys_first(_hierarchy(), ['E1', 'S1'], NO_OUTPUT)
-    assert _order(result) == ['S2', 'E1', 'S1', 'E2', 'S3']
-
-
-def test_nearest_named() -> None:
-    """Test a descendant belongs to its nearest named ancestor."""
-    backlog = [_item('I1', 3), _item('E1', 2, 'I1'), _item('S1', 1, 'E1')]
-    after_top = move_keys_first(backlog, ['I1'], NO_OUTPUT)
-    assert _order(after_top) == ['S1', 'E1', 'I1']
-    after_both = move_keys_first(backlog, ['I1', 'E1'], NO_OUTPUT)
-    assert _order(after_both) == ['I1', 'S1', 'E1']
-
-
-def test_grandchild_nesting() -> None:
-    """Test a grandchild comes before its parent before the grandparent."""
-    backlog = [_item('E45', 2), _item('S451', 1, 'E45'),
-               _item('S452', 1, 'E45'), _item('T4521', 0, 'S452')]
-    result = move_keys_first(backlog, ['E45'], NO_OUTPUT)
-    assert _order(result) == ['S451', 'T4521', 'S452', 'E45']
+@pytest.mark.parametrize('specs,keys,expected', REORDER_CASES, ids=REORDER_IDS)
+def test_reorder_cases(specs: list[tuple[str, int, Optional[str]]],
+                       keys: list[str], expected: list[str]) -> None:
+    """Test move_keys_first against the documented reference cases."""
+    backlog = [_item(*spec) for spec in specs]
+    result = move_keys_first(backlog, keys, NO_OUTPUT)
+    assert _order(result) == expected
 
 
 def test_empty_keys() -> None:

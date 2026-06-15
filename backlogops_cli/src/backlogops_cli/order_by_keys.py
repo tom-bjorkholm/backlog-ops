@@ -25,7 +25,7 @@ DESCRIPTION = 'Reorder a backlog so that key-list items come first'
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the command line parser for the order command."""
+    """Build the command line parser for the order_by_keys command."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     add_input_args(parser)
     parser.add_argument('-k', '--key-list', dest='key_list', required=True,
