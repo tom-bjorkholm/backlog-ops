@@ -18,7 +18,9 @@ touch the bridge classes directly.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import os
 import sys
+from pathlib import Path
 from datetime import date
 from typing import Optional, Sequence, TextIO, override
 from config_as_json import CallingWholeConfigValidator, Config, \
@@ -418,6 +420,69 @@ def read_available_teams(filename: PathOrStr, stderr_file: TextIO = sys.stderr
                                 stderr_file=stderr_file)
 
 
+# pylint: disable-next=too-few-public-methods
+class _TeamsStore:
+    """Hold the most recently loaded workforce for reuse in a process.
+
+    The current workforce is kept in RAM so that a later call to
+    :func:`get_available_teams` without a filename can reuse it instead
+    of reading a file again.
+    """
+
+    current: Optional[AvailableTeamsConfig] = None
+
+
+def _config_from_named_file() -> Optional[Path]:
+    """Return the config file named by $BACKLOGOPS_CFG, if that is set."""
+    named = os.environ.get('BACKLOGOPS_CFG')
+    if named is None:
+        return None
+    path = Path(named)
+    if not path.is_file():
+        raise FileNotFoundError(f'$BACKLOGOPS_CFG file not found: {named}')
+    return path
+
+
+def _config_from_named_dir() -> Optional[Path]:
+    """Return backlogops.cfg in $BACKLOGOPS_DIR, if that directory is set."""
+    named = os.environ.get('BACKLOGOPS_DIR')
+    if named is None:
+        return None
+    directory = Path(named)
+    if not directory.is_dir():
+        raise NotADirectoryError(f'$BACKLOGOPS_DIR not found: {named}')
+    path = directory / 'backlogops.cfg'
+    return path if path.is_file() else None
+
+
+def _config_from_home() -> Optional[Path]:
+    """Return $HOME/.backlogops.cfg if that file exists."""
+    path = Path.home() / '.backlogops.cfg'
+    return path if path.is_file() else None
+
+
+def _config_path_from_env() -> Path:
+    """Return the configuration file found by the documented precedence.
+
+    Raises:
+        FileNotFoundError: If $BACKLOGOPS_CFG is set but the file is
+            missing.
+        NotADirectoryError: If $BACKLOGOPS_DIR is set but is not a
+            directory.
+        RuntimeError: If no configuration file is found.
+    """
+    path = _config_from_named_file()
+    if path is not None:
+        return path
+    path = _config_from_named_dir()
+    if path is not None:
+        return path
+    path = _config_from_home()
+    if path is not None:
+        return path
+    raise RuntimeError('No teams configuration file found')
+
+
 def get_available_teams(filename: Optional[PathOrStr],
                         stderr_file: TextIO = sys.stderr
                         ) -> AvailableTeamsConfig:
@@ -443,8 +508,8 @@ def get_available_teams(filename: Optional[PathOrStr],
     Raises:
         FileNotFoundError: If $BACKLOGOPS_CFG is set but the file does not
                            exist.
-        DirectoryNotFoundError: If $BACKLOGOPS_DIR is set but the directory
-                               does not exist.
+        NotADirectoryError: If $BACKLOGOPS_DIR is set but the directory
+                            does not exist.
         RuntimeError: If no filename is provided and no stored
                       AvailableTeamsConfig is found and no file is found in
                       the order of precedence.
@@ -452,4 +517,11 @@ def get_available_teams(filename: Optional[PathOrStr],
         The loaded workforce. The returned object is an
         ``AvailableTeamsConfig``.
     """
-    # implement this
+    if filename is not None:
+        _TeamsStore.current = read_available_teams(filename, stderr_file)
+        return _TeamsStore.current
+    if _TeamsStore.current is not None:
+        return _TeamsStore.current
+    path = _config_path_from_env()
+    _TeamsStore.current = read_available_teams(path, stderr_file)
+    return _TeamsStore.current

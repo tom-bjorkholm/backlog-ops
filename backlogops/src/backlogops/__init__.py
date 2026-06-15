@@ -26,7 +26,10 @@ from backlogops.backlog_releases import BacklogReleases
 from backlogops.demo_backlog import get_demo_backlog
 from backlogops.available_teams import AvailableTeams
 from backlogops.available_teams_config import (
-    AvailableTeamsConfig, read_available_teams, write_available_teams)
+    AvailableTeamsConfig, read_available_teams, write_available_teams,
+    get_available_teams)
+from backlogops.order_by_dependencies import (
+    order_by_dependencies, DependencyMode)
 from backlogops.io_config import (
     InputFormatConfig, OutputFormatConfig, resolve_input_config,
     resolve_output_config, make_input_config, make_output_config)
@@ -52,7 +55,8 @@ __all__ = [
     'Release', 'Releases', 'get_release', 'get_releases', 'BacklogReleases',
     'get_demo_backlog',
     'AvailableTeams', 'AvailableTeamsConfig', 'read_available_teams',
-    'write_available_teams', 'InputFormatConfig', 'OutputFormatConfig',
+    'write_available_teams', 'get_available_teams', 'order_by_dependencies',
+    'DependencyMode', 'InputFormatConfig', 'OutputFormatConfig',
     'resolve_input_config', 'resolve_output_config', 'make_input_config',
     'make_output_config', 'read_backlog_releases', 'write_backlog_releases',
     'item_to_row', 'row_to_item', 'release_to_row', 'row_to_release',

@@ -102,6 +102,7 @@
     * [check\_release\_xref](#backlogops.backlog_releases.BacklogReleases.check_release_xref)
     * [check\_consistency](#backlogops.backlog_releases.BacklogReleases.check_consistency)
     * [move\_keys\_first](#backlogops.backlog_releases.BacklogReleases.move_keys_first)
+    * [order\_by\_dependencies](#backlogops.backlog_releases.BacklogReleases.order_by_dependencies)
 * [backlogops.demo\_backlog](#backlogops.demo_backlog)
   * [\_POINTS](#backlogops.demo_backlog._POINTS)
   * [\_STATUSES](#backlogops.demo_backlog._STATUSES)
@@ -214,6 +215,12 @@
     * [get\_validation\_plan](#backlogops.available_teams_config.AvailableTeamsConfig.get_validation_plan)
   * [write\_available\_teams](#backlogops.available_teams_config.write_available_teams)
   * [read\_available\_teams](#backlogops.available_teams_config.read_available_teams)
+  * [\_TeamsStore](#backlogops.available_teams_config._TeamsStore)
+  * [\_config\_from\_named\_file](#backlogops.available_teams_config._config_from_named_file)
+  * [\_config\_from\_named\_dir](#backlogops.available_teams_config._config_from_named_dir)
+  * [\_config\_from\_home](#backlogops.available_teams_config._config_from_home)
+  * [\_config\_path\_from\_env](#backlogops.available_teams_config._config_path_from_env)
+  * [get\_available\_teams](#backlogops.available_teams_config.get_available_teams)
 * [backlogops.releases](#backlogops.releases)
   * [Release](#backlogops.releases.Release)
     * [check\_consistency](#backlogops.releases.Release.check_consistency)
@@ -283,6 +290,25 @@
   * [\_write\_table](#backlogops.backlog_releases_io._write_table)
   * [\_ordered\_sections](#backlogops.backlog_releases_io._ordered_sections)
   * [write\_backlog\_releases](#backlogops.backlog_releases_io.write_backlog_releases)
+* [backlogops.order\_by\_dependencies](#backlogops.order_by_dependencies)
+  * [DependencyMode](#backlogops.order_by_dependencies.DependencyMode)
+  * [\_normalize\_space\_around](#backlogops.order_by_dependencies._normalize_space_around)
+  * [\_space\_around\_limit](#backlogops.order_by_dependencies._space_around_limit)
+  * [\_check\_space\_around](#backlogops.order_by_dependencies._check_space_around)
+  * [\_item\_dependencies](#backlogops.order_by_dependencies._item_dependencies)
+  * [\_has\_dependencies](#backlogops.order_by_dependencies._has_dependencies)
+  * [\_linked\_items](#backlogops.order_by_dependencies._linked_items)
+  * [\_seed\_events](#backlogops.order_by_dependencies._seed_events)
+  * [\_forward\_events](#backlogops.order_by_dependencies._forward_events)
+  * [\_back\_events](#backlogops.order_by_dependencies._back_events)
+  * [\_topo\_item\_order](#backlogops.order_by_dependencies._topo_item_order)
+  * [\_merge\_even](#backlogops.order_by_dependencies._merge_even)
+  * [\_arrange\_by\_mode](#backlogops.order_by_dependencies._arrange_by_mode)
+  * [\_start\_reachable](#backlogops.order_by_dependencies._start_reachable)
+  * [\_precedence](#backlogops.order_by_dependencies._precedence)
+  * [\_space\_one](#backlogops.order_by_dependencies._space_one)
+  * [\_apply\_space\_around](#backlogops.order_by_dependencies._apply_space_around)
+  * [order\_by\_dependencies](#backlogops.order_by_dependencies.order_by_dependencies)
 * [backlogops.move\_keys\_first](#backlogops.move_keys_first)
   * [\_by\_key](#backlogops.move_keys_first._by_key)
   * [\_validate\_keys](#backlogops.move_keys_first._validate_keys)
@@ -2006,6 +2032,53 @@ one documented for :func:`backlogops.move_keys_first`.
 - `KeyError` - If a key is not found in the backlog.
 - `ValueError` - If a key is not unique.
 
+<a id="backlogops.backlog_releases.BacklogReleases.order_by_dependencies"></a>
+
+#### order\_by\_dependencies
+
+```python
+def order_by_dependencies(*,
+                          later: bool = False,
+                          mode: DependencyMode = DependencyMode.KEEP,
+                          space_around: Optional[str | Sequence[str]] = None,
+                          stderr_file: TextIO = sys.stderr) -> None
+```
+
+Order the member backlog by dependencies.
+
+The member backlog is replaced by a backlog ordered so that a
+team can start the items in backlog order without starting an
+item before the items it depends on. The behavior is the one
+documented for :func:`backlogops.order_by_dependencies`.
+
+**Arguments**:
+
+- `later` - How a dependency that is not yet satisfied is resolved.
+  If False (the default) the prerequisite item is pulled to
+  a position just before the dependent item. If True the
+  dependent item is pushed to a position just after its
+  prerequisites.
+- `mode` - How items that take part in a dependency are placed in
+  relation to items that take part in no dependency, as
+  documented for :class:`DependencyMode`. The default is
+  KEEP.
+- `space_around` - Key or keys of items that should have as many
+  other items as possible placed between them and the items
+  they depend on, and between them and the items that
+  depend on them. It only works well for one or very few
+  items. None means no item is treated this way.
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If space_around is neither None, a string, nor a
+  sequence of strings.
+- `KeyError` - If a space_around key is not found in the backlog.
+- `RuntimeError` - If space_around names more keys than allowed:
+  more than five, or more than ten percent of a backlog of
+  fewer than fifty items.
+
 <a id="backlogops.demo_backlog"></a>
 
 # backlogops.demo\_backlog
@@ -3610,6 +3683,114 @@ Read an available workforce from a JSON configuration file.
 
   The loaded workforce. The returned object is an ``AvailableTeams``.
 
+<a id="backlogops.available_teams_config._TeamsStore"></a>
+
+## \_TeamsStore Objects
+
+```python
+class _TeamsStore()
+```
+
+Hold the most recently loaded workforce for reuse in a process.
+
+The current workforce is kept in RAM so that a later call to
+:func:`get_available_teams` without a filename can reuse it instead
+of reading a file again.
+
+<a id="backlogops.available_teams_config._config_from_named_file"></a>
+
+#### \_config\_from\_named\_file
+
+```python
+def _config_from_named_file() -> Optional[Path]
+```
+
+Return the config file named by $BACKLOGOPS_CFG, if that is set.
+
+<a id="backlogops.available_teams_config._config_from_named_dir"></a>
+
+#### \_config\_from\_named\_dir
+
+```python
+def _config_from_named_dir() -> Optional[Path]
+```
+
+Return backlogops.cfg in $BACKLOGOPS_DIR, if that directory is set.
+
+<a id="backlogops.available_teams_config._config_from_home"></a>
+
+#### \_config\_from\_home
+
+```python
+def _config_from_home() -> Optional[Path]
+```
+
+Return $HOME/.backlogops.cfg if that file exists.
+
+<a id="backlogops.available_teams_config._config_path_from_env"></a>
+
+#### \_config\_path\_from\_env
+
+```python
+def _config_path_from_env() -> Path
+```
+
+Return the configuration file found by the documented precedence.
+
+**Raises**:
+
+- `FileNotFoundError` - If $BACKLOGOPS_CFG is set but the file is
+  missing.
+- `NotADirectoryError` - If $BACKLOGOPS_DIR is set but is not a
+  directory.
+- `RuntimeError` - If no configuration file is found.
+
+<a id="backlogops.available_teams_config.get_available_teams"></a>
+
+#### get\_available\_teams
+
+```python
+def get_available_teams(
+        filename: Optional[PathOrStr],
+        stderr_file: TextIO = sys.stderr) -> AvailableTeamsConfig
+```
+
+Convinience get the AvailableTeamsConfig to use.
+
+If a filename is provided, the file is read and the AvailableTeamsConfig
+is stored and returned.
+If no filename is provided and there is a stored AvailableTeamsConfig,
+it is returned.
+If no filename is provided and there is no stored AvailableTeamsConfig,
+this function will look for these in order of precedence:
+- File named in $BACKLOGOPS_CFG environment variable
+- File backlogops.cfg in folder specified by $BACKLOGOPS_DIR
+environment variable
+- $HOME/.backlogops.cfg
+If a file is found, it is read and the AvailableTeamsConfig is stored and
+returned. If no file is found, an exception is raised.
+
+**Arguments**:
+
+- `filename` - Source JSON configuration file.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Raises**:
+
+- `FileNotFoundError` - If $BACKLOGOPS_CFG is set but the file does not
+  exist.
+- `NotADirectoryError` - If $BACKLOGOPS_DIR is set but the directory
+  does not exist.
+- `RuntimeError` - If no filename is provided and no stored
+  AvailableTeamsConfig is found and no file is found in
+  the order of precedence.
+
+**Returns**:
+
+  The loaded workforce. The returned object is an
+  ``AvailableTeamsConfig``.
+
 <a id="backlogops.releases"></a>
 
 # backlogops.releases
@@ -4671,6 +4852,319 @@ tables are present, ``backlog_first`` decides their order.
 - `config` - The output configuration (format and column-name map).
 - `backlog_first` - Whether to write the backlog before the releases.
 - `stderr_file` - Stream used for user-facing diagnostics.
+
+<a id="backlogops.order_by_dependencies"></a>
+
+# backlogops.order\_by\_dependencies
+
+Order a backlog by dependencies.
+
+<a id="backlogops.order_by_dependencies.DependencyMode"></a>
+
+## DependencyMode Objects
+
+```python
+class DependencyMode(Enum)
+```
+
+Mode to determine backlog position of items with dependencies.
+
+EARLY: All items that take part in a dependency are placed as early
+       as possible, before the items that take part in no
+       dependency. This packs the dependency chains at the front and
+       leaves a buffer of independent items after the last dependent
+       item, to reduce the risk of delays in a chain of dependencies.
+EVEN:  Items that take part in a dependency are spread out so that
+       the dependency chains are as evenly distributed as possible
+       over the complete backlog. The independent items fill the gaps
+       between them. This may create a small time buffer between each
+       item in a dependency chain.
+KEEP:  Items that take part in no dependency keep their original
+       relative order, and only the items that take part in a
+       dependency are moved, and only as far as a dependency forces
+       them to move. The idea is that someone has already put work
+       into the order of the backlog, and we should not change it
+       without a good reason. This is the default behavior.
+
+<a id="backlogops.order_by_dependencies._normalize_space_around"></a>
+
+#### \_normalize\_space\_around
+
+```python
+def _normalize_space_around(space_around: Optional[str | Sequence[str]],
+                            stderr_file: TextIO) -> list[str]
+```
+
+Return the space_around argument as a list of key strings.
+
+A single key is wrapped in a one element list and a sequence of keys
+is copied into a new list. ``None`` becomes an empty list.
+
+**Raises**:
+
+- `TypeError` - If the argument is neither None, a string, nor a
+  sequence of strings.
+
+<a id="backlogops.order_by_dependencies._space_around_limit"></a>
+
+#### \_space\_around\_limit
+
+```python
+def _space_around_limit(item_count: int) -> int
+```
+
+Return the largest allowed number of space_around items.
+
+The limit is five items for a backlog of at least fifty items, and
+ten percent of the backlog (but at least one) for a smaller backlog.
+
+<a id="backlogops.order_by_dependencies._check_space_around"></a>
+
+#### \_check\_space\_around
+
+```python
+def _check_space_around(keys: Sequence[str], backlog: Backlog,
+                        stderr_file: TextIO) -> None
+```
+
+Check that the space_around keys exist and are not too many.
+
+**Raises**:
+
+- `KeyError` - If a key is not the key of a backlog item.
+- `RuntimeError` - If there are more keys than the allowed limit.
+
+<a id="backlogops.order_by_dependencies._item_dependencies"></a>
+
+#### \_item\_dependencies
+
+```python
+def _item_dependencies(item: BacklogItem) -> list[str]
+```
+
+Return the keys that one item depends on (explicit and parent).
+
+<a id="backlogops.order_by_dependencies._has_dependencies"></a>
+
+#### \_has\_dependencies
+
+```python
+def _has_dependencies(backlog: Backlog) -> bool
+```
+
+Tell whether any backlog item takes part in a dependency.
+
+<a id="backlogops.order_by_dependencies._linked_items"></a>
+
+#### \_linked\_items
+
+```python
+def _linked_items(backlog: Backlog) -> set[str]
+```
+
+Return the keys of items that take part in any dependency.
+
+An item is linked when it depends on another item or is depended on
+by another item, counting both the explicit dependency lists and the
+parent relations.
+
+<a id="backlogops.order_by_dependencies._seed_events"></a>
+
+#### \_seed\_events
+
+```python
+def _seed_events(backlog: Backlog) -> list[str]
+```
+
+Return all start and finish events in original backlog order.
+
+<a id="backlogops.order_by_dependencies._forward_events"></a>
+
+#### \_forward\_events
+
+```python
+def _forward_events(graph: dict[str, list[str]],
+                    seed: Sequence[str]) -> list[str]
+```
+
+Order events with each prerequisite emitted just before its user.
+
+A depth first search visits the events in original order and emits
+every event after all the events it depends on. This pulls a
+prerequisite to a position just before the dependent item, while the
+dependent item keeps its original position as much as possible.
+
+<a id="backlogops.order_by_dependencies._back_events"></a>
+
+#### \_back\_events
+
+```python
+def _back_events(graph: dict[str, list[str]],
+                 seed: Sequence[str]) -> list[str]
+```
+
+Order events delaying each dependent event as long as possible.
+
+A stable topological sort always emits the ready event with the
+smallest original position. This keeps the independent events early
+and pushes a dependent event as late as its prerequisites allow.
+
+<a id="backlogops.order_by_dependencies._topo_item_order"></a>
+
+#### \_topo\_item\_order
+
+```python
+def _topo_item_order(backlog: Backlog, later: bool) -> list[str]
+```
+
+Return the item keys in dependency order, projected from events.
+
+The events of the backlog are topologically sorted, honoring the
+direction given by ``later``, and the item order is read off from the
+order of the start events. The backlog position of an item is the
+order in which a team starts to work on it.
+
+<a id="backlogops.order_by_dependencies._merge_even"></a>
+
+#### \_merge\_even
+
+```python
+def _merge_even(linked: Sequence[str], unlinked: Sequence[str]) -> list[str]
+```
+
+Merge linked and unlinked keys, spreading linked keys evenly.
+
+The linked keys keep their given order and the unlinked keys keep
+their given order. The linked keys are placed at evenly spaced
+positions over the whole result, and the unlinked keys fill the gaps.
+
+<a id="backlogops.order_by_dependencies._arrange_by_mode"></a>
+
+#### \_arrange\_by\_mode
+
+```python
+def _arrange_by_mode(topo: Sequence[str], backlog: Backlog,
+                     mode: DependencyMode) -> list[str]
+```
+
+Place the dependency-ordered keys according to the chosen mode.
+
+<a id="backlogops.order_by_dependencies._start_reachable"></a>
+
+#### \_start\_reachable
+
+```python
+def _start_reachable(graph: dict[str, list[str]], item: BacklogItem,
+                     backlog: Backlog) -> set[str]
+```
+
+Return the keys of items that must start before the given item.
+
+The search follows the dependency edges from the start event of the
+item. Reaching either the start or the finish event of another item
+means that other item must start before this item.
+
+<a id="backlogops.order_by_dependencies._precedence"></a>
+
+#### \_precedence
+
+```python
+def _precedence(
+        backlog: Backlog) -> tuple[dict[str, set[str]], dict[str, set[str]]]
+```
+
+Return the must-start-before and must-start-after item relations.
+
+<a id="backlogops.order_by_dependencies._space_one"></a>
+
+#### \_space\_one
+
+```python
+def _space_one(order: Sequence[str], key: str, before: set[str],
+               after: set[str]) -> list[str]
+```
+
+Reposition one key to the middle of its dependency slack.
+
+The key is moved as far as possible from both its prerequisites and
+the items that depend on it, while staying after every prerequisite
+and before every dependent. The other items keep their order.
+
+<a id="backlogops.order_by_dependencies._apply_space_around"></a>
+
+#### \_apply\_space\_around
+
+```python
+def _apply_space_around(order: list[str], keys: Sequence[str],
+                        backlog: Backlog) -> list[str]
+```
+
+Reposition each space_around key to the middle of its slack.
+
+<a id="backlogops.order_by_dependencies.order_by_dependencies"></a>
+
+#### order\_by\_dependencies
+
+```python
+def order_by_dependencies(backlog: Backlog,
+                          *,
+                          later: bool = False,
+                          mode: DependencyMode = DependencyMode.KEEP,
+                          space_around: Optional[str | Sequence[str]] = None,
+                          stderr_file: TextIO = sys.stderr) -> Backlog
+```
+
+Order a backlog by dependencies.
+
+A new backlog is returned; the argument is not modified. If no item
+takes part in any dependency the argument backlog is returned
+unchanged (the same object). The backlog is ordered so that a team
+can start the items in backlog order without starting an item before
+the items it depends on. The dependencies are taken from the start
+and finish event graph of the backlog, which combines the explicit
+dependency lists with the implicit parent relations. The backlog
+position of an item is the order in which the team starts it, so only
+a dependency that constrains the start of an item moves that item;
+a finish-to-finish dependency, which only constrains completion, does
+not move an item by itself.
+
+**Arguments**:
+
+- `backlog` - The backlog to order. The argument is not modified.
+- `later` - How a dependency that is not yet satisfied is resolved.
+  If False (the default) the prerequisite item is pulled to a
+  position just before the dependent item, and the dependent
+  item keeps its position. If True the dependent item is pushed
+  to a position just after its prerequisites, and the
+  prerequisite items keep their position.
+- `mode` - How items that take part in a dependency are placed in
+  relation to items that take part in no dependency, as
+  documented for :class:`DependencyMode`. The default is KEEP.
+- `space_around` - Key or keys of items that should have as many other
+  items as possible placed between them and the items they
+  depend on, and between them and the items that depend on them.
+  Each named item is moved to the middle of the range left free
+  by its dependencies. This is useful when there is a big risk
+  of delays in a chain of dependencies. It only works well for
+  one or very few items. None means no item is treated this way.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  A new backlog with the items ordered by dependencies, or the
+  argument backlog unchanged when no item takes part in a
+  dependency.
+  
+
+**Raises**:
+
+- `TypeError` - If space_around is neither None, a string, nor a
+  sequence of strings.
+- `KeyError` - If a space_around key is not the key of a backlog item.
+- `RuntimeError` - If space_around names more keys than allowed: more
+  than five, or more than ten percent of a backlog of fewer
+  than fifty items.
 
 <a id="backlogops.move_keys_first"></a>
 

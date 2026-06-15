@@ -165,49 +165,39 @@ class BacklogReleases:
     def order_by_dependencies(self, *, later: bool = False,
                               mode: DependencyMode = DependencyMode.KEEP,
                               space_around: Optional[str | Sequence[str]]
-                              = None, stderr_file: TextIO = sys.stderr) \
-            -> Backlog:
-        """Order a backlog by dependencies.
+                              = None,
+                              stderr_file: TextIO = sys.stderr) -> None:
+        """Order the member backlog by dependencies.
 
-        The backlog is ordered so that the team(s) can work on the items in the
-        backlog order without violating dependencies. This is achieved by
-        moving items with dependencies to a position after/later than the item
-        it depends on, or to a position before/earlier than the item it
-        depends on.
-        Items without dependencies are not normally moved, but can be moved
-        between items that depend on each other, if one of the items is named
-        by space_around or mode is EVEN.
+        The member backlog is replaced by a backlog ordered so that a
+        team can start the items in backlog order without starting an
+        item before the items it depends on. The behavior is the one
+        documented for :func:`backlogops.order_by_dependencies`.
 
         Args:
-            backlog: The backlog to order. The argument is not modified.
-            later: If True an item that depends on another item is moved
-                   after/later than the item it depends on.
-                   If False an item that depends on another item is moved
-                   before/earlier than the item it depends on.
-            mode: Mode to determine backlog position of items with
-                  dependencies, in relation to items without dependencies.
-                  The default is KEEP.
-            space_around: Key(s) of items in the backlog that should have as
-                    much space between them and the items they depend on or
-                    items that depend on them as possible.
-                    This means that as many other backlog items as possible
-                    are placed between them and the items they depend on,
-                    and between them and items that depend on them.
-                    This is useful when there is a big risk of delays in
-                    a chain of dependencies.
-                    Notice that this only works for one or very few items.
-                    If None, no items receive this extra care.
+            later: How a dependency that is not yet satisfied is resolved.
+                If False (the default) the prerequisite item is pulled to
+                a position just before the dependent item. If True the
+                dependent item is pushed to a position just after its
+                prerequisites.
+            mode: How items that take part in a dependency are placed in
+                relation to items that take part in no dependency, as
+                documented for :class:`DependencyMode`. The default is
+                KEEP.
+            space_around: Key or keys of items that should have as many
+                other items as possible placed between them and the items
+                they depend on, and between them and the items that
+                depend on them. It only works well for one or very few
+                items. None means no item is treated this way.
             stderr_file: The file to report errors to.
 
         Raises:
-            KeyError:   If a key in space_around is not found in the backlog.
-            RuntimeError: If the number of items in space_around is more than
-                          5 (more than 10% of the total number of items in the
-                          backlog if there are less than 50 items in the
-                          backlog).
-            TypeError: If the space_around is not a string or a sequence of
-                       strings.
-
+            TypeError: If space_around is neither None, a string, nor a
+                sequence of strings.
+            KeyError: If a space_around key is not found in the backlog.
+            RuntimeError: If space_around names more keys than allowed:
+                more than five, or more than ten percent of a backlog of
+                fewer than fifty items.
         """
         self.backlog = order_by_dependencies(self.backlog, later=later,
                                              mode=mode,

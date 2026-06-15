@@ -16,6 +16,9 @@
 * [backlogops\_cli.extract\_keys](#backlogops_cli.extract_keys)
   * [build\_parser](#backlogops_cli.extract_keys.build_parser)
   * [main](#backlogops_cli.extract_keys.main)
+* [backlogops\_cli.order\_by\_deps](#backlogops_cli.order_by_deps)
+  * [build\_parser](#backlogops_cli.order_by_deps.build_parser)
+  * [main](#backlogops_cli.order_by_deps.main)
 * [backlogops\_cli.order\_by\_keys](#backlogops_cli.order_by_keys)
   * [build\_parser](#backlogops_cli.order_by_keys.build_parser)
   * [main](#backlogops_cli.order_by_keys.main)
@@ -218,6 +221,50 @@ Extract the backlog keys at the given levels and emit them.
 
   ``0`` on success, ``1`` when the backlog cannot be read or the
   keys cannot be written.
+
+<a id="backlogops_cli.order_by_deps"></a>
+
+# backlogops\_cli.order\_by\_deps
+
+Reorder a backlog by its dependencies and write the result.
+
+The command reads a backlog and its releases from an input file and
+reorders the backlog so that a team can start the items in backlog order
+without starting an item before the items it depends on, as documented
+for :func:`backlogops.order_by_dependencies`. The reordered backlog and
+the releases are written to the output file. The input and output formats
+are inferred from the file name extensions, but can be overridden by a
+configuration file or by a named preset.
+
+<a id="backlogops_cli.order_by_deps.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the order_by_deps command.
+
+<a id="backlogops_cli.order_by_deps.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Reorder the backlog by dependencies and write the output file.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the data cannot be read, reordered
+  or written.
 
 <a id="backlogops_cli.order_by_keys"></a>
 
