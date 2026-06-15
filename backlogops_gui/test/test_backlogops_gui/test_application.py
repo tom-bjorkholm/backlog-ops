@@ -1,155 +1,255 @@
 #! /usr/local/bin/python3
-"""Tests for the Tkinter placeholder application."""
+"""Tests for the backlog operations application logic."""
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
-from collections.abc import Callable
 import tkinter as tk
-from typing import Optional
-
+from typing import Callable, Optional, cast
 import pytest
-
+from backlogops import AvailableTeamsConfig, BacklogReleases
 from backlogops_gui import application
+from backlogops_gui.application import BacklogApp
+from backlogops_gui.io_dialogs import ReadOptions
+
+DATA = BacklogReleases(backlog=[], releases=[])
 
 
-class FakeTcl:  # pylint: disable=too-few-public-methods
-    """Fake Tcl interpreter returning a configured patch level."""
-
-    def __init__(self, version_text: str) -> None:
-        """Store the fake patch level."""
-        self.version_text = version_text
-
-    def call(self, *args: object) -> object:
-        """Return the fake patch level."""
-        assert args == ('info', 'patchlevel')
-        return self.version_text
-
-
-class FakeRoot:
-    """Fake root window used by display-independent GUI tests."""
-
-    def __init__(self, version_text: str) -> None:
-        """Create the fake root with an associated fake Tcl interpreter."""
-        self.tk = FakeTcl(version_text)
-        self.title_text: Optional[str] = None
-        self.quit_count = 0
-        self.mainloop_count = 0
-
-    def title(self, text: str) -> None:
-        """Record the configured window title."""
-        self.title_text = text
-
-    def quit(self) -> None:
-        """Record that quit was requested."""
-        self.quit_count += 1
-
-    def mainloop(self) -> None:
-        """Record that the main loop was started."""
-        self.mainloop_count += 1
-
-
-class FakeWidget:  # pylint: disable=too-few-public-methods
-    """Fake widget recording constructor and pack options."""
-
-    def __init__(self, kind: str, text: str,
-                 command: Optional[Callable[[], None]] = None) -> None:
-        """Store fake widget metadata."""
-        self.kind = kind
-        self.text = text
-        self.command = command
-        self.pack_options: dict[str, object] = {}
-
-    def pack(self, *args: object, **pack_options: object) -> None:
-        """Record requested pack options."""
-        assert not args
-        self.pack_options = pack_options
-
-
-class WidgetLog:
-    """Factory collecting fake widgets created by patched Tkinter calls."""
+# pylint: disable-next=too-few-public-methods
+class FakeConfig:
+    """Stand-in configuration recording where it was written."""
 
     def __init__(self) -> None:
-        """Create an empty widget collection."""
-        self.widgets: list[FakeWidget] = []
+        """Create non-empty presets and an unset written destination."""
+        self.input_configs: dict[str, object] = {'in': object()}
+        self.output_configs: dict[str, object] = {'out': object()}
+        self.written: Optional[str] = None
 
-    def label(self, master: object, **options: object) -> FakeWidget:
-        """Create and record a fake label."""
-        assert master is not None
-        assert options['wraplength'] == application.WARN_WRAP_LENGTH
-        assert options['justify'] in ('center', 'left')
-        text = options['text']
-        assert isinstance(text, str)
-        widget = FakeWidget('label', text)
-        self.widgets.append(widget)
-        return widget
-
-    def button(self, master: object, **options: object) -> FakeWidget:
-        """Create and record a fake button."""
-        assert master is not None
-        assert options['text'] == 'Quit'
-        command = options['command']
-        assert callable(command)
-        widget = FakeWidget('button', 'Quit', command)
-        self.widgets.append(widget)
-        return widget
+    def write(self, to_json_filename: str, stderr_file: object) -> None:
+        """Record the destination the configuration was written to."""
+        assert stderr_file is not None
+        self.written = to_json_filename
 
 
-def _patch_tk(monkeypatch: pytest.MonkeyPatch, root: FakeRoot,
-              widget_log: WidgetLog) -> None:
-    """Patch Tkinter constructors used by the application."""
-    monkeypatch.setattr(tk, 'Tk', lambda: root)
-    monkeypatch.setattr(tk, 'Label', widget_log.label)
-    monkeypatch.setattr(tk, 'Button', widget_log.button)
+def _app(config: Optional[FakeConfig] = None) -> BacklogApp:
+    """Return an application over a dummy root for logic-only tests."""
+    typed = cast(Optional[AvailableTeamsConfig], config)
+    return BacklogApp(cast(tk.Tk, object()), typed)
 
 
-def _widget_texts(widget_log: WidgetLog) -> list[str]:
-    """Return the widget texts recorded by the fake factory."""
-    return [widget.text for widget in widget_log.widgets]
+def _record(store: list[tuple[str, str]]) -> Callable[[str, str], None]:
+    """Return a callback that records its title and message."""
+    def recorder(title: str, message: str) -> None:
+        store.append((title, message))
+    return recorder
 
 
-def test_window_no_warning(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the placeholder window without a Tcl/Tk warning."""
-    root = FakeRoot('9.0.2')
-    widget_log = WidgetLog()
-    _patch_tk(monkeypatch, root, widget_log)
-    application.main()
-    assert root.title_text == application.APP_TITLE
-    assert _widget_texts(widget_log) == [application.APP_TEXT, 'Quit']
+def _opener(store: list[object]) -> Callable[[BacklogReleases, str], None]:
+    """Return a callback that records an opened backlog and title."""
+    def recorder(backlog: BacklogReleases, title: str) -> None:
+        store.append((backlog, title))
+    return recorder
 
 
-def test_window_with_warning(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the placeholder window includes old Tcl/Tk warnings."""
-    root = FakeRoot('8.6.13')
-    widget_log = WidgetLog()
-    _patch_tk(monkeypatch, root, widget_log)
-    application.main()
-    assert _widget_texts(widget_log) == [
-        application.APP_TEXT,
-        'This application was developed for Tcl/Tk version 9.0.2 or newer, '
-        'but you are running version 8.6.13. This may affect the '
-        'functionality.',
-        'Quit'
-    ]
+def _raise_none(_arg: object, _sink: object) -> AvailableTeamsConfig:
+    """Raise as if no configuration file was found."""
+    raise RuntimeError('none')
 
 
-def test_button_quits(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the quit button command calls the root quit method."""
-    root = FakeRoot('9.0.2')
-    widget_log = WidgetLog()
-    _patch_tk(monkeypatch, root, widget_log)
-    application.main()
-    button = widget_log.widgets[-1]
-    assert button.command is not None
-    button.command()
-    assert root.quit_count == 1
+def _raise_missing(_arg: object, _sink: object) -> AvailableTeamsConfig:
+    """Raise as if a named configuration file was missing."""
+    raise FileNotFoundError('missing')
 
 
-def test_main_runs_loop(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test main builds the window and starts the Tkinter loop."""
-    root = FakeRoot('9.0.2')
-    widget_log = WidgetLog()
-    _patch_tk(monkeypatch, root, widget_log)
-    application.main()
-    assert root.mainloop_count == 1
-    assert _widget_texts(widget_log) == [application.APP_TEXT, 'Quit']
+def _read_opts(_parent: object, _presets: object) -> ReadOptions:
+    """Return read options as if the format dialog was confirmed."""
+    return ReadOptions(None)
+
+
+def _read_data(_path: object, _value: object,
+               _presets: object) -> BacklogReleases:
+    """Return fixed data as if a backlog file was read."""
+    return DATA
+
+
+def _read_fail(_path: object, _value: object,
+               _presets: object) -> BacklogReleases:
+    """Raise as if reading a backlog file failed."""
+    raise ValueError('bad file')
+
+
+def _returns(value: object) -> Callable[[object, object], object]:
+    """Return a two-argument stub yielding a fixed value."""
+    def get(_arg: object, _sink: object) -> object:
+        return value
+    return get
+
+
+def _pick_csv(_parent: object) -> str:
+    """Return a backlog file name as if the chooser was confirmed."""
+    return 'file.csv'
+
+
+def _pick_none(_parent: object) -> Optional[str]:
+    """Return nothing as if the file chooser was cancelled."""
+    return None
+
+
+def _pick_teams(_parent: object) -> str:
+    """Return a configuration file name without an extension."""
+    return 'teams'
+
+
+def test_initial_config_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a loaded configuration is returned without an error."""
+    config = FakeConfig()
+    monkeypatch.setattr(application, 'get_available_teams', _returns(config))
+    result, error = application.initial_config(None)
+    assert result is cast(AvailableTeamsConfig, config)
+    assert error is None
+
+
+def test_initial_config_err(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a lookup failure is mapped to a None config and a message."""
+    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    result, error = application.initial_config(None)
+    assert result is None
+    assert error == 'none'
+
+
+def test_start_with_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test start adopts a loaded configuration and is ready."""
+    config = FakeConfig()
+    monkeypatch.setattr(application, 'get_available_teams', _returns(config))
+    app = _app()
+    assert app.start(None) is True
+    assert app.config is cast(AvailableTeamsConfig, config)
+
+
+def test_start_runs_wizard(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test start runs the wizard when no configuration is found."""
+    config = cast(AvailableTeamsConfig, FakeConfig())
+    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    app = _app()
+    monkeypatch.setattr(app, 'run_wizard', lambda: config)
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    assert app.start(None) is True
+    assert app.config is config
+    assert not errors
+
+
+def test_start_wizard_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test start is not ready when the startup wizard is cancelled."""
+    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    app = _app()
+    monkeypatch.setattr(app, 'run_wizard', lambda: None)
+    assert app.start(None) is False
+
+
+def test_bad_config_shows_err(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a bad named configuration is reported before the wizard."""
+    config = cast(AvailableTeamsConfig, FakeConfig())
+    monkeypatch.setattr(application, 'get_available_teams', _raise_missing)
+    app = _app()
+    monkeypatch.setattr(app, 'run_wizard', lambda: config)
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    assert app.start('bad.cfg') is True
+    assert errors == [('Configuration error', 'missing')]
+
+
+def test_read_backlog_opens(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test reading a backlog opens it in a new window."""
+    monkeypatch.setattr(application, 'choose_input_file', _pick_csv)
+    monkeypatch.setattr(application, 'ask_read_options', _read_opts)
+    monkeypatch.setattr(application, 'read_backlog', _read_data)
+    app = _app()
+    opened: list[object] = []
+    monkeypatch.setattr(app, 'open_backlog', _opener(opened))
+    app.read_backlog_file()
+    assert opened == [(DATA, 'file.csv')]
+
+
+def test_read_cancel_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test no window opens when the file selection is cancelled."""
+    monkeypatch.setattr(application, 'choose_input_file', _pick_none)
+    app = _app()
+    opened: list[object] = []
+    monkeypatch.setattr(app, 'open_backlog', _opener(opened))
+    app.read_backlog_file()
+    assert not opened
+
+
+def test_read_error_dialog(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a read failure is reported and opens no window."""
+    monkeypatch.setattr(application, 'choose_input_file', _pick_csv)
+    monkeypatch.setattr(application, 'ask_read_options', _read_opts)
+    monkeypatch.setattr(application, 'read_backlog', _read_fail)
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    opened: list[object] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    monkeypatch.setattr(app, 'open_backlog', _opener(opened))
+    app.read_backlog_file()
+    assert errors == [('Could not read file', 'bad file')]
+    assert not opened
+
+
+def test_demo_backlog_opens(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the demo action opens the demo backlog in a window."""
+    monkeypatch.setattr(application, 'get_demo_backlog', lambda: DATA)
+    app = _app()
+    opened: list[object] = []
+    monkeypatch.setattr(app, 'open_backlog', _opener(opened))
+    app.new_demo_backlog()
+    assert opened == [(DATA, 'Demo backlog')]
+
+
+def test_write_config_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test writing the configuration adds the extension and reports."""
+    config = FakeConfig()
+    monkeypatch.setattr(application, 'choose_config_file', _pick_teams)
+    app = _app(config)
+    infos: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_info', _record(infos))
+    app.write_config()
+    assert config.written == 'teams.cfg'
+    assert infos == [('Wrote configuration', 'Wrote teams.cfg')]
+
+
+def test_write_config_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test writing without a configuration reports the problem."""
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    app.write_config()
+    assert errors == [('No configuration',
+                       'There is no configuration to write.')]
+
+
+def test_teams_wizard_active(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a wizard result becomes the active configuration."""
+    config = cast(AvailableTeamsConfig, FakeConfig())
+    app = _app()
+    monkeypatch.setattr(app, 'run_wizard', lambda: config)
+    infos: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_info', _record(infos))
+    app.run_teams_wizard()
+    assert app.config is config
+    assert len(infos) == 1
+
+
+def test_presets_from_config() -> None:
+    """Test the presets come from the current configuration."""
+    config = FakeConfig()
+    app = _app(config)
+    assert app.in_presets() == config.input_configs
+    assert app.out_presets() == config.output_configs
+
+
+def test_no_cfg_no_presets() -> None:
+    """Test there are no presets when no configuration is loaded."""
+    app = _app()
+    assert app.in_presets() is None
+    assert app.out_presets() is None
