@@ -7,12 +7,13 @@
 import tkinter as tk
 from typing import Callable, cast
 import pytest
-from backlogops import BacklogReleases
+from backlogops import BacklogReleases, NoTextIO
 from backlogops_gui import backlog_window
 from backlogops_gui.backlog_window import save_backlog
 from backlogops_gui.io_dialogs import WriteOptions
 
 DATA = BacklogReleases(backlog=[], releases=[])
+SINK = NoTextIO()
 
 
 def _parent() -> tk.Misc:
@@ -27,23 +28,19 @@ def _record(store: list[tuple[str, str]]) -> Callable[[str, str], None]:
     return recorder
 
 
-def _writer(store: list[str]
-            ) -> Callable[[object, str, object, object, object], None]:
+def _writer(store: list[str]) -> Callable[..., None]:
     """Return a write stub recording the destination path."""
-    def write(_data: object, path: str, _value: object, _presets: object,
-              _rel: object) -> None:
+    def write(_data: object, path: str, *_rest: object) -> None:
         store.append(path)
     return write
 
 
-def _no_write(_data: object, _path: object, _value: object, _presets: object,
-              _rel: object) -> None:
+def _no_write(*_args: object) -> None:
     """Fail the test if a write is attempted."""
     raise AssertionError('write should not happen')
 
 
-def _write_fail(_data: object, _path: object, _value: object, _presets: object,
-                _rel: object) -> None:
+def _write_fail(*_args: object) -> None:
     """Raise as if writing the file failed."""
     raise OSError('disk full')
 
@@ -76,7 +73,7 @@ def test_save_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(backlog_window, 'write_backlog', _writer(written))
     errors: list[tuple[str, str]] = []
     infos: list[tuple[str, str]] = []
-    save_backlog(_parent(), DATA, None, _record(errors), _record(infos))
+    save_backlog(_parent(), DATA, None, SINK, _record(errors), _record(infos))
     assert written == ['out.csv']
     assert infos == [('Wrote file', 'Wrote out.csv')]
     assert not errors
@@ -87,7 +84,7 @@ def test_save_cancel_file(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(backlog_window, 'choose_output_file', _no_file)
     monkeypatch.setattr(backlog_window, 'write_backlog', _no_write)
     infos: list[tuple[str, str]] = []
-    save_backlog(_parent(), DATA, None, _record([]), _record(infos))
+    save_backlog(_parent(), DATA, None, SINK, _record([]), _record(infos))
     assert not infos
 
 
@@ -97,7 +94,7 @@ def test_save_cancel_options(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(backlog_window, 'ask_write_options', _no_options)
     monkeypatch.setattr(backlog_window, 'write_backlog', _no_write)
     infos: list[tuple[str, str]] = []
-    save_backlog(_parent(), DATA, None, _record([]), _record(infos))
+    save_backlog(_parent(), DATA, None, SINK, _record([]), _record(infos))
     assert not infos
 
 
@@ -108,6 +105,6 @@ def test_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(backlog_window, 'write_backlog', _write_fail)
     errors: list[tuple[str, str]] = []
     infos: list[tuple[str, str]] = []
-    save_backlog(_parent(), DATA, None, _record(errors), _record(infos))
+    save_backlog(_parent(), DATA, None, SINK, _record(errors), _record(infos))
     assert errors == [('Could not write file', 'disk full')]
     assert not infos

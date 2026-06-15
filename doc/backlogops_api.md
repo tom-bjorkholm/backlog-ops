@@ -6,6 +6,9 @@
   * [check\_person\_capacity](#backlogops.available_teams.check_person_capacity)
   * [AvailableTeams](#backlogops.available_teams.AvailableTeams)
     * [check\_consistency](#backlogops.available_teams.AvailableTeams.check_consistency)
+* [backlogops.console\_yes\_no\_bridge](#backlogops.console_yes_no_bridge)
+  * [ConsoleYesNoUiBridge](#backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge)
+    * [ask\_yes\_no](#backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge.ask_yes_no)
 * [backlogops.backlog\_helpers](#backlogops.backlog_helpers)
   * [FORBIDDEN\_KEY\_CHARS](#backlogops.backlog_helpers.FORBIDDEN_KEY_CHARS)
   * [field\_type\_hints](#backlogops.backlog_helpers.field_type_hints)
@@ -40,6 +43,8 @@
     * [name](#backlogops.person.Person.name)
     * [exceptions](#backlogops.person.Person.exceptions)
 * [backlogops.available\_teams\_wizard](#backlogops.available_teams_wizard)
+  * [YesNoUiBridge](#backlogops.available_teams_wizard.YesNoUiBridge)
+    * [ask\_yes\_no](#backlogops.available_teams_wizard.YesNoUiBridge.ask_yes_no)
   * [available\_teams\_wizard](#backlogops.available_teams_wizard.available_teams_wizard)
   * [teams\_config\_wizard](#backlogops.available_teams_wizard.teams_config_wizard)
 * [backlogops.backlog\_releases](#backlogops.backlog_releases)
@@ -312,6 +317,49 @@ more than full time on any day.
 - `ValueError` - If a field value violates a constraint, if team
   labels are not unique, or if a person is over-allocated.
 - `KeyError` - If a membership references an unknown person.
+
+<a id="backlogops.console_yes_no_bridge"></a>
+
+# backlogops.console\_yes\_no\_bridge
+
+Console wizard bridge that adds yes/no questions.
+
+The workforce wizard asks yes/no questions through a
+:class:`YesNoUiBridge`. This module provides the console implementation of
+that bridge, built on the text-based ``WizardUiBridgeConsole`` of
+``tableio_cfg_json``, so a command-line program can drive the wizard. A yes
+or no answer is read as free text such as ``y`` or ``no``, and an empty
+answer chooses the default.
+
+<a id="backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge"></a>
+
+## ConsoleYesNoUiBridge Objects
+
+```python
+class ConsoleYesNoUiBridge(WizardUiBridgeConsole, YesNoUiBridge)
+```
+
+Console wizard bridge that asks yes/no questions as free text.
+
+<a id="backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge.ask_yes_no"></a>
+
+#### ask\_yes\_no
+
+```python
+def ask_yes_no(question: str, default: bool) -> bool
+```
+
+Ask a yes/no question, returning ``default`` for an empty answer.
+
+**Arguments**:
+
+- `question` - The yes/no question to ask.
+- `default` - The value to use when the user gives an empty answer.
+  
+
+**Returns**:
+
+  The user's choice as a boolean.
 
 <a id="backlogops.backlog_helpers"></a>
 
@@ -1076,9 +1124,10 @@ Interactively build an AvailableTeams workforce configuration.
 
 The public helper :func:`available_teams_wizard` asks the user for the
 company work hours, the persons and their personal work-hour exceptions,
-and the teams with their members. It takes a ``WizardUiBridge`` (the same
-bridge abstraction used by ``tableio_cfg_json``) so the same wizard logic
-can drive a console text interface or a graphical user interface.
+and the teams with their members. It takes a ``YesNoUiBridge`` (the
+``tableio_cfg_json`` bridge abstraction extended with yes/no controls) so
+the same wizard logic can drive a console text interface or a graphical
+user interface.
 
 Individual field values are validated as they are entered, and date
 ranges are kept non-empty. Cross-item rules that span a whole workforce,
@@ -1086,12 +1135,48 @@ such as non-overlapping exception periods and per-person capacity, are
 checked when the result is stored; an invalid combination is reported
 then and the workforce must be entered again.
 
+<a id="backlogops.available_teams_wizard.YesNoUiBridge"></a>
+
+## YesNoUiBridge Objects
+
+```python
+class YesNoUiBridge(WizardUiBridge)
+```
+
+Wizard bridge extended with a yes/no question.
+
+The wizard asks every yes/no question through :meth:`ask_yes_no`, so a
+user interface implements it with whatever controls suit it: a console
+bridge reads a free-text ``y/N`` answer, while a graphical bridge can
+show a pair of yes and no buttons. Concrete bridges must implement it.
+
+<a id="backlogops.available_teams_wizard.YesNoUiBridge.ask_yes_no"></a>
+
+#### ask\_yes\_no
+
+```python
+def ask_yes_no(question: str, default: bool) -> bool
+```
+
+Ask a yes/no question and return the chosen boolean.
+
+**Arguments**:
+
+- `question` - The yes/no question to ask.
+- `default` - The value to use when the user makes no explicit
+  choice.
+  
+
+**Returns**:
+
+  The user's choice as a boolean.
+
 <a id="backlogops.available_teams_wizard.available_teams_wizard"></a>
 
 #### available\_teams\_wizard
 
 ```python
-def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams
+def available_teams_wizard(ui_bridge: YesNoUiBridge) -> AvailableTeams
 ```
 
 Interactively create an available workforce configuration.
@@ -1117,7 +1202,7 @@ Interactively create an available workforce configuration.
 #### teams\_config\_wizard
 
 ```python
-def teams_config_wizard(ui_bridge: WizardUiBridge) -> AvailableTeamsConfig
+def teams_config_wizard(ui_bridge: YesNoUiBridge) -> AvailableTeamsConfig
 ```
 
 Interactively create a workforce with optional TableIO presets.

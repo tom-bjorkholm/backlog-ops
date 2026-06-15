@@ -4,8 +4,10 @@
   * [TkWizardBridge](#backlogops_gui.gui_wizard.TkWizardBridge)
     * [\_\_init\_\_](#backlogops_gui.gui_wizard.TkWizardBridge.__init__)
     * [ask](#backlogops_gui.gui_wizard.TkWizardBridge.ask)
-    * [error\_file](#backlogops_gui.gui_wizard.TkWizardBridge.error_file)
+    * [ask\_yes\_no](#backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no)
     * [show](#backlogops_gui.gui_wizard.TkWizardBridge.show)
+    * [error\_file](#backlogops_gui.gui_wizard.TkWizardBridge.error_file)
+    * [close](#backlogops_gui.gui_wizard.TkWizardBridge.close)
 * [backlogops\_gui.application](#backlogops_gui.application)
   * [initial\_config](#backlogops_gui.application.initial_config)
   * [BacklogApp](#backlogops_gui.application.BacklogApp)
@@ -22,6 +24,7 @@
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
     * [open\_backlog](#backlogops_gui.application.BacklogApp.open_backlog)
     * [build\_menu](#backlogops_gui.application.BacklogApp.build_menu)
+    * [build\_body](#backlogops_gui.application.BacklogApp.build_body)
   * [main](#backlogops_gui.application.main)
 * [backlogops\_gui.tcltk\_version](#backlogops_gui.tcltk_version)
   * [warning\_for\_version](#backlogops_gui.tcltk_version.warning_for_version)
@@ -39,6 +42,11 @@
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
   * [ask\_read\_options](#backlogops_gui.io_dialogs.ask_read_options)
   * [ask\_write\_options](#backlogops_gui.io_dialogs.ask_write_options)
+* [backlogops\_gui.log\_buffer](#backlogops_gui.log_buffer)
+  * [LogBuffer](#backlogops_gui.log_buffer.LogBuffer)
+    * [\_\_init\_\_](#backlogops_gui.log_buffer.LogBuffer.__init__)
+    * [write](#backlogops_gui.log_buffer.LogBuffer.write)
+    * [text](#backlogops_gui.log_buffer.LogBuffer.text)
 * [backlogops\_gui.backlog\_io](#backlogops_gui.backlog_io)
   * [read\_backlog](#backlogops_gui.backlog_io.read_backlog)
   * [write\_backlog](#backlogops_gui.backlog_io.write_backlog)
@@ -54,10 +62,11 @@
 Graphical bridge that drives the synchronous teams wizard.
 
 The teams configuration wizard asks its questions through a
-:class:`WizardUiBridge` by calling :meth:`ask` in a loop. This module
-provides a bridge that answers each call with a modal Tkinter dialog, so
-the existing synchronous wizard can run unchanged inside a menu callback.
-A cancelled dialog raises :class:`EOFError`, which the wizard documents as
+:class:`WizardUiBridge`, extended here as a :class:`YesNoUiBridge` so
+yes/no questions can offer dedicated buttons. This module answers every
+call by updating one reused, fixed-size window, so the whole wizard session
+happens in a single pop-up that does not jump around the display. A
+cancelled prompt raises :class:`EOFError`, which the wizard documents as
 the way an interrupted input is reported.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge"></a>
@@ -65,10 +74,10 @@ the way an interrupted input is reported.
 ## TkWizardBridge Objects
 
 ```python
-class TkWizardBridge(WizardUiBridge)
+class TkWizardBridge(YesNoUiBridge)
 ```
 
-Bridge that answers wizard questions with Tkinter dialogs.
+Bridge that answers wizard prompts in one reused Tkinter window.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.__init__"></a>
 
@@ -76,20 +85,23 @@ Bridge that answers wizard questions with Tkinter dialogs.
 
 ```python
 def __init__(parent: tk.Misc,
+             log: Optional[TextIO] = None,
              ask_fn: Optional[
                  Callable[[str, Optional[str], Optional[Sequence[str]]],
                           str | int]] = None,
-             show_fn: Optional[Callable[[str], None]] = None) -> None
+             show_fn: Optional[Callable[[str], None]] = None,
+             yes_no_fn: Optional[Callable[[str, bool], bool]] = None) -> None
 ```
 
-Store the parent window and optional injected dialog callables.
+Store the parent window, log sink, and optional test callables.
 
 **Arguments**:
 
-- `parent` - The window the modal dialogs are shown over.
-- `ask_fn` - Replacement for the modal question dialog, used by
-  tests to script answers without a display.
-- `show_fn` - Replacement for the modal message dialog.
+- `parent` - The window the wizard window is shown over.
+- `log` - Stream that receives low-level wizard diagnostics.
+- `ask_fn` - Replacement for the question prompt, used by tests.
+- `show_fn` - Replacement for the message display, used by tests.
+- `yes_no_fn` - Replacement for the yes/no prompt, used by tests.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.ask"></a>
 
@@ -103,22 +115,22 @@ def ask(question: str,
 
 Ask one question and return the user's answer.
 
-Returns the entered text, or the zero-based index of a selected
+Returns the entered text, the zero-based index of a selected
 choice, or an empty string when the user requests the default.
 
 **Raises**:
 
-- `EOFError` - The user cancelled the dialog.
+- `EOFError` - The user cancelled the wizard.
 
-<a id="backlogops_gui.gui_wizard.TkWizardBridge.error_file"></a>
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no"></a>
 
-#### error\_file
+#### ask\_yes\_no
 
 ```python
-def error_file() -> TextIO
+def ask_yes_no(question: str, default: bool) -> bool
 ```
 
-Return a sink that discards low-level wizard diagnostics.
+Ask one yes/no question with dedicated buttons.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.show"></a>
 
@@ -130,6 +142,26 @@ def show(message: str) -> None
 
 Show an informational message to the user.
 
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.error_file"></a>
+
+#### error\_file
+
+```python
+def error_file() -> TextIO
+```
+
+Return the stream used for low-level wizard diagnostics.
+
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.close"></a>
+
+#### close
+
+```python
+def close() -> None
+```
+
+Close the wizard window when one was opened.
+
 <a id="backlogops_gui.application"></a>
 
 # backlogops\_gui.application
@@ -139,9 +171,13 @@ Tkinter application for backlog operations.
 The application opens a main window whose menu reads a backlog from a file,
 runs the teams configuration wizard, writes the running configuration to a
 file, and creates a demonstration backlog. Each backlog opens in its own
-window. The teams configuration is taken from the file given with ``-c`` or
-from the configured locations; when no configuration is found the wizard
-runs at startup, and cancelling it ends the application.
+window. On macOS the menu bar sits at the top of the display rather than in
+the window, so the main window body shows a short description, the current
+configuration status, and a log of the most recent diagnostic messages, to
+make clear that the application is running. The teams configuration is
+taken from the file given with ``-c`` or from the configured locations;
+when no configuration is found the wizard runs at startup, and cancelling
+it ends the application.
 
 <a id="backlogops_gui.application.initial_config"></a>
 
@@ -149,7 +185,8 @@ runs at startup, and cancelling it ends the application.
 
 ```python
 def initial_config(
-    config_arg: Optional[str]
+    config_arg: Optional[str],
+    sink: Optional[TextIO] = None
 ) -> tuple[Optional[AvailableTeamsConfig], Optional[str]]
 ```
 
@@ -163,6 +200,7 @@ show the error and whether to run the wizard.
 **Arguments**:
 
 - `config_arg` - The file from ``-c``, or None to search the defaults.
+- `sink` - Stream for diagnostics, or None to discard them.
   
 
 **Returns**:
@@ -188,7 +226,7 @@ def __init__(root: tk.Tk,
              config: Optional[AvailableTeamsConfig] = None) -> None
 ```
 
-Store the main window and the current configuration.
+Store the main window, configuration, and a log buffer.
 
 <a id="backlogops_gui.application.BacklogApp.in_presets"></a>
 
@@ -323,6 +361,16 @@ def build_menu() -> None
 
 Build the menu bar of the main window.
 
+<a id="backlogops_gui.application.BacklogApp.build_body"></a>
+
+#### build\_body
+
+```python
+def build_body() -> None
+```
+
+Build the main window body and start the log refresh.
+
 <a id="backlogops_gui.application.main"></a>
 
 #### main
@@ -370,7 +418,9 @@ Return a warning if the running Tcl/Tk version may be unsuitable.
 A window that shows one backlog and its releases as two tables.
 
 The window shows the backlog and the releases as two read-only tables and
-carries a menu with the actions that can be done to the backlog. The first
+carries a menu with the actions that can be done to the backlog. The
+backlog table fills the window, while the releases table, which has only a
+few columns, is kept narrow so its columns are not spread out. The first
 version offers saving to a file and closing the window. Saving is kept in a
 module function so it can be tested without a display.
 
@@ -381,9 +431,8 @@ module function so it can be tested without a display.
 ```python
 def save_backlog(parent: tk.Misc, data: BacklogReleases,
                  presets: Optional[dict[str, OutputFormatConfig]],
-                 on_error: Callable[[str, str],
-                                    None], on_info: Callable[[str, str],
-                                                             None]) -> None
+                 sink: TextIO, on_error: Callable[[str, str], None],
+                 on_info: Callable[[str, str], None]) -> None
 ```
 
 Ask where and how to save a backlog and write it.
@@ -393,6 +442,7 @@ Ask where and how to save a backlog and write it.
 - `parent` - The window the dialogs are shown over.
 - `data` - The backlog and releases to write.
 - `presets` - Named output presets, or None when none are configured.
+- `sink` - Stream that receives low-level write diagnostics.
 - `on_error` - Callback used to report a write failure.
 - `on_info` - Callback used to report a successful write.
 
@@ -413,9 +463,8 @@ A top-level window showing one backlog and its releases.
 ```python
 def __init__(root: tk.Misc, data: BacklogReleases, title: str,
              presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
-             on_error: Callable[[str, str],
-                                None], on_info: Callable[[str, str],
-                                                         None]) -> None
+             sink: TextIO, on_error: Callable[[str, str], None],
+             on_info: Callable[[str, str], None]) -> None
 ```
 
 Build the window, its menu and the two tables.
@@ -426,6 +475,7 @@ Build the window, its menu and the two tables.
 - `data` - The backlog and releases to show.
 - `title` - The window title, typically the source file name.
 - `presets` - Callable returning the current output presets.
+- `sink` - Stream that receives low-level write diagnostics.
 - `on_error` - Callback used to report a write failure.
 - `on_info` - Callback used to report a successful write.
 
@@ -531,6 +581,64 @@ def ask_write_options(
 
 Ask how to write a file, or None when the dialog is cancelled.
 
+<a id="backlogops_gui.log_buffer"></a>
+
+# backlogops\_gui.log\_buffer
+
+A bounded text sink that keeps the most recent log lines.
+
+The graphical application routes the diagnostics that the library would
+write to ``stderr`` into a log buffer instead of discarding them, so the
+most recent lines can be shown in the main window. The buffer keeps only a
+bounded number of the latest lines, so a long-running session cannot
+exhaust memory.
+
+<a id="backlogops_gui.log_buffer.LogBuffer"></a>
+
+## LogBuffer Objects
+
+```python
+class LogBuffer(io.StringIO)
+```
+
+A text sink keeping only the most recent written lines.
+
+<a id="backlogops_gui.log_buffer.LogBuffer.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(max_lines: int = DEFAULT_MAX_LINES) -> None
+```
+
+Create an empty buffer keeping at most ``max_lines`` lines.
+
+<a id="backlogops_gui.log_buffer.LogBuffer.write"></a>
+
+#### write
+
+```python
+@override
+def write(s: str) -> int
+```
+
+Append text, keeping only the most recent completed lines.
+
+The text is split on newlines; completed lines join the bounded
+store and any text after the last newline is kept as the pending
+last line. Nothing is stored in the underlying string buffer, so
+memory stays bounded regardless of how much is written.
+
+<a id="backlogops_gui.log_buffer.LogBuffer.text"></a>
+
+#### text
+
+```python
+def text() -> str
+```
+
+Return the kept lines, including any unfinished last line.
+
 <a id="backlogops_gui.backlog_io"></a>
 
 # backlogops\_gui.backlog\_io
@@ -542,16 +650,18 @@ format the same way the command line does: an empty value infers the
 format from the file name, a value of only letters and digits is a preset
 name looked up in the presets from the teams configuration, and any other
 value is the path of a stand-alone format configuration file. Diagnostics
-go to a sink, because a graphical application reports failures as dialogs.
+go to the given sink, because a graphical application shows them in a log
+view rather than on a console.
 
 <a id="backlogops_gui.backlog_io.read_backlog"></a>
 
 #### read\_backlog
 
 ```python
-def read_backlog(
-        path: str, value: Optional[str],
-        presets: Optional[dict[str, InputFormatConfig]]) -> BacklogReleases
+def read_backlog(path: str,
+                 value: Optional[str],
+                 presets: Optional[dict[str, InputFormatConfig]],
+                 sink: Optional[TextIO] = None) -> BacklogReleases
 ```
 
 Read and validate a backlog and releases from one file.
@@ -561,6 +671,7 @@ Read and validate a backlog and releases from one file.
 - `path` - The data file to read.
 - `value` - The format selection, as documented for the module.
 - `presets` - Named input presets, or None when none are configured.
+- `sink` - Stream for diagnostics, or None to discard them.
   
 
 **Returns**:
@@ -572,9 +683,12 @@ Read and validate a backlog and releases from one file.
 #### write\_backlog
 
 ```python
-def write_backlog(data: BacklogReleases, path: str, value: Optional[str],
+def write_backlog(data: BacklogReleases,
+                  path: str,
+                  value: Optional[str],
                   presets: Optional[dict[str, OutputFormatConfig]],
-                  releases_first: bool) -> None
+                  releases_first: bool,
+                  sink: Optional[TextIO] = None) -> None
 ```
 
 Write a backlog and releases to one file.
@@ -586,6 +700,7 @@ Write a backlog and releases to one file.
 - `value` - The format selection, as documented for the module.
 - `presets` - Named output presets, or None when none are configured.
 - `releases_first` - Whether to write the releases before the backlog.
+- `sink` - Stream for diagnostics, or None to discard them.
 
 <a id="backlogops_gui.table_view"></a>
 
@@ -624,9 +739,16 @@ Return the columns and text rows for the releases table.
 #### make\_table
 
 ```python
-def make_table(parent: tk.Misc, columns: Sequence[str],
-               rows: Sequence[Sequence[str]]) -> ttk.Treeview
+def make_table(parent: tk.Misc,
+               columns: Sequence[str],
+               rows: Sequence[Sequence[str]],
+               width: int = COLUMN_WIDTH,
+               stretch: bool = True) -> ttk.Treeview
 ```
 
 Create a read-only Treeview showing the given columns and rows.
+
+When ``stretch`` is True the columns share the table width; when False
+each column keeps ``width`` pixels, so a table with few columns stays
+narrow instead of spreading the columns across the whole width.
 

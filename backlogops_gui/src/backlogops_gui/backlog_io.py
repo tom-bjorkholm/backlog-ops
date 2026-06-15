@@ -6,43 +6,51 @@ format the same way the command line does: an empty value infers the
 format from the file name, a value of only letters and digits is a preset
 name looked up in the presets from the teams configuration, and any other
 value is the path of a stand-alone format configuration file. Diagnostics
-go to a sink, because a graphical application reports failures as dialogs.
+go to the given sink, because a graphical application shows them in a log
+view rather than on a console.
 """
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
-from typing import Optional
+from typing import Optional, TextIO
 from backlogops import (
     BacklogReleases, InputFormatConfig, OutputFormatConfig, NoTextIO,
     read_backlog_releases, write_backlog_releases, resolve_input_config,
     resolve_output_config)
 
 
+def _sink(sink: Optional[TextIO]) -> TextIO:
+    """Return the given diagnostics sink, or a discarding one."""
+    return sink if sink is not None else NoTextIO()
+
+
 def read_backlog(path: str, value: Optional[str],
-                 presets: Optional[dict[str, InputFormatConfig]]
-                 ) -> BacklogReleases:
+                 presets: Optional[dict[str, InputFormatConfig]],
+                 sink: Optional[TextIO] = None) -> BacklogReleases:
     """Read and validate a backlog and releases from one file.
 
     Args:
         path: The data file to read.
         value: The format selection, as documented for the module.
         presets: Named input presets, or None when none are configured.
+        sink: Stream for diagnostics, or None to discard them.
 
     Returns:
         The validated backlog and releases read from the file.
     """
-    sink = NoTextIO()
+    out = _sink(sink)
     config = resolve_input_config(value, data_file=path, presets=presets,
-                                  stderr_file=sink)
-    data = read_backlog_releases(path, config, None, sink)
-    data.check_consistency(sink)
+                                  stderr_file=out)
+    data = read_backlog_releases(path, config, None, out)
+    data.check_consistency(out)
     return data
 
 
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def write_backlog(data: BacklogReleases, path: str, value: Optional[str],
                   presets: Optional[dict[str, OutputFormatConfig]],
-                  releases_first: bool) -> None:
+                  releases_first: bool, sink: Optional[TextIO] = None) -> None:
     """Write a backlog and releases to one file.
 
     Args:
@@ -51,9 +59,10 @@ def write_backlog(data: BacklogReleases, path: str, value: Optional[str],
         value: The format selection, as documented for the module.
         presets: Named output presets, or None when none are configured.
         releases_first: Whether to write the releases before the backlog.
+        sink: Stream for diagnostics, or None to discard them.
     """
-    sink = NoTextIO()
+    out = _sink(sink)
     config = resolve_output_config(value, data_file=path, presets=presets,
-                                   stderr_file=sink)
+                                   stderr_file=out)
     write_backlog_releases(data, path, config,
-                           backlog_first=not releases_first, stderr_file=sink)
+                           backlog_first=not releases_first, stderr_file=out)

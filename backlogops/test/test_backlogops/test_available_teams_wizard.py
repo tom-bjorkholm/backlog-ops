@@ -6,16 +6,16 @@
 
 import io
 from datetime import date
-from tableio_cfg_json import WizardUiBridgeConsole
 from backlogops.available_teams import AvailableTeams
 from backlogops.available_teams_wizard import available_teams_wizard
+from backlogops.console_yes_no_bridge import ConsoleYesNoUiBridge
 from backlogops.work_hours import DEFAULT_WORK_WEEK, WeekDay
 
 
 def _run(answers: list[str]) -> AvailableTeams:
     """Run the wizard with scripted console answers and return the result."""
     stdin = io.StringIO('\n'.join(answers) + '\n')
-    bridge = WizardUiBridgeConsole(io.StringIO(), stdin, io.StringIO())
+    bridge = ConsoleYesNoUiBridge(io.StringIO(), stdin, io.StringIO())
     return available_teams_wizard(bridge)
 
 

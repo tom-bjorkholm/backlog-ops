@@ -3,9 +3,10 @@
 
 The public helper :func:`available_teams_wizard` asks the user for the
 company work hours, the persons and their personal work-hour exceptions,
-and the teams with their members. It takes a ``WizardUiBridge`` (the same
-bridge abstraction used by ``tableio_cfg_json``) so the same wizard logic
-can drive a console text interface or a graphical user interface.
+and the teams with their members. It takes a ``YesNoUiBridge`` (the
+``tableio_cfg_json`` bridge abstraction extended with yes/no controls) so
+the same wizard logic can drive a console text interface or a graphical
+user interface.
 
 Individual field values are validated as they are entered, and date
 ranges are kept non-empty. Cross-item rules that span a whole workforce,
@@ -33,7 +34,31 @@ from backlogops.work_hours import CompanyWorkHours, DEFAULT_WORK_WEEK, \
     ExceptionWorkHours, ScheduleWorkHours, WeekDay
 
 
-def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams:
+# pylint: disable-next=too-few-public-methods
+class YesNoUiBridge(WizardUiBridge):
+    """Wizard bridge extended with a yes/no question.
+
+    The wizard asks every yes/no question through :meth:`ask_yes_no`, so a
+    user interface implements it with whatever controls suit it: a console
+    bridge reads a free-text ``y/N`` answer, while a graphical bridge can
+    show a pair of yes and no buttons. Concrete bridges must implement it.
+    """
+
+    def ask_yes_no(self, question: str, default: bool) -> bool:
+        """Ask a yes/no question and return the chosen boolean.
+
+        Args:
+            question: The yes/no question to ask.
+            default: The value to use when the user makes no explicit
+                     choice.
+
+        Returns:
+            The user's choice as a boolean.
+        """
+        raise NotImplementedError('ask_yes_no() not implemented')
+
+
+def available_teams_wizard(ui_bridge: YesNoUiBridge) -> AvailableTeams:
     """Interactively create an available workforce configuration.
 
     Args:
@@ -61,7 +86,7 @@ def _as_text(answer: object) -> str:
     return answer if isinstance(answer, str) else str(answer)
 
 
-def _ask_text(ui_bridge: WizardUiBridge, question: str, *,
+def _ask_text(ui_bridge: YesNoUiBridge, question: str, *,
               default: Optional[str] = None, allow_empty: bool = False) -> str:
     """Ask for a text value with an optional default and re-ask on empty."""
     prompt = question if default is None else f'{question} [{default}]'
@@ -77,7 +102,7 @@ def _ask_text(ui_bridge: WizardUiBridge, question: str, *,
         re_ask = 'Please enter a non-empty value.'
 
 
-def _ask_number(ui_bridge: WizardUiBridge, question: str, default: float,
+def _ask_number(ui_bridge: YesNoUiBridge, question: str, default: float,
                 minimum: Optional[float], maximum: Optional[float]) -> float:
     """Ask for a floating point value within optional bounds."""
     re_ask: Optional[str] = None
@@ -98,7 +123,7 @@ def _ask_number(ui_bridge: WizardUiBridge, question: str, default: float,
             return value
 
 
-def _ask_int(ui_bridge: WizardUiBridge, question: str, default: int,
+def _ask_int(ui_bridge: YesNoUiBridge, question: str, default: int,
              minimum: int) -> int:
     """Ask for an integer value that is at least ``minimum``."""
     re_ask: Optional[str] = None
@@ -117,24 +142,13 @@ def _ask_int(ui_bridge: WizardUiBridge, question: str, default: int,
             return value
 
 
-def _ask_yes_no(ui_bridge: WizardUiBridge, question: str,
+def _ask_yes_no(ui_bridge: YesNoUiBridge, question: str,
                 default: bool) -> bool:
-    """Ask a yes/no question, returning ``default`` for an empty answer."""
-    hint = 'Y/n' if default else 'y/N'
-    re_ask: Optional[str] = None
-    while True:
-        answer = _as_text(ui_bridge.ask(f'{question} ({hint})', re_ask))
-        if answer == '':
-            return default
-        lowered = answer.strip().lower()
-        if lowered in ('y', 'yes'):
-            return True
-        if lowered in ('n', 'no'):
-            return False
-        re_ask = "Please answer 'yes' or 'no'."
+    """Ask a yes/no question through the bridge's dedicated controls."""
+    return ui_bridge.ask_yes_no(question, default)
 
 
-def _ask_date(ui_bridge: WizardUiBridge, question: str) -> date:
+def _ask_date(ui_bridge: YesNoUiBridge, question: str) -> date:
     """Ask for a required ISO 8601 date such as ``2026-06-13``."""
     re_ask: Optional[str] = None
     while True:
@@ -145,7 +159,7 @@ def _ask_date(ui_bridge: WizardUiBridge, question: str) -> date:
         re_ask = 'Please enter a date as YYYY-MM-DD.'
 
 
-def _ask_end_date(ui_bridge: WizardUiBridge, question: str,
+def _ask_end_date(ui_bridge: YesNoUiBridge, question: str,
                   start_date: date) -> date:
     """Ask for an end date that is not before ``start_date``."""
     while True:
@@ -155,7 +169,7 @@ def _ask_end_date(ui_bridge: WizardUiBridge, question: str,
         ui_bridge.show('The end date must not be before the start date.')
 
 
-def _ask_opt_date(ui_bridge: WizardUiBridge, question: str) -> Optional[date]:
+def _ask_opt_date(ui_bridge: YesNoUiBridge, question: str) -> Optional[date]:
     """Ask for an optional ISO date; an empty answer returns ``None``."""
     re_ask: Optional[str] = None
     while True:
@@ -177,7 +191,7 @@ def _parse_date(answer: str) -> Optional[date]:
         return None
 
 
-def _ask_choice(ui_bridge: WizardUiBridge, question: str,
+def _ask_choice(ui_bridge: YesNoUiBridge, question: str,
                 choices: Sequence[str]) -> str:
     """Ask the user to pick one of ``choices`` by number or by name."""
     re_ask: Optional[str] = None
@@ -195,7 +209,7 @@ def _ask_choice(ui_bridge: WizardUiBridge, question: str,
             re_ask = 'Please pick one of the listed choices.'
 
 
-def _build_company(ui_bridge: WizardUiBridge) -> CompanyWorkHours:
+def _build_company(ui_bridge: YesNoUiBridge) -> CompanyWorkHours:
     """Ask for the company weekly schedule and exception periods."""
     ui_bridge.show('Company work hours per week day:')
     work_hours = _build_schedule(ui_bridge)
@@ -205,7 +219,7 @@ def _build_company(ui_bridge: WizardUiBridge) -> CompanyWorkHours:
     return CompanyWorkHours(work_hours=work_hours, exceptions=exceptions)
 
 
-def _build_schedule(ui_bridge: WizardUiBridge) -> ScheduleWorkHours:
+def _build_schedule(ui_bridge: YesNoUiBridge) -> ScheduleWorkHours:
     """Ask for the work hours of each week day."""
     schedule: ScheduleWorkHours = {}
     for week_day in WeekDay:
@@ -215,7 +229,7 @@ def _build_schedule(ui_bridge: WizardUiBridge) -> ScheduleWorkHours:
     return schedule
 
 
-def _build_exceptions(ui_bridge: WizardUiBridge,
+def _build_exceptions(ui_bridge: YesNoUiBridge,
                       label: str) -> list[ExceptionWorkHours]:
     """Loop asking for work-hour exception periods of the given kind."""
     exceptions: list[ExceptionWorkHours] = []
@@ -224,7 +238,7 @@ def _build_exceptions(ui_bridge: WizardUiBridge,
     return exceptions
 
 
-def _ask_exception(ui_bridge: WizardUiBridge) -> ExceptionWorkHours:
+def _ask_exception(ui_bridge: YesNoUiBridge) -> ExceptionWorkHours:
     """Ask for one work-hour exception period."""
     start_date = _ask_date(ui_bridge, 'Start date')
     end_date = _ask_end_date(ui_bridge, 'End date', start_date)
@@ -236,7 +250,7 @@ def _ask_exception(ui_bridge: WizardUiBridge) -> ExceptionWorkHours:
                               hours_per_day=hours, new_work_days=new_work_days)
 
 
-def _build_persons(ui_bridge: WizardUiBridge) -> dict[str, Person]:
+def _build_persons(ui_bridge: YesNoUiBridge) -> dict[str, Person]:
     """Loop asking for persons and their personal work-hour exceptions."""
     persons: dict[str, Person] = {}
     while _ask_yes_no(ui_bridge, 'Add a person?', False):
@@ -247,7 +261,7 @@ def _build_persons(ui_bridge: WizardUiBridge) -> dict[str, Person]:
     return persons
 
 
-def _ask_person_name(ui_bridge: WizardUiBridge,
+def _ask_person_name(ui_bridge: YesNoUiBridge,
                      persons: dict[str, Person]) -> str:
     """Ask for a person name that is not already used."""
     re_ask: Optional[str] = None
@@ -259,7 +273,7 @@ def _ask_person_name(ui_bridge: WizardUiBridge,
         ui_bridge.show(re_ask)
 
 
-def _build_teams(ui_bridge: WizardUiBridge,
+def _build_teams(ui_bridge: YesNoUiBridge,
                  person_names: list[str]) -> list[Team]:
     """Loop asking for teams and their memberships."""
     teams: list[Team] = []
@@ -268,7 +282,7 @@ def _build_teams(ui_bridge: WizardUiBridge,
     return teams
 
 
-def _ask_team(ui_bridge: WizardUiBridge, person_names: list[str]) -> Team:
+def _ask_team(ui_bridge: YesNoUiBridge, person_names: list[str]) -> Team:
     """Ask for one team and its memberships."""
     name = _ask_text(ui_bridge, 'Team name')
     velocity = _ask_number(ui_bridge, 'Team velocity', 0.0, 0.0, None)
@@ -282,7 +296,7 @@ def _ask_team(ui_bridge: WizardUiBridge, person_names: list[str]) -> Team:
                 sprint_length=sprint_length, aliases=aliases, members=members)
 
 
-def _build_aliases(ui_bridge: WizardUiBridge) -> list[str]:
+def _build_aliases(ui_bridge: YesNoUiBridge) -> list[str]:
     """Loop asking for team aliases until an empty answer is given."""
     aliases: list[str] = []
     while _ask_yes_no(ui_bridge, 'Add an alias for the team?', False):
@@ -290,7 +304,7 @@ def _build_aliases(ui_bridge: WizardUiBridge) -> list[str]:
     return aliases
 
 
-def _build_members(ui_bridge: WizardUiBridge,
+def _build_members(ui_bridge: YesNoUiBridge,
                    person_names: list[str]) -> list[Membership]:
     """Loop asking for team memberships referencing known persons.
 
@@ -309,7 +323,7 @@ def _build_members(ui_bridge: WizardUiBridge,
     return members
 
 
-def _ask_membership(ui_bridge: WizardUiBridge,
+def _ask_membership(ui_bridge: YesNoUiBridge,
                     person_names: list[str]) -> Membership:
     """Ask for one team membership."""
     person_name = _ask_choice(ui_bridge, 'Select the person:', person_names)
@@ -322,7 +336,7 @@ def _ask_membership(ui_bridge: WizardUiBridge,
                       end_date=end_date, fte_exceptions=fte_exceptions)
 
 
-def _ask_membership_end(ui_bridge: WizardUiBridge,
+def _ask_membership_end(ui_bridge: YesNoUiBridge,
                         start_date: Optional[date]) -> Optional[date]:
     """Ask for an optional membership end date not before the start date."""
     while True:
@@ -332,7 +346,7 @@ def _ask_membership_end(ui_bridge: WizardUiBridge,
         ui_bridge.show('The end date must not be before the start date.')
 
 
-def _build_fte_exceptions(ui_bridge: WizardUiBridge) -> list[FteException]:
+def _build_fte_exceptions(ui_bridge: YesNoUiBridge) -> list[FteException]:
     """Loop asking for full-time-equivalent exception periods."""
     exceptions: list[FteException] = []
     while _ask_yes_no(ui_bridge,
@@ -341,7 +355,7 @@ def _build_fte_exceptions(ui_bridge: WizardUiBridge) -> list[FteException]:
     return exceptions
 
 
-def _ask_fte_exception(ui_bridge: WizardUiBridge) -> FteException:
+def _ask_fte_exception(ui_bridge: YesNoUiBridge) -> FteException:
     """Ask for one full-time-equivalent exception period."""
     start_date = _ask_date(ui_bridge, 'Exception start date')
     end_date = _ask_end_date(ui_bridge, 'Exception end date', start_date)
@@ -350,7 +364,7 @@ def _ask_fte_exception(ui_bridge: WizardUiBridge) -> FteException:
     return FteException(start_date=start_date, end_date=end_date, fte=fte)
 
 
-def teams_config_wizard(ui_bridge: WizardUiBridge) -> AvailableTeamsConfig:
+def teams_config_wizard(ui_bridge: YesNoUiBridge) -> AvailableTeamsConfig:
     """Interactively create a workforce with optional TableIO presets.
 
     The workforce is entered as by :func:`available_teams_wizard`, and the
@@ -373,12 +387,12 @@ def teams_config_wizard(ui_bridge: WizardUiBridge) -> AvailableTeamsConfig:
     return config
 
 
-def _caps(file_access: FileAccess, ui_bridge: WizardUiBridge) -> Capabilities:
+def _caps(file_access: FileAccess, ui_bridge: YesNoUiBridge) -> Capabilities:
     """Return the TableIO capabilities for one file access mode."""
     return access_capabilities(file_access, error_file=ui_bridge.error_file())
 
 
-def _collect_presets(ui_bridge: WizardUiBridge, file_access: FileAccess,
+def _collect_presets(ui_bridge: YesNoUiBridge, file_access: FileAccess,
                      label: str, from_label: str, to_label: str
                      ) -> list[tuple[str, TioJsonConfig, dict[str, str]]]:
     """Loop asking for named TableIO presets of one direction."""
@@ -393,7 +407,7 @@ def _collect_presets(ui_bridge: WizardUiBridge, file_access: FileAccess,
     return result
 
 
-def _build_input_presets(ui_bridge: WizardUiBridge
+def _build_input_presets(ui_bridge: YesNoUiBridge
                          ) -> dict[str, InputFormatConfig]:
     """Return the named input presets entered by the user."""
     entries = _collect_presets(ui_bridge, FileAccess.READ, 'input',
@@ -402,7 +416,7 @@ def _build_input_presets(ui_bridge: WizardUiBridge
             for name, tableio, column_map in entries}
 
 
-def _build_output_presets(ui_bridge: WizardUiBridge
+def _build_output_presets(ui_bridge: YesNoUiBridge
                           ) -> dict[str, OutputFormatConfig]:
     """Return the named output presets entered by the user."""
     entries = _collect_presets(ui_bridge, FileAccess.CREATE, 'output',
@@ -411,7 +425,7 @@ def _build_output_presets(ui_bridge: WizardUiBridge
             for name, tableio, column_map in entries}
 
 
-def _ask_preset_name(ui_bridge: WizardUiBridge, used: set[str]) -> str:
+def _ask_preset_name(ui_bridge: YesNoUiBridge, used: set[str]) -> str:
     """Ask for a preset name of letters and digits that is not used yet."""
     while True:
         name = _ask_text(ui_bridge, 'Preset name (letters and digits)')
@@ -423,7 +437,7 @@ def _ask_preset_name(ui_bridge: WizardUiBridge, used: set[str]) -> str:
             return name
 
 
-def _build_column_map(ui_bridge: WizardUiBridge, from_label: str,
+def _build_column_map(ui_bridge: YesNoUiBridge, from_label: str,
                       to_label: str) -> dict[str, str]:
     """Loop asking for column-name mappings of one direction."""
     mapping: dict[str, str] = {}

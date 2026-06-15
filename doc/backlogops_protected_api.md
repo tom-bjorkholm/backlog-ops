@@ -12,6 +12,9 @@
     * [\_memberships\_by\_person](#backlogops.available_teams.AvailableTeams._memberships_by_person)
     * [\_check\_capacity](#backlogops.available_teams.AvailableTeams._check_capacity)
     * [check\_consistency](#backlogops.available_teams.AvailableTeams.check_consistency)
+* [backlogops.console\_yes\_no\_bridge](#backlogops.console_yes_no_bridge)
+  * [ConsoleYesNoUiBridge](#backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge)
+    * [ask\_yes\_no](#backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge.ask_yes_no)
 * [backlogops.backlog\_helpers](#backlogops.backlog_helpers)
   * [FORBIDDEN\_KEY\_CHARS](#backlogops.backlog_helpers.FORBIDDEN_KEY_CHARS)
   * [field\_type\_hints](#backlogops.backlog_helpers.field_type_hints)
@@ -62,6 +65,8 @@
     * [name](#backlogops.person.Person.name)
     * [exceptions](#backlogops.person.Person.exceptions)
 * [backlogops.available\_teams\_wizard](#backlogops.available_teams_wizard)
+  * [YesNoUiBridge](#backlogops.available_teams_wizard.YesNoUiBridge)
+    * [ask\_yes\_no](#backlogops.available_teams_wizard.YesNoUiBridge.ask_yes_no)
   * [available\_teams\_wizard](#backlogops.available_teams_wizard.available_teams_wizard)
   * [\_as\_text](#backlogops.available_teams_wizard._as_text)
   * [\_ask\_text](#backlogops.available_teams_wizard._ask_text)
@@ -549,6 +554,49 @@ more than full time on any day.
 - `ValueError` - If a field value violates a constraint, if team
   labels are not unique, or if a person is over-allocated.
 - `KeyError` - If a membership references an unknown person.
+
+<a id="backlogops.console_yes_no_bridge"></a>
+
+# backlogops.console\_yes\_no\_bridge
+
+Console wizard bridge that adds yes/no questions.
+
+The workforce wizard asks yes/no questions through a
+:class:`YesNoUiBridge`. This module provides the console implementation of
+that bridge, built on the text-based ``WizardUiBridgeConsole`` of
+``tableio_cfg_json``, so a command-line program can drive the wizard. A yes
+or no answer is read as free text such as ``y`` or ``no``, and an empty
+answer chooses the default.
+
+<a id="backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge"></a>
+
+## ConsoleYesNoUiBridge Objects
+
+```python
+class ConsoleYesNoUiBridge(WizardUiBridgeConsole, YesNoUiBridge)
+```
+
+Console wizard bridge that asks yes/no questions as free text.
+
+<a id="backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge.ask_yes_no"></a>
+
+#### ask\_yes\_no
+
+```python
+def ask_yes_no(question: str, default: bool) -> bool
+```
+
+Ask a yes/no question, returning ``default`` for an empty answer.
+
+**Arguments**:
+
+- `question` - The yes/no question to ask.
+- `default` - The value to use when the user gives an empty answer.
+  
+
+**Returns**:
+
+  The user's choice as a boolean.
 
 <a id="backlogops.backlog_helpers"></a>
 
@@ -1483,9 +1531,10 @@ Interactively build an AvailableTeams workforce configuration.
 
 The public helper :func:`available_teams_wizard` asks the user for the
 company work hours, the persons and their personal work-hour exceptions,
-and the teams with their members. It takes a ``WizardUiBridge`` (the same
-bridge abstraction used by ``tableio_cfg_json``) so the same wizard logic
-can drive a console text interface or a graphical user interface.
+and the teams with their members. It takes a ``YesNoUiBridge`` (the
+``tableio_cfg_json`` bridge abstraction extended with yes/no controls) so
+the same wizard logic can drive a console text interface or a graphical
+user interface.
 
 Individual field values are validated as they are entered, and date
 ranges are kept non-empty. Cross-item rules that span a whole workforce,
@@ -1493,12 +1542,48 @@ such as non-overlapping exception periods and per-person capacity, are
 checked when the result is stored; an invalid combination is reported
 then and the workforce must be entered again.
 
+<a id="backlogops.available_teams_wizard.YesNoUiBridge"></a>
+
+## YesNoUiBridge Objects
+
+```python
+class YesNoUiBridge(WizardUiBridge)
+```
+
+Wizard bridge extended with a yes/no question.
+
+The wizard asks every yes/no question through :meth:`ask_yes_no`, so a
+user interface implements it with whatever controls suit it: a console
+bridge reads a free-text ``y/N`` answer, while a graphical bridge can
+show a pair of yes and no buttons. Concrete bridges must implement it.
+
+<a id="backlogops.available_teams_wizard.YesNoUiBridge.ask_yes_no"></a>
+
+#### ask\_yes\_no
+
+```python
+def ask_yes_no(question: str, default: bool) -> bool
+```
+
+Ask a yes/no question and return the chosen boolean.
+
+**Arguments**:
+
+- `question` - The yes/no question to ask.
+- `default` - The value to use when the user makes no explicit
+  choice.
+  
+
+**Returns**:
+
+  The user's choice as a boolean.
+
 <a id="backlogops.available_teams_wizard.available_teams_wizard"></a>
 
 #### available\_teams\_wizard
 
 ```python
-def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams
+def available_teams_wizard(ui_bridge: YesNoUiBridge) -> AvailableTeams
 ```
 
 Interactively create an available workforce configuration.
@@ -1534,7 +1619,7 @@ Return a bridge answer as text, accepting a numeric index too.
 #### \_ask\_text
 
 ```python
-def _ask_text(ui_bridge: WizardUiBridge,
+def _ask_text(ui_bridge: YesNoUiBridge,
               question: str,
               *,
               default: Optional[str] = None,
@@ -1548,7 +1633,7 @@ Ask for a text value with an optional default and re-ask on empty.
 #### \_ask\_number
 
 ```python
-def _ask_number(ui_bridge: WizardUiBridge, question: str, default: float,
+def _ask_number(ui_bridge: YesNoUiBridge, question: str, default: float,
                 minimum: Optional[float], maximum: Optional[float]) -> float
 ```
 
@@ -1559,7 +1644,7 @@ Ask for a floating point value within optional bounds.
 #### \_ask\_int
 
 ```python
-def _ask_int(ui_bridge: WizardUiBridge, question: str, default: int,
+def _ask_int(ui_bridge: YesNoUiBridge, question: str, default: int,
              minimum: int) -> int
 ```
 
@@ -1570,18 +1655,18 @@ Ask for an integer value that is at least ``minimum``.
 #### \_ask\_yes\_no
 
 ```python
-def _ask_yes_no(ui_bridge: WizardUiBridge, question: str,
+def _ask_yes_no(ui_bridge: YesNoUiBridge, question: str,
                 default: bool) -> bool
 ```
 
-Ask a yes/no question, returning ``default`` for an empty answer.
+Ask a yes/no question through the bridge's dedicated controls.
 
 <a id="backlogops.available_teams_wizard._ask_date"></a>
 
 #### \_ask\_date
 
 ```python
-def _ask_date(ui_bridge: WizardUiBridge, question: str) -> date
+def _ask_date(ui_bridge: YesNoUiBridge, question: str) -> date
 ```
 
 Ask for a required ISO 8601 date such as ``2026-06-13``.
@@ -1591,7 +1676,7 @@ Ask for a required ISO 8601 date such as ``2026-06-13``.
 #### \_ask\_end\_date
 
 ```python
-def _ask_end_date(ui_bridge: WizardUiBridge, question: str,
+def _ask_end_date(ui_bridge: YesNoUiBridge, question: str,
                   start_date: date) -> date
 ```
 
@@ -1602,7 +1687,7 @@ Ask for an end date that is not before ``start_date``.
 #### \_ask\_opt\_date
 
 ```python
-def _ask_opt_date(ui_bridge: WizardUiBridge, question: str) -> Optional[date]
+def _ask_opt_date(ui_bridge: YesNoUiBridge, question: str) -> Optional[date]
 ```
 
 Ask for an optional ISO date; an empty answer returns ``None``.
@@ -1622,7 +1707,7 @@ Return the ISO date in ``answer``, or ``None`` when it is invalid.
 #### \_ask\_choice
 
 ```python
-def _ask_choice(ui_bridge: WizardUiBridge, question: str,
+def _ask_choice(ui_bridge: YesNoUiBridge, question: str,
                 choices: Sequence[str]) -> str
 ```
 
@@ -1633,7 +1718,7 @@ Ask the user to pick one of ``choices`` by number or by name.
 #### \_build\_company
 
 ```python
-def _build_company(ui_bridge: WizardUiBridge) -> CompanyWorkHours
+def _build_company(ui_bridge: YesNoUiBridge) -> CompanyWorkHours
 ```
 
 Ask for the company weekly schedule and exception periods.
@@ -1643,7 +1728,7 @@ Ask for the company weekly schedule and exception periods.
 #### \_build\_schedule
 
 ```python
-def _build_schedule(ui_bridge: WizardUiBridge) -> ScheduleWorkHours
+def _build_schedule(ui_bridge: YesNoUiBridge) -> ScheduleWorkHours
 ```
 
 Ask for the work hours of each week day.
@@ -1653,7 +1738,7 @@ Ask for the work hours of each week day.
 #### \_build\_exceptions
 
 ```python
-def _build_exceptions(ui_bridge: WizardUiBridge,
+def _build_exceptions(ui_bridge: YesNoUiBridge,
                       label: str) -> list[ExceptionWorkHours]
 ```
 
@@ -1664,7 +1749,7 @@ Loop asking for work-hour exception periods of the given kind.
 #### \_ask\_exception
 
 ```python
-def _ask_exception(ui_bridge: WizardUiBridge) -> ExceptionWorkHours
+def _ask_exception(ui_bridge: YesNoUiBridge) -> ExceptionWorkHours
 ```
 
 Ask for one work-hour exception period.
@@ -1674,7 +1759,7 @@ Ask for one work-hour exception period.
 #### \_build\_persons
 
 ```python
-def _build_persons(ui_bridge: WizardUiBridge) -> dict[str, Person]
+def _build_persons(ui_bridge: YesNoUiBridge) -> dict[str, Person]
 ```
 
 Loop asking for persons and their personal work-hour exceptions.
@@ -1684,8 +1769,8 @@ Loop asking for persons and their personal work-hour exceptions.
 #### \_ask\_person\_name
 
 ```python
-def _ask_person_name(ui_bridge: WizardUiBridge, persons: dict[str,
-                                                              Person]) -> str
+def _ask_person_name(ui_bridge: YesNoUiBridge, persons: dict[str,
+                                                             Person]) -> str
 ```
 
 Ask for a person name that is not already used.
@@ -1695,7 +1780,7 @@ Ask for a person name that is not already used.
 #### \_build\_teams
 
 ```python
-def _build_teams(ui_bridge: WizardUiBridge,
+def _build_teams(ui_bridge: YesNoUiBridge,
                  person_names: list[str]) -> list[Team]
 ```
 
@@ -1706,7 +1791,7 @@ Loop asking for teams and their memberships.
 #### \_ask\_team
 
 ```python
-def _ask_team(ui_bridge: WizardUiBridge, person_names: list[str]) -> Team
+def _ask_team(ui_bridge: YesNoUiBridge, person_names: list[str]) -> Team
 ```
 
 Ask for one team and its memberships.
@@ -1716,7 +1801,7 @@ Ask for one team and its memberships.
 #### \_build\_aliases
 
 ```python
-def _build_aliases(ui_bridge: WizardUiBridge) -> list[str]
+def _build_aliases(ui_bridge: YesNoUiBridge) -> list[str]
 ```
 
 Loop asking for team aliases until an empty answer is given.
@@ -1726,7 +1811,7 @@ Loop asking for team aliases until an empty answer is given.
 #### \_build\_members
 
 ```python
-def _build_members(ui_bridge: WizardUiBridge,
+def _build_members(ui_bridge: YesNoUiBridge,
                    person_names: list[str]) -> list[Membership]
 ```
 
@@ -1740,7 +1825,7 @@ so each person joins the team at most once.
 #### \_ask\_membership
 
 ```python
-def _ask_membership(ui_bridge: WizardUiBridge,
+def _ask_membership(ui_bridge: YesNoUiBridge,
                     person_names: list[str]) -> Membership
 ```
 
@@ -1751,7 +1836,7 @@ Ask for one team membership.
 #### \_ask\_membership\_end
 
 ```python
-def _ask_membership_end(ui_bridge: WizardUiBridge,
+def _ask_membership_end(ui_bridge: YesNoUiBridge,
                         start_date: Optional[date]) -> Optional[date]
 ```
 
@@ -1762,7 +1847,7 @@ Ask for an optional membership end date not before the start date.
 #### \_build\_fte\_exceptions
 
 ```python
-def _build_fte_exceptions(ui_bridge: WizardUiBridge) -> list[FteException]
+def _build_fte_exceptions(ui_bridge: YesNoUiBridge) -> list[FteException]
 ```
 
 Loop asking for full-time-equivalent exception periods.
@@ -1772,7 +1857,7 @@ Loop asking for full-time-equivalent exception periods.
 #### \_ask\_fte\_exception
 
 ```python
-def _ask_fte_exception(ui_bridge: WizardUiBridge) -> FteException
+def _ask_fte_exception(ui_bridge: YesNoUiBridge) -> FteException
 ```
 
 Ask for one full-time-equivalent exception period.
@@ -1782,7 +1867,7 @@ Ask for one full-time-equivalent exception period.
 #### teams\_config\_wizard
 
 ```python
-def teams_config_wizard(ui_bridge: WizardUiBridge) -> AvailableTeamsConfig
+def teams_config_wizard(ui_bridge: YesNoUiBridge) -> AvailableTeamsConfig
 ```
 
 Interactively create a workforce with optional TableIO presets.
@@ -1810,7 +1895,7 @@ configuration presets that are stored alongside the workforce.
 #### \_caps
 
 ```python
-def _caps(file_access: FileAccess, ui_bridge: WizardUiBridge) -> Capabilities
+def _caps(file_access: FileAccess, ui_bridge: YesNoUiBridge) -> Capabilities
 ```
 
 Return the TableIO capabilities for one file access mode.
@@ -1821,7 +1906,7 @@ Return the TableIO capabilities for one file access mode.
 
 ```python
 def _collect_presets(
-        ui_bridge: WizardUiBridge, file_access: FileAccess, label: str,
+        ui_bridge: YesNoUiBridge, file_access: FileAccess, label: str,
         from_label: str,
         to_label: str) -> list[tuple[str, TioJsonConfig, dict[str, str]]]
 ```
@@ -1834,7 +1919,7 @@ Loop asking for named TableIO presets of one direction.
 
 ```python
 def _build_input_presets(
-        ui_bridge: WizardUiBridge) -> dict[str, InputFormatConfig]
+        ui_bridge: YesNoUiBridge) -> dict[str, InputFormatConfig]
 ```
 
 Return the named input presets entered by the user.
@@ -1845,7 +1930,7 @@ Return the named input presets entered by the user.
 
 ```python
 def _build_output_presets(
-        ui_bridge: WizardUiBridge) -> dict[str, OutputFormatConfig]
+        ui_bridge: YesNoUiBridge) -> dict[str, OutputFormatConfig]
 ```
 
 Return the named output presets entered by the user.
@@ -1855,7 +1940,7 @@ Return the named output presets entered by the user.
 #### \_ask\_preset\_name
 
 ```python
-def _ask_preset_name(ui_bridge: WizardUiBridge, used: set[str]) -> str
+def _ask_preset_name(ui_bridge: YesNoUiBridge, used: set[str]) -> str
 ```
 
 Ask for a preset name of letters and digits that is not used yet.
@@ -1865,7 +1950,7 @@ Ask for a preset name of letters and digits that is not used yet.
 #### \_build\_column\_map
 
 ```python
-def _build_column_map(ui_bridge: WizardUiBridge, from_label: str,
+def _build_column_map(ui_bridge: YesNoUiBridge, from_label: str,
                       to_label: str) -> dict[str, str]
 ```
 

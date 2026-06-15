@@ -55,12 +55,18 @@ def release_table(data: BacklogReleases) -> tuple[list[str], list[list[str]]]:
 
 
 def make_table(parent: tk.Misc, columns: Sequence[str],
-               rows: Sequence[Sequence[str]]) -> ttk.Treeview:
-    """Create a read-only Treeview showing the given columns and rows."""
+               rows: Sequence[Sequence[str]], width: int = COLUMN_WIDTH,
+               stretch: bool = True) -> ttk.Treeview:
+    """Create a read-only Treeview showing the given columns and rows.
+
+    When ``stretch`` is True the columns share the table width; when False
+    each column keeps ``width`` pixels, so a table with few columns stays
+    narrow instead of spreading the columns across the whole width.
+    """
     tree = ttk.Treeview(parent, columns=list(columns), show='headings')
     for name in columns:
         tree.heading(name, text=name)
-        tree.column(name, width=COLUMN_WIDTH, stretch=True)
+        tree.column(name, width=width, stretch=stretch)
     for row in rows:
         tree.insert('', 'end', values=list(row))
     return tree

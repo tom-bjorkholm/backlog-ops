@@ -9,8 +9,7 @@ import argparse
 import sys
 from typing import Optional
 from config_as_json.file_extension import fix_file_extension
-from tableio_cfg_json import WizardUiBridgeConsole
-from backlogops import teams_config_wizard
+from backlogops import ConsoleYesNoUiBridge, teams_config_wizard
 from backlogops_cli._command_io import parsed_args
 
 DESCRIPTION = 'Create an AvailableTeams configuration file via a wizard'
@@ -41,7 +40,7 @@ def main(args: Optional[list[str]] = None) -> int:
     """
     parsed = parsed_args(build_parser(), args)
     output = fix_file_extension(parsed.output, CONFIG_EXTENSION)
-    bridge = WizardUiBridgeConsole(sys.stdout, sys.stdin, sys.stderr)
+    bridge = ConsoleYesNoUiBridge(sys.stdout, sys.stdin, sys.stderr)
     try:
         config = teams_config_wizard(bridge)
         config.write(to_json_filename=output, stderr_file=sys.stderr)

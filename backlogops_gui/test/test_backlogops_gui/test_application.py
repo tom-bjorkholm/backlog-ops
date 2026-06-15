@@ -66,14 +66,14 @@ def _read_opts(_parent: object, _presets: object) -> ReadOptions:
     return ReadOptions(None)
 
 
-def _read_data(_path: object, _value: object,
-               _presets: object) -> BacklogReleases:
+def _read_data(_path: object, _value: object, _presets: object,
+               _sink: object) -> BacklogReleases:
     """Return fixed data as if a backlog file was read."""
     return DATA
 
 
-def _read_fail(_path: object, _value: object,
-               _presets: object) -> BacklogReleases:
+def _read_fail(_path: object, _value: object, _presets: object,
+               _sink: object) -> BacklogReleases:
     """Raise as if reading a backlog file failed."""
     raise ValueError('bad file')
 
@@ -124,6 +124,7 @@ def test_start_with_config(monkeypatch: pytest.MonkeyPatch) -> None:
     app = _app()
     assert app.start(None) is True
     assert app.config is cast(AvailableTeamsConfig, config)
+    assert app.config_source == 'the default location'
 
 
 def test_start_runs_wizard(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -136,6 +137,7 @@ def test_start_runs_wizard(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app, 'show_error', _record(errors))
     assert app.start(None) is True
     assert app.config is config
+    assert app.config_source == 'the wizard'
     assert not errors
 
 
