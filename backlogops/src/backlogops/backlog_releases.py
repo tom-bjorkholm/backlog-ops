@@ -257,12 +257,16 @@ class BacklogReleases:
         :func:`backlogops.adjust_release_content`.
 
         Args:
-            buffer: The buffer or slack to add to the estimated ready dates
-                    to get the planned release dates.
+            buffer: The buffer or slack added to the estimated ready dates
+                    to gain confidence that an item fits a release. Must
+                    not be negative.
             stderr_file: The file to report errors to.
 
         Returns:
             A record of how the release content was changed.
+
+        Raises:
+            ValueError: If the buffer is negative.
         """
         _ = stderr_file
         self.backlog, changes = adjust_release_content(self.releases,
@@ -280,11 +284,14 @@ class BacklogReleases:
 
         Args:
             buffer: The buffer or slack to add to the estimated release dates
-                    to get the planned release dates.
+                    to get the planned release dates. Must not be negative.
             stderr_file: The file to report errors to.
 
         Returns:
             A record of how the release dates were changed.
+
+        Raises:
+            ValueError: If the buffer is negative.
         """
         _ = stderr_file
         self.releases, changes = release_plan_on_estimate(self.releases,

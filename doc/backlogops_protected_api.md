@@ -2451,14 +2451,20 @@ adjusted release content. The behavior is the one documented for
 
 **Arguments**:
 
-- `buffer` - The buffer or slack to add to the estimated ready dates
-  to get the planned release dates.
+- `buffer` - The buffer or slack added to the estimated ready dates
+  to gain confidence that an item fits a release. Must
+  not be negative.
 - `stderr_file` - The file to report errors to.
   
 
 **Returns**:
 
   A record of how the release content was changed.
+  
+
+**Raises**:
+
+- `ValueError` - If the buffer is negative.
 
 <a id="backlogops.backlog_releases.BacklogReleases.release_plan_on_estimate"></a>
 
@@ -2479,13 +2485,18 @@ documented for :func:`backlogops.release_plan_on_estimate`.
 **Arguments**:
 
 - `buffer` - The buffer or slack to add to the estimated release dates
-  to get the planned release dates.
+  to get the planned release dates. Must not be negative.
 - `stderr_file` - The file to report errors to.
   
 
 **Returns**:
 
   A record of how the release dates were changed.
+  
+
+**Raises**:
+
+- `ValueError` - If the buffer is negative.
 
 <a id="backlogops.demo_backlog"></a>
 
@@ -4598,10 +4609,12 @@ def _new_release_for(item: BacklogItem, dated: list[tuple[date, int, str]],
 
 Return the release the item belongs in for its current estimate.
 
-An item with no release, or with no estimated ready date, is left
-unchanged, as there is no basis to move it. Otherwise the item is
-placed in the earliest planned release that its estimated ready date
-plus the buffer reaches, or in no release when none is late enough.
+An item with no estimated ready date keeps its current release, as
+there is no basis to place it. Otherwise the item is placed in the
+earliest planned release that its estimated ready date plus the buffer
+reaches, regardless of its current release, so an item with no release
+yet is assigned to the release it is ready in time for. The item is
+placed in no release when no planned release is late enough.
 
 <a id="backlogops.release_backlog_updates.adjust_release_content"></a>
 
@@ -4614,15 +4627,16 @@ def adjust_release_content(releases: Releases, backlog: Backlog,
 
 Adjust the release content to fit the planned release dates.
 
-Each backlog item that names a release and carries an estimated ready
-date is moved to the earliest release whose planned date is on or
-after the item's estimated ready date plus the buffer. This both
-pushes an item to a later release when it no longer fits its current
-one and pulls it to an earlier release when it now fits sooner. An
-item that no planned release is late enough for is removed from its
-release (its release becomes ``None``). Items with no release, with no
-estimated ready date, or whose release does not change are left
-unchanged. A change is recorded only for an item whose release changes.
+Each backlog item that carries an estimated ready date is placed in
+the earliest release whose planned date is on or after the item's
+estimated ready date plus the buffer. This pushes an item to a later
+release when it no longer fits its current one, pulls it to an earlier
+release when it now fits sooner, and assigns an item that has no
+release yet to the release it is ready in time for. An item that no
+planned release is late enough for is left out of every release (its
+release becomes ``None``). An item with no estimated ready date keeps
+its current release, as there is no basis to place it. A change is
+recorded only for an item whose release actually changes.
 
 **Arguments**:
 

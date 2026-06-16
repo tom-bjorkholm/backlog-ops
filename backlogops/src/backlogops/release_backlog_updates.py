@@ -184,12 +184,14 @@ def _new_release_for(item: BacklogItem, dated: list[tuple[date, int, str]],
                      buffer: timedelta) -> Optional[str]:
     """Return the release the item belongs in for its current estimate.
 
-    An item with no release, or with no estimated ready date, is left
-    unchanged, as there is no basis to move it. Otherwise the item is
-    placed in the earliest planned release that its estimated ready date
-    plus the buffer reaches, or in no release when none is late enough.
+    An item with no estimated ready date keeps its current release, as
+    there is no basis to place it. Otherwise the item is placed in the
+    earliest planned release that its estimated ready date plus the buffer
+    reaches, regardless of its current release, so an item with no release
+    yet is assigned to the release it is ready in time for. The item is
+    placed in no release when no planned release is late enough.
     """
-    if item.release is None or item.estimated_ready_date is None:
+    if item.estimated_ready_date is None:
         return item.release
     return _fitting_release(dated, item.estimated_ready_date + buffer)
 
@@ -198,15 +200,16 @@ def adjust_release_content(releases: Releases, backlog: Backlog,
                            buffer: timedelta) -> BacklogReleaseChange:
     """Adjust the release content to fit the planned release dates.
 
-    Each backlog item that names a release and carries an estimated ready
-    date is moved to the earliest release whose planned date is on or
-    after the item's estimated ready date plus the buffer. This both
-    pushes an item to a later release when it no longer fits its current
-    one and pulls it to an earlier release when it now fits sooner. An
-    item that no planned release is late enough for is removed from its
-    release (its release becomes ``None``). Items with no release, with no
-    estimated ready date, or whose release does not change are left
-    unchanged. A change is recorded only for an item whose release changes.
+    Each backlog item that carries an estimated ready date is placed in
+    the earliest release whose planned date is on or after the item's
+    estimated ready date plus the buffer. This pushes an item to a later
+    release when it no longer fits its current one, pulls it to an earlier
+    release when it now fits sooner, and assigns an item that has no
+    release yet to the release it is ready in time for. An item that no
+    planned release is late enough for is left out of every release (its
+    release becomes ``None``). An item with no estimated ready date keeps
+    its current release, as there is no basis to place it. A change is
+    recorded only for an item whose release actually changes.
 
     Args:
         releases: The releases to fit the items into. The argument is not

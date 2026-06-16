@@ -119,14 +119,24 @@ def test_content_remove() -> None:
 
 
 def test_content_keep() -> None:
-    """Test items with no estimate or no release are left unchanged."""
+    """Test an item with no estimate keeps its release unchanged."""
     releases = [_release('R1', date(2026, 1, 15))]
-    backlog = [_item('a', 'R1', None), _item('b', None, date(2026, 1, 1))]
+    backlog = [_item('a', 'R1', None)]
     new_backlog, changes = adjust_release_content(releases, backlog,
                                                   timedelta(days=5))
     assert new_backlog[0].release == 'R1'
-    assert new_backlog[1].release is None
     assert not changes
+
+
+def test_content_assign() -> None:
+    """Test an item with no release is assigned to where it fits."""
+    releases = [_release('R1', date(2026, 1, 15))]
+    backlog = [_item('b', None, date(2026, 1, 1))]
+    new_backlog, changes = adjust_release_content(releases, backlog,
+                                                  timedelta(days=5))
+    assert new_backlog[0].release == 'R1'
+    assert changes[0].old_release is None
+    assert changes[0].new_release == 'R1'
 
 
 def test_content_undated() -> None:
