@@ -13,7 +13,7 @@ module function so it can be tested without a display.
 # MIT License
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 from typing import Callable, Optional, TextIO
 from tableio import ValueFmt
 from backlogops import (
@@ -177,9 +177,8 @@ class BacklogWindow:
     def __init__(self, root: tk.Misc, data: BacklogReleases, title: str,
                  presets: Callable[
                      [], Optional[dict[str, OutputFormatConfig]]],
-                 teams: Callable[[], Optional[AvailableTeams]], sink: TextIO,
-                 on_error: Callable[[str, str], None],
-                 on_info: Callable[[str, str], None]) -> None:
+                 teams: Callable[[], Optional[AvailableTeams]],
+                 sink: TextIO) -> None:
         """Build the window, its menu and the two tables.
 
         Args:
@@ -189,20 +188,24 @@ class BacklogWindow:
             presets: Callable returning the current output presets.
             teams: Callable returning the loaded teams configuration.
             sink: Stream that receives low-level write diagnostics.
-            on_error: Callback used to report a write failure.
-            on_info: Callback used to report a successful write.
         """
         self._data = data
         self._presets = presets
         self._teams = teams
         self._sink = sink
-        self._on_error = on_error
-        self._on_info = on_info
         self._win = tk.Toplevel(root)
         self._win.title(title)
         self._tables: list[tk.Widget] = []
         self._add_menu()
         self._build_tables()
+
+    def _report_error(self, title: str, message: str) -> None:
+        """Show an error message over this backlog window."""
+        messagebox.showerror(title, message, parent=self._win)
+
+    def _report_info(self, title: str, message: str) -> None:
+        """Show an informational message over this backlog window."""
+        messagebox.showinfo(title, message, parent=self._win)
 
     def _build_tables(self) -> None:
         """Build the backlog and releases tables from the current data."""
@@ -275,29 +278,30 @@ class BacklogWindow:
     def _save(self) -> None:
         """Save the backlog through the shared save helper."""
         save_backlog(self._win, self._data, self._presets(), self._sink,
-                     self._on_error, self._on_info)
+                     self._report_error, self._report_info)
 
     def _order_by_keys(self) -> None:
         """Order the backlog by leading keys and refresh the tables."""
         order_by_keys(self._win, self._data, self._sink, self._refresh_tables,
-                      self._on_error, self._on_info)
+                      self._report_error, self._report_info)
 
     def _order_by_deps(self) -> None:
         """Order the backlog by dependencies and refresh the tables."""
         order_by_deps(self._win, self._data, self._sink, self._refresh_tables,
-                      self._on_error, self._on_info)
+                      self._report_error, self._report_info)
 
     def _estimate_date(self) -> None:
         """Estimate the ready dates and refresh the tables."""
         estimate_date(self._win, self._data, self._teams(), self._sink,
-                      self._refresh_tables, self._on_error, self._on_info)
+                      self._refresh_tables, self._report_error,
+                      self._report_info)
 
     def _set_plan(self) -> None:
         """Copy the estimated dates to the planned dates and refresh."""
-        set_plan(self._data, self._sink, self._refresh_tables, self._on_error,
-                 self._on_info)
+        set_plan(self._data, self._sink, self._refresh_tables,
+                 self._report_error, self._report_info)
 
     def _extract_keys(self) -> None:
         """Extract backlog keys at chosen levels to a key list file."""
-        extract_keys(self._win, self._data, self._sink, self._on_error,
-                     self._on_info)
+        extract_keys(self._win, self._data, self._sink, self._report_error,
+                     self._report_info)

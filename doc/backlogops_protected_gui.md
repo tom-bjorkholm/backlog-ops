@@ -68,6 +68,8 @@
   * [extract\_keys](#backlogops_gui.backlog_window.extract_keys)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
+    * [\_report\_error](#backlogops_gui.backlog_window.BacklogWindow._report_error)
+    * [\_report\_info](#backlogops_gui.backlog_window.BacklogWindow._report_info)
     * [\_build\_tables](#backlogops_gui.backlog_window.BacklogWindow._build_tables)
     * [\_refresh\_tables](#backlogops_gui.backlog_window.BacklogWindow._refresh_tables)
     * [\_add\_menu](#backlogops_gui.backlog_window.BacklogWindow._add_menu)
@@ -149,6 +151,9 @@
   * [\_tag\_font](#backlogops_gui.table_view._tag_font)
   * [\_ensure\_tag](#backlogops_gui.table_view._ensure_tag)
   * [\_format\_cell](#backlogops_gui.table_view._format_cell)
+  * [supports\_cell\_tags](#backlogops_gui.table_view.supports_cell_tags)
+  * [\_row\_format](#backlogops_gui.table_view._row_format)
+  * [\_color\_cells](#backlogops_gui.table_view._color_cells)
   * [\_insert\_row](#backlogops_gui.table_view._insert_row)
   * [make\_table](#backlogops_gui.table_view.make_table)
 
@@ -935,10 +940,8 @@ A top-level window showing one backlog and its releases.
 ```python
 def __init__(root: tk.Misc, data: BacklogReleases, title: str,
              presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
-             teams: Callable[[], Optional[AvailableTeams]], sink: TextIO,
-             on_error: Callable[[str, str],
-                                None], on_info: Callable[[str, str],
-                                                         None]) -> None
+             teams: Callable[[],
+                             Optional[AvailableTeams]], sink: TextIO) -> None
 ```
 
 Build the window, its menu and the two tables.
@@ -951,8 +954,26 @@ Build the window, its menu and the two tables.
 - `presets` - Callable returning the current output presets.
 - `teams` - Callable returning the loaded teams configuration.
 - `sink` - Stream that receives low-level write diagnostics.
-- `on_error` - Callback used to report a write failure.
-- `on_info` - Callback used to report a successful write.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._report_error"></a>
+
+#### \_report\_error
+
+```python
+def _report_error(title: str, message: str) -> None
+```
+
+Show an error message over this backlog window.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._report_info"></a>
+
+#### \_report\_info
+
+```python
+def _report_info(title: str, message: str) -> None
+```
+
+Show an informational message over this backlog window.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._build_tables"></a>
 
@@ -1838,16 +1859,55 @@ def _format_cell(tree: ttk.Treeview, item: str, column: str, fmt: Fmt) -> None
 
 Color one table cell, leaving plain cells untouched.
 
+<a id="backlogops_gui.table_view.supports_cell_tags"></a>
+
+#### supports\_cell\_tags
+
+```python
+def supports_cell_tags(tree: ttk.Treeview) -> bool
+```
+
+Return whether this Tk build supports per-cell Treeview tags.
+
+Per-cell tags are a Tk 8.7+ feature. On an older Tk the ``tag cell``
+subcommand does not exist, so the probe raises and coloring falls back
+to whole-row tags, which Tk has supported for far longer.
+
+<a id="backlogops_gui.table_view._row_format"></a>
+
+#### \_row\_format
+
+```python
+def _row_format(row: Sequence[ValueFmt]) -> Fmt
+```
+
+Return the first non-plain cell format in a row, else plain.
+
+<a id="backlogops_gui.table_view._color_cells"></a>
+
+#### \_color\_cells
+
+```python
+def _color_cells(tree: ttk.Treeview, item: str, columns: Sequence[str],
+                 row: Sequence[ValueFmt]) -> None
+```
+
+Color each formatted cell of an inserted row separately.
+
 <a id="backlogops_gui.table_view._insert_row"></a>
 
 #### \_insert\_row
 
 ```python
 def _insert_row(tree: ttk.Treeview, columns: Sequence[str],
-                row: Sequence[ValueFmt]) -> None
+                row: Sequence[ValueFmt], cell_tags: bool) -> None
 ```
 
-Insert one row as text and color its formatted cells.
+Insert one row as text and color it per cell or per row.
+
+With per-cell tags every formatted cell keeps its own color. Without
+them the whole row takes the format of its first formatted cell, so an
+older Tk still highlights the row instead of failing to build the table.
 
 <a id="backlogops_gui.table_view.make_table"></a>
 
@@ -1865,7 +1925,9 @@ Create a read-only Treeview showing the given columns and rows.
 
 Each cell is colored by the format rules, so a late estimate or a done
 or rejected status appears with the same highlight and font as in a
-written spreadsheet. When ``stretch`` is True the columns share the table
-width; when False each column keeps ``width`` pixels, so a table with few
-columns stays narrow instead of spreading across the whole width.
+written spreadsheet. On a Tk too old for per-cell tags the whole row is
+colored instead, so the table still builds and shows the highlight. When
+``stretch`` is True the columns share the table width; when False each
+column keeps ``width`` pixels, so a table with few columns stays narrow
+instead of spreading across the whole width.
 

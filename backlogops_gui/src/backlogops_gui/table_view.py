@@ -95,13 +95,51 @@ def _format_cell(tree: ttk.Treeview, item: str, column: str, fmt: Fmt) -> None:
     tree.tk.call(str(tree), 'tag', 'cell', 'add', tag, (item, column))
 
 
-def _insert_row(tree: ttk.Treeview, columns: Sequence[str],
-                row: Sequence[ValueFmt]) -> None:
-    """Insert one row as text and color its formatted cells."""
-    values = [_cell_text(cell.value) for cell in row]
-    item = tree.insert('', 'end', values=values)
+def supports_cell_tags(tree: ttk.Treeview) -> bool:
+    """Return whether this Tk build supports per-cell Treeview tags.
+
+    Per-cell tags are a Tk 8.7+ feature. On an older Tk the ``tag cell``
+    subcommand does not exist, so the probe raises and coloring falls back
+    to whole-row tags, which Tk has supported for far longer.
+    """
+    try:
+        tree.tk.call(str(tree), 'tag', 'cell', 'has', 'fmt-probe')
+    except tk.TclError:
+        return False
+    return True
+
+
+def _row_format(row: Sequence[ValueFmt]) -> Fmt:
+    """Return the first non-plain cell format in a row, else plain."""
+    for cell in row:
+        if cell.fmt != Fmt():
+            return cell.fmt
+    return Fmt()
+
+
+def _color_cells(tree: ttk.Treeview, item: str, columns: Sequence[str],
+                 row: Sequence[ValueFmt]) -> None:
+    """Color each formatted cell of an inserted row separately."""
     for column, cell in zip(columns, row):
         _format_cell(tree, item, column, cell.fmt)
+
+
+def _insert_row(tree: ttk.Treeview, columns: Sequence[str],
+                row: Sequence[ValueFmt], cell_tags: bool) -> None:
+    """Insert one row as text and color it per cell or per row.
+
+    With per-cell tags every formatted cell keeps its own color. Without
+    them the whole row takes the format of its first formatted cell, so an
+    older Tk still highlights the row instead of failing to build the table.
+    """
+    values = [_cell_text(cell.value) for cell in row]
+    if cell_tags:
+        item = tree.insert('', 'end', values=values)
+        _color_cells(tree, item, columns, row)
+        return
+    fmt = _row_format(row)
+    tags = () if fmt == Fmt() else (_ensure_tag(tree, fmt),)
+    tree.insert('', 'end', values=values, tags=tags)
 
 
 def make_table(parent: tk.Misc, columns: Sequence[str],
@@ -111,14 +149,17 @@ def make_table(parent: tk.Misc, columns: Sequence[str],
 
     Each cell is colored by the format rules, so a late estimate or a done
     or rejected status appears with the same highlight and font as in a
-    written spreadsheet. When ``stretch`` is True the columns share the table
-    width; when False each column keeps ``width`` pixels, so a table with few
-    columns stays narrow instead of spreading across the whole width.
+    written spreadsheet. On a Tk too old for per-cell tags the whole row is
+    colored instead, so the table still builds and shows the highlight. When
+    ``stretch`` is True the columns share the table width; when False each
+    column keeps ``width`` pixels, so a table with few columns stays narrow
+    instead of spreading across the whole width.
     """
     tree = ttk.Treeview(parent, columns=list(columns), show='headings')
+    cell_tags = supports_cell_tags(tree)
     for name in columns:
         tree.heading(name, text=name)
         tree.column(name, width=width, stretch=stretch)
     for row in rows:
-        _insert_row(tree, columns, row)
+        _insert_row(tree, columns, row, cell_tags)
     return tree

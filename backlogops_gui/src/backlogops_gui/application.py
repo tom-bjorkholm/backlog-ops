@@ -197,8 +197,7 @@ class BacklogApp:
     def open_backlog(self, data: BacklogReleases, title: str) -> None:
         """Open one backlog and its releases in a new window."""
         BacklogWindow(self.root, data, title, self.out_presets,
-                      self.available_teams, self.log, self.show_error,
-                      self.show_info)
+                      self.available_teams, self.log)
 
     def build_menu(self) -> None:
         """Build the menu bar of the main window."""

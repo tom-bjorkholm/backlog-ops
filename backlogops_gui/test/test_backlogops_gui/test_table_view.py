@@ -5,12 +5,14 @@
 # MIT License
 
 import tkinter as tk
+from tkinter import ttk
 from datetime import date
 import pytest
 from tableio import Color, Fmt
 from backlogops import BacklogReleases, Release, get_demo_backlog
 from backlogops_gui.table_view import (
-    HIGHLIGHT_FILL, backlog_table, make_table, release_table, _tag_name)
+    HIGHLIGHT_FILL, backlog_table, make_table, release_table,
+    supports_cell_tags, _tag_name)
 
 
 def test_backlog_columns() -> None:
@@ -89,8 +91,19 @@ def _root_or_skip() -> tk.Tk:
     return root
 
 
+def _cell_tagged(tree: ttk.Treeview, tag: str) -> bool:
+    """Return whether any cell carries the tag (Tk with cell tags)."""
+    return bool(tree.tk.call(str(tree), 'tag', 'cell', 'has', tag))
+
+
+def _row_tagged(tree: ttk.Treeview, tag: str) -> bool:
+    """Return whether the single inserted row carries the tag."""
+    item = tree.get_children()[0]
+    return bool(tree.tag_has(tag, item))
+
+
 def test_cell_color_applied() -> None:
-    """Test the late estimate cell is tagged in the built table."""
+    """Test the late estimate is tagged per cell or per row by Tk."""
     root = _root_or_skip()
     try:
         rel = Release(name='R1', planned_date=date(2026, 1, 1),
@@ -99,7 +112,9 @@ def test_cell_color_applied() -> None:
         columns, rows = release_table(data)
         tree = make_table(root, columns, rows)
         tag = _tag_name(Fmt(bold=True, highlight=Color.RED))
-        tagged = tree.tk.call(str(tree), 'tag', 'cell', 'has', tag)
-        assert tagged
+        if supports_cell_tags(tree):
+            assert _cell_tagged(tree, tag)
+        else:
+            assert _row_tagged(tree, tag)
     finally:
         root.destroy()
