@@ -868,33 +868,37 @@ Write a backlog and releases to one file.
 
 # backlogops\_gui.table\_view
 
-Build read-only tables of a backlog and its releases.
+Build tables of a backlog and its releases with cell formatting.
 
-A backlog and its releases are shown as two tables. The table data is
-derived from the same row conversion the file writer uses, so the columns
-match what would be written to a file. The columns are the union of the
-field names met in the rows, kept in first-seen order, and every cell is
-rendered as text so the table can show any value type.
+A backlog and its releases are shown as two tables. The table data and the
+cell formatting are derived from the same formatting the file writer uses,
+so the on-screen colors match a written spreadsheet: the status cell and the
+estimated-ready-date cell are highlighted by the format rules, and the other
+cells are left plain. The columns are the union of the field names met in the
+rows, kept in first-seen order, and every cell is rendered as text so the
+table can show any value type.
 
 <a id="backlogops_gui.table_view.backlog_table"></a>
 
 #### backlog\_table
 
 ```python
-def backlog_table(data: BacklogReleases) -> tuple[list[str], list[list[str]]]
+def backlog_table(
+        data: BacklogReleases) -> tuple[list[str], list[list[ValueFmt]]]
 ```
 
-Return the columns and text rows for the backlog table.
+Return the columns and formatted rows for the backlog table.
 
 <a id="backlogops_gui.table_view.release_table"></a>
 
 #### release\_table
 
 ```python
-def release_table(data: BacklogReleases) -> tuple[list[str], list[list[str]]]
+def release_table(
+        data: BacklogReleases) -> tuple[list[str], list[list[ValueFmt]]]
 ```
 
-Return the columns and text rows for the releases table.
+Return the columns and formatted rows for the releases table.
 
 <a id="backlogops_gui.table_view.make_table"></a>
 
@@ -903,14 +907,16 @@ Return the columns and text rows for the releases table.
 ```python
 def make_table(parent: tk.Misc,
                columns: Sequence[str],
-               rows: Sequence[Sequence[str]],
+               rows: Sequence[Sequence[ValueFmt]],
                width: int = COLUMN_WIDTH,
                stretch: bool = True) -> ttk.Treeview
 ```
 
 Create a read-only Treeview showing the given columns and rows.
 
-When ``stretch`` is True the columns share the table width; when False
-each column keeps ``width`` pixels, so a table with few columns stays
-narrow instead of spreading the columns across the whole width.
+Each cell is colored by the format rules, so a late estimate or a done
+or rejected status appears with the same highlight and font as in a
+written spreadsheet. When ``stretch`` is True the columns share the table
+width; when False each column keeps ``width`` pixels, so a table with few
+columns stays narrow instead of spreading across the whole width.
 

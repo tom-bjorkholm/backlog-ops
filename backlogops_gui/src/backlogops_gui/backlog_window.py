@@ -15,6 +15,7 @@ module function so it can be tested without a display.
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional, TextIO
+from tableio import ValueFmt
 from backlogops import (
     AvailableTeams, BacklogReleases, OutputFormatConfig, get_keys_in_order,
     write_key_list)
@@ -242,7 +243,7 @@ class BacklogWindow:
         menu.add_command(label='Extract keys…', command=self._extract_keys)
 
     def _add_table(self, heading: str, columns: list[str],
-                   rows: list[list[str]], narrow: bool) -> tk.Widget:
+                   rows: list[list[ValueFmt]], narrow: bool) -> tk.Widget:
         """Add one labeled, scrollable table and return its frame.
 
         The narrow table keeps its few columns at a fixed width and does
@@ -263,8 +264,8 @@ class BacklogWindow:
         return frame
 
     @staticmethod
-    def _make_tree(frame: tk.Misc, columns: list[str], rows: list[list[str]],
-                   narrow: bool) -> ttk.Treeview:
+    def _make_tree(frame: tk.Misc, columns: list[str],
+                   rows: list[list[ValueFmt]], narrow: bool) -> ttk.Treeview:
         """Build the Treeview, keeping a narrow table from stretching."""
         if narrow:
             return make_table(frame, columns, rows, width=RELEASE_COLUMN_WIDTH,

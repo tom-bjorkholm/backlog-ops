@@ -145,6 +145,11 @@
   * [\_table](#backlogops_gui.table_view._table)
   * [backlog\_table](#backlogops_gui.table_view.backlog_table)
   * [release\_table](#backlogops_gui.table_view.release_table)
+  * [\_tag\_name](#backlogops_gui.table_view._tag_name)
+  * [\_tag\_font](#backlogops_gui.table_view._tag_font)
+  * [\_ensure\_tag](#backlogops_gui.table_view._ensure_tag)
+  * [\_format\_cell](#backlogops_gui.table_view._format_cell)
+  * [\_insert\_row](#backlogops_gui.table_view._insert_row)
   * [make\_table](#backlogops_gui.table_view.make_table)
 
 <a id="backlogops_gui.gui_wizard"></a>
@@ -994,7 +999,7 @@ Add the backlog operation items to the menu.
 #### \_add\_table
 
 ```python
-def _add_table(heading: str, columns: list[str], rows: list[list[str]],
+def _add_table(heading: str, columns: list[str], rows: list[list[ValueFmt]],
                narrow: bool) -> tk.Widget
 ```
 
@@ -1010,7 +1015,7 @@ backlog table that fills the window.
 
 ```python
 @staticmethod
-def _make_tree(frame: tk.Misc, columns: list[str], rows: list[list[str]],
+def _make_tree(frame: tk.Misc, columns: list[str], rows: list[list[ValueFmt]],
                narrow: bool) -> ttk.Treeview
 ```
 
@@ -1726,20 +1731,22 @@ Write a backlog and releases to one file.
 
 # backlogops\_gui.table\_view
 
-Build read-only tables of a backlog and its releases.
+Build tables of a backlog and its releases with cell formatting.
 
-A backlog and its releases are shown as two tables. The table data is
-derived from the same row conversion the file writer uses, so the columns
-match what would be written to a file. The columns are the union of the
-field names met in the rows, kept in first-seen order, and every cell is
-rendered as text so the table can show any value type.
+A backlog and its releases are shown as two tables. The table data and the
+cell formatting are derived from the same formatting the file writer uses,
+so the on-screen colors match a written spreadsheet: the status cell and the
+estimated-ready-date cell are highlighted by the format rules, and the other
+cells are left plain. The columns are the union of the field names met in the
+rows, kept in first-seen order, and every cell is rendered as text so the
+table can show any value type.
 
 <a id="backlogops_gui.table_view._columns"></a>
 
 #### \_columns
 
 ```python
-def _columns(rows: Sequence[dict[str, Value]]) -> list[str]
+def _columns(rows: Sequence[dict[str, ValueFmt]]) -> list[str]
 ```
 
 Return the column names met in the rows, in first-seen order.
@@ -1760,30 +1767,87 @@ Return one cell value rendered as display text.
 
 ```python
 def _table(
-        rows: Sequence[dict[str, Value]]) -> tuple[list[str], list[list[str]]]
+    rows: Sequence[dict[str,
+                        ValueFmt]]) -> tuple[list[str], list[list[ValueFmt]]]
 ```
 
-Return the columns and text rows for a sequence of row dicts.
+Return the columns and column-aligned formatted rows.
+
+Each row becomes one cell per column, in column order, so a cell that a
+row does not have becomes a blank, unformatted cell.
 
 <a id="backlogops_gui.table_view.backlog_table"></a>
 
 #### backlog\_table
 
 ```python
-def backlog_table(data: BacklogReleases) -> tuple[list[str], list[list[str]]]
+def backlog_table(
+        data: BacklogReleases) -> tuple[list[str], list[list[ValueFmt]]]
 ```
 
-Return the columns and text rows for the backlog table.
+Return the columns and formatted rows for the backlog table.
 
 <a id="backlogops_gui.table_view.release_table"></a>
 
 #### release\_table
 
 ```python
-def release_table(data: BacklogReleases) -> tuple[list[str], list[list[str]]]
+def release_table(
+        data: BacklogReleases) -> tuple[list[str], list[list[ValueFmt]]]
 ```
 
-Return the columns and text rows for the releases table.
+Return the columns and formatted rows for the releases table.
+
+<a id="backlogops_gui.table_view._tag_name"></a>
+
+#### \_tag\_name
+
+```python
+def _tag_name(fmt: Fmt) -> str
+```
+
+Return a stable tag name identifying one cell format.
+
+<a id="backlogops_gui.table_view._tag_font"></a>
+
+#### \_tag\_font
+
+```python
+def _tag_font(tree: ttk.Treeview, fmt: Fmt) -> tuple[str, int, str]
+```
+
+Return a font descriptor for the bold and italic of a format.
+
+<a id="backlogops_gui.table_view._ensure_tag"></a>
+
+#### \_ensure\_tag
+
+```python
+def _ensure_tag(tree: ttk.Treeview, fmt: Fmt) -> str
+```
+
+Configure and return the tag for one non-plain cell format.
+
+<a id="backlogops_gui.table_view._format_cell"></a>
+
+#### \_format\_cell
+
+```python
+def _format_cell(tree: ttk.Treeview, item: str, column: str, fmt: Fmt) -> None
+```
+
+Color one table cell, leaving plain cells untouched.
+
+<a id="backlogops_gui.table_view._insert_row"></a>
+
+#### \_insert\_row
+
+```python
+def _insert_row(tree: ttk.Treeview, columns: Sequence[str],
+                row: Sequence[ValueFmt]) -> None
+```
+
+Insert one row as text and color its formatted cells.
 
 <a id="backlogops_gui.table_view.make_table"></a>
 
@@ -1792,14 +1856,16 @@ Return the columns and text rows for the releases table.
 ```python
 def make_table(parent: tk.Misc,
                columns: Sequence[str],
-               rows: Sequence[Sequence[str]],
+               rows: Sequence[Sequence[ValueFmt]],
                width: int = COLUMN_WIDTH,
                stretch: bool = True) -> ttk.Treeview
 ```
 
 Create a read-only Treeview showing the given columns and rows.
 
-When ``stretch`` is True the columns share the table width; when False
-each column keeps ``width`` pixels, so a table with few columns stays
-narrow instead of spreading the columns across the whole width.
+Each cell is colored by the format rules, so a late estimate or a done
+or rejected status appears with the same highlight and font as in a
+written spreadsheet. When ``stretch`` is True the columns share the table
+width; when False each column keeps ``width`` pixels, so a table with few
+columns stays narrow instead of spreading across the whole width.
 
