@@ -33,7 +33,7 @@ is made available for GUI users in this GUI application.
 
 ## Test summary
 
-- Test result: 831 passed in 13s
+- Test result: 845 passed in 13s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

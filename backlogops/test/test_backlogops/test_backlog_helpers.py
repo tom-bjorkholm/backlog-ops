@@ -5,7 +5,7 @@
 # MIT License
 
 from dataclasses import fields
-from datetime import date
+from datetime import date, datetime
 from io import StringIO
 from typing import Optional
 
@@ -15,7 +15,8 @@ from backlogops.backlog import BacklogItem, Status
 from backlogops.backlog_helpers import accepts_none, build_item_kwargs
 from backlogops.backlog_helpers import check_key_syntax, construct
 from backlogops.backlog_helpers import convert_field_value, convert_to_date
-from backlogops.backlog_helpers import convert_to_enum, enum_class_of
+from backlogops.backlog_helpers import convert_to_enum, convert_to_str
+from backlogops.backlog_helpers import enum_class_of
 from backlogops.backlog_helpers import field_type_hints, find_cycle
 from backlogops.backlog_helpers import is_mandatory_field, non_optional_type
 from backlogops.backlog_helpers import report_bad_value
@@ -35,6 +36,8 @@ from backlogops.backlog_helpers import report_wrong_type, value_matches_type
     ({'k': 1}, dict[str, object], True),
     (Status.TODO, Status, True),
     (1, Status, False),
+    (date(2026, 6, 12), date, True),
+    (datetime(2026, 6, 12, 9, 0), date, False),
     ('anything', object, True)])
 def test_value_matches_type(value: object, data_type: object,
                             expected: bool) -> None:
@@ -96,6 +99,12 @@ def test_to_date_obj() -> None:
     assert convert_to_date('d', given, StringIO()) is given
 
 
+def test_to_date_datetime() -> None:
+    """Test a datetime is narrowed to its date, dropping the time."""
+    given = datetime(2026, 6, 12, 9, 30)
+    assert convert_to_date('d', given, StringIO()) == date(2026, 6, 12)
+
+
 @pytest.mark.parametrize('value', ['nope', '2026-13-01', 5, None])
 def test_convert_to_date_bad(value: object) -> None:
     """Test invalid date values raise a TypeError."""
@@ -125,10 +134,38 @@ def test_field_list() -> None:
     assert convert_field_value('d', ['a'], list[str], StringIO()) == ['a']
 
 
+def test_field_str_from_int() -> None:
+    """Test an integer field value is converted to its string form."""
+    assert convert_field_value('key', 100, str, StringIO()) == '100'
+
+
+def test_field_date_dt() -> None:
+    """Test a datetime field value is narrowed to a date."""
+    assert convert_field_value('p', datetime(2026, 6, 12, 9, 0),
+                               Optional[date], StringIO()) == date(2026, 6, 12)
+
+
+@pytest.mark.parametrize('value, expected', [
+    ('abc', 'abc'),
+    (100, '100'),
+    (100.0, '100'),
+    (2.5, '2.5')])
+def test_convert_to_str(value: object, expected: str) -> None:
+    """Test unambiguous values convert to their string form."""
+    assert convert_to_str('key', value, StringIO()) == expected
+
+
+@pytest.mark.parametrize('value', [True, False, date(2026, 6, 12)])
+def test_convert_to_str_bad(value: object) -> None:
+    """Test ambiguous or unconvertible values raise a TypeError."""
+    with pytest.raises(TypeError):
+        convert_to_str('key', value, StringIO())
+
+
 def test_field_bad() -> None:
     """Test a value that does not match its type raises a TypeError."""
     with pytest.raises(TypeError):
-        convert_field_value('s', 1, str, StringIO())
+        convert_field_value('s', True, str, StringIO())
 
 
 @pytest.mark.parametrize('value', ['BI-1', 'a_b', 'x#1', '$money', 'abc'])

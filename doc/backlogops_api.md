@@ -28,6 +28,7 @@
   * [check\_field\_types](#backlogops.backlog_helpers.check_field_types)
   * [convert\_to\_enum](#backlogops.backlog_helpers.convert_to_enum)
   * [convert\_to\_date](#backlogops.backlog_helpers.convert_to_date)
+  * [convert\_to\_str](#backlogops.backlog_helpers.convert_to_str)
   * [convert\_field\_value](#backlogops.backlog_helpers.convert_field_value)
   * [is\_extra\_field\_map](#backlogops.backlog_helpers.is_extra_field_map)
   * [extra\_field\_name](#backlogops.backlog_helpers.extra_field_name)
@@ -783,13 +784,16 @@ def convert_to_date(field_name: str,
 
 Convert a value to a ``datetime.date``.
 
-A value that is already a ``date`` is returned unchanged. A string
-is parsed as an ISO 8601 date such as ``'2026-06-12'``.
+A ``datetime`` is narrowed to its ``date`` part, dropping any time
+component (spreadsheet date cells arrive as midnight ``datetime``
+values). A value that is already a plain ``date`` is returned
+unchanged. A string is parsed as an ISO 8601 date such as
+``'2026-06-12'``.
 
 **Arguments**:
 
 - `field_name` - The name of the field being converted.
-- `value` - The date or ISO 8601 string to convert.
+- `value` - The date, datetime or ISO 8601 string to convert.
 - `stderr_file` - The file to report errors to.
   
 
@@ -801,6 +805,41 @@ is parsed as an ISO 8601 date such as ``'2026-06-12'``.
 **Raises**:
 
 - `TypeError` - If the value is neither a date nor a valid ISO string.
+
+<a id="backlogops.backlog_helpers.convert_to_str"></a>
+
+#### convert\_to\_str
+
+```python
+def convert_to_str(field_name: str,
+                   value: object,
+                   stderr_file: TextIO = sys.stderr) -> str
+```
+
+Convert an unambiguous value to a ``str``.
+
+A value that is already a string is returned unchanged. An integer
+is converted to its decimal string, so a key entered as the number
+``100`` becomes ``'100'``. A float without a fractional part is
+converted as an integer (``100.0`` becomes ``'100'``); any other
+float uses its own string form. A boolean is rejected, because
+whether ``True`` should become ``'True'`` or ``'1'`` is ambiguous.
+
+**Arguments**:
+
+- `field_name` - The name of the field being converted.
+- `value` - The value to convert to a string.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  The converted string.
+  
+
+**Raises**:
+
+- `TypeError` - If the value cannot be unambiguously converted.
 
 <a id="backlogops.backlog_helpers.convert_field_value"></a>
 
@@ -817,7 +856,8 @@ Convert and validate a single field value against its type hint.
 
 ``None`` is accepted for optional fields. Enum fields are converted
 with :func:`convert_to_enum`, date fields with :func:`convert_to_date`,
-and all other fields are checked with :func:`value_matches_type`.
+string fields with :func:`convert_to_str`, and all other fields are
+checked with :func:`value_matches_type`.
 
 **Arguments**:
 

@@ -4,7 +4,7 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
-from datetime import date
+from datetime import date, datetime
 from io import StringIO
 
 import pytest
@@ -109,6 +109,20 @@ def test_item_date_obj() -> None:
     assert item.planned_ready_date == date(2026, 6, 12)
 
 
+def test_item_date_from_dt() -> None:
+    """Test a spreadsheet datetime is stored as a comparable date.
+
+    Reading from Excel yields a datetime for a date column. It must be
+    narrowed to a date so that later comparisons with a date succeed.
+    """
+    data = _valid_data()
+    data['planned_ready_date'] = datetime(2026, 6, 12, 9, 30)
+    item = get_backlog_item(data)
+    assert item.planned_ready_date == date(2026, 6, 12)
+    assert not isinstance(item.planned_ready_date, datetime)
+    assert item.planned_ready_date > date(2026, 6, 11)
+
+
 def test_optional_date_none() -> None:
     """Test an explicit None is accepted for an optional date field."""
     data = _valid_data()
@@ -144,10 +158,10 @@ def test_missing_field_errors(field_name: str) -> None:
 
 
 @pytest.mark.parametrize('field_name, value', [
-    ('key', 7),
+    ('key', True),
     ('level', 1.5),
     ('level', True),
-    ('title', 7),
+    ('title', True),
     ('story_points', '3'),
     ('story_points', True),
     ('status', 'UNKNOWN')

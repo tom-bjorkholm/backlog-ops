@@ -14,7 +14,7 @@ import.
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import MISSING, Field
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 from types import NoneType, UnionType
 from typing import NoReturn, Optional, TextIO, TypeVar, Union
@@ -121,9 +121,14 @@ def _matches_class(value: object, data_type: type) -> bool:
 
     A boolean is rejected where an integer is expected, because a
     boolean is rarely a meaningful story point or numeric value here.
+    A ``datetime`` is rejected where a ``date`` is expected, even though
+    ``datetime`` is a subclass of ``date``, so that a date field never
+    silently holds a value carrying a time component.
     """
     if data_type is int:
         return isinstance(value, int) and not isinstance(value, bool)
+    if data_type is date:
+        return isinstance(value, date) and not isinstance(value, datetime)
     return isinstance(value, data_type)
 
 
@@ -346,12 +351,15 @@ def convert_to_date(field_name: str, value: object,
                     stderr_file: TextIO = sys.stderr) -> date:
     """Convert a value to a ``datetime.date``.
 
-    A value that is already a ``date`` is returned unchanged. A string
-    is parsed as an ISO 8601 date such as ``'2026-06-12'``.
+    A ``datetime`` is narrowed to its ``date`` part, dropping any time
+    component (spreadsheet date cells arrive as midnight ``datetime``
+    values). A value that is already a plain ``date`` is returned
+    unchanged. A string is parsed as an ISO 8601 date such as
+    ``'2026-06-12'``.
 
     Args:
         field_name: The name of the field being converted.
-        value: The date or ISO 8601 string to convert.
+        value: The date, datetime or ISO 8601 string to convert.
         stderr_file: The file to report errors to.
 
     Returns:
@@ -360,6 +368,8 @@ def convert_to_date(field_name: str, value: object,
     Raises:
         TypeError: If the value is neither a date nor a valid ISO string.
     """
+    if isinstance(value, datetime):
+        return value.date()
     if isinstance(value, date):
         return value
     if isinstance(value, str):
@@ -370,13 +380,47 @@ def convert_to_date(field_name: str, value: object,
     report_wrong_type(field_name, value, date, stderr_file)
 
 
+def convert_to_str(field_name: str, value: object,
+                   stderr_file: TextIO = sys.stderr) -> str:
+    """Convert an unambiguous value to a ``str``.
+
+    A value that is already a string is returned unchanged. An integer
+    is converted to its decimal string, so a key entered as the number
+    ``100`` becomes ``'100'``. A float without a fractional part is
+    converted as an integer (``100.0`` becomes ``'100'``); any other
+    float uses its own string form. A boolean is rejected, because
+    whether ``True`` should become ``'True'`` or ``'1'`` is ambiguous.
+
+    Args:
+        field_name: The name of the field being converted.
+        value: The value to convert to a string.
+        stderr_file: The file to report errors to.
+
+    Returns:
+        The converted string.
+
+    Raises:
+        TypeError: If the value cannot be unambiguously converted.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool):
+        report_wrong_type(field_name, value, str, stderr_file)
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(int(value)) if value.is_integer() else str(value)
+    report_wrong_type(field_name, value, str, stderr_file)
+
+
 def convert_field_value(field_name: str, value: object, data_type: object,
                         stderr_file: TextIO = sys.stderr) -> object:
     """Convert and validate a single field value against its type hint.
 
     ``None`` is accepted for optional fields. Enum fields are converted
     with :func:`convert_to_enum`, date fields with :func:`convert_to_date`,
-    and all other fields are checked with :func:`value_matches_type`.
+    string fields with :func:`convert_to_str`, and all other fields are
+    checked with :func:`value_matches_type`.
 
     Args:
         field_name: The name of the field being converted.
@@ -398,6 +442,8 @@ def convert_field_value(field_name: str, value: object, data_type: object,
         return convert_to_enum(field_name, value, enum_class, stderr_file)
     if inner_type is date:
         return convert_to_date(field_name, value, stderr_file)
+    if inner_type is str:
+        return convert_to_str(field_name, value, stderr_file)
     if not value_matches_type(value, data_type):
         report_wrong_type(field_name, value, data_type, stderr_file)
     return value

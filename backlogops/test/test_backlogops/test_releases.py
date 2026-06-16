@@ -4,7 +4,7 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
-from datetime import date
+from datetime import date, datetime
 from io import StringIO
 
 import pytest
@@ -41,6 +41,15 @@ def test_release_date_obj() -> None:
     release = get_release(data)
     assert release.planned_date == date(2026, 6, 12)
     assert release.estimated_date == date(2026, 7, 1)
+
+
+def test_release_date_from_dt() -> None:
+    """Test a spreadsheet datetime is narrowed to a comparable date."""
+    data: dict[str, object] = {'name': 'R1',
+                               'planned_date': datetime(2026, 6, 12, 9, 30)}
+    release = get_release(data)
+    assert release.planned_date == date(2026, 6, 12)
+    assert not isinstance(release.planned_date, datetime)
 
 
 def test_release_none_dates() -> None:
@@ -80,7 +89,7 @@ def test_release_missing_name() -> None:
 
 
 @pytest.mark.parametrize('field_name, value', [
-    ('name', 7),
+    ('name', True),
     ('planned_date', 'not-a-date'),
     ('planned_date', '2026-13-01'),
     ('estimated_date', 42)])
