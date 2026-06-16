@@ -16,7 +16,7 @@ from collections.abc import Callable
 from typing import Optional
 import argcomplete
 from backlogops import (
-    BacklogReleases, InputFormatConfig, OutputFormatConfig,
+    BacklogReleases, FormatRules, InputFormatConfig, OutputFormatConfig,
     read_available_teams, read_backlog_releases, resolve_input_config,
     resolve_output_config, write_backlog_releases)
 
@@ -110,8 +110,8 @@ def run_write(parsed: argparse.Namespace,
         config = resolve_output_config(parsed.output_config,
                                        data_file=parsed.output,
                                        presets=presets)
-        write_backlog_releases(data, parsed.output, config,
-                               backlog_first=not parsed.releases_first)
+        rules = FormatRules(backlog_first=not parsed.releases_first)
+        write_backlog_releases(data, parsed.output, config, rules)
     except (ValueError, TypeError, KeyError, OSError) as error:
         print(f'Could not write {parsed.output}: {error}', file=sys.stderr)
         return 1

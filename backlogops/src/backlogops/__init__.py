@@ -36,8 +36,11 @@ from backlogops.io_config import (
     InputFormatConfig, OutputFormatConfig, resolve_input_config,
     resolve_output_config, make_input_config, make_output_config)
 from backlogops.backlog_releases_io import (
-    read_backlog_releases, write_backlog_releases, item_to_row, row_to_item,
-    release_to_row, row_to_release)
+    read_backlog_releases, write_backlog_releases)
+from backlogops.table_rows import (
+    item_to_row, row_to_item, release_to_row, row_to_release)
+from backlogops.format_rules import FormatRules
+from backlogops.apply_format_rules import format_backlog, format_releases
 from backlogops.move_keys_first import move_keys_first, get_keys_in_order
 from backlogops.key_list_io import read_key_list, write_key_list
 from backlogops.available_teams_wizard import (
@@ -63,6 +66,7 @@ __all__ = [
     'resolve_input_config', 'resolve_output_config', 'make_input_config',
     'make_output_config', 'read_backlog_releases', 'write_backlog_releases',
     'item_to_row', 'row_to_item', 'release_to_row', 'row_to_release',
+    'FormatRules', 'format_backlog', 'format_releases',
     'estimate_ready_date', 'set_plan_from_estimate',
     'move_keys_first', 'get_keys_in_order', 'read_key_list', 'write_key_list',
     'available_teams_wizard', 'teams_config_wizard', 'YesNoUiBridge',

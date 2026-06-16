@@ -9,6 +9,9 @@
 * [backlogops.console\_yes\_no\_bridge](#backlogops.console_yes_no_bridge)
   * [ConsoleYesNoUiBridge](#backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge)
     * [ask\_yes\_no](#backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge.ask_yes_no)
+* [backlogops.apply\_format\_rules](#backlogops.apply_format_rules)
+  * [format\_backlog](#backlogops.apply_format_rules.format_backlog)
+  * [format\_releases](#backlogops.apply_format_rules.format_releases)
 * [backlogops.backlog\_helpers](#backlogops.backlog_helpers)
   * [FORBIDDEN\_KEY\_CHARS](#backlogops.backlog_helpers.FORBIDDEN_KEY_CHARS)
   * [field\_type\_hints](#backlogops.backlog_helpers.field_type_hints)
@@ -135,6 +138,13 @@
   * [get\_release](#backlogops.releases.get_release)
   * [get\_releases](#backlogops.releases.get_releases)
   * [check\_releases](#backlogops.releases.check_releases)
+* [backlogops.table\_rows](#backlogops.table_rows)
+  * [BACKLOG\_FIELDS](#backlogops.table_rows.BACKLOG_FIELDS)
+  * [RELEASE\_FIELDS](#backlogops.table_rows.RELEASE_FIELDS)
+  * [item\_to\_row](#backlogops.table_rows.item_to_row)
+  * [release\_to\_row](#backlogops.table_rows.release_to_row)
+  * [row\_to\_item](#backlogops.table_rows.row_to_item)
+  * [row\_to\_release](#backlogops.table_rows.row_to_release)
 * [backlogops.io\_config](#backlogops.io_config)
   * [EXTENSION\_FORMATS](#backlogops.io_config.EXTENSION_FORMATS)
   * [PRESET\_NAME\_RE](#backlogops.io_config.PRESET_NAME_RE)
@@ -157,15 +167,8 @@
   * [check\_levels\_consistency](#backlogops.levels.check_levels_consistency)
   * [level\_number\_from\_name](#backlogops.levels.level_number_from_name)
 * [backlogops.backlog\_releases\_io](#backlogops.backlog_releases_io)
-  * [BACKLOG\_FIELDS](#backlogops.backlog_releases_io.BACKLOG_FIELDS)
-  * [RELEASE\_FIELDS](#backlogops.backlog_releases_io.RELEASE_FIELDS)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
-  * [BORDER\_STYLE](#backlogops.backlog_releases_io.BORDER_STYLE)
-  * [item\_to\_row](#backlogops.backlog_releases_io.item_to_row)
-  * [release\_to\_row](#backlogops.backlog_releases_io.release_to_row)
-  * [row\_to\_item](#backlogops.backlog_releases_io.row_to_item)
-  * [row\_to\_release](#backlogops.backlog_releases_io.row_to_release)
   * [read\_backlog\_releases](#backlogops.backlog_releases_io.read_backlog_releases)
   * [write\_backlog\_releases](#backlogops.backlog_releases_io.write_backlog_releases)
 * [backlogops.order\_by\_dependencies](#backlogops.order_by_dependencies)
@@ -184,6 +187,20 @@
     * [check\_consistency](#backlogops.work_hours.ExceptionWorkHours.check_consistency)
   * [CompanyWorkHours](#backlogops.work_hours.CompanyWorkHours)
     * [check\_consistency](#backlogops.work_hours.CompanyWorkHours.check_consistency)
+* [backlogops.format\_rules](#backlogops.format_rules)
+  * [default\_status\_format](#backlogops.format_rules.default_status_format)
+  * [FormatRules](#backlogops.format_rules.FormatRules)
+    * [backlog\_first](#backlogops.format_rules.FormatRules.backlog_first)
+    * [border\_style](#backlogops.format_rules.FormatRules.border_style)
+    * [filtered\_data\_range](#backlogops.format_rules.FormatRules.filtered_data_range)
+    * [first\_row\_format](#backlogops.format_rules.FormatRules.first_row_format)
+    * [status\_format](#backlogops.format_rules.FormatRules.status_format)
+    * [estimate\_late](#backlogops.format_rules.FormatRules.estimate_late)
+    * [estimate\_early](#backlogops.format_rules.FormatRules.estimate_early)
+    * [estimate\_eq\_planned](#backlogops.format_rules.FormatRules.estimate_eq_planned)
+    * [get\_status\_format](#backlogops.format_rules.FormatRules.get_status_format)
+    * [turn\_off\_cell\_format](#backlogops.format_rules.FormatRules.turn_off_cell_format)
+    * [cell\_format\_used](#backlogops.format_rules.FormatRules.cell_format_used)
 
 <a id="backlogops.available_teams"></a>
 
@@ -360,6 +377,63 @@ Ask a yes/no question, returning ``default`` for an empty answer.
 **Returns**:
 
   The user's choice as a boolean.
+
+<a id="backlogops.apply_format_rules"></a>
+
+# backlogops.apply\_format\_rules
+
+Apply format rules to backlog and release table data.
+
+<a id="backlogops.apply_format_rules.format_backlog"></a>
+
+#### format\_backlog
+
+```python
+def format_backlog(backlog: Backlog,
+                   format_rules: FormatRules) -> DictData[ValueFmt]
+```
+
+Format the backlog according to the format rules.
+
+Each backlog item becomes one row of formatted cells, keyed by the
+internal field name. The status cell is formatted by its status, and
+the estimated-ready-date cell by its relation to the planned-ready
+date; all other cells are left unformatted.
+
+**Arguments**:
+
+- `backlog` - The backlog to format.
+- `format_rules` - The format rules to apply.
+  
+
+**Returns**:
+
+  The formatted backlog rows, ready for TableIO.
+
+<a id="backlogops.apply_format_rules.format_releases"></a>
+
+#### format\_releases
+
+```python
+def format_releases(releases: Releases,
+                    format_rules: FormatRules) -> DictData[ValueFmt]
+```
+
+Format the releases according to the format rules.
+
+Each release becomes one row of formatted cells, keyed by the internal
+field name. The estimated-date cell is formatted by its relation to the
+planned date; the other cells are left unformatted.
+
+**Arguments**:
+
+- `releases` - The releases to format.
+- `format_rules` - The format rules to apply.
+  
+
+**Returns**:
+
+  The formatted release rows, ready for TableIO.
 
 <a id="backlogops.backlog_helpers"></a>
 
@@ -2890,6 +2964,72 @@ to be unique.
 - `ValueError` - If a name violates the key syntax constraint, or if
   two releases share the same name.
 
+<a id="backlogops.table_rows"></a>
+
+# backlogops.table\_rows
+
+Convert backlog items and releases to and from table rows.
+
+A backlog item or a release is represented in a table as one row keyed by
+its internal field name. These conversions are shared by the file IO and
+by the formatting of table data, so they live in their own module to keep
+the dependency order between those parts simple.
+
+<a id="backlogops.table_rows.BACKLOG_FIELDS"></a>
+
+#### BACKLOG\_FIELDS
+
+Internal backlog column names, in a stable write order.
+
+<a id="backlogops.table_rows.RELEASE_FIELDS"></a>
+
+#### RELEASE\_FIELDS
+
+Internal release column names, in a stable write order.
+
+<a id="backlogops.table_rows.item_to_row"></a>
+
+#### item\_to\_row
+
+```python
+def item_to_row(item: BacklogItem) -> dict[str, Value]
+```
+
+Return one backlog item as a row keyed by internal field name.
+
+<a id="backlogops.table_rows.release_to_row"></a>
+
+#### release\_to\_row
+
+```python
+def release_to_row(release: Release) -> dict[str, Value]
+```
+
+Return one release as a row keyed by internal field name.
+
+<a id="backlogops.table_rows.row_to_item"></a>
+
+#### row\_to\_item
+
+```python
+def row_to_item(row: Mapping[str, object],
+                levels: Optional[Levels] = None,
+                stderr_file: TextIO = sys.stderr) -> BacklogItem
+```
+
+Return a backlog item from a row keyed by internal field name.
+
+<a id="backlogops.table_rows.row_to_release"></a>
+
+#### row\_to\_release
+
+```python
+def row_to_release(row: Mapping[str, object],
+                   stderr_file: TextIO = sys.stderr) -> Release
+```
+
+Return a release from a row keyed by internal field name.
+
 <a id="backlogops.io_config"></a>
 
 # backlogops.io\_config
@@ -3310,18 +3450,6 @@ external column name. The dependency lists of a backlog item are stored
 as one space separated string per dependency kind, and the extra fields
 of a backlog item become extra columns.
 
-<a id="backlogops.backlog_releases_io.BACKLOG_FIELDS"></a>
-
-#### BACKLOG\_FIELDS
-
-Internal backlog column names, in a stable write order.
-
-<a id="backlogops.backlog_releases_io.RELEASE_FIELDS"></a>
-
-#### RELEASE\_FIELDS
-
-Internal release column names, in a stable write order.
-
 <a id="backlogops.backlog_releases_io.BACKLOG_HEADING"></a>
 
 #### BACKLOG\_HEADING
@@ -3333,55 +3461,6 @@ Heading written before the backlog table.
 #### RELEASE\_HEADING
 
 Heading written before the releases table.
-
-<a id="backlogops.backlog_releases_io.BORDER_STYLE"></a>
-
-#### BORDER\_STYLE
-
-Thick outer and first-row borders with thin inner lines.
-
-<a id="backlogops.backlog_releases_io.item_to_row"></a>
-
-#### item\_to\_row
-
-```python
-def item_to_row(item: BacklogItem) -> dict[str, Value]
-```
-
-Return one backlog item as a row keyed by internal field name.
-
-<a id="backlogops.backlog_releases_io.release_to_row"></a>
-
-#### release\_to\_row
-
-```python
-def release_to_row(release: Release) -> dict[str, Value]
-```
-
-Return one release as a row keyed by internal field name.
-
-<a id="backlogops.backlog_releases_io.row_to_item"></a>
-
-#### row\_to\_item
-
-```python
-def row_to_item(row: Mapping[str, object],
-                levels: Optional[Levels] = None,
-                stderr_file: TextIO = sys.stderr) -> BacklogItem
-```
-
-Return a backlog item from a row keyed by internal field name.
-
-<a id="backlogops.backlog_releases_io.row_to_release"></a>
-
-#### row\_to\_release
-
-```python
-def row_to_release(row: Mapping[str, object],
-                   stderr_file: TextIO = sys.stderr) -> Release
-```
-
-Return a release from a row keyed by internal field name.
 
 <a id="backlogops.backlog_releases_io.read_backlog_releases"></a>
 
@@ -3430,7 +3509,7 @@ checked here.
 def write_backlog_releases(data: BacklogReleases,
                            data_file: PathOrStr,
                            config: OutputFormatConfig,
-                           backlog_first: bool = True,
+                           format_rules: Optional[FormatRules] = None,
                            stderr_file: TextIO = sys.stderr) -> None
 ```
 
@@ -3438,15 +3517,17 @@ Write a backlog, releases, or both to one file.
 
 Each non-empty table is written with a heading before it, so several
 tables can share one file. Internal field names are translated to
-external column names through the output configuration. When both
-tables are present, ``backlog_first`` decides their order.
+external column names through the output configuration. The format
+rules decide the table order, the borders, the filter range and the
+cell formatting; when omitted the default :class:`FormatRules` apply.
 
 **Arguments**:
 
 - `data` - The backlog and releases to write.
 - `data_file` - The data file to create.
 - `config` - The output configuration (format and column-name map).
-- `backlog_first` - Whether to write the backlog before the releases.
+- `format_rules` - How to format the written data, or None for the
+  default format rules.
 - `stderr_file` - Stream used for user-facing diagnostics.
 
 <a id="backlogops.order_by_dependencies"></a>
@@ -3856,4 +3937,112 @@ and the exceptions must not overlap.
 - `TypeError` - If a field has the wrong type.
 - `ValueError` - If the schedule or an exception is invalid, or if
   two exceptions overlap.
+
+<a id="backlogops.format_rules"></a>
+
+# backlogops.format\_rules
+
+Rules for formatting table data.
+
+<a id="backlogops.format_rules.default_status_format"></a>
+
+#### default\_status\_format
+
+```python
+def default_status_format() -> dict[Status, Fmt]
+```
+
+Return the default format specification for the status column.
+
+<a id="backlogops.format_rules.FormatRules"></a>
+
+## FormatRules Objects
+
+```python
+@dataclass
+class FormatRules()
+```
+
+Rules for formatting table data.
+
+<a id="backlogops.format_rules.FormatRules.backlog_first"></a>
+
+#### backlog\_first
+
+Whether to write the backlog before the releases.
+
+<a id="backlogops.format_rules.FormatRules.border_style"></a>
+
+#### border\_style
+
+The border style to apply to the written table.
+
+<a id="backlogops.format_rules.FormatRules.filtered_data_range"></a>
+
+#### filtered\_data\_range
+
+Whether to mark the written data as a filtered data range.
+
+<a id="backlogops.format_rules.FormatRules.first_row_format"></a>
+
+#### first\_row\_format
+
+The format specification for the column names row.
+
+<a id="backlogops.format_rules.FormatRules.status_format"></a>
+
+#### status\_format
+
+The format specification for the status column.
+
+<a id="backlogops.format_rules.FormatRules.estimate_late"></a>
+
+#### estimate\_late
+
+The format for estimate values if later than planned.
+
+<a id="backlogops.format_rules.FormatRules.estimate_early"></a>
+
+#### estimate\_early
+
+The format for estimate values if earlier than planned.
+
+<a id="backlogops.format_rules.FormatRules.estimate_eq_planned"></a>
+
+#### estimate\_eq\_planned
+
+The format for estimate values if equal to planned.
+
+<a id="backlogops.format_rules.FormatRules.get_status_format"></a>
+
+#### get\_status\_format
+
+```python
+def get_status_format(status: Status) -> Fmt
+```
+
+Return the format for a status.
+
+<a id="backlogops.format_rules.FormatRules.turn_off_cell_format"></a>
+
+#### turn\_off\_cell\_format
+
+```python
+def turn_off_cell_format() -> None
+```
+
+Turn off all cell formatting.
+
+Make all cells plain, without any formatting.
+This does not affect the border style or the filtered data range.
+
+<a id="backlogops.format_rules.FormatRules.cell_format_used"></a>
+
+#### cell\_format\_used
+
+```python
+def cell_format_used() -> bool
+```
+
+Return True if any cell formatting is used.
 

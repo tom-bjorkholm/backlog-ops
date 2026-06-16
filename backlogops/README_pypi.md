@@ -32,7 +32,7 @@ To be written
 
 ## Test summary
 
-- Test result: 808 passed in 13s
+- Test result: 831 passed in 13s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

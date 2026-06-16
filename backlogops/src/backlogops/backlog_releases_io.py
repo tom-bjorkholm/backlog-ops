@@ -21,26 +21,19 @@ of a backlog item become extra columns.
 # MIT License
 
 import sys
-from collections.abc import Mapping
-from dataclasses import fields
-from datetime import date
-from typing import Optional, TextIO
+from typing import Optional, TextIO, TypeVar
 from config_as_json import PathOrStr
 from tableio import CAP_IGNORABLE, Capabilities, DictData, FileAccess, \
-    TableBorderStyle, TableIO, Value, access_capabilities, tio_config_create
-from backlogops.backlog import Backlog, BacklogItem, DEPENDENCY_FIELDS, \
-    Status, get_backlog_item
+    TableIO, Value, ValueFmt, access_capabilities, tio_config_create
+from backlogops.backlog import Backlog
 from backlogops.backlog_releases import BacklogReleases
 from backlogops.io_config import InputFormatConfig, OutputFormatConfig
 from backlogops.levels import Levels
-from backlogops.releases import Release, Releases, get_release
-
-BACKLOG_FIELDS = [item_field.name for item_field in fields(BacklogItem)
-                  if item_field.name != 'extra_fields']
-"""Internal backlog column names, in a stable write order."""
-
-RELEASE_FIELDS = [item_field.name for item_field in fields(Release)]
-"""Internal release column names, in a stable write order."""
+from backlogops.releases import Releases
+from backlogops.format_rules import FormatRules
+from backlogops.apply_format_rules import format_backlog, format_releases
+from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS, \
+    row_to_item, row_to_release
 
 BACKLOG_HEADING = 'Backlog'
 """Heading written before the backlog table."""
@@ -48,107 +41,11 @@ BACKLOG_HEADING = 'Backlog'
 RELEASE_HEADING = 'Releases'
 """Heading written before the releases table."""
 
-BORDER_STYLE = TableBorderStyle.OUTER_FIRST_ROW_THICK_INNER_THIN
-"""Thick outer and first-row borders with thin inner lines."""
+_RenameCell = TypeVar('_RenameCell', Value, ValueFmt)
 
 
-def _is_empty(value: object) -> bool:
-    """Return whether a cell value should be treated as absent."""
-    return value is None or value == ''
-
-
-def _date_cell(value: Optional[date]) -> Value:
-    """Return a date as an ISO string cell, or None when absent."""
-    return value.isoformat() if value is not None else None
-
-
-def _cell_from_field(name: str, value: object) -> Value:
-    """Return the cell value for one named backlog item field."""
-    if name == 'status':
-        assert isinstance(value, Status)
-        return value.name
-    if name in DEPENDENCY_FIELDS:
-        assert isinstance(value, list)
-        return ' '.join(value)
-    if isinstance(value, date):
-        return value.isoformat()
-    assert value is None or isinstance(value, (str, int, float, bool))
-    return value
-
-
-def _extra_cell(value: object) -> Value:
-    """Return an extra field value as a cell value."""
-    if isinstance(value, date):
-        return value.isoformat()
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    return str(value)
-
-
-def item_to_row(item: BacklogItem) -> dict[str, Value]:
-    """Return one backlog item as a row keyed by internal field name."""
-    row: dict[str, Value] = {}
-    for name in BACKLOG_FIELDS:
-        row[name] = _cell_from_field(name, getattr(item, name))
-    for key, value in item.extra_fields.items():
-        row[key] = _extra_cell(value)
-    return row
-
-
-def release_to_row(release: Release) -> dict[str, Value]:
-    """Return one release as a row keyed by internal field name."""
-    return {'name': release.name,
-            'planned_date': _date_cell(release.planned_date),
-            'estimated_date': _date_cell(release.estimated_date)}
-
-
-def _split_deps(value: object) -> list[str]:
-    """Return the dependency keys parsed from one space separated cell."""
-    if value is None:
-        return []
-    text = str(value).strip()
-    return text.split() if text else []
-
-
-def _maybe_int(value: object) -> object:
-    """Return an integer when a numeric cell should be one, else the value."""
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, float) and value.is_integer():
-        return int(value)
-    if isinstance(value, str):
-        try:
-            return int(value.strip())
-        except ValueError:
-            return value
-    return value
-
-
-def _present_cells(row: Mapping[str, object]) -> dict[str, object]:
-    """Return the row without cells that are absent (None or empty)."""
-    return {key: value for key, value in row.items() if not _is_empty(value)}
-
-
-def row_to_item(row: Mapping[str, object], levels: Optional[Levels] = None,
-                stderr_file: TextIO = sys.stderr) -> BacklogItem:
-    """Return a backlog item from a row keyed by internal field name."""
-    prepared = _present_cells(row)
-    for name in DEPENDENCY_FIELDS:
-        if name in prepared:
-            prepared[name] = _split_deps(row[name])
-    for name in ('story_points', 'level'):
-        if name in prepared:
-            prepared[name] = _maybe_int(row[name])
-    return get_backlog_item(prepared, levels, stderr_file)
-
-
-def row_to_release(row: Mapping[str, object],
-                   stderr_file: TextIO = sys.stderr) -> Release:
-    """Return a release from a row keyed by internal field name."""
-    return get_release(_present_cells(row), stderr_file, strict=False)
-
-
-def _rename(row: dict[str, Value], names: dict[str, str]) -> dict[str, Value]:
+def _rename(row: dict[str, _RenameCell],
+            names: dict[str, str]) -> dict[str, _RenameCell]:
     """Return the row with its keys translated through a name map."""
     return {names.get(key, key): value for key, value in row.items()}
 
@@ -224,15 +121,20 @@ def read_backlog_releases(data_file: PathOrStr, config: InputFormatConfig,
 
 
 def _write_capabilities(stderr_file: TextIO) -> Capabilities:
-    """Return CREATE capabilities that prefer borders and a filter area.
+    """Return CREATE capabilities that prefer borders, format and filter.
 
-    The border and filter features are requested as ignorable, so a
-    backend that supports them (such as an Excel writer) is preferred,
-    while formats without them (such as CSV) are still allowed.
+    The border, cell formatting, highlight and filter features are
+    requested as ignorable, so a backend that supports them (such as an
+    Excel backend like XlsxWriter or OpenPyXL) is preferred, while
+    formats without them (such as CSV) and backends without them
+    (such as pylightxl for Excel) are still allowed.
     """
     base = access_capabilities(FileAccess.CREATE, error_file=stderr_file)
     return base._replace(filtered_data_range=CAP_IGNORABLE,
-                         can_write_borders=CAP_IGNORABLE)
+                         can_write_borders=CAP_IGNORABLE,
+                         can_fmt_row=CAP_IGNORABLE,
+                         can_fmt_value=CAP_IGNORABLE,
+                         can_write_highlight=CAP_IGNORABLE)
 
 
 def _backlog_order(backlog: Backlog) -> list[str]:
@@ -241,51 +143,58 @@ def _backlog_order(backlog: Backlog) -> list[str]:
     return BACKLOG_FIELDS + extra
 
 
-def _write_table(tableio: TableIO, heading: str, rows: DictData[Value],
-                 column_order: list[str], names: dict[str, str]) -> None:
-    """Write one heading and one bordered, filterable table."""
+def _write_table(tableio: TableIO,
+                 section: tuple[str, DictData[ValueFmt], list[str]],
+                 names: dict[str, str], rules: FormatRules) -> None:
+    """Write one heading and one formatted, bordered table."""
+    heading, rows, column_order = section
     tableio.write_heading(heading)
     external_rows = [_rename(row, names) for row in rows]
     external_order = [names.get(name, name) for name in column_order]
     tableio.write_table_dictdata(external_rows, column_order=external_order,
-                                 missing_ok=True, filtered_data_range=True,
-                                 border_style=BORDER_STYLE)
+                                 missing_ok=True,
+                                 first_row_format=rules.first_row_format,
+                                 filtered_data_range=rules.filtered_data_range,
+                                 border_style=rules.border_style)
 
 
-def _ordered_sections(data: BacklogReleases, backlog_first: bool
-                      ) -> list[tuple[str, DictData[Value], list[str]]]:
+def _ordered_sections(data: BacklogReleases, rules: FormatRules
+                      ) -> list[tuple[str, DictData[ValueFmt], list[str]]]:
     """Return the non-empty tables to write, in the requested order."""
-    backlog_rows = [item_to_row(item) for item in data.backlog]
-    release_rows = [release_to_row(release) for release in data.releases]
+    backlog_rows = format_backlog(data.backlog, rules)
+    release_rows = format_releases(data.releases, rules)
     backlog = (BACKLOG_HEADING, backlog_rows, _backlog_order(data.backlog))
     releases = (RELEASE_HEADING, release_rows, RELEASE_FIELDS)
-    sections = [backlog, releases] if backlog_first else [releases, backlog]
+    sections = [backlog, releases] if rules.backlog_first else \
+        [releases, backlog]
     return [section for section in sections if section[1]]
 
 
 def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
                            config: OutputFormatConfig,
-                           backlog_first: bool = True,
+                           format_rules: Optional[FormatRules] = None,
                            stderr_file: TextIO = sys.stderr) -> None:
     """Write a backlog, releases, or both to one file.
 
     Each non-empty table is written with a heading before it, so several
     tables can share one file. Internal field names are translated to
-    external column names through the output configuration. When both
-    tables are present, ``backlog_first`` decides their order.
+    external column names through the output configuration. The format
+    rules decide the table order, the borders, the filter range and the
+    cell formatting; when omitted the default :class:`FormatRules` apply.
 
     Args:
         data: The backlog and releases to write.
         data_file: The data file to create.
         config: The output configuration (format and column-name map).
-        backlog_first: Whether to write the backlog before the releases.
+        format_rules: How to format the written data, or None for the
+                      default format rules.
         stderr_file: Stream used for user-facing diagnostics.
     """
+    rules = FormatRules() if format_rules is None else format_rules
     capabilities = _write_capabilities(stderr_file)
-    sections = _ordered_sections(data, backlog_first)
+    sections = _ordered_sections(data, rules)
     with tio_config_create(config=config.tableio, file_name=data_file,
                            file_access=FileAccess.CREATE,
                            capabilities=capabilities) as tableio:
-        for heading, rows, column_order in sections:
-            _write_table(tableio, heading, rows, column_order,
-                         config.to_external)
+        for section in sections:
+            _write_table(tableio, section, config.to_external, rules)

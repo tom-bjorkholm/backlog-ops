@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 import pytest
 from backlogops import (
-    BacklogItem, BacklogReleases, Release, Status, item_to_row,
+    BacklogItem, BacklogReleases, FormatRules, Release, Status, item_to_row,
     make_input_config, make_output_config, read_backlog_releases,
     release_to_row, resolve_input_config, resolve_output_config, row_to_item,
     row_to_release, write_backlog_releases)
@@ -128,10 +128,25 @@ def test_releases_first(tmp_path: Path) -> None:
     """Test the releases table can be written before the backlog table."""
     path = tmp_path / 'data.csv'
     output = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    write_backlog_releases(_sample(), path, output, backlog_first=False,
+    rules = FormatRules(backlog_first=False)
+    write_backlog_releases(_sample(), path, output, rules,
                            stderr_file=NO_OUTPUT)
     text = path.read_text(encoding='UTF-8')
     assert text.index('Releases') < text.index('Backlog')
+
+
+def test_plain_format_rt(tmp_path: Path) -> None:
+    """Test writing with cell formatting off still round-trips values."""
+    path = tmp_path / 'data.xlsx'
+    output = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    rules = FormatRules()
+    rules.turn_off_cell_format()
+    write_backlog_releases(_sample(), path, output, rules,
+                           stderr_file=NO_OUTPUT)
+    input_config = resolve_input_config(None, data_file=path,
+                                        stderr_file=NO_OUTPUT)
+    back = read_backlog_releases(path, input_config, stderr_file=NO_OUTPUT)
+    assert {item.key for item in back.backlog} == {'A1', 'A2'}
 
 
 def test_col_map_rt(tmp_path: Path) -> None:
