@@ -8,9 +8,9 @@ from datetime import date
 from pathlib import Path
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogItem, BacklogReleases, Membership, Person, Status,
-    Team, read_backlog_releases, resolve_input_config, resolve_output_config,
-    write_available_teams, write_backlog_releases)
+    AvailableTeams, BacklogItem, BacklogReleases, Membership, Person, Release,
+    Status, Team, read_backlog_releases, resolve_input_config,
+    resolve_output_config, write_available_teams, write_backlog_releases)
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import estimate_ready_date
@@ -103,3 +103,36 @@ def test_missing_config(tmp_path: Path) -> None:
     assert estimate_ready_date.main(
         ['-i', str(source), '-o', str(tmp_path / 'out.csv'),
          '-c', str(tmp_path / 'missing.cfg')]) == 1
+
+
+def _write_backlog_release(path: Path) -> None:
+    """Write a backlog whose single item belongs to a release R1."""
+    backlog = [BacklogItem(key='a', level=1, title='a', story_points=3,
+                           status=Status.TODO, release='R1')]
+    data = BacklogReleases(backlog=backlog, releases=[Release(name='R1')])
+    config = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    write_backlog_releases(data, path, config, stderr_file=NO_OUTPUT)
+
+
+def test_changes_file_written(tmp_path: Path) -> None:
+    """Test the estimated release date change is saved to a file."""
+    source, target, config = tmp_path / 'in.ods', tmp_path / 'out.csv', \
+        tmp_path / 'teams.cfg'
+    changes = tmp_path / 'changes.csv'
+    _write_backlog_release(source)
+    _write_teams(config)
+    assert estimate_ready_date.main(
+        ['-i', str(source), '-o', str(target), '-c', str(config),
+         '-d', '2026-06-15', '--changes-file', str(changes)]) == 0
+    text = changes.read_text(encoding='utf-8')
+    assert 'R1' in text and '2026-06-17' in text
+
+
+def test_changes_empty(tmp_path: Path) -> None:
+    """Test no changes file is created when there are no changes."""
+    source, target, config = _sources(tmp_path)
+    changes = tmp_path / 'changes.csv'
+    assert estimate_ready_date.main(
+        ['-i', str(source), '-o', str(target), '-c', str(config),
+         '-d', '2026-06-15', '--changes-file', str(changes)]) == 0
+    assert not changes.exists()

@@ -33,7 +33,8 @@ from config_as_json import PathOrStr
 from tableio import DictData, FileAccess, ListData, Value, \
     access_capabilities, tio_config_create
 from backlogops.backlog_helpers import report_bad_value
-from backlogops.io_config import resolve_input_config, resolve_output_config
+from backlogops.io_config import resolve_input_config
+from backlogops.table_create import create_output_table
 
 TEXT_EXTENSIONS = {'.txt', '.dat'}
 """File name extensions read and written as plain UTF-8 text."""
@@ -183,13 +184,7 @@ def _write_text(key_list: Sequence[str], file_name: PathOrStr,
 def _write_table(key_list: Sequence[str], file_name: PathOrStr,
                  add_column_name: bool, stderr_file: TextIO) -> None:
     """Write a key list as a one column TableIO table."""
-    config = resolve_output_config(None, data_file=file_name,
-                                   stderr_file=stderr_file).tableio
-    capabilities = access_capabilities(FileAccess.CREATE,
-                                       error_file=stderr_file)
-    with tio_config_create(config=config, file_name=file_name,
-                           file_access=FileAccess.CREATE,
-                           capabilities=capabilities) as tableio:
+    with create_output_table(file_name, stderr_file) as tableio:
         if add_column_name:
             dict_rows: DictData[Value] = [{KEY_COLUMN_NAME: key}
                                           for key in key_list]

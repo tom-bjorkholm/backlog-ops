@@ -20,10 +20,11 @@ import argparse
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 from backlogops import AvailableTeams, BacklogReleases, get_available_teams
 from backlogops_cli._command_io import (
-    add_input_args, add_output_args, parsed_args, read_input, run_write)
+    add_changes_arg, add_input_args, add_output_args, date_report,
+    parsed_args, run_change_command)
 
 DESCRIPTION = 'Estimate ready dates for the backlog items'
 
@@ -44,6 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
                         help='Also copy each estimated date to the planned '
                         'date.')
     add_output_args(parser)
+    add_changes_arg(parser)
     return parser
 
 
@@ -64,18 +66,23 @@ def _load_teams(config: Optional[str]) -> AvailableTeams:
         raise ValueError(str(error)) from error
 
 
-def _estimated(parsed: argparse.Namespace) -> BacklogReleases:
-    """Read the backlog and return it with estimated ready dates."""
-    data = read_input(parsed)
+def _estimate(parsed: argparse.Namespace, data: BacklogReleases
+              ) -> tuple[str, Optional[Callable[[str], None]]]:
+    """Estimate the dates and return the release date change report."""
     teams = _load_teams(parsed.config)
-    data.estimate_ready_date(teams, _start_date(parsed))
+    changes = data.estimate_ready_date(teams, _start_date(parsed))
     if parsed.set_plan:
         data.set_plan_from_estimate()
-    return data
+    return date_report(changes)
 
 
 def main(args: Optional[list[str]] = None) -> int:
     """Estimate the ready dates and write the output file.
+
+    The backlog with the estimated dates and the releases are written to
+    the output file. The estimated release dates are updated as well, and
+    the list of release date changes is printed to stdout, or also saved
+    to a file when ``--changes-file`` is given.
 
     Args:
         args: Optional replacement for ``sys.argv[1:]``, mainly for tests.
@@ -85,7 +92,7 @@ def main(args: Optional[list[str]] = None) -> int:
         or written.
     """
     parsed = parsed_args(build_parser(), args)
-    return run_write(parsed, lambda: _estimated(parsed))
+    return run_change_command(parsed, lambda data: _estimate(parsed, data))
 
 
 if __name__ == '__main__':

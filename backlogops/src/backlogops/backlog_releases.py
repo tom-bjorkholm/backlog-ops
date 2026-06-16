@@ -5,7 +5,7 @@
 # MIT License
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional, TextIO, Sequence
 import sys
 from backlogops.backlog import Backlog, check_backlog_consistency
@@ -17,6 +17,9 @@ from backlogops.order_by_dependencies import order_by_dependencies, \
 from backlogops.estimate_ready_date import estimate_ready_date, \
     set_plan_from_estimate
 from backlogops.available_teams import AvailableTeams
+from backlogops.release_backlog_updates import estimate_release_dates, \
+    release_plan_on_estimate, adjust_release_content, ReleaseChanges, \
+    ReleaseDateChanges
 
 
 @dataclass
@@ -210,7 +213,8 @@ class BacklogReleases:
 
     def estimate_ready_date(self, available_teams: AvailableTeams,
                             start_date: Optional[date] = None,
-                            stderr_file: TextIO = sys.stderr) -> None:
+                            stderr_file: TextIO = sys.stderr) \
+            -> ReleaseDateChanges:
         """Estimate the ready date of the member backlog items.
 
         The member backlog is replaced by a backlog whose items carry the
@@ -227,6 +231,9 @@ class BacklogReleases:
         """
         self.backlog = estimate_ready_date(self.backlog, available_teams,
                                            start_date, stderr_file)
+        self.releases, changes = estimate_release_dates(self.releases,
+                                                        self.backlog)
+        return changes
 
     def set_plan_from_estimate(self, stderr_file: TextIO = sys.stderr) -> None:
         """Set the planned ready dates from the estimated ready dates.
@@ -239,3 +246,47 @@ class BacklogReleases:
             stderr_file: The file to report errors to.
         """
         self.backlog = set_plan_from_estimate(self.backlog, stderr_file)
+
+    def adjust_release_content(self, buffer: timedelta,
+                               stderr_file: TextIO = sys.stderr) \
+            -> ReleaseChanges:
+        """Adjust the release content to fit the planned release dates.
+
+        The member backlog is replaced by a backlog whose items carry the
+        adjusted release content. The behavior is the one documented for
+        :func:`backlogops.adjust_release_content`.
+
+        Args:
+            buffer: The buffer or slack to add to the estimated ready dates
+                    to get the planned release dates.
+            stderr_file: The file to report errors to.
+
+        Returns:
+            A record of how the release content was changed.
+        """
+        _ = stderr_file
+        self.backlog, changes = adjust_release_content(self.releases,
+                                                       self.backlog, buffer)
+        return changes
+
+    def release_plan_on_estimate(self, buffer: timedelta,
+                                 stderr_file: TextIO = sys.stderr) \
+            -> ReleaseDateChanges:
+        """Set the planned release dates from the estimated release dates.
+
+        The member releases is replaced by releases whose items carry the
+        planned release dates taken from the estimated release dates, as
+        documented for :func:`backlogops.release_plan_on_estimate`.
+
+        Args:
+            buffer: The buffer or slack to add to the estimated release dates
+                    to get the planned release dates.
+            stderr_file: The file to report errors to.
+
+        Returns:
+            A record of how the release dates were changed.
+        """
+        _ = stderr_file
+        self.releases, changes = release_plan_on_estimate(self.releases,
+                                                          buffer)
+        return changes

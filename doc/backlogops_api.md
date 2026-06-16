@@ -62,6 +62,8 @@
     * [order\_by\_dependencies](#backlogops.backlog_releases.BacklogReleases.order_by_dependencies)
     * [estimate\_ready\_date](#backlogops.backlog_releases.BacklogReleases.estimate_ready_date)
     * [set\_plan\_from\_estimate](#backlogops.backlog_releases.BacklogReleases.set_plan_from_estimate)
+    * [adjust\_release\_content](#backlogops.backlog_releases.BacklogReleases.adjust_release_content)
+    * [release\_plan\_on\_estimate](#backlogops.backlog_releases.BacklogReleases.release_plan_on_estimate)
 * [backlogops.demo\_backlog](#backlogops.demo_backlog)
   * [get\_demo\_backlog](#backlogops.demo_backlog.get_demo_backlog)
 * [backlogops.no\_text\_io](#backlogops.no_text_io)
@@ -73,6 +75,15 @@
     * [seek](#backlogops.no_text_io.NoTextIO.seek)
     * [tell](#backlogops.no_text_io.NoTextIO.tell)
     * [truncate](#backlogops.no_text_io.NoTextIO.truncate)
+* [backlogops.release\_change\_io](#backlogops.release_change_io)
+  * [CONTENT\_HEADER](#backlogops.release_change_io.CONTENT_HEADER)
+  * [DATE\_HEADER](#backlogops.release_change_io.DATE_HEADER)
+  * [format\_content\_changes](#backlogops.release_change_io.format_content_changes)
+  * [format\_date\_changes](#backlogops.release_change_io.format_date_changes)
+  * [write\_content\_changes](#backlogops.release_change_io.write_content_changes)
+  * [write\_date\_changes](#backlogops.release_change_io.write_date_changes)
+* [backlogops.table\_create](#backlogops.table_create)
+  * [create\_output\_table](#backlogops.table_create.create_output_table)
 * [backlogops.team](#backlogops.team)
   * [FteException](#backlogops.team.FteException)
     * [check\_consistency](#backlogops.team.FteException.check_consistency)
@@ -132,6 +143,14 @@
   * [write\_available\_teams](#backlogops.available_teams_config.write_available_teams)
   * [read\_available\_teams](#backlogops.available_teams_config.read_available_teams)
   * [get\_available\_teams](#backlogops.available_teams_config.get_available_teams)
+* [backlogops.release\_backlog\_updates](#backlogops.release_backlog_updates)
+  * [ReleaseChange](#backlogops.release_backlog_updates.ReleaseChange)
+  * [BacklogReleaseChange](#backlogops.release_backlog_updates.BacklogReleaseChange)
+  * [ReleaseDateChange](#backlogops.release_backlog_updates.ReleaseDateChange)
+  * [ReleasesAndDateChanges](#backlogops.release_backlog_updates.ReleasesAndDateChanges)
+  * [estimate\_release\_dates](#backlogops.release_backlog_updates.estimate_release_dates)
+  * [release\_plan\_on\_estimate](#backlogops.release_backlog_updates.release_plan_on_estimate)
+  * [adjust\_release\_content](#backlogops.release_backlog_updates.adjust_release_content)
 * [backlogops.releases](#backlogops.releases)
   * [Release](#backlogops.releases.Release)
     * [check\_consistency](#backlogops.releases.Release.check_consistency)
@@ -1581,9 +1600,10 @@ documented for :func:`backlogops.order_by_dependencies`.
 #### estimate\_ready\_date
 
 ```python
-def estimate_ready_date(available_teams: AvailableTeams,
-                        start_date: Optional[date] = None,
-                        stderr_file: TextIO = sys.stderr) -> None
+def estimate_ready_date(
+        available_teams: AvailableTeams,
+        start_date: Optional[date] = None,
+        stderr_file: TextIO = sys.stderr) -> ReleaseDateChanges
 ```
 
 Estimate the ready date of the member backlog items.
@@ -1618,6 +1638,59 @@ documented for :func:`backlogops.set_plan_from_estimate`.
 **Arguments**:
 
 - `stderr_file` - The file to report errors to.
+
+<a id="backlogops.backlog_releases.BacklogReleases.adjust_release_content"></a>
+
+#### adjust\_release\_content
+
+```python
+def adjust_release_content(buffer: timedelta,
+                           stderr_file: TextIO = sys.stderr) -> ReleaseChanges
+```
+
+Adjust the release content to fit the planned release dates.
+
+The member backlog is replaced by a backlog whose items carry the
+adjusted release content. The behavior is the one documented for
+:func:`backlogops.adjust_release_content`.
+
+**Arguments**:
+
+- `buffer` - The buffer or slack to add to the estimated ready dates
+  to get the planned release dates.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  A record of how the release content was changed.
+
+<a id="backlogops.backlog_releases.BacklogReleases.release_plan_on_estimate"></a>
+
+#### release\_plan\_on\_estimate
+
+```python
+def release_plan_on_estimate(
+        buffer: timedelta,
+        stderr_file: TextIO = sys.stderr) -> ReleaseDateChanges
+```
+
+Set the planned release dates from the estimated release dates.
+
+The member releases is replaced by releases whose items carry the
+planned release dates taken from the estimated release dates, as
+documented for :func:`backlogops.release_plan_on_estimate`.
+
+**Arguments**:
+
+- `buffer` - The buffer or slack to add to the estimated release dates
+  to get the planned release dates.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  A record of how the release dates were changed.
 
 <a id="backlogops.demo_backlog"></a>
 
@@ -1766,6 +1839,146 @@ def truncate(size: int | None = None) -> int
 Truncate the NoTextIO object.
 
 This method does nothing and returns 0.
+
+<a id="backlogops.release_change_io"></a>
+
+# backlogops.release\_change\_io
+
+Print and write release-change records as text or table files.
+
+A release-change record is the small log produced by the release update
+operations: which backlog item moved between releases
+(:class:`ReleaseChange`) and how a release date moved
+(:class:`ReleaseDateChange`). These functions render such a log as text
+for the console and write it to a one-table file with TableIO, choosing
+the file format from the file name extension.
+
+<a id="backlogops.release_change_io.CONTENT_HEADER"></a>
+
+#### CONTENT\_HEADER
+
+Column names of a release content change table.
+
+<a id="backlogops.release_change_io.DATE_HEADER"></a>
+
+#### DATE\_HEADER
+
+Column names of a release date change table.
+
+<a id="backlogops.release_change_io.format_content_changes"></a>
+
+#### format\_content\_changes
+
+```python
+def format_content_changes(changes: ReleaseChanges) -> str
+```
+
+Return release content changes as text for the console.
+
+<a id="backlogops.release_change_io.format_date_changes"></a>
+
+#### format\_date\_changes
+
+```python
+def format_date_changes(changes: ReleaseDateChanges) -> str
+```
+
+Return release date changes as text for the console.
+
+<a id="backlogops.release_change_io.write_content_changes"></a>
+
+#### write\_content\_changes
+
+```python
+def write_content_changes(changes: ReleaseChanges,
+                          file_name: PathOrStr,
+                          stderr_file: TextIO = sys.stderr) -> None
+```
+
+Write release content changes to a one table file.
+
+The file format is chosen from the file name extension, as for any
+TableIO table. The single table has the columns ``backlog_key``,
+``old_release`` and ``new_release``; an absent release is an empty
+cell.
+
+**Arguments**:
+
+- `changes` - The release content changes to write, in order.
+- `file_name` - The file to create.
+- `stderr_file` - The stream to report errors to.
+  
+
+**Raises**:
+
+- `FileExistsError` - If the file already exists.
+- `ValueError` - If the extension is not a supported table format.
+
+<a id="backlogops.release_change_io.write_date_changes"></a>
+
+#### write\_date\_changes
+
+```python
+def write_date_changes(changes: ReleaseDateChanges,
+                       file_name: PathOrStr,
+                       stderr_file: TextIO = sys.stderr) -> None
+```
+
+Write release date changes to a one table file.
+
+The file format is chosen from the file name extension, as for any
+TableIO table. The single table has the columns ``release``,
+``old_date`` and ``new_date``; an absent date is an empty cell.
+
+**Arguments**:
+
+- `changes` - The release date changes to write, in order.
+- `file_name` - The file to create.
+- `stderr_file` - The stream to report errors to.
+  
+
+**Raises**:
+
+- `FileExistsError` - If the file already exists.
+- `ValueError` - If the extension is not a supported table format.
+
+<a id="backlogops.table_create"></a>
+
+# backlogops.table\_create
+
+Open a TableIO file for creating a single table output.
+
+Several writers create a file that holds one table whose format follows
+the file name extension (a key list, a list of changes, and so on). They
+all resolve the output configuration from the file name, request CREATE
+capabilities, and open a TableIO context. This helper holds that shared
+setup so each writer only describes the rows it writes.
+
+<a id="backlogops.table_create.create_output_table"></a>
+
+#### create\_output\_table
+
+```python
+@contextmanager
+def create_output_table(file_name: PathOrStr,
+                        stderr_file: TextIO = sys.stderr) -> Iterator[TableIO]
+```
+
+Yield a TableIO opened to create a one table file.
+
+The output format is resolved from the file name extension and the
+file is opened with CREATE access. The yielded TableIO is used to
+write the table inside the ``with`` block.
+
+**Arguments**:
+
+- `file_name` - The file to create.
+- `stderr_file` - The stream to report errors to.
+  
+
+**Yields**:
+
+  The TableIO ready to write one table to the file.
 
 <a id="backlogops.team"></a>
 
@@ -2819,6 +3032,166 @@ returned. If no file is found, an exception is raised.
 
   The loaded workforce. The returned object is an
   ``AvailableTeamsConfig``.
+
+<a id="backlogops.release_backlog_updates"></a>
+
+# backlogops.release\_backlog\_updates
+
+Interaction between releases and backlogs.
+
+<a id="backlogops.release_backlog_updates.ReleaseChange"></a>
+
+## ReleaseChange Objects
+
+```python
+@dataclass
+class ReleaseChange()
+```
+
+A change of the release a backlog item is delivered in.
+
+Both releases are optional, because a backlog item may carry no
+release before the change and may end up with no release after it.
+
+<a id="backlogops.release_backlog_updates.BacklogReleaseChange"></a>
+
+## BacklogReleaseChange Objects
+
+```python
+class BacklogReleaseChange(NamedTuple)
+```
+
+A change of a backlog with changes to releases.
+
+<a id="backlogops.release_backlog_updates.ReleaseDateChange"></a>
+
+## ReleaseDateChange Objects
+
+```python
+@dataclass
+class ReleaseDateChange()
+```
+
+A change of a release date.
+
+Both dates are optional, because a release may have had no date
+before the change and may have no date after it.
+
+<a id="backlogops.release_backlog_updates.ReleasesAndDateChanges"></a>
+
+## ReleasesAndDateChanges Objects
+
+```python
+class ReleasesAndDateChanges(NamedTuple)
+```
+
+Releases and their date changes.
+
+<a id="backlogops.release_backlog_updates.estimate_release_dates"></a>
+
+#### estimate\_release\_dates
+
+```python
+def estimate_release_dates(releases: Releases,
+                           backlog: Backlog) -> ReleasesAndDateChanges
+```
+
+Find estimated release dates from backlog item estimates.
+
+For each release, the estimated date is set to the latest estimated
+ready date of the backlog items assigned to the release. A release
+with no assigned item that carries an estimated ready date gets no
+estimated date (``None``). A change is recorded only for a release
+whose estimated date actually changes.
+
+**Arguments**:
+
+- `releases` - The releases to find the estimated dates for.
+  The argument is not modified.
+- `backlog` - The already estimated backlog to find the estimated dates
+  from. The argument is not modified.
+  
+
+**Returns**:
+
+  The releases with updated estimated dates and a record of how
+  the estimated release dates were changed.
+
+<a id="backlogops.release_backlog_updates.release_plan_on_estimate"></a>
+
+#### release\_plan\_on\_estimate
+
+```python
+def release_plan_on_estimate(releases: Releases,
+                             buffer: timedelta) -> ReleasesAndDateChanges
+```
+
+Set the planned release dates from the estimated release dates.
+
+For each release the planned date is set to the estimated date plus
+the buffer. A release with no estimated date gets no planned date
+(``None``), as there is nothing to base the plan on. A change is
+recorded only for a release whose planned date actually changes.
+
+**Arguments**:
+
+- `releases` - The releases to set the planned release dates for.
+  The argument is not modified.
+- `buffer` - The buffer or slack to add to the estimated release dates
+  to get the planned release dates. Must not be negative.
+  
+
+**Returns**:
+
+  The releases with updated planned release dates and a record of
+  how the planned release dates were changed.
+  
+
+**Raises**:
+
+- `ValueError` - If the buffer is negative.
+
+<a id="backlogops.release_backlog_updates.adjust_release_content"></a>
+
+#### adjust\_release\_content
+
+```python
+def adjust_release_content(releases: Releases, backlog: Backlog,
+                           buffer: timedelta) -> BacklogReleaseChange
+```
+
+Adjust the release content to fit the planned release dates.
+
+Each backlog item that names a release and carries an estimated ready
+date is moved to the earliest release whose planned date is on or
+after the item's estimated ready date plus the buffer. This both
+pushes an item to a later release when it no longer fits its current
+one and pulls it to an earlier release when it now fits sooner. An
+item that no planned release is late enough for is removed from its
+release (its release becomes ``None``). Items with no release, with no
+estimated ready date, or whose release does not change are left
+unchanged. A change is recorded only for an item whose release changes.
+
+**Arguments**:
+
+- `releases` - The releases to fit the items into. The argument is not
+  modified.
+- `backlog` - The already estimated backlog to adjust. The argument is
+  not modified.
+- `buffer` - The buffer or slack added to the estimated ready dates to
+  gain confidence that an item fits a release. Must not be
+  negative.
+  
+
+**Returns**:
+
+  The backlog with updated release content and a record of how the
+  release content was changed.
+  
+
+**Raises**:
+
+- `ValueError` - If the buffer is negative.
 
 <a id="backlogops.releases"></a>
 

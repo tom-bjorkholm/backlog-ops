@@ -37,6 +37,8 @@ backlogops_cli serves 2 purposes:
 ### Currently available commands
 
 ````text
+  python3 -m backlogops_cli.adjust_release_content
+     Adjust release content to fit the planned release dates
   python3 -m backlogops_cli.convert
      Convert a backlog and releases between table file formats
   python3 -m backlogops_cli.demo_backlog
@@ -51,13 +53,15 @@ backlogops_cli serves 2 purposes:
      Reorder a backlog so that dependencies are fulfilled
   python3 -m backlogops_cli.order_by_keys
      Reorder a backlog so that key-list items come first
+  python3 -m backlogops_cli.plan_release_dates
+     Set planned release dates from the estimated release dates
   python3 -m backlogops_cli.teams_wizard
      Create an AvailableTeams configuration file via a wizard
 ````
 
 ## Test summary
 
-- Test result: 850 passed in 13s
+- Test result: 900 passed in 15s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

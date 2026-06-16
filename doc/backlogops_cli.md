@@ -1,5 +1,8 @@
 # Table of Contents
 
+* [backlogops\_cli.adjust\_release\_content](#backlogops_cli.adjust_release_content)
+  * [build\_parser](#backlogops_cli.adjust_release_content.build_parser)
+  * [main](#backlogops_cli.adjust_release_content.main)
 * [backlogops\_cli.list](#backlogops_cli.list)
   * [command\_modules](#backlogops_cli.list.command_modules)
   * [format\_listing](#backlogops_cli.list.format_listing)
@@ -16,6 +19,9 @@
 * [backlogops\_cli.extract\_keys](#backlogops_cli.extract_keys)
   * [build\_parser](#backlogops_cli.extract_keys.build_parser)
   * [main](#backlogops_cli.extract_keys.main)
+* [backlogops\_cli.plan\_release\_dates](#backlogops_cli.plan_release_dates)
+  * [build\_parser](#backlogops_cli.plan_release_dates.build_parser)
+  * [main](#backlogops_cli.plan_release_dates.main)
 * [backlogops\_cli.order\_by\_deps](#backlogops_cli.order_by_deps)
   * [build\_parser](#backlogops_cli.order_by_deps.build_parser)
   * [main](#backlogops_cli.order_by_deps.main)
@@ -25,6 +31,50 @@
 * [backlogops\_cli.estimate\_ready\_date](#backlogops_cli.estimate_ready_date)
   * [build\_parser](#backlogops_cli.estimate_ready_date.build_parser)
   * [main](#backlogops_cli.estimate_ready_date.main)
+
+<a id="backlogops_cli.adjust_release_content"></a>
+
+# backlogops\_cli.adjust\_release\_content
+
+Adjust release content to fit the planned release dates.
+
+The command reads an already estimated backlog and its releases, then
+moves each backlog item to the earliest release whose planned date is on
+or after the item's estimated ready date plus a slack buffer, as
+documented for :func:`backlogops.adjust_release_content`. The adjusted
+backlog and the releases are written to the output file, and the list of
+content changes is printed to stdout, or also saved to a file when
+``--changes-file`` is given.
+
+<a id="backlogops_cli.adjust_release_content.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the adjust-content command.
+
+<a id="backlogops_cli.adjust_release_content.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Adjust the release content and write the output file.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the data cannot be read, adjusted or
+  written.
 
 <a id="backlogops_cli.list"></a>
 
@@ -225,6 +275,50 @@ Extract the backlog keys at the given levels and emit them.
   ``0`` on success, ``1`` when the backlog cannot be read or the
   keys cannot be written.
 
+<a id="backlogops_cli.plan_release_dates"></a>
+
+# backlogops\_cli.plan\_release\_dates
+
+Set planned release dates from the estimated release dates.
+
+The command reads a backlog and its releases whose estimated release
+dates are already filled in, then sets each planned release date to the
+estimated release date plus a slack buffer, as documented for
+:func:`backlogops.release_plan_on_estimate`. The backlog and the releases
+with the new planned dates are written to the output file, and the list of
+planned date changes is printed to stdout, or also saved to a file when
+``--changes-file`` is given.
+
+<a id="backlogops_cli.plan_release_dates.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the plan-dates command.
+
+<a id="backlogops_cli.plan_release_dates.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Set the planned release dates and write the output file.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the data cannot be read, planned or
+  written.
+
 <a id="backlogops_cli.order_by_deps"></a>
 
 # backlogops\_cli.order\_by\_deps
@@ -348,6 +442,11 @@ def main(args: Optional[list[str]] = None) -> int
 ```
 
 Estimate the ready dates and write the output file.
+
+The backlog with the estimated dates and the releases are written to
+the output file. The estimated release dates are updated as well, and
+the list of release date changes is printed to stdout, or also saved
+to a file when ``--changes-file`` is given.
 
 **Arguments**:
 

@@ -34,8 +34,12 @@
   * [save\_backlog](#backlogops_gui.backlog_window.save_backlog)
   * [order\_by\_keys](#backlogops_gui.backlog_window.order_by_keys)
   * [order\_by\_deps](#backlogops_gui.backlog_window.order_by_deps)
+  * [save\_changes](#backlogops_gui.backlog_window.save_changes)
+  * [show\_changes](#backlogops_gui.backlog_window.show_changes)
   * [estimate\_date](#backlogops_gui.backlog_window.estimate_date)
   * [set\_plan](#backlogops_gui.backlog_window.set_plan)
+  * [adjust\_content](#backlogops_gui.backlog_window.adjust_content)
+  * [plan\_dates](#backlogops_gui.backlog_window.plan_dates)
   * [extract\_keys](#backlogops_gui.backlog_window.extract_keys)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
@@ -49,6 +53,9 @@
   * [ask\_read\_options](#backlogops_gui.io_dialogs.ask_read_options)
   * [ask\_write\_options](#backlogops_gui.io_dialogs.ask_write_options)
   * [choose\_key\_list\_output](#backlogops_gui.io_dialogs.choose_key_list_output)
+  * [choose\_changes\_output](#backlogops_gui.io_dialogs.choose_changes_output)
+  * [ask\_buffer\_days](#backlogops_gui.io_dialogs.ask_buffer_days)
+  * [show\_change\_list](#backlogops_gui.io_dialogs.show_change_list)
   * [DepOptions](#backlogops_gui.io_dialogs.DepOptions)
   * [StartChoice](#backlogops_gui.io_dialogs.StartChoice)
   * [ask\_keys](#backlogops_gui.io_dialogs.ask_keys)
@@ -496,6 +503,36 @@ def order_by_deps(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for the options and order the backlog by dependencies.
 
+<a id="backlogops_gui.backlog_window.save_changes"></a>
+
+#### save\_changes
+
+```python
+def save_changes(parent: tk.Misc, write_changes: Optional[Callable[[str],
+                                                                   None]],
+                 on_error: Callable[[str, str], None],
+                 on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for a file and write the change list to it.
+
+A ``write_changes`` of None means there are no changes, so nothing is
+written and that is reported through ``on_info`` instead.
+
+<a id="backlogops_gui.backlog_window.show_changes"></a>
+
+#### show\_changes
+
+```python
+def show_changes(parent: tk.Misc, title: str, text: str,
+                 write_changes: Optional[Callable[[str], None]],
+                 on_error: Callable[[str, str],
+                                    None], on_info: Callable[[str, str],
+                                                             None]) -> None
+```
+
+Show the change listing in a pop-up that can save it to a file.
+
 <a id="backlogops_gui.backlog_window.estimate_date"></a>
 
 #### estimate\_date
@@ -521,6 +558,32 @@ def set_plan(data: BacklogReleases, sink: TextIO, refresh: Callable[[], None],
 ```
 
 Copy the estimated ready dates to the planned ready dates.
+
+<a id="backlogops_gui.backlog_window.adjust_content"></a>
+
+#### adjust\_content
+
+```python
+def adjust_content(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                   refresh: Callable[[], None], on_error: Callable[[str, str],
+                                                                   None],
+                   on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for a buffer and adjust the release content to the estimate.
+
+<a id="backlogops_gui.backlog_window.plan_dates"></a>
+
+#### plan\_dates
+
+```python
+def plan_dates(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+               refresh: Callable[[], None], on_error: Callable[[str, str],
+                                                               None],
+               on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for a buffer and set planned release dates from the estimate.
 
 <a id="backlogops_gui.backlog_window.extract_keys"></a>
 
@@ -677,6 +740,41 @@ def choose_key_list_output(parent: tk.Misc) -> Optional[str]
 ```
 
 Ask for a key list file to create, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.choose_changes_output"></a>
+
+#### choose\_changes\_output
+
+```python
+def choose_changes_output(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for a changes file to create, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_buffer_days"></a>
+
+#### ask\_buffer\_days
+
+```python
+def ask_buffer_days(parent: tk.Misc) -> Optional[int]
+```
+
+Ask for the buffer in days, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.io_dialogs.show_change_list"></a>
+
+#### show\_change\_list
+
+```python
+def show_change_list(parent: tk.Misc, title: str, text: str,
+                     on_save: Callable[[], None]) -> tk.Toplevel
+```
+
+Show a change listing with Save-to-file and Dismiss buttons.
+
+The listing is shown read-only. The Save button calls ``on_save`` and
+the Dismiss button closes the window. The created window is returned
+so a caller (or a test) can drive or close it.
 
 <a id="backlogops_gui.io_dialogs.DepOptions"></a>
 

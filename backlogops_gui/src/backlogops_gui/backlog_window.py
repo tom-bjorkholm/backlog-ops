@@ -13,16 +13,20 @@ module function so it can be tested without a display.
 # MIT License
 
 import tkinter as tk
+from datetime import timedelta
 from tkinter import messagebox, ttk
 from typing import Callable, Optional, TextIO
 from tableio import ValueFmt
 from backlogops import (
-    AvailableTeams, BacklogReleases, OutputFormatConfig, get_keys_in_order,
+    AvailableTeams, BacklogReleases, OutputFormatConfig, ReleaseChanges,
+    ReleaseDateChanges, format_content_changes, format_date_changes,
+    get_keys_in_order, write_content_changes, write_date_changes,
     write_key_list)
 from backlogops_gui.backlog_io import write_backlog
 from backlogops_gui.io_dialogs import (
-    ask_dep_options, ask_keys, ask_levels, ask_start_date, ask_write_options,
-    choose_key_list_output, choose_output_file)
+    ask_buffer_days, ask_dep_options, ask_keys, ask_levels, ask_start_date,
+    ask_write_options, choose_changes_output, choose_key_list_output,
+    choose_output_file, show_change_list)
 from backlogops_gui.table_view import (
     backlog_table, make_table, release_table)
 
@@ -118,6 +122,80 @@ def order_by_deps(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def save_changes(parent: tk.Misc,
+                 write_changes: Optional[Callable[[str], None]],
+                 on_error: Callable[[str, str], None],
+                 on_info: Callable[[str, str], None]) -> None:
+    """Ask for a file and write the change list to it.
+
+    A ``write_changes`` of None means there are no changes, so nothing is
+    written and that is reported through ``on_info`` instead.
+    """
+    if write_changes is None:
+        on_info('No changes', 'There are no changes to write.')
+        return
+    path = choose_changes_output(parent)
+    if path is None:
+        return
+    try:
+        write_changes(path)
+    except WRITE_ERRORS as error:
+        on_error('Could not write file', str(error))
+        return
+    on_info('Wrote file', f'Wrote {path}')
+
+
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def show_changes(parent: tk.Misc, title: str, text: str,
+                 write_changes: Optional[Callable[[str], None]],
+                 on_error: Callable[[str, str], None],
+                 on_info: Callable[[str, str], None]) -> None:
+    """Show the change listing in a pop-up that can save it to a file."""
+    show_change_list(parent, title, text,
+                     lambda: save_changes(parent, write_changes, on_error,
+                                          on_info))
+
+
+def _date_report(changes: ReleaseDateChanges, sink: TextIO
+                 ) -> tuple[str, Optional[Callable[[str], None]]]:
+    """Return the date change listing and a writer, None when empty."""
+    writer = None if not changes else \
+        (lambda path: write_date_changes(changes, path, sink))
+    return format_date_changes(changes), writer
+
+
+def _content_report(changes: ReleaseChanges, sink: TextIO
+                    ) -> tuple[str, Optional[Callable[[str], None]]]:
+    """Return the content change listing and a writer, None when empty."""
+    writer = None if not changes else \
+        (lambda path: write_content_changes(changes, path, sink))
+    return format_content_changes(changes), writer
+
+
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def _run_change(parent: tk.Misc,
+                change: Callable[[], tuple[str,
+                                           Optional[Callable[[str], None]]]],
+                refresh: Callable[[], None],
+                on_error: Callable[[str, str], None],
+                on_info: Callable[[str, str], None], fail_title: str,
+                title: str) -> None:
+    """Run a change returning a report, refresh, then show the pop-up.
+
+    A change that raises one of the known data errors is reported and
+    leaves the view unchanged. A successful change refreshes the view and
+    shows the change listing in a pop-up that can save it to a file.
+    """
+    try:
+        text, write_changes = change()
+    except ACTION_ERRORS as error:
+        on_error(fail_title, str(error))
+        return
+    refresh()
+    show_changes(parent, title, text, write_changes, on_error, on_info)
+
+
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def estimate_date(parent: tk.Misc, data: BacklogReleases,
                   teams: Optional[AvailableTeams], sink: TextIO,
                   refresh: Callable[[], None],
@@ -133,12 +211,12 @@ def estimate_date(parent: tk.Misc, data: BacklogReleases,
         return
     ready_teams, start = teams, choice.start_date
 
-    def change() -> None:
-        """Estimate the ready dates from the chosen start date."""
-        data.estimate_ready_date(ready_teams, start, sink)
-    _apply_change(change, refresh, on_error, on_info,
-                  'Could not estimate ready date', 'Estimated ready date',
-                  'Filled in the estimated ready dates.')
+    def change() -> tuple[str, Optional[Callable[[str], None]]]:
+        """Estimate the dates and return the release date change report."""
+        changes = data.estimate_ready_date(ready_teams, start, sink)
+        return _date_report(changes, sink)
+    _run_change(parent, change, refresh, on_error, on_info,
+                'Could not estimate ready date', 'Release date changes')
 
 
 def set_plan(data: BacklogReleases, sink: TextIO, refresh: Callable[[], None],
@@ -148,6 +226,42 @@ def set_plan(data: BacklogReleases, sink: TextIO, refresh: Callable[[], None],
     _apply_change(lambda: data.set_plan_from_estimate(sink), refresh, on_error,
                   on_info, 'Could not set planned date', 'Set planned date',
                   'Copied the estimated dates to the planned dates.')
+
+
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def adjust_content(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                   refresh: Callable[[], None],
+                   on_error: Callable[[str, str], None],
+                   on_info: Callable[[str, str], None]) -> None:
+    """Ask for a buffer and adjust the release content to the estimate."""
+    days = ask_buffer_days(parent)
+    if days is None:
+        return
+
+    def change() -> tuple[str, Optional[Callable[[str], None]]]:
+        """Adjust the release content and return the change report."""
+        changes = data.adjust_release_content(timedelta(days=days), sink)
+        return _content_report(changes, sink)
+    _run_change(parent, change, refresh, on_error, on_info,
+                'Could not adjust release content', 'Release content changes')
+
+
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def plan_dates(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+               refresh: Callable[[], None],
+               on_error: Callable[[str, str], None],
+               on_info: Callable[[str, str], None]) -> None:
+    """Ask for a buffer and set planned release dates from the estimate."""
+    days = ask_buffer_days(parent)
+    if days is None:
+        return
+
+    def change() -> tuple[str, Optional[Callable[[str], None]]]:
+        """Set the planned release dates and return the change report."""
+        changes = data.release_plan_on_estimate(timedelta(days=days), sink)
+        return _date_report(changes, sink)
+    _run_change(parent, change, refresh, on_error, on_info,
+                'Could not set planned release dates', 'Release date changes')
 
 
 def extract_keys(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
@@ -243,6 +357,10 @@ class BacklogWindow:
                          command=self._estimate_date)
         menu.add_command(label='Set planned date from estimated',
                          command=self._set_plan)
+        menu.add_command(label='Adjust release content…',
+                         command=self._adjust_content)
+        menu.add_command(label='Adjust planned release dates…',
+                         command=self._plan_dates)
         menu.add_command(label='Extract keys…', command=self._extract_keys)
 
     def _add_table(self, heading: str, columns: list[str],
@@ -300,6 +418,16 @@ class BacklogWindow:
         """Copy the estimated dates to the planned dates and refresh."""
         set_plan(self._data, self._sink, self._refresh_tables,
                  self._report_error, self._report_info)
+
+    def _adjust_content(self) -> None:
+        """Adjust the release content to the estimate and refresh."""
+        adjust_content(self._win, self._data, self._sink, self._refresh_tables,
+                       self._report_error, self._report_info)
+
+    def _plan_dates(self) -> None:
+        """Set planned release dates from the estimate and refresh."""
+        plan_dates(self._win, self._data, self._sink, self._refresh_tables,
+                   self._report_error, self._report_info)
 
     def _extract_keys(self) -> None:
         """Extract backlog keys at chosen levels to a key list file."""

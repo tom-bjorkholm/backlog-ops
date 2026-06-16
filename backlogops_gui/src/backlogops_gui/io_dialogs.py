@@ -16,13 +16,14 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional, Sequence, TextIO
+from typing import Callable, Optional, Sequence, TextIO
 from backlogops import DependencyMode, DEFAULT_LEVELS, read_key_list
 
 MODE_INFER = 0
 MODE_PRESET = 1
 MODE_FILE = 2
 KEY_READ_ERRORS = (ValueError, TypeError, KeyError, OSError)
+DEFAULT_BUFFER_DAYS = 5
 
 
 def format_value(mode: int, preset: str, path: str) -> Optional[str]:
@@ -204,6 +205,82 @@ def choose_key_list_output(parent: tk.Misc) -> Optional[str]:
     """Ask for a key list file to create, or None when cancelled."""
     name = filedialog.asksaveasfilename(parent=parent, title='Write keys')
     return name or None
+
+
+def choose_changes_output(parent: tk.Misc) -> Optional[str]:
+    """Ask for a changes file to create, or None when cancelled."""
+    name = filedialog.asksaveasfilename(parent=parent, title='Save changes')
+    return name or None
+
+
+# pylint: disable-next=too-few-public-methods
+class _BufferDialog(_ModalDialog):
+    """Modal dialog collecting the buffer in calendar days."""
+
+    def __init__(self, parent: tk.Misc) -> None:
+        """Build, show and wait for the buffer days dialog."""
+        super().__init__(parent, 'Buffer days')
+        self.days: Optional[int] = None
+        self._text = tk.StringVar(self._win, str(DEFAULT_BUFFER_DAYS))
+        self._build()
+        self._show()
+
+    def _build(self) -> None:
+        """Add the buffer label and entry prefilled with the default."""
+        tk.Label(self._win, text='Buffer in calendar days (0 or more):'
+                 ).pack(anchor='w', padx=12, pady=(10, 2))
+        tk.Entry(self._win, textvariable=self._text,
+                 width=10).pack(anchor='w', padx=12)
+
+    def _confirm(self) -> None:
+        """Parse the buffer, keeping the dialog open on a bad value."""
+        try:
+            days = int(self._text.get().strip())
+        except ValueError:
+            messagebox.showerror('Invalid number',
+                                 'Enter a whole number of days.',
+                                 parent=self._win)
+            return
+        if days < 0:
+            messagebox.showerror('Invalid number',
+                                 'The buffer must not be negative.',
+                                 parent=self._win)
+            return
+        self.days = days
+        super()._confirm()
+
+
+def ask_buffer_days(parent: tk.Misc) -> Optional[int]:
+    """Ask for the buffer in days, or None when the dialog is cancelled."""
+    dialog = _BufferDialog(parent)
+    if dialog.cancelled:
+        return None
+    return dialog.days
+
+
+def show_change_list(parent: tk.Misc, title: str, text: str,
+                     on_save: Callable[[], None]) -> tk.Toplevel:
+    """Show a change listing with Save-to-file and Dismiss buttons.
+
+    The listing is shown read-only. The Save button calls ``on_save`` and
+    the Dismiss button closes the window. The created window is returned
+    so a caller (or a test) can drive or close it.
+    """
+    win = tk.Toplevel(parent)
+    win.title(title)
+    if isinstance(parent, tk.Wm):
+        win.transient(parent)
+    box = tk.Text(win, width=50, height=12, wrap='none')
+    box.insert('1.0', text)
+    box.configure(state='disabled')
+    box.pack(padx=12, pady=(10, 4), fill='both', expand=True)
+    button_bar = tk.Frame(win)
+    button_bar.pack(padx=12, pady=10, fill='x')
+    tk.Button(button_bar, text='Save to file…',
+              command=on_save).pack(side='left')
+    tk.Button(button_bar, text='Dismiss',
+              command=win.destroy).pack(side='right')
+    return win
 
 
 @dataclass

@@ -32,6 +32,13 @@ from backlogops.order_by_dependencies import (
     order_by_dependencies, DependencyMode)
 from backlogops.estimate_ready_date import (
     estimate_ready_date, set_plan_from_estimate)
+from backlogops.release_backlog_updates import (
+    ReleaseChange, ReleaseChanges, ReleaseDateChange, ReleaseDateChanges,
+    BacklogReleaseChange, ReleasesAndDateChanges, estimate_release_dates,
+    release_plan_on_estimate, adjust_release_content)
+from backlogops.release_change_io import (
+    format_content_changes, format_date_changes, write_content_changes,
+    write_date_changes)
 from backlogops.io_config import (
     InputFormatConfig, OutputFormatConfig, resolve_input_config,
     resolve_output_config, make_input_config, make_output_config)
@@ -68,6 +75,11 @@ __all__ = [
     'item_to_row', 'row_to_item', 'release_to_row', 'row_to_release',
     'FormatRules', 'format_backlog', 'format_releases',
     'estimate_ready_date', 'set_plan_from_estimate',
+    'ReleaseChange', 'ReleaseChanges', 'ReleaseDateChange',
+    'ReleaseDateChanges', 'BacklogReleaseChange', 'ReleasesAndDateChanges',
+    'estimate_release_dates', 'release_plan_on_estimate',
+    'adjust_release_content', 'format_content_changes', 'format_date_changes',
+    'write_content_changes', 'write_date_changes',
     'move_keys_first', 'get_keys_in_order', 'read_key_list', 'write_key_list',
     'available_teams_wizard', 'teams_config_wizard', 'YesNoUiBridge',
     'ConsoleYesNoUiBridge', 'WeekDay',

@@ -17,8 +17,10 @@ from typing import Optional
 import argcomplete
 from backlogops import (
     BacklogReleases, FormatRules, InputFormatConfig, OutputFormatConfig,
-    read_available_teams, read_backlog_releases, resolve_input_config,
-    resolve_output_config, write_backlog_releases)
+    ReleaseChanges, ReleaseDateChanges, format_content_changes,
+    format_date_changes, read_available_teams, read_backlog_releases,
+    resolve_input_config, resolve_output_config, write_backlog_releases,
+    write_content_changes, write_date_changes)
 
 
 def parsed_args(parser: argparse.ArgumentParser,
@@ -90,6 +92,15 @@ def _output_presets(io_config: Optional[str]
     return read_available_teams(io_config, sys.stderr).output_configs
 
 
+def _write_output(parsed: argparse.Namespace, data: BacklogReleases) -> None:
+    """Write the backlog and releases to the configured output file."""
+    presets = _output_presets(parsed.io_config)
+    config = resolve_output_config(parsed.output_config,
+                                   data_file=parsed.output, presets=presets)
+    rules = FormatRules(backlog_first=not parsed.releases_first)
+    write_backlog_releases(data, parsed.output, config, rules)
+
+
 def run_write(parsed: argparse.Namespace,
               data_source: Callable[[], BacklogReleases]) -> int:
     """Build the data, write it to the output file, and report the result.
@@ -105,15 +116,105 @@ def run_write(parsed: argparse.Namespace,
         ``0`` on success, ``1`` when the data cannot be built or written.
     """
     try:
-        data = data_source()
-        presets = _output_presets(parsed.io_config)
-        config = resolve_output_config(parsed.output_config,
-                                       data_file=parsed.output,
-                                       presets=presets)
-        rules = FormatRules(backlog_first=not parsed.releases_first)
-        write_backlog_releases(data, parsed.output, config, rules)
+        _write_output(parsed, data_source())
     except (ValueError, TypeError, KeyError, OSError) as error:
         print(f'Could not write {parsed.output}: {error}', file=sys.stderr)
         return 1
     print(f'Wrote {parsed.output}')
     return 0
+
+
+DEFAULT_BUFFER_DAYS = 5
+"""Default slack in calendar days added when fitting dates."""
+
+
+def add_buffer_arg(parser: argparse.ArgumentParser) -> None:
+    """Add the buffer-days argument with the default slack."""
+    parser.add_argument('--buffer-days', dest='buffer_days', type=int,
+                        default=DEFAULT_BUFFER_DAYS, metavar='DAYS',
+                        help='Slack in calendar days kept against the planned '
+                        f'dates (default {DEFAULT_BUFFER_DAYS}). Must not be '
+                        'negative.')
+
+
+def add_changes_arg(parser: argparse.ArgumentParser) -> None:
+    """Add the optional file to also save the list of changes to."""
+    parser.add_argument('--changes-file', dest='changes_file', metavar='FILE',
+                        help='Also save the list of changes to a TableIO '
+                        'file. Without it the changes are only printed to '
+                        'stdout.')
+
+
+def build_change_parser(description: str) -> argparse.ArgumentParser:
+    """Build a parser with input, buffer, output and changes arguments."""
+    parser = argparse.ArgumentParser(description=description)
+    add_input_args(parser)
+    add_buffer_arg(parser)
+    add_output_args(parser)
+    add_changes_arg(parser)
+    return parser
+
+
+def date_report(changes: ReleaseDateChanges
+                ) -> tuple[str, Optional[Callable[[str], None]]]:
+    """Return the date change listing and a writer, None when empty."""
+    writer = None if not changes else \
+        (lambda path: write_date_changes(changes, path))
+    return format_date_changes(changes), writer
+
+
+def content_report(changes: ReleaseChanges
+                   ) -> tuple[str, Optional[Callable[[str], None]]]:
+    """Return the content change listing and a writer, None when empty."""
+    writer = None if not changes else \
+        (lambda path: write_content_changes(changes, path))
+    return format_content_changes(changes), writer
+
+
+def run_change_command(parsed: argparse.Namespace,
+                       produce: Callable[[BacklogReleases], tuple[
+                           str, Optional[Callable[[str], None]]]]) -> int:
+    """Read, change, write the data, and emit the list of changes.
+
+    The input is read and validated, ``produce`` changes it in place and
+    returns the change listing as text together with a callback that
+    writes the same changes to a file. The changed data is written to the
+    output file, the listing is printed to stdout, and, when
+    ``--changes-file`` is given, the changes are also written to that file.
+
+    Args:
+        parsed: Parsed command line arguments holding the input, output
+            and ``--changes-file`` options.
+        produce: Callable that changes the data and returns the change
+            listing text and a writer for the change file.
+
+    Returns:
+        ``0`` on success, ``1`` when any step fails.
+    """
+    try:
+        data = read_input(parsed)
+        listing, write_changes = produce(data)
+        _write_output(parsed, data)
+        print(f'Wrote {parsed.output}')
+        print(listing)
+        _save_changes(parsed, write_changes)
+    except (ValueError, TypeError, KeyError, OSError) as error:
+        print(f'Could not complete: {error}', file=sys.stderr)
+        return 1
+    return 0
+
+
+def _save_changes(parsed: argparse.Namespace,
+                  write_changes: Optional[Callable[[str], None]]) -> None:
+    """Save the changes to ``--changes-file`` when one is requested.
+
+    A ``write_changes`` of None means there were no changes, so nothing is
+    written and a short note is printed instead.
+    """
+    if parsed.changes_file is None:
+        return
+    if write_changes is None:
+        print('No changes to write.')
+        return
+    write_changes(parsed.changes_file)
+    print(f'Wrote {parsed.changes_file}')
