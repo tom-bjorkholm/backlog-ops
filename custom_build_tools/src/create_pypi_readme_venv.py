@@ -49,10 +49,79 @@ P1 = 'There are 3 related packages for backlog operations:'
 B1 = [
     'backlogops: a collection of library functions to manipulate backlogs',
     'backlogops-cli: command line interface to use the functions in the '
-    'library',
+    'library. This is just a thin wrapper around the library functions. '
+    'It serves a dual purpose as both an example of how to use the '
+    'library and as a tool for the user to use the library.',
     'backlogops-gui: graphical user interface to use the functions in '
-    'the library'
+    'the library. It is based on TkInter. The ambition is to keep it '
+    'as a thin wrapper around the library.'
 ]
+P2 = 'The following functionality is available in all 3 packages:'
+B2 = [
+    'Reading backlog and releases from file types that TableIO supports '
+    'reading from (Currently CSV, Excel, and ODS).',
+    'Writing backlog and releases to file types that TableIO supports '
+    'writing to (Currently CSV, Excel, ODS and 9 other file formats).',
+    'File format is detected from the file extension, but may be overridden.',
+    'Adjust release content to match fit the planned release dates.',
+    'Create a demonstation backlog and releases (for exploring the features).',
+    'Estimate ready date for the backlog items based on available teams, '
+    'team velocity, vacation dates, periods with half time work, etc.',
+    'Extract backlog keys at given backlog item levels.',
+    'Reorder the backlog so that the dependencies are satisfied.',
+    'Reordet the backlogs so that items identified by keys in a list '
+    'comes first. If the key is at a higher level it will bring all '
+    'all items it is a parent of in front of it (recursively).',
+    'Set planned release dates from the estimated release dates.',
+    'Calculate the release dates for from backlog items estimated '
+    'ready dates, with a configurable buffer time.',
+    'Validate the backlog and releases for consistency.',
+    'A wizard to create an available teams configuration.'
+]
+P3 = 'The operating model that most of the functionality is designed for ' \
+     'is that the teams work off a single backlog in the order of the ' \
+     'backlog. The backlog items are ordered by priority and dependencies ' \
+     'to allow the teams to work in the backlog order. ' \
+     'Each backlog item and each release may have a planned ready date, ' \
+     'that records what has been communicated to the customer. ' \
+     'Each backlog item and each release may have an estimated ready date, ' \
+     'that is calculated from the current backlog state, the team velocity, ' \
+     'and what we know about the availability of the team members.'
+P4 = 'Each backlog item has the following fields that are used by the ' \
+     'algorithms in the library:'
+B4 = ['key: The key of the backlog item. Required. Must be unique. '
+      'Must not be empty, must not contain whitespace and must '
+      'not contain any of the characters , . ; : ( ) [ ] { }.',
+      'level: The level of the backlog item. Required. Must be an integer.',
+      'title: The title of the backlog item. Required.',
+      'story_points: The story points of the backlog item. Required.',
+      'status: The status of the backlog item. Required.',
+      'parent_key: The key of the parent backlog item. Optional. '
+      'Must exist as a key in the backlog. '
+      'Parent keys are used to build the hierarchy of the backlog. '
+      'The parent key must be at a higher level than the current '
+      'item. Parent keys introduce implicit dependencies between '
+      'items: the current item cannot start before the parent '
+      'item starts, and the parent item cannot finish before all '
+      'its children have finished.',
+      'release: The release of the backlog item. Optional. '
+      'Follows the same character rules as the key. '
+      'Must not be empty string.',
+      'team: The team responsible for the backlog item. Optional. '
+      'Must not be empty string. Must be a valid team name. '
+      'If None the item can be done by any team. If not None. '
+      'the item can only be done by the specified team.',
+      'depends_on_f2s: The list of keys of the backlog items that must '
+      'have been finished before the current item can start. May be empty.',
+      'depends_on_f2f: The list of keys of the backlog items that must '
+      'have been finished before the current item can finish. May be empty.',
+      'depends_on_s2s: The list of keys of the backlog items that must '
+      'have been started before the current item can start. May be empty.',
+      'planned_ready_date: The planned ready date of the backlog item. '
+      'The date that is communicated to the customer. Optional.',
+      'estimated_ready_date: The estimated ready date of the backlog item. '
+      'Optional.']
+P5 = 'Additionally each backlog item can have any number of other fields.'
 
 
 def get_paths() -> PathsForPackages:
@@ -97,6 +166,34 @@ def _write_installing(mft: MultiFormat, readme_type: ReadmeType) -> None:
                          programming_language='sh')
 
 
+DOCS_ROOT = 'https://bitbucket.org/tom-bjorkholm/backlog-ops/src/master/doc/'
+UL1 = DOCS_ROOT + 'backlogops_api.md'
+UL2 = DOCS_ROOT + 'backlogops_protected_api.md'
+UC1 = DOCS_ROOT + 'backlogops_cli.md'
+UC2 = DOCS_ROOT + 'backlogops_protected_cli.md'
+UG1 = DOCS_ROOT + 'backlogops_gui.md'
+UG2 = DOCS_ROOT + 'backlogops_protected_gui.md'
+
+
+def _write_api_docs(mft: MultiFormat) -> None:
+    """Write the API docs section."""
+    mft.new_heading(level=2, text='API documentation')
+    mft.new_paragraph(text='For more detailed code documentation, '
+                      'see the API documentation:')
+    mft.new_bullet_item('')
+    mft.add_url(url=UL1, text='Library public API')
+    mft.new_bullet_item('')
+    mft.add_url(url=UL2, text='Library protected API')
+    mft.new_bullet_item('')
+    mft.add_url(url=UC1, text='Library public CLI')
+    mft.new_bullet_item('')
+    mft.add_url(url=UC2, text='Library protected CLI')
+    mft.new_bullet_item('')
+    mft.add_url(url=UG1, text='Library public GUI')
+    mft.new_bullet_item('')
+    mft.add_url(url=UG2, text='Library protected GUI')
+
+
 def _read_include(readme_path: Path) -> str:
     """Return include_pypi.md content from the README's folder."""
     include_path = readme_path.parent / 'include_pypi.md'
@@ -130,7 +227,19 @@ def create_pypi_readme(readme_type: ReadmeType, path: Path) -> None:
         mft.new_paragraph(text=P1)
         for item in B1:
             mft.new_bullet_item(text=item)
+        mft.new_heading(level=2, text='Available functionality')
+        mft.new_paragraph(text=P2)
+        for item in B2:
+            mft.new_bullet_item(text=item)
+        mft.new_heading(level=2, text='The operating model')
+        mft.new_paragraph(text=P3)
+        mft.new_heading(level=2, text='The backlog item fields')
+        mft.new_paragraph(text=P4)
+        for item in B4:
+            mft.new_bullet_item(text=item)
+        mft.new_paragraph(text=P5)
         _write_installing(mft, readme_type)
+        _write_api_docs(mft)
     _append_extra(readme_type, path)
     print(f'Created {str(path)} file for {readme_type.name}', file=sys.stderr)
 

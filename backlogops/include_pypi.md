@@ -1,3 +1,3 @@
-## Library with backlog operations
+## Libary main entry points
 
 To be written
