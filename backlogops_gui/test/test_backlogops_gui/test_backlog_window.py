@@ -9,13 +9,51 @@ from datetime import date, timedelta
 from typing import Callable, Optional, Sequence, TextIO, cast
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogReleases, DependencyMode, NoTextIO)
+    AvailableTeams, BacklogReleases, DependencyMode, NoTextIO,
+    get_demo_backlog)
 from backlogops_gui import backlog_window
 from backlogops_gui.backlog_window import (
-    adjust_content, estimate_date, extract_keys, order_by_deps, order_by_keys,
-    plan_dates, save_backlog, save_changes, set_plan, show_changes)
+    BacklogWindow, adjust_content, estimate_date, extract_keys, order_by_deps,
+    order_by_keys, plan_dates, save_backlog, save_changes, set_plan,
+    show_changes)
 from backlogops_gui.io_dialogs import (
     DepOptions, StartChoice, WriteOptions, show_change_list)
+
+
+class _MsgRecorder:
+    """Record the message-box calls made over a backlog window."""
+
+    def __init__(self) -> None:
+        """Start with an empty record of calls."""
+        self.calls: list[tuple[str, str]] = []
+
+    def showerror(self, title: str, message: str, parent: object) -> None:
+        """Record a shown error message."""
+        assert parent is not None
+        self.calls.append((title, message))
+
+    def showinfo(self, title: str, message: str, parent: object) -> None:
+        """Record a shown informational message."""
+        assert parent is not None
+        self.calls.append((title, message))
+
+
+def _key_write_fail(keys: object, path: object, **_kw: object) -> None:
+    """Raise as if writing a key list failed."""
+    raise OSError('disk full')
+
+
+def _log_call(label: str, store: list[str]) -> Callable[..., None]:
+    """Return a stub that records the label whenever it is invoked."""
+    def call(*_args: object, **_kw: object) -> None:
+        store.append(label)
+    return call
+
+
+def _none() -> None:
+    """Return None, standing in for a presets or teams provider."""
+    return None
+
 
 DATA = BacklogReleases(backlog=[], releases=[])
 SINK = NoTextIO()
@@ -188,6 +226,46 @@ def test_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
     save_backlog(_parent(), DATA, None, SINK, _record(errors), _record(infos))
     assert errors == [('Could not write file', 'disk full')]
     assert not infos
+
+
+def test_save_cancel_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the write-options dialog writes nothing."""
+    monkeypatch.setattr(backlog_window, 'choose_output_file', _out_csv)
+    monkeypatch.setattr(backlog_window, 'ask_write_options', _no_options)
+    monkeypatch.setattr(backlog_window, 'write_backlog', _no_write)
+    infos: list[tuple[str, str]] = []
+    save_backlog(_parent(), DATA, None, SINK, _record([]), _record(infos))
+    assert not infos
+
+
+def test_order_keys_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the keys dialog leaves the backlog unchanged."""
+    monkeypatch.setattr(backlog_window, 'ask_keys', lambda _p, _s: None)
+    done: list[bool] = []
+    data = _FakeData()
+    order_by_keys(PARENT, _as_data(data), SINK, _refresher(done), _record([]),
+                  _record([]))
+    assert not data.calls and not done
+
+
+def test_order_deps_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the dependency options changes nothing."""
+    monkeypatch.setattr(backlog_window, 'ask_dep_options', lambda _p: None)
+    done: list[bool] = []
+    data = _FakeData()
+    order_by_deps(PARENT, _as_data(data), SINK, _refresher(done), _record([]),
+                  _record([]))
+    assert not data.calls and not done
+
+
+def test_plan_dates_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the buffer dialog leaves planned dates unchanged."""
+    monkeypatch.setattr(backlog_window, 'ask_buffer_days', lambda _p: None)
+    done: list[bool] = []
+    data = _FakeData()
+    plan_dates(PARENT, _as_data(data), SINK, _refresher(done), _record([]),
+               _record([]))
+    assert not data.calls and not done
 
 
 def test_order_keys_success(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -432,3 +510,58 @@ def test_extract_no_levels(monkeypatch: pytest.MonkeyPatch) -> None:
     infos: list[tuple[str, str]] = []
     extract_keys(PARENT, DATA, SINK, _record([]), _record(infos))
     assert not infos
+
+
+def test_extract_cancel_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the output file selection writes nothing."""
+    monkeypatch.setattr(backlog_window, 'ask_levels', lambda _p: [1])
+    monkeypatch.setattr(backlog_window, 'choose_key_list_output',
+                        lambda _p: None)
+    monkeypatch.setattr(backlog_window, 'write_key_list', _no_write)
+    infos: list[tuple[str, str]] = []
+    extract_keys(PARENT, DATA, SINK, _record([]), _record(infos))
+    assert not infos
+
+
+def test_extract_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a key-list write failure is reported through on_error."""
+    monkeypatch.setattr(backlog_window, 'ask_levels', lambda _p: [1])
+    monkeypatch.setattr(backlog_window, 'choose_key_list_output',
+                        lambda _p: 'keys.txt')
+    monkeypatch.setattr(backlog_window, 'write_key_list', _key_write_fail)
+    errors: list[tuple[str, str]] = []
+    extract_keys(PARENT, DATA, SINK, _record(errors), _record([]))
+    assert errors == [('Could not extract keys', 'disk full')]
+
+
+_ACTION_METHODS = [
+    '_save', '_order_by_keys', '_order_by_deps', '_estimate_date',
+    '_set_plan', '_adjust_content', '_plan_dates', '_extract_keys']
+"""The window action methods that delegate to a module helper."""
+
+_DELEGATES = [
+    'save_backlog', 'order_by_keys', 'order_by_deps', 'estimate_date',
+    'set_plan', 'adjust_content', 'plan_dates', 'extract_keys']
+"""The module helpers each action method delegates to, in the same order."""
+
+
+def test_window_acts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the window builds its tables and delegates each menu action."""
+    root = _root()
+    try:
+        calls: list[str] = []
+        for name in _DELEGATES:
+            monkeypatch.setattr(backlog_window, name, _log_call(name, calls))
+        recorder = _MsgRecorder()
+        monkeypatch.setattr(backlog_window, 'messagebox', recorder)
+        data = get_demo_backlog()
+        window = BacklogWindow(root, data, 'Title', _none, _none, SINK)
+        window._refresh_tables()
+        window._report_error('E', 'err')
+        window._report_info('I', 'info')
+        for method in _ACTION_METHODS:
+            getattr(window, method)()
+        assert sorted(calls) == sorted(_DELEGATES)
+        assert recorder.calls == [('E', 'err'), ('I', 'info')]
+    finally:
+        root.destroy()

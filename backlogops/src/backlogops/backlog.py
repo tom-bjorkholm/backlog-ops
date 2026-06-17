@@ -463,25 +463,3 @@ def check_backlog_consistency(backlog: Backlog,
     check_key_references(backlog, known_keys, stderr_file)
     check_parent_levels(backlog, items_by_key, stderr_file)
     check_no_cycles(backlog, stderr_file)
-
-
-if __name__ == '__main__':
-    a = BacklogItem(key='123', level=1, title='Test', story_points=1,
-                    status=Status.TODO)
-    print(f'Key: {a["key"]}')
-    a.extra_fields['description'] = 'Test description'
-    print(f'Description: {a["description"]}')
-    try:
-        print(f'Non-existent field: {a["non_existent_field"]}')
-    except KeyError as e:
-        print(f'KeyError: {e} for field "non_existent_field"')
-        print('KeyError expected for non-existent field')
-    a['description'] = 'New description'
-    a['title'] = 'New title'
-    print(f'Title: {a["title"]}')
-    print(f'Description: {a["description"]}')
-    print(f'Story points: {a["story_points"]}')
-    print(f'Contains key: {"key" in a}')
-    print(f'Contains description: {"description" in a}')
-    print(f'Contains non-existent field: {"non_existent_field" in a}')
-    print(f'To dict: {a.to_dict()}')

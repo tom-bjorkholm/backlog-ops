@@ -58,6 +58,21 @@ def test_person_key_mismatch() -> None:
         workforce.check_consistency(NoTextIO())
 
 
+def test_empty_person_name() -> None:
+    """Test a person with an empty name is reported as a ValueError."""
+    workforce = AvailableTeams(persons={'': Person(name='')}, teams=[])
+    with pytest.raises(ValueError):
+        workforce.check_consistency(NoTextIO())
+
+
+def test_empty_team_alias() -> None:
+    """Test an empty team alias is reported as a ValueError."""
+    team = Team(name='Phoenix', velocity=1.0, sum_fte_at_velocity=1.0,
+                sprint_length=10, aliases=[''])
+    with pytest.raises(ValueError):
+        _available([team]).check_consistency(NoTextIO())
+
+
 @pytest.mark.parametrize('second_name', ['Phoenix', 'phoenix', 'PHX'])
 def test_duplicate_team_label(second_name: str) -> None:
     """Test a duplicate team name or alias (any case) is a ValueError."""

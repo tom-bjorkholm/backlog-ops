@@ -8,6 +8,7 @@ from typing import Optional, Sequence
 import pytest
 from backlogops import (
     Backlog, BacklogItem, Status, order_by_dependencies, DependencyMode)
+from backlogops.order_by_dependencies import _merge_even, _space_around_limit
 from backlogops.no_text_io import NoTextIO
 
 NO_OUTPUT = NoTextIO()
@@ -151,6 +152,43 @@ def test_input_unchanged() -> None:
     backlog = [_item('C', f2s=['P']), _item('X'), _item('P')]
     order_by_dependencies(backlog, stderr_file=NO_OUTPUT)
     assert _keys(backlog) == ['C', 'X', 'P']
+
+
+def test_diamond_two_prereqs() -> None:
+    """Test an item depending on two prerequisites is ordered after both.
+
+    The diamond A -> B, A -> C, (B, C) -> D exercises a dependent that is
+    still pending after one prerequisite finishes, and a prerequisite that
+    is reached along two paths during the start-reachability search.
+    """
+    backlog = [_item('D', f2s=['B', 'C']), _item('B', f2s=['A']),
+               _item('C', f2s=['A']), _item('A')]
+    for order in (_run(backlog), _run(backlog, later=True)):
+        position = {key: index for index, key in enumerate(order)}
+        assert position['A'] < position['B'] < position['D']
+        assert position['A'] < position['C'] < position['D']
+
+
+def test_dangling_dep() -> None:
+    """Test a dependency on a key not in the backlog is tolerated.
+
+    The ordering assumes a consistent backlog but degrades gracefully: a
+    reference to a missing key is ignored rather than dropping the item.
+    """
+    backlog = [_item('B', f2s=['A', 'GONE']), _item('A')]
+    assert _run(backlog) == ['A', 'B']
+
+
+@pytest.mark.parametrize('count, expected', [
+    (0, 1), (8, 1), (30, 3), (49, 4), (50, 5), (100, 5)])
+def test_space_around_limit(count: int, expected: int) -> None:
+    """Test the space_around limit caps at five for large backlogs."""
+    assert _space_around_limit(count) == expected
+
+
+def test_merge_even_no_linked() -> None:
+    """Test merging with no linked keys returns the unlinked keys as is."""
+    assert _merge_even([], ['A', 'B', 'C']) == ['A', 'B', 'C']
 
 
 def test_all_deps_respected() -> None:

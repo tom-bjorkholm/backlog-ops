@@ -8,7 +8,17 @@ import tkinter as tk
 from typing import Callable, Optional, Sequence, cast
 import pytest
 from backlogops import NoTextIO
-from backlogops_gui.gui_wizard import TkWizardBridge
+from backlogops_gui.gui_wizard import TkWizardBridge, _WizardWindow
+
+
+def _root_or_skip() -> tk.Tk:
+    """Return a withdrawn Tk root, or skip when no display is available."""
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip('no display available')
+    root.withdraw()
+    return root
 
 
 def _bridge(ask_fn: Optional[Callable[
@@ -77,3 +87,119 @@ def test_error_file_uses_log() -> None:
 def test_close_without_window() -> None:
     """Test closing is safe when no wizard window was opened."""
     _bridge().close()
+
+
+def test_real_text() -> None:
+    """Test a real window returns the entered free text."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._finish('typed'))
+        assert bridge.ask('Name?') == 'typed'
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_reask() -> None:
+    """Test a re-ask reason is shown above the question."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._finish('again'))
+        assert bridge.ask('Name?', 'try again') == 'again'
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_reuse_window() -> None:
+    """Test a second question reuses the window and clears the first."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._finish('one'))
+        assert bridge.ask('Q1?') == 'one'
+        root.after(0, lambda: bridge._window_obj()._finish('two'))
+        assert bridge.ask('Q2?') == 'two'
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_choice() -> None:
+    """Test a real window returns the selected choice index."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._finish(1))
+        assert bridge.ask('Pick', None, ['a', 'b', 'c']) == 1
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_yes_no() -> None:
+    """Test a real window returns the yes/no choice."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._finish(True))
+        assert bridge.ask_yes_no('Add?', False) is True
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_show_and_close() -> None:
+    """Test showing a message opens the window, then close removes it."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        bridge.show('a message')
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_cancel() -> None:
+    """Test cancelling a real prompt raises an end-of-input error."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._cancel())
+        with pytest.raises(EOFError):
+            bridge.ask('Name?')
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_pick_selected() -> None:
+    """Test picking a selected choice finishes with its index."""
+    root = _root_or_skip()
+    try:
+        window = _WizardWindow(tk.Frame(root))
+        listbox = tk.Listbox(window._content)
+        listbox.insert('end', 'a')
+        listbox.insert('end', 'b')
+        listbox.selection_set(1)
+        window._pick(listbox)
+        assert window._result == 1
+        window.close()
+    finally:
+        root.destroy()
+
+
+def test_pick_empty() -> None:
+    """Test picking with no selection leaves the answer unset."""
+    root = _root_or_skip()
+    try:
+        window = _WizardWindow(root)
+        listbox = tk.Listbox(window._content)
+        listbox.insert('end', 'a')
+        window._pick(listbox)
+        assert window._result == ''
+        window.close()
+    finally:
+        root.destroy()

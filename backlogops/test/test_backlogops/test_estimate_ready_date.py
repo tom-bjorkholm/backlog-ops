@@ -253,6 +253,54 @@ def test_set_plan_unchanged() -> None:
     assert estimated[0].planned_ready_date is None
 
 
+def test_zero_standard_hours() -> None:
+    """A company with an empty work week completes no work."""
+    company = CompanyWorkHours(work_hours={})
+    result = estimate_ready_date([item('a', 3)], one_team(company), MON, NO)
+    assert result[0].estimated_ready_date is None
+
+
+def test_zero_fte_member() -> None:
+    """A member giving zero full-time equivalent contributes nothing."""
+    ann, bob = person('Ann'), person('Bob')
+    force = workforce([team('T', [member('Ann', 1.0), member('Bob', 0.0)])],
+                      [ann, bob])
+    assert run([item('a', 3)], force) == {'a': date(2026, 6, 17)}
+
+
+def test_unknown_person() -> None:
+    """A membership for an unregistered person is skipped."""
+    ann = person('Ann')
+    force = workforce([team('T', [member('Ann'), member('Ghost')])], [ann])
+    assert run([item('a', 3)], force) == {'a': date(2026, 6, 17)}
+
+
+def test_weekend_exc() -> None:
+    """An exception over a closed weekend day keeps the day closed."""
+    off = ExceptionWorkHours(start_date=date(2026, 6, 20),
+                             end_date=date(2026, 6, 21), hours_per_day=0.0)
+    ann = person('Ann', [off])
+    force = workforce([team('T', [member('Ann')])], [ann])
+    assert run([item('a', 6)], force) == {'a': date(2026, 6, 22)}
+
+
+def test_zero_sprint_length() -> None:
+    """A team with a non-positive sprint length completes no points."""
+    ann = person('Ann')
+    bad = Team(name='T', velocity=10.0, sum_fte_at_velocity=1.0,
+               sprint_length=0, members=[member('Ann')])
+    force = workforce([bad], [ann])
+    result = estimate_ready_date([item('a', 3)], force, MON, NO)
+    assert result[0].estimated_ready_date is None
+
+
+def test_parent_cycle() -> None:
+    """A parent cycle is handled without infinite recursion."""
+    backlog = [item('p', 1, parent='c'), item('c', 1, parent='p')]
+    result = estimate_ready_date(backlog, one_team(), MON, NO)
+    assert all(i.estimated_ready_date is not None for i in result)
+
+
 @pytest.mark.parametrize('status', [Status.DONE, Status.REJECTED])
 def test_terminal_frees_team(status: Status) -> None:
     """A done or rejected item before another leaves the team free."""

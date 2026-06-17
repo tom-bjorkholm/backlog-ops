@@ -224,6 +224,38 @@ def test_internal_bad_dep() -> None:
         item.check_consistency(NoTextIO())
 
 
+def test_getitem_named_field() -> None:
+    """Test reading a named field by subscript returns its value."""
+    item = _valid_item()
+    assert item['key'] == 'BI-1'
+    assert item['status'] is Status.TODO
+
+
+def test_contains_fields() -> None:
+    """Test membership covers named fields, extras and absence."""
+    item = _valid_item()
+    item['note'] = 'a note'
+    assert 'key' in item
+    assert 'note' in item
+    assert 'missing' not in item
+
+
+def test_to_dict_extra() -> None:
+    """Test to_dict includes both named fields and extra fields."""
+    item = _valid_item()
+    item.extra_fields['note'] = 'extra'
+    result = item.to_dict()
+    assert result['key'] == 'BI-1'
+    assert result['note'] == 'extra'
+
+
+def test_extra_no_shadow_ok() -> None:
+    """Test a non-shadowing extra field passes the consistency check."""
+    item = _valid_item()
+    item.extra_fields['note'] = 'fine'
+    item.check_consistency(NoTextIO())
+
+
 def test_setitem_named_field() -> None:
     """Test setting a named field does not write into extra_fields."""
     item = _valid_item()

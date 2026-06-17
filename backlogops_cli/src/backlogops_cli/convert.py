@@ -43,5 +43,5 @@ def main(args: Optional[list[str]] = None) -> int:
     return run_write(parsed, lambda: read_input(parsed))
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(main())

@@ -7,10 +7,14 @@
 import json
 from datetime import date
 from pathlib import Path
+from typing import cast
 import pytest
+from config_as_json import Config
 from backlogops.available_teams import AvailableTeams
 from backlogops.available_teams_config import (
     AvailableTeamsConfig, read_available_teams, write_available_teams)
+from backlogops.available_teams_config import (
+    _as_hours, _ScheduleMember, _week_day_name)
 from backlogops.person import Person
 from backlogops.team import FteException, Membership, Team
 from backlogops.work_hours import (
@@ -147,6 +151,38 @@ def test_bad_date() -> None:
     with pytest.raises(TypeError):
         AvailableTeamsConfig(from_json_data_text=_config_text(members),
                              stderr_file=NoTextIO())
+
+
+def test_week_day_name() -> None:
+    """Test schedule keys map to enum names, falling back to str()."""
+    assert _week_day_name(WeekDay.MONDAY) == 'MONDAY'
+    assert _week_day_name('odd') == 'odd'
+
+
+@pytest.mark.parametrize('value, expected', [(8, 8.0), (7.5, 7.5)])
+def test_as_hours_ok(value: object, expected: float) -> None:
+    """Test numeric work-hours values convert to float."""
+    assert _as_hours('mon', value, NoTextIO()) == expected
+
+
+@pytest.mark.parametrize('value', [True, 'eight', None])
+def test_as_hours_bad(value: object) -> None:
+    """Test a non-numeric work-hours value is rejected as a TypeError."""
+    with pytest.raises(TypeError):
+        _as_hours('mon', value, NoTextIO())
+
+
+def test_schedule_not_dict() -> None:
+    """Test a work-hours schedule that is not a mapping is rejected.
+
+    The structural JSON check rejects a non-dictionary schedule before
+    the member validator runs, so the validator's own guard is reached
+    only by calling it directly, as done here.
+    """
+    validator = _ScheduleMember()
+    with pytest.raises(TypeError):
+        validator.validate_member(cast(Config, None), 'work_hours',
+                                  ['not', 'a', 'dict'], NoTextIO())
 
 
 def test_missing_field() -> None:

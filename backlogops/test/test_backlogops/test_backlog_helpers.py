@@ -14,6 +14,7 @@ import pytest
 from backlogops.backlog import BacklogItem, Status
 from backlogops.backlog_helpers import accepts_none, build_item_kwargs
 from backlogops.backlog_helpers import check_key_syntax, construct
+from backlogops.backlog_helpers import collect_extra_values
 from backlogops.backlog_helpers import convert_field_value, convert_to_date
 from backlogops.backlog_helpers import convert_to_enum, convert_to_str
 from backlogops.backlog_helpers import enum_class_of
@@ -23,6 +24,7 @@ from backlogops.backlog_helpers import report_bad_value
 from backlogops.backlog_helpers import report_missing_field
 from backlogops.backlog_helpers import report_unknown_reference
 from backlogops.backlog_helpers import report_wrong_type, value_matches_type
+from backlogops.backlog_helpers import _matches_dict, _type_name
 
 
 @pytest.mark.parametrize('value, data_type, expected', [
@@ -34,6 +36,9 @@ from backlogops.backlog_helpers import report_wrong_type, value_matches_type
     (['a', 'b'], list[str], True),
     (['a', 1], list[str], False),
     ({'k': 1}, dict[str, object], True),
+    (5, list[str], False),
+    (5, dict[str, object], False),
+    ({'k': 'x'}, dict[str, int], False),
     (Status.TODO, Status, True),
     (1, Status, False),
     (date(2026, 6, 12), date, True),
@@ -43,6 +48,30 @@ def test_value_matches_type(value: object, data_type: object,
                             expected: bool) -> None:
     """Test runtime type matching for the supported type hints."""
     assert value_matches_type(value, data_type) is expected
+
+
+def test_matches_dict_unparam() -> None:
+    """Test a dict hint without two type arguments matches any dict."""
+    assert _matches_dict({'k': 1}, ()) is True
+    assert _matches_dict({'k': 1}, (str,)) is True
+    assert _matches_dict(5, ()) is False
+
+
+@pytest.mark.parametrize('data_type, expected', [
+    (object, 'object'),
+    (str, 'str')])
+def test_type_name(data_type: object, expected: str) -> None:
+    """Test the readable type name used in error messages."""
+    assert _type_name(data_type) == expected
+
+
+def test_collect_extras() -> None:
+    """Test an explicit extras mapping is merged with stray keys."""
+    data: dict[str, object] = {'extra_fields': {'a': 1}, 'b': 2, 'key': 'K'}
+    result = collect_extra_values(data, {'key', 'extra_fields'},
+                                  'extra_fields', dict[str, object],
+                                  StringIO())
+    assert result == {'a': 1, 'b': 2}
 
 
 @pytest.mark.parametrize('data_type, expected', [

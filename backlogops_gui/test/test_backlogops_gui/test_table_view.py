@@ -7,12 +7,15 @@
 import tkinter as tk
 from tkinter import ttk
 from datetime import date
+from typing import cast
 import pytest
-from tableio import Color, Fmt
+from tableio import Color, Fmt, ValueFmt
 from backlogops import BacklogReleases, Release, get_demo_backlog
+from backlogops_gui import table_view
 from backlogops_gui.table_view import (
     HIGHLIGHT_FILL, backlog_table, make_table, release_table,
     supports_cell_tags, _tag_name)
+from backlogops_gui.table_view import _insert_row, _row_format
 
 
 def test_backlog_columns() -> None:
@@ -100,6 +103,118 @@ def _row_tagged(tree: ttk.Treeview, tag: str) -> bool:
     """Return whether the single inserted row carries the tag."""
     item = tree.get_children()[0]
     return bool(tree.tag_has(tag, item))
+
+
+class _RaisingTk:
+    """Tk stand-in whose call always raises, as an old Tk would."""
+
+    def call(self, *args: object) -> object:
+        """Raise as a Tk without per-cell tag support does."""
+        raise tk.TclError('tag cell not supported')
+
+
+class _FakeTree:
+    """Minimal Treeview stand-in for the cell-tag support probe."""
+
+    def __init__(self) -> None:
+        """Hold a Tk interpreter stand-in that rejects cell tags."""
+        self.tk = _RaisingTk()
+
+    def __str__(self) -> str:
+        """Return a widget path the probe can pass to Tk."""
+        return 'faketree'
+
+
+def test_no_cell_tags() -> None:
+    """Test the probe reports no support when Tk rejects cell tags."""
+    tree = cast(ttk.Treeview, _FakeTree())
+    assert supports_cell_tags(tree) is False
+
+
+class _RecordingTk:
+    """Tk stand-in that records cell-tag calls without a real Tk 8.7."""
+
+    def __init__(self) -> None:
+        """Start with an empty record of interpreter calls."""
+        self.calls: list[tuple[object, ...]] = []
+
+    def call(self, *args: object) -> str:
+        """Record one interpreter call and report success."""
+        self.calls.append(args)
+        return ''
+
+
+class _CellTree:
+    """Treeview stand-in capturing per-cell styling on any Tk version."""
+
+    def __init__(self) -> None:
+        """Start with a recording interpreter and empty row store."""
+        self.tk = _RecordingTk()
+        self.inserted: list[object] = []
+
+    def __str__(self) -> str:
+        """Return a widget path the cell-tag call can use."""
+        return 'celltree'
+
+    def tag_configure(self, name: str, **kwargs: object) -> None:
+        """Accept a tag configuration without a real widget."""
+        assert name
+
+    def insert(self, parent: str, index: str, values: object = None) -> str:
+        """Record one inserted row and return its item id."""
+        self.inserted.append(values)
+        return f'I{len(self.inserted)}'
+
+
+def test_supports_cell_tags() -> None:
+    """Test the probe reports support when the cell-tag call succeeds."""
+    assert supports_cell_tags(cast(ttk.Treeview, _CellTree())) is True
+
+
+def test_cell_tag_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the per-cell tag path styles each formatted cell.
+
+    A fake tree drives the cell-tag code on any Tk version, including an
+    older Tk that lacks the per-cell tag subcommand.
+    """
+    monkeypatch.setattr(table_view, '_tag_font',
+                        lambda *a: ('TkDefaultFont', 10, 'bold'))
+    fake = _CellTree()
+    tree = cast(ttk.Treeview, fake)
+    red = Fmt(bold=True, highlight=Color.RED)
+    _insert_row(tree, ['a', 'b'],
+                [ValueFmt(value='x', fmt=Fmt()),
+                 ValueFmt(value='y', fmt=red)], cell_tags=True)
+    assert fake.inserted == [['x', 'y']]
+    assert fake.tk.calls
+
+
+@pytest.mark.parametrize('formats, expected', [
+    ([Fmt(), Fmt(bold=True)], Fmt(bold=True)),
+    ([Fmt(), Fmt()], Fmt())])
+def test_row_format(formats: list[Fmt], expected: Fmt) -> None:
+    """Test the row format is the first non-plain cell, else plain."""
+    row = [ValueFmt(value=None, fmt=fmt) for fmt in formats]
+    assert _row_format(row) == expected
+
+
+def test_row_tag_color() -> None:
+    """Test the fallback path colors a whole row by its first format."""
+    root = _root_or_skip()
+    try:
+        tree = ttk.Treeview(root, columns=['a', 'b'], show='headings')
+        red = Fmt(bold=True, highlight=Color.RED)
+        _insert_row(tree, ['a', 'b'],
+                    [ValueFmt(value='x', fmt=Fmt()),
+                     ValueFmt(value='y', fmt=red)], cell_tags=False)
+        assert _row_tagged(tree, _tag_name(red))
+        _insert_row(tree, ['a', 'b'],
+                    [ValueFmt(value='p', fmt=Fmt()),
+                     ValueFmt(value='q', fmt=Fmt())], cell_tags=False)
+        plain = tree.get_children()[1]
+        assert tree.item(plain, 'tags') in ((), '')
+    finally:
+        root.destroy()
 
 
 def test_cell_color_applied() -> None:

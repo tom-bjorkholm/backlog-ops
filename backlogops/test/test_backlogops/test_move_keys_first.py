@@ -59,13 +59,16 @@ REORDER_CASES = [
       ('S2', 1, 'E1'), ('T3', 0, 'S2')],
      ['E1'], ['T1', 'T2', 'S1', 'T3', 'S2', 'E1']),
     ([('A', 1, None), ('E1', 2, None), ('S1', 1, 'E1'), ('B', 1, None)],
-     ['E1'], ['S1', 'E1', 'A', 'B'])]
+     ['E1'], ['S1', 'E1', 'A', 'B']),
+    ([('S1', 1, 'E1'), ('E1', 2, None)],
+     ['E1'], ['E1', 'S1'])]
 REORDER_IDS = [
     'flat_keeps_rest_order', 'children_before_named_parent',
     'grandchild_nested_postorder', 'chain_postorder',
     'chain_named_epic_after_initiative', 'named_child_after_named_parent',
     'siblings_keep_backlog_order', 'two_subtrees_in_key_order',
-    'several_grandchildren', 'unrelated_items_kept_last']
+    'several_grandchildren', 'unrelated_items_kept_last',
+    'descendant_before_ancestor_not_pulled']
 
 
 @pytest.mark.parametrize('specs,keys,expected', REORDER_CASES, ids=REORDER_IDS)

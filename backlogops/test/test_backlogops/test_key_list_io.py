@@ -69,6 +69,21 @@ def test_empty_round_trip(tmp_path: Path) -> None:
     assert read_key_list(target, stderr_file=NO_OUTPUT) == []
 
 
+def test_empty_table_list(tmp_path: Path) -> None:
+    """Test an empty one-column table reads back as an empty list."""
+    target = tmp_path / 'keys.csv'
+    target.write_text('', encoding='utf-8')
+    assert read_key_list(target, stderr_file=NO_OUTPUT) == []
+
+
+def test_empty_table_dict(tmp_path: Path) -> None:
+    """Test a table holding only a column name reads as an empty list."""
+    target = tmp_path / 'keys.csv'
+    target.write_text('Keys\n', encoding='utf-8')
+    assert read_key_list(target, skip_column_names=True,
+                         stderr_file=NO_OUTPUT) == []
+
+
 def test_numeric_keys(tmp_path: Path) -> None:
     """Test numeric-looking table cells are returned as string keys."""
     target = tmp_path / 'keys.csv'

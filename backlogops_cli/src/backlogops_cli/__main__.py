@@ -8,5 +8,5 @@
 from backlogops_cli.list import main
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     main()

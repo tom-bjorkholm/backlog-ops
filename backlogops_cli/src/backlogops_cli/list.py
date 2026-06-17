@@ -59,5 +59,5 @@ def main() -> None:
     print(format_listing(command_modules()))
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     main()

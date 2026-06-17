@@ -77,6 +77,20 @@ def test_config_path(tmp_path: Path) -> None:
     assert resolved.tableio.format_name == 'CSV'
 
 
+def test_in_config_path(tmp_path: Path) -> None:
+    """Test an input value with punctuation is read as a config file."""
+    source = make_input_config(
+        resolve_input_config(None, data_file='x.csv',
+                             stderr_file=NO_OUTPUT).tableio,
+        {'Type': 'level'}, stderr_file=NO_OUTPUT)
+    config_file = tmp_path / 'in.cfg'
+    source.write(to_json_filename=config_file, stderr_file=NO_OUTPUT)
+    resolved = resolve_input_config(str(config_file), data_file='x.csv',
+                                    stderr_file=NO_OUTPUT)
+    assert resolved.to_internal == {'Type': 'level'}
+    assert resolved.tableio.format_name == 'CSV'
+
+
 def test_in_cfg_roundtrip(tmp_path: Path) -> None:
     """Test an input config keeps its map and format across a file."""
     config = make_input_config(

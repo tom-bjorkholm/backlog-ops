@@ -57,6 +57,14 @@ def test_level_alias_bad_type() -> None:
         level.check_consistency(NoTextIO())
 
 
+def test_aliases_not_a_list() -> None:
+    """Test an aliases value that is not a list is a TypeError."""
+    level = Level(level=1, name='Story')
+    level.aliases = 'Task'  # type: ignore[assignment]
+    with pytest.raises(TypeError):
+        level.check_consistency(NoTextIO())
+
+
 def test_levels_ok() -> None:
     """Test consistent levels pass the levels consistency check."""
     check_levels_consistency(_levels(), NoTextIO())

@@ -36,6 +36,14 @@ def test_est_latest() -> None:
     assert _date_changes(changes) == [('R1', None, date(2026, 1, 20))]
 
 
+def test_est_keeps_max() -> None:
+    """Test a later item with an earlier estimate does not lower it."""
+    backlog = [_item('a', 'R1', date(2026, 1, 20)),
+               _item('b', 'R1', date(2026, 1, 10))]
+    new_releases, _ = estimate_release_dates([Release(name='R1')], backlog)
+    assert new_releases[0].estimated_date == date(2026, 1, 20)
+
+
 def test_est_none() -> None:
     """Test a release with no estimable item gets no estimated date."""
     backlog = [_item('a', 'R2', None, status=Status.DONE)]

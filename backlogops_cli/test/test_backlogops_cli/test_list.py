@@ -7,11 +7,12 @@
 import os
 import pkgutil
 import importlib
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 import pytest
 import backlogops_cli
 from backlogops_cli.list import command_modules
 from backlogops_cli.list import format_listing
+from backlogops_cli.list import main
 from backlogops_cli.list import _is_command
 from backlogops_cli.list import _python_prefix
 
@@ -76,6 +77,23 @@ def test_main_without_main() -> None:
     module = ModuleType('no_main')
     setattr(module, 'DESCRIPTION', 'has description only')
     assert _is_command(module) is False
+
+
+def test_main_prints(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test main prints the formatted listing of commands."""
+    main()
+    out = capsys.readouterr().out
+    assert 'backlogops_cli.list' in out
+
+
+def test_skips_non_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a discovered module without main is skipped from the list."""
+    info = SimpleNamespace(name='fake', ispkg=False)
+    monkeypatch.setattr('backlogops_cli.list.pkgutil.iter_modules',
+                        lambda path: [info])
+    monkeypatch.setattr('backlogops_cli.list.importlib.import_module',
+                        lambda name: ModuleType('fake'))
+    assert command_modules() == []
 
 
 def test_modules_have_desc() -> None:

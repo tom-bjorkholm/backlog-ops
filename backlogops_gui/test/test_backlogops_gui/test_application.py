@@ -9,10 +9,51 @@ from typing import Callable, Optional, cast
 import pytest
 from backlogops import AvailableTeamsConfig, BacklogReleases
 from backlogops_gui import application
-from backlogops_gui.application import BacklogApp
+from backlogops_gui.application import APP_TITLE, BacklogApp
 from backlogops_gui.io_dialogs import ReadOptions
 
 DATA = BacklogReleases(backlog=[], releases=[])
+
+
+def _root_or_skip() -> tk.Tk:
+    """Return a withdrawn Tk root, or skip when no display is available."""
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip('no display available')
+    root.withdraw()
+    return root
+
+
+class _Recorder:
+    """Record the message-box calls made through it."""
+
+    def __init__(self) -> None:
+        """Start with an empty record of calls."""
+        self.calls: list[tuple[str, str]] = []
+
+    def showerror(self, title: str, message: str, parent: object) -> None:
+        """Record a shown error message."""
+        assert parent is not None
+        self.calls.append((title, message))
+
+    def showinfo(self, title: str, message: str, parent: object) -> None:
+        """Record a shown informational message."""
+        assert parent is not None
+        self.calls.append((title, message))
+
+
+class _FakeBridge:
+    """Stand-in wizard bridge that records being closed."""
+
+    def __init__(self, root: object, log: object) -> None:
+        """Accept the wizard arguments and start unclosed."""
+        assert root is not None and log is not None
+        self.closed = False
+
+    def close(self) -> None:
+        """Record that the bridge was closed."""
+        self.closed = True
 
 
 # pylint: disable-next=too-few-public-methods
@@ -255,3 +296,211 @@ def test_no_cfg_no_presets() -> None:
     app = _app()
     assert app.in_presets() is None
     assert app.out_presets() is None
+
+
+def test_available_teams() -> None:
+    """Test the available teams come from the loaded configuration."""
+    config = FakeConfig()
+    assert _app(config).available_teams() is \
+        cast(AvailableTeamsConfig, config)
+    assert _app().available_teams() is None
+
+
+def test_show_messages(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the show helpers forward to the message box."""
+    recorder = _Recorder()
+    monkeypatch.setattr(application, 'messagebox', recorder)
+    app = _app()
+    app.show_error('E', 'err')
+    app.show_info('I', 'info')
+    assert recorder.calls == [('E', 'err'), ('I', 'info')]
+
+
+def test_run_wizard_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a successful wizard run returns the configuration."""
+    config = cast(AvailableTeamsConfig, FakeConfig())
+    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'teams_config_wizard',
+                        lambda bridge: config)
+    assert _app().run_wizard() is config
+
+
+def test_run_wizard_eof(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a wizard cancelled with EOF returns no configuration."""
+    def cancel(bridge: object) -> AvailableTeamsConfig:
+        raise EOFError()
+    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'teams_config_wizard', cancel)
+    assert _app().run_wizard() is None
+
+
+def test_run_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a wizard IO error is reported and returns no configuration."""
+    def boom(bridge: object) -> AvailableTeamsConfig:
+        raise ValueError('bad')
+    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'teams_config_wizard', boom)
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    assert app.run_wizard() is None
+    assert errors == [('Wizard error', 'bad')]
+
+
+def test_teams_wizard_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a cancelled wizard leaves the configuration unchanged."""
+    app = _app()
+    monkeypatch.setattr(app, 'run_wizard', lambda: None)
+    infos: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_info', _record(infos))
+    app.run_teams_wizard()
+    assert app.config is None
+    assert not infos
+
+
+def test_write_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the file chooser writes nothing."""
+    config = FakeConfig()
+    monkeypatch.setattr(application, 'choose_config_file', _pick_none)
+    app = _app(config)
+    app.write_config()
+    assert config.written is None
+
+
+def test_write_io_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a write failure is reported to the user."""
+    class _Failing(FakeConfig):
+        def write(self, to_json_filename: str, stderr_file: object) -> None:
+            raise OSError('disk full')
+    monkeypatch.setattr(application, 'choose_config_file', _pick_teams)
+    app = _app(_Failing())
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    app.write_config()
+    assert errors == [('Could not write configuration', 'disk full')]
+
+
+def test_read_options_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the read-options dialog opens no window."""
+    monkeypatch.setattr(application, 'choose_input_file', _pick_csv)
+    monkeypatch.setattr(application, 'ask_read_options', lambda *a: None)
+    app = _app()
+    opened: list[object] = []
+    monkeypatch.setattr(app, 'open_backlog', _opener(opened))
+    app.read_backlog_file()
+    assert not opened
+
+
+def test_open_backlog(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test opening a backlog constructs a backlog window."""
+    made: list[tuple[object, ...]] = []
+    monkeypatch.setattr(application, 'BacklogWindow',
+                        lambda *args: made.append(args))
+    _app().open_backlog(DATA, 'Title')
+    assert len(made) == 1
+    assert made[0][1] is DATA and made[0][2] == 'Title'
+
+
+def test_build_parser() -> None:
+    """Test the launcher parser reads the configuration option."""
+    parsed = application._build_parser().parse_args(['-c', 'x.cfg'])
+    assert parsed.config == 'x.cfg'
+
+
+def test_build_menu_and_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the menu and body build and the log view refreshes."""
+    monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
+    root = _root_or_skip()
+    try:
+        app = BacklogApp(root)
+        app.build_menu()
+        app.build_body()
+        app.log.write('a log line\n')
+        app._refresh_log()
+        app._update_status()
+        assert 'No configuration' in app._status_text()
+    finally:
+        root.destroy()
+
+
+def test_body_config_warn(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the body shows the loaded status and a version warning."""
+    monkeypatch.setattr(application, 'check_tcltk_version',
+                        lambda root: 'old Tk warning')
+    root = _root_or_skip()
+    try:
+        app = BacklogApp(root, cast(AvailableTeamsConfig, FakeConfig()))
+        app.config_source = 'a file'
+        app.build_body()
+        assert app._status_text() == 'Configuration loaded from a file.'
+    finally:
+        root.destroy()
+
+
+def test_refresh_no_view() -> None:
+    """Test the log refresh returns at once before the view exists."""
+    root = _root_or_skip()
+    try:
+        BacklogApp(root)._refresh_log()
+    finally:
+        root.destroy()
+
+
+def test_sched_destroyed() -> None:
+    """Test the log refresh stops quietly once the window is gone."""
+    root = _root_or_skip()
+    app = BacklogApp(root)
+    app.build_body()
+    root.destroy()
+    app._schedule_refresh()
+
+
+class _FakeRoot:
+    """Minimal main-window stand-in used to drive ``main``."""
+
+    def __init__(self) -> None:
+        """Start with no title set and nothing run yet."""
+        self.titled: Optional[str] = None
+        self.destroyed = False
+        self.looped = False
+
+    def title(self, text: str) -> None:
+        """Record the window title."""
+        self.titled = text
+
+    def destroy(self) -> None:
+        """Record that the window was destroyed."""
+        self.destroyed = True
+
+    def mainloop(self) -> None:
+        """Record that the main loop was entered."""
+        self.looped = True
+
+
+def _main_patches(monkeypatch: pytest.MonkeyPatch, root: _FakeRoot,
+                  ready: bool) -> None:
+    """Patch main's dependencies to use a fake root and readiness."""
+    monkeypatch.setattr('backlogops_gui.application.tk.Tk', lambda: root)
+    auto = 'backlogops_gui.application.argcomplete.autocomplete'
+    monkeypatch.setattr(auto, lambda parser: None)
+    monkeypatch.setattr(BacklogApp, 'start', lambda self, arg: ready)
+    monkeypatch.setattr(BacklogApp, 'build_menu', lambda self: None)
+    monkeypatch.setattr(BacklogApp, 'build_body', lambda self: None)
+
+
+def test_main_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test main builds the window and enters the loop when ready."""
+    root = _FakeRoot()
+    _main_patches(monkeypatch, root, ready=True)
+    application.main([])
+    assert root.titled == APP_TITLE
+    assert root.looped is True
+
+
+def test_main_not_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test main destroys the window and exits when not ready."""
+    root = _FakeRoot()
+    _main_patches(monkeypatch, root, ready=False)
+    application.main([])
+    assert root.destroyed is True
+    assert root.looped is False

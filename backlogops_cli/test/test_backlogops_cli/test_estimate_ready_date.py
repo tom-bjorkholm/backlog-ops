@@ -105,6 +105,15 @@ def test_missing_config(tmp_path: Path) -> None:
          '-c', str(tmp_path / 'missing.cfg')]) == 1
 
 
+def test_load_teams_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a RuntimeError while loading teams becomes a ValueError."""
+    def boom(config: object) -> AvailableTeams:
+        raise RuntimeError('no teams configured')
+    monkeypatch.setattr(estimate_ready_date, 'get_available_teams', boom)
+    with pytest.raises(ValueError, match='no teams configured'):
+        estimate_ready_date._load_teams(None)
+
+
 def _write_backlog_release(path: Path) -> None:
     """Write a backlog whose single item belongs to a release R1."""
     backlog = [BacklogItem(key='a', level=1, title='a', story_points=3,
