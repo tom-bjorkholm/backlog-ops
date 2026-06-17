@@ -38,7 +38,7 @@ from backlogops import (
 - `order_by_dependencies`: reorder the backlog so that dependencies are
   satisfied.
 
-- `move_keys_first`: reorder so that listed keys (and their parents)
+- `move_keys_first`: reorder so that listed keys (and their children)
   come first.
 
 - `estimate_ready_date`, `set_plan_from_estimate`: estimate ready dates

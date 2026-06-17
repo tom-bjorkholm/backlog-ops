@@ -161,7 +161,7 @@ Start the application on Linux or mac with command
 python3 -m backlogops_gui
 python3 -m backlogops_gui -c config_file.cfg
 ````
-or with on Microsoft Windows with command
+or on Microsoft Windows with command
 ````sh
 python -m backlogops_gui
 python -m backlogops_gui -c config_file.cfg
@@ -178,21 +178,21 @@ is in the menus.
 
 - File
 
-  - Read backlog...: Read in a file with a backlog and list of releases.
-    A new backlog window will be opened with the read in backlog.
+    - Read backlog...: Read in a file with a backlog and list of releases.
+      A new backlog window will be opened with the read in backlog.
 
-  - New demo backlog: Create a demo backlog with some backlog items and
-    releases. A new backlog window will be opened with the demo backlog.
+    - New demo backlog: Create a demo backlog with some backlog items and
+      releases. A new backlog window will be opened with the demo backlog.
 
 - Configuration
 
-  - Run teams wizard...: this lets you configure the teams that work on
-    the backlog and also other aspects like the dates the company is
-    closed for vacation, and preset configuration for the inputs or
-    outputs you want to use.
+    - Run teams wizard...: this lets you configure the teams that work on
+      the backlog and also other aspects like the dates the company is
+      closed for vacation, and preset configuration for the inputs or
+      outputs you want to use.
 
-  - Write configuration...: This lets you write the configuration you
-    have in application to a file.
+    - Write configuration...: This lets you write the configuration you
+      have in application to a file.
 
 ## Backlog window
 
@@ -201,27 +201,27 @@ one with the list of releases. You will want to use the menus.
 
 - Backlog
 
-  - Order by keys...
+    - Order by keys...
 
-  - Order by dependencies...
+    - Order by dependencies...
 
-  - Estimate ready date...
+    - Estimate ready date...
 
-  - Set planned date from estimated
+    - Set planned date from estimated
 
-  - Adjust release content
+    - Adjust release content
 
-  - Adjust planned release dates...
+    - Adjust planned release dates...
 
-  - Extract keys...
+    - Extract keys...
 
-  - Save to file...
+    - Save to file...
 
-  - Close
+    - Close
 
 ## Test summary
 
-- Test result: 1066 passed in 17s
+- Test result: 1066 passed in 16s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.
