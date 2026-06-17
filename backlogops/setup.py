@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
   name='backlogops',
-  version='0.1',
+  version='0.1.1',
   description='Library with backlog operations.',
   author='Tom Björkholm',
   author_email='klausuler_linnet0q@icloud.com',
