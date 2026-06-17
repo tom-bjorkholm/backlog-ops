@@ -63,17 +63,18 @@ B2 = [
     'Writing backlog and releases to file types that TableIO supports '
     'writing to (Currently CSV, Excel, ODS and 9 other file formats).',
     'File format is detected from the file extension, but may be overridden.',
-    'Adjust release content to match fit the planned release dates.',
-    'Create a demonstation backlog and releases (for exploring the features).',
+    'Adjust release content to fit the planned release dates.',
+    'Create a demonstration backlog and releases '
+    '(for exploring the features).',
     'Estimate ready date for the backlog items based on available teams, '
     'team velocity, vacation dates, periods with half time work, etc.',
     'Extract backlog keys at given backlog item levels.',
     'Reorder the backlog so that the dependencies are satisfied.',
-    'Reordet the backlogs so that items identified by keys in a list '
-    'comes first. If the key is at a higher level it will bring all '
-    'all items it is a parent of in front of it (recursively).',
+    'Reorder the backlog so that items identified by keys in a list '
+    'come first. If the key is at a higher level it will bring all '
+    'items it is a parent of in front of it (recursively).',
     'Set planned release dates from the estimated release dates.',
-    'Calculate the release dates for from backlog items estimated '
+    'Calculate the release dates from the backlog items estimated '
     'ready dates, with a configurable buffer time.',
     'Validate the backlog and releases for consistency.',
     'A wizard to create an available teams configuration.'

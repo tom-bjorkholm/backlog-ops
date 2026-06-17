@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "backlogops-cli"
-version = "0.0.1"
+version = "0.1"
 authors = [
   { name="Tom Björkholm", email="klausuler_linnet0q@icloud.com" },
 ]
@@ -12,12 +12,26 @@ description = "Command line interface for backlog operations."
 readme = "README_pypi.md"
 requires-python = ">=3.12"
 license = "MIT"
+keywords = [
+    "backlog", "release planning", "agile", "scrum", "scheduling",
+    "roadmap", "project management", "product owner", "product management"
+]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
-    "Development Status :: 1 - Planning"
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Information Technology",
+    "Topic :: Office/Business :: Scheduling"
 ]
 dynamic = ["dependencies"]
 
 [project.urls]
+"Homepage" = "https://bitbucket.org/tom-bjorkholm/backlog-ops"
 "Source code" = "https://bitbucket.org/tom-bjorkholm/backlog-ops"
+"Documentation" = "https://bitbucket.org/tom-bjorkholm/backlog-ops/src/master/doc/"

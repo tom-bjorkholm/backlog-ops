@@ -25,9 +25,9 @@ The following functionality is available in all 3 packages:
 
 - File format is detected from the file extension, but may be overridden.
 
-- Adjust release content to match fit the planned release dates.
+- Adjust release content to fit the planned release dates.
 
-- Create a demonstation backlog and releases (for exploring the features).
+- Create a demonstration backlog and releases (for exploring the features).
 
 - Estimate ready date for the backlog items based on available teams, team
   velocity, vacation dates, periods with half time work, etc.
@@ -36,13 +36,13 @@ The following functionality is available in all 3 packages:
 
 - Reorder the backlog so that the dependencies are satisfied.
 
-- Reordet the backlogs so that items identified by keys in a list comes first.
-  If the key is at a higher level it will bring all all items it is a parent of
-  in front of it (recursively).
+- Reorder the backlog so that items identified by keys in a list come first. If
+  the key is at a higher level it will bring all items it is a parent of in
+  front of it (recursively).
 
 - Set planned release dates from the estimated release dates.
 
-- Calculate the release dates for from backlog items estimated ready dates, with
+- Calculate the release dates from the backlog items estimated ready dates, with
   a configurable buffer time.
 
 - Validate the backlog and releases for consistency.
@@ -173,7 +173,7 @@ wizard.
 
 ## Main window
 
-The main window has a some informative text, but the functionality
+The main window has some informative text, but the functionality
 is in the menus.
 
 - File
@@ -181,15 +181,15 @@ is in the menus.
   - Read backlog...: Read in a file with a backlog and list of releases.
     A new backlog window will be opened with the read in backlog.
 
-  - New demo backlig: Create a demo backlog with some backlog items and
-    releases. A new backlog window will be openened with the demo backlog.
+  - New demo backlog: Create a demo backlog with some backlog items and
+    releases. A new backlog window will be opened with the demo backlog.
 
-- Configuration 
+- Configuration
 
-  - Run teams wizard...: this lets you configura the teams that work on
-    the backlog and also other aspects like dates Company is closed for
-    vacation, and preset configuration for inputs of outputs you want
-    to use.
+  - Run teams wizard...: this lets you configure the teams that work on
+    the backlog and also other aspects like the dates the company is
+    closed for vacation, and preset configuration for the inputs or
+    outputs you want to use.
 
   - Write configuration...: This lets you write the configuration you
     have in application to a file.
@@ -225,5 +225,5 @@ one with the list of releases. You will want to use the menus.
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.
-- Built version(s): 0.0.1
+- Built version(s): 0.1
 - Build and test using Python 3.14.6

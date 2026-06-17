@@ -25,9 +25,9 @@ The following functionality is available in all 3 packages:
 
 - File format is detected from the file extension, but may be overridden.
 
-- Adjust release content to match fit the planned release dates.
+- Adjust release content to fit the planned release dates.
 
-- Create a demonstation backlog and releases (for exploring the features).
+- Create a demonstration backlog and releases (for exploring the features).
 
 - Estimate ready date for the backlog items based on available teams, team
   velocity, vacation dates, periods with half time work, etc.
@@ -36,13 +36,13 @@ The following functionality is available in all 3 packages:
 
 - Reorder the backlog so that the dependencies are satisfied.
 
-- Reordet the backlogs so that items identified by keys in a list comes first.
-  If the key is at a higher level it will bring all all items it is a parent of
-  in front of it (recursively).
+- Reorder the backlog so that items identified by keys in a list come first. If
+  the key is at a higher level it will bring all items it is a parent of in
+  front of it (recursively).
 
 - Set planned release dates from the estimated release dates.
 
-- Calculate the release dates for from backlog items estimated ready dates, with
+- Calculate the release dates from the backlog items estimated ready dates, with
   a configurable buffer time.
 
 - Validate the backlog and releases for consistency.
@@ -180,5 +180,5 @@ backlogops_cli serves 2 purposes:
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.
-- Built version(s): 0.0.1
+- Built version(s): 0.1
 - Build and test using Python 3.14.6

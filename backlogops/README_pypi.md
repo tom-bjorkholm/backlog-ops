@@ -25,9 +25,9 @@ The following functionality is available in all 3 packages:
 
 - File format is detected from the file extension, but may be overridden.
 
-- Adjust release content to match fit the planned release dates.
+- Adjust release content to fit the planned release dates.
 
-- Create a demonstation backlog and releases (for exploring the features).
+- Create a demonstration backlog and releases (for exploring the features).
 
 - Estimate ready date for the backlog items based on available teams, team
   velocity, vacation dates, periods with half time work, etc.
@@ -36,13 +36,13 @@ The following functionality is available in all 3 packages:
 
 - Reorder the backlog so that the dependencies are satisfied.
 
-- Reordet the backlogs so that items identified by keys in a list comes first.
-  If the key is at a higher level it will bring all all items it is a parent of
-  in front of it (recursively).
+- Reorder the backlog so that items identified by keys in a list come first. If
+  the key is at a higher level it will bring all items it is a parent of in
+  front of it (recursively).
 
 - Set planned release dates from the estimated release dates.
 
-- Calculate the release dates for from backlog items estimated ready dates, with
+- Calculate the release dates from the backlog items estimated ready dates, with
   a configurable buffer time.
 
 - Validate the backlog and releases for consistency.
@@ -141,9 +141,60 @@ For more detailed code documentation, see the API documentation:
 
 - [Library protected GUI](https://bitbucket.org/tom-bjorkholm/backlog-ops/src/master/doc/backlogops_protected_gui.md)
 
-## Libary main entry points
+## Library main entry points
 
-To be written
+All names an application programmer is most likely to need are
+re-exported from the top-level `backlogops` package, so they can be
+imported directly, for example:
+
+````python
+from backlogops import (
+    read_backlog_releases, order_by_dependencies, estimate_ready_date,
+    get_demo_backlog)
+````
+
+### Core data model
+
+- `Backlog`, `BacklogItem`, `Status`: the backlog and its items.
+
+- `Releases`, `Release`: the planned releases.
+
+- `BacklogReleases`: a backlog together with its releases.
+
+- `AvailableTeams`, `Team`, `Person`, `Membership`: the workforce that
+  the date estimation uses.
+
+### Reading and writing
+
+- `read_backlog_releases`, `write_backlog_releases`: read and write a
+  backlog and its releases from and to a table file.
+
+- `read_available_teams`, `write_available_teams`: read and write the
+  available-teams configuration.
+
+- `read_key_list`, `write_key_list`: read and write a list of keys.
+
+- `get_demo_backlog`: create a demonstration backlog and releases.
+
+### Operations
+
+- `order_by_dependencies`: reorder the backlog so that dependencies are
+  satisfied.
+
+- `move_keys_first`: reorder so that listed keys (and their parents)
+  come first.
+
+- `estimate_ready_date`, `set_plan_from_estimate`: estimate ready dates
+  and set planned dates from the estimate.
+
+- `estimate_release_dates`, `release_plan_on_estimate`,
+  `adjust_release_content`: estimate and plan release dates, and adjust
+  release content to fit the planned dates.
+
+- `check_backlog_consistency`: validate the backlog and releases for
+  consistency.
+
+For the full set of public names see the API documentation linked above.
 
 ## Test summary
 
@@ -151,5 +202,5 @@ To be written
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.
-- Built version(s): 0.0.1
+- Built version(s): 0.1
 - Build and test using Python 3.14.6

@@ -30,7 +30,7 @@ wizard.
 
 ## Main window
 
-The main window has a some informative text, but the functionality
+The main window has some informative text, but the functionality
 is in the menus.
 
 - File
@@ -38,15 +38,15 @@ is in the menus.
   - Read backlog...: Read in a file with a backlog and list of releases.
     A new backlog window will be opened with the read in backlog.
 
-  - New demo backlig: Create a demo backlog with some backlog items and
-    releases. A new backlog window will be openened with the demo backlog.
+  - New demo backlog: Create a demo backlog with some backlog items and
+    releases. A new backlog window will be opened with the demo backlog.
 
-- Configuration 
+- Configuration
 
-  - Run teams wizard...: this lets you configura the teams that work on
-    the backlog and also other aspects like dates Company is closed for
-    vacation, and preset configuration for inputs of outputs you want
-    to use.
+  - Run teams wizard...: this lets you configure the teams that work on
+    the backlog and also other aspects like the dates the company is
+    closed for vacation, and preset configuration for the inputs or
+    outputs you want to use.
 
   - Write configuration...: This lets you write the configuration you
     have in application to a file.
