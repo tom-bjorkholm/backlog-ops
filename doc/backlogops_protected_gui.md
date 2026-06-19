@@ -41,10 +41,14 @@
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
     * [open\_backlog](#backlogops_gui.application.BacklogApp.open_backlog)
+    * [report\_versions](#backlogops_gui.application.BacklogApp.report_versions)
+    * [\_write\_version\_report](#backlogops_gui.application.BacklogApp._write_version_report)
     * [build\_menu](#backlogops_gui.application.BacklogApp.build_menu)
     * [\_add\_file\_menu](#backlogops_gui.application.BacklogApp._add_file_menu)
     * [\_add\_config\_menu](#backlogops_gui.application.BacklogApp._add_config_menu)
+    * [\_add\_help\_menu](#backlogops_gui.application.BacklogApp._add_help_menu)
     * [build\_body](#backlogops_gui.application.BacklogApp.build_body)
+    * [\_add\_warning](#backlogops_gui.application.BacklogApp._add_warning)
     * [\_build\_log\_view](#backlogops_gui.application.BacklogApp._build_log_view)
     * [\_status\_text](#backlogops_gui.application.BacklogApp._status_text)
     * [\_update\_status](#backlogops_gui.application.BacklogApp._update_status)
@@ -148,6 +152,12 @@
   * [ask\_dep\_options](#backlogops_gui.io_dialogs.ask_dep_options)
   * [ask\_start\_date](#backlogops_gui.io_dialogs.ask_start_date)
   * [ask\_levels](#backlogops_gui.io_dialogs.ask_levels)
+* [backlogops\_gui.blog\_version\_reporter](#backlogops_gui.blog_version_reporter)
+  * [BloGuiVersionReporter](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter)
+    * [package\_names](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter.package_names)
+    * [get\_main\_package\_name](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter.get_main_package_name)
+* [backlogops\_gui.python\_version](#backlogops_gui.python_version)
+  * [check\_python\_version](#backlogops_gui.python_version.check_python_version)
 * [backlogops\_gui.log\_buffer](#backlogops_gui.log_buffer)
   * [LogBuffer](#backlogops_gui.log_buffer.LogBuffer)
     * [\_\_init\_\_](#backlogops_gui.log_buffer.LogBuffer.__init__)
@@ -652,6 +662,34 @@ def open_backlog(data: BacklogReleases, title: str) -> None
 
 Open one backlog and its releases in a new window.
 
+<a id="backlogops_gui.application.BacklogApp.report_versions"></a>
+
+#### report\_versions
+
+```python
+def report_versions() -> None
+```
+
+Report version information into the log on a worker thread.
+
+The report queries PyPI for newer releases, which can take several
+seconds, so it runs on a daemon thread that only writes to the log
+buffer. The periodic refresh then shows the result in the window.
+
+<a id="backlogops_gui.application.BacklogApp._write_version_report"></a>
+
+#### \_write\_version\_report
+
+```python
+def _write_version_report() -> None
+```
+
+Write the version report to the log buffer.
+
+This runs on a worker thread and must not touch any widgets. A
+failure, such as missing network access, is written to the log
+rather than raised on the worker thread where it would be lost.
+
 <a id="backlogops_gui.application.BacklogApp.build_menu"></a>
 
 #### build\_menu
@@ -682,6 +720,16 @@ def _add_config_menu(menubar: tk.Menu) -> None
 
 Add the configuration menu with the wizard and write actions.
 
+<a id="backlogops_gui.application.BacklogApp._add_help_menu"></a>
+
+#### \_add\_help\_menu
+
+```python
+def _add_help_menu(menubar: tk.Menu) -> None
+```
+
+Add the help menu with the version report action.
+
 <a id="backlogops_gui.application.BacklogApp.build_body"></a>
 
 #### build\_body
@@ -691,6 +739,16 @@ def build_body() -> None
 ```
 
 Build the main window body and start the log refresh.
+
+<a id="backlogops_gui.application.BacklogApp._add_warning"></a>
+
+#### \_add\_warning
+
+```python
+def _add_warning(warning: Optional[str]) -> None
+```
+
+Show a red warning label in the main window, when present.
 
 <a id="backlogops_gui.application.BacklogApp._build_log_view"></a>
 
@@ -1826,6 +1884,76 @@ def ask_levels(parent: tk.Misc) -> Optional[list[int]]
 ```
 
 Ask for the levels to extract, or None when cancelled.
+
+<a id="backlogops_gui.blog_version_reporter"></a>
+
+# backlogops\_gui.blog\_version\_reporter
+
+Version reporter for the backlogops_gui package.
+
+<a id="backlogops_gui.blog_version_reporter.BloGuiVersionReporter"></a>
+
+## BloGuiVersionReporter Objects
+
+```python
+class BloGuiVersionReporter(BloVersionReporter)
+```
+
+Version reporter for the backlogops_gui package.
+
+<a id="backlogops_gui.blog_version_reporter.BloGuiVersionReporter.package_names"></a>
+
+#### package\_names
+
+```python
+@override
+def package_names() -> list[str]
+```
+
+Return the package names that this package reports.
+
+<a id="backlogops_gui.blog_version_reporter.BloGuiVersionReporter.get_main_package_name"></a>
+
+#### get\_main\_package\_name
+
+```python
+@override
+@classmethod
+def get_main_package_name(cls) -> str
+```
+
+Return the name of the main package.
+
+<a id="backlogops_gui.python_version"></a>
+
+# backlogops\_gui.python\_version
+
+Python version support check for the backlog operations GUI.
+
+<a id="backlogops_gui.python_version.check_python_version"></a>
+
+#### check\_python\_version
+
+```python
+def check_python_version(
+        reporter: Optional[BloVersionReporter] = None) -> Optional[str]
+```
+
+Return a warning when the running Python version is unsupported.
+
+The version reporter writes an explanation and upgrade instructions
+only when the running Python version is no longer supported by the
+application, and writes nothing otherwise. Its output is captured so
+it can be shown in the main window instead of on standard output.
+
+**Arguments**:
+
+- `reporter` - The reporter to query, or None to use the GUI reporter.
+  
+
+**Returns**:
+
+  The captured warning text, or None when Python is still supported.
 
 <a id="backlogops_gui.log_buffer"></a>
 

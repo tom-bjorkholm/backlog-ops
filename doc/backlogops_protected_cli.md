@@ -4,6 +4,8 @@
   * [build\_parser](#backlogops_cli.adjust_release_content.build_parser)
   * [\_adjust](#backlogops_cli.adjust_release_content._adjust)
   * [main](#backlogops_cli.adjust_release_content.main)
+* [backlogops\_cli.version](#backlogops_cli.version)
+  * [main](#backlogops_cli.version.main)
 * [backlogops\_cli.list](#backlogops_cli.list)
   * [\_python\_prefix](#backlogops_cli.list._python_prefix)
   * [\_is\_command](#backlogops_cli.list._is_command)
@@ -42,6 +44,10 @@
   * [\_level\_value](#backlogops_cli.extract_keys._level_value)
   * [\_emit](#backlogops_cli.extract_keys._emit)
   * [main](#backlogops_cli.extract_keys.main)
+* [backlogops\_cli.bloc\_version\_reporter](#backlogops_cli.bloc_version_reporter)
+  * [BloCliVersionReporter](#backlogops_cli.bloc_version_reporter.BloCliVersionReporter)
+    * [package\_names](#backlogops_cli.bloc_version_reporter.BloCliVersionReporter.package_names)
+    * [get\_main\_package\_name](#backlogops_cli.bloc_version_reporter.BloCliVersionReporter.get_main_package_name)
 * [backlogops\_cli.plan\_release\_dates](#backlogops_cli.plan_release_dates)
   * [build\_parser](#backlogops_cli.plan_release_dates.build_parser)
   * [\_plan](#backlogops_cli.plan_release_dates._plan)
@@ -116,6 +122,22 @@ Adjust the release content and write the output file.
 
   ``0`` on success, ``1`` when the data cannot be read, adjusted or
   written.
+
+<a id="backlogops_cli.version"></a>
+
+# backlogops\_cli.version
+
+Print version information for the backlogops_cli package.
+
+<a id="backlogops_cli.version.main"></a>
+
+#### main
+
+```python
+def main() -> None
+```
+
+Print version information for the backlogops_cli package.
 
 <a id="backlogops_cli.list"></a>
 
@@ -593,6 +615,45 @@ Extract the backlog keys at the given levels and emit them.
 
   ``0`` on success, ``1`` when the backlog cannot be read or the
   keys cannot be written.
+
+<a id="backlogops_cli.bloc_version_reporter"></a>
+
+# backlogops\_cli.bloc\_version\_reporter
+
+Version reporter for the backlogops_cli package.
+
+<a id="backlogops_cli.bloc_version_reporter.BloCliVersionReporter"></a>
+
+## BloCliVersionReporter Objects
+
+```python
+class BloCliVersionReporter(BloVersionReporter)
+```
+
+Version reporter for the backlogops_cli package.
+
+<a id="backlogops_cli.bloc_version_reporter.BloCliVersionReporter.package_names"></a>
+
+#### package\_names
+
+```python
+@override
+def package_names() -> list[str]
+```
+
+Return the package names that this package reports.
+
+<a id="backlogops_cli.bloc_version_reporter.BloCliVersionReporter.get_main_package_name"></a>
+
+#### get\_main\_package\_name
+
+```python
+@override
+@classmethod
+def get_main_package_name(cls) -> str
+```
+
+Return the name of the main package.
 
 <a id="backlogops_cli.plan_release_dates"></a>
 

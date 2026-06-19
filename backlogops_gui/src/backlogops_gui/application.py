@@ -18,6 +18,7 @@ it ends the application.
 # MIT License
 
 import argparse
+import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Optional, TextIO
@@ -29,10 +30,12 @@ from backlogops import (
     teams_config_wizard)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
+from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 from backlogops_gui.gui_wizard import TkWizardBridge
 from backlogops_gui.io_dialogs import (
     ask_read_options, choose_config_file, choose_input_file)
 from backlogops_gui.log_buffer import LogBuffer
+from backlogops_gui.python_version import check_python_version
 from backlogops_gui.tcltk_version import check_tcltk_version
 
 APP_TITLE = 'Backlog operations GUI'
@@ -49,6 +52,7 @@ DESCRIPTION = 'Graphical user interface for backlog operations'
 CONFIG_ERRORS = (FileNotFoundError, NotADirectoryError, RuntimeError,
                  ValueError, TypeError, KeyError, OSError)
 IO_ERRORS = (ValueError, TypeError, KeyError, OSError)
+VERSION_ERRORS = (OSError, RuntimeError, ValueError)
 
 
 def initial_config(config_arg: Optional[str], sink: Optional[TextIO] = None
@@ -199,11 +203,36 @@ class BacklogApp:
         BacklogWindow(self.root, data, title, self.out_presets,
                       self.available_teams, self.log)
 
+    def report_versions(self) -> None:
+        """Report version information into the log on a worker thread.
+
+        The report queries PyPI for newer releases, which can take several
+        seconds, so it runs on a daemon thread that only writes to the log
+        buffer. The periodic refresh then shows the result in the window.
+        """
+        self.log.write('Collecting version information…\n')
+        thread = threading.Thread(target=self._write_version_report,
+                                  daemon=True)
+        thread.start()
+
+    def _write_version_report(self) -> None:
+        """Write the version report to the log buffer.
+
+        This runs on a worker thread and must not touch any widgets. A
+        failure, such as missing network access, is written to the log
+        rather than raised on the worker thread where it would be lost.
+        """
+        try:
+            BloGuiVersionReporter().print(out_file=self.log)
+        except VERSION_ERRORS as error:
+            self.log.write(f'Could not report versions: {error}\n')
+
     def build_menu(self) -> None:
         """Build the menu bar of the main window."""
         menubar = tk.Menu(self.root)
         self._add_file_menu(menubar)
         self._add_config_menu(menubar)
+        self._add_help_menu(menubar)
         self.root.config(menu=menubar)
 
     def _add_file_menu(self, menubar: tk.Menu) -> None:
@@ -225,27 +254,39 @@ class BacklogApp:
                          command=self.write_config)
         menubar.add_cascade(label='Configuration', menu=menu)
 
+    def _add_help_menu(self, menubar: tk.Menu) -> None:
+        """Add the help menu with the version report action."""
+        menu = tk.Menu(menubar, tearoff=False)
+        menu.add_command(label='Report version information',
+                         command=self.report_versions)
+        menubar.add_cascade(label='Help', menu=menu)
+
     def build_body(self) -> None:
         """Build the main window body and start the log refresh."""
         tk.Label(self.root, text=APP_TITLE,
                  font=HEADING_FONT).pack(anchor='w', padx=12, pady=(12, 4))
         tk.Label(self.root, text=INSTRUCTIONS, wraplength=WRAP_LENGTH,
                  justify='left').pack(anchor='w', padx=12)
-        warning = check_tcltk_version(self.root)
-        if warning is not None:
-            tk.Label(self.root, text=warning, fg='red', justify='left',
-                     wraplength=WRAP_LENGTH).pack(anchor='w', padx=12, pady=4)
+        self._add_warning(check_tcltk_version(self.root))
+        self._add_warning(check_python_version())
         self._status = tk.StringVar(self.root, self._status_text())
         tk.Label(self.root, textvariable=self._status).pack(anchor='w',
                                                             padx=12, pady=4)
         self._build_log_view()
         self._schedule_refresh()
 
+    def _add_warning(self, warning: Optional[str]) -> None:
+        """Show a red warning label in the main window, when present."""
+        if warning is None:
+            return
+        tk.Label(self.root, text=warning, fg='red', justify='left',
+                 wraplength=WRAP_LENGTH).pack(anchor='w', padx=12, pady=4)
+
     def _build_log_view(self) -> None:
         """Build the read-only log view in the main window."""
         frame = tk.LabelFrame(self.root, text='Log (most recent messages)')
         frame.pack(fill='both', expand=True, padx=12, pady=8)
-        text = tk.Text(frame, height=8, wrap='word', state='disabled')
+        text = tk.Text(frame, height=12, wrap='word', state='disabled')
         scroll = ttk.Scrollbar(frame, orient='vertical', command=text.yview)
         text.configure(yscrollcommand=scroll.set)
         scroll.pack(side='right', fill='y')

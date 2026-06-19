@@ -9,6 +9,7 @@ import pkgutil
 import importlib
 from types import ModuleType
 import backlogops_cli
+from backlogops_cli.bloc_version_reporter import BloCliVersionReporter
 
 DESCRIPTION = 'List all commands available in backlogops_cli'
 
@@ -56,6 +57,7 @@ def format_listing(commands: list[tuple[str, ModuleType]]) -> str:
 
 def main() -> None:
     """Print the list of available backlogops_cli commands."""
+    BloCliVersionReporter().check_if_unsupported_python()
     print(format_listing(command_modules()))
 
 

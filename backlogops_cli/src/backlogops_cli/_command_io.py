@@ -15,6 +15,7 @@ import sys
 from collections.abc import Callable
 from typing import Optional
 import argcomplete
+from backlogops_cli.bloc_version_reporter import BloCliVersionReporter
 from backlogops import (
     BacklogReleases, FormatRules, InputFormatConfig, OutputFormatConfig,
     ReleaseChanges, ReleaseDateChanges, format_content_changes,
@@ -27,6 +28,7 @@ def parsed_args(parser: argparse.ArgumentParser,
                 args: Optional[list[str]]) -> argparse.Namespace:
     """Enable shell completion and parse the command line arguments."""
     argcomplete.autocomplete(parser)
+    BloCliVersionReporter().check_if_unsupported_python()
     return parser.parse_args(args)
 
 

@@ -14,10 +14,9 @@ setup(
   package_dir={'backlogops': 'src/backlogops'},
   package_data={'backlogops': ['src/py.typed']},
   install_requires=[
-#    'argcomplete >= 3.6.3',
     'config-as-json >= 1.2',
     'tableio >= 1.0',
     'tableio-cfg-json >= 0.4',
-    'versionreporter >= 0.2'
+    'versionreporter >= 0.3'
   ]
 )

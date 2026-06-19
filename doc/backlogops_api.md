@@ -176,6 +176,12 @@
   * [make\_output\_config](#backlogops.io_config.make_output_config)
   * [resolve\_input\_config](#backlogops.io_config.resolve_input_config)
   * [resolve\_output\_config](#backlogops.io_config.resolve_output_config)
+* [backlogops.blo\_version\_reporter](#backlogops.blo_version_reporter)
+  * [BloVersionReporter](#backlogops.blo_version_reporter.BloVersionReporter)
+    * [package\_names](#backlogops.blo_version_reporter.BloVersionReporter.package_names)
+    * [get\_app\_support\_expires](#backlogops.blo_version_reporter.BloVersionReporter.get_app_support_expires)
+    * [get\_main\_package\_name](#backlogops.blo_version_reporter.BloVersionReporter.get_main_package_name)
+    * [recommended\_python](#backlogops.blo_version_reporter.BloVersionReporter.recommended_python)
 * [backlogops.date\_ranges](#backlogops.date_ranges)
   * [check\_date\_range](#backlogops.date_ranges.check_date_range)
   * [check\_no\_overlap](#backlogops.date_ranges.check_no_overlap)
@@ -3636,6 +3642,68 @@ Any other value is the path of a stand-alone output config file.
 **Raises**:
 
 - `ValueError` - The format cannot be inferred or the preset is unknown.
+
+<a id="backlogops.blo_version_reporter"></a>
+
+# backlogops.blo\_version\_reporter
+
+Version reporter for the backlogops package.
+
+<a id="backlogops.blo_version_reporter.BloVersionReporter"></a>
+
+## BloVersionReporter Objects
+
+```python
+class BloVersionReporter(VersionReporter)
+```
+
+Version reporter for the backlogops package.
+
+<a id="backlogops.blo_version_reporter.BloVersionReporter.package_names"></a>
+
+#### package\_names
+
+```python
+@override
+def package_names() -> list[str]
+```
+
+Return the package names that this package reports.
+
+<a id="backlogops.blo_version_reporter.BloVersionReporter.get_app_support_expires"></a>
+
+#### get\_app\_support\_expires
+
+```python
+@override
+def get_app_support_expires() -> dict[date, str]
+```
+
+Return when this package will stop supporting older Python.
+
+<a id="backlogops.blo_version_reporter.BloVersionReporter.get_main_package_name"></a>
+
+#### get\_main\_package\_name
+
+```python
+@override
+@classmethod
+def get_main_package_name(cls) -> str
+```
+
+Return the package treated as the main application package.
+
+<a id="backlogops.blo_version_reporter.BloVersionReporter.recommended_python"></a>
+
+#### recommended\_python
+
+```python
+@override
+@classmethod
+def recommended_python(cls) -> Version
+```
+
+Return the Python version this package recommends.
 
 <a id="backlogops.date_ranges"></a>
 

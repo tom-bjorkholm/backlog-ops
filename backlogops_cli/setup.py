@@ -15,6 +15,7 @@ setup(
   package_data={'backlogops_cli': ['src/py.typed']},
   install_requires=[
     'argcomplete >= 3.6.3',
-    'backlogops >= 0.1.1'
+    'backlogops >= 0.1.1',
+    'versionreporter >= 0.3'
   ]
 )

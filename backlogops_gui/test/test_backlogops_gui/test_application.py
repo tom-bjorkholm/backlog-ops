@@ -5,7 +5,7 @@
 # MIT License
 
 import tkinter as tk
-from typing import Callable, Optional, cast
+from typing import Callable, Optional, TextIO, cast
 import pytest
 from backlogops import AvailableTeamsConfig, BacklogReleases
 from backlogops_gui import application
@@ -410,6 +410,7 @@ def test_build_parser() -> None:
 def test_build_menu_and_body(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the menu and body build and the log view refreshes."""
     monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
+    monkeypatch.setattr(application, 'check_python_version', lambda: None)
     root = _root_or_skip()
     try:
         app = BacklogApp(root)
@@ -427,6 +428,7 @@ def test_body_config_warn(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the body shows the loaded status and a version warning."""
     monkeypatch.setattr(application, 'check_tcltk_version',
                         lambda root: 'old Tk warning')
+    monkeypatch.setattr(application, 'check_python_version', lambda: None)
     root = _root_or_skip()
     try:
         app = BacklogApp(root, cast(AvailableTeamsConfig, FakeConfig()))
@@ -504,3 +506,89 @@ def test_main_not_ready(monkeypatch: pytest.MonkeyPatch) -> None:
     application.main([])
     assert root.destroyed is True
     assert root.looped is False
+
+
+# pylint: disable-next=too-few-public-methods
+class _FakeReporter:
+    """Stand-in reporter writing a fixed line to its stream."""
+
+    def print(self, out_file: TextIO) -> None:
+        """Write a version report line to the stream."""
+        out_file.write('backlogops-gui report\n')
+
+
+# pylint: disable-next=too-few-public-methods
+class _FailReporter:
+    """Stand-in reporter raising a network-like error."""
+
+    def print(self, out_file: TextIO) -> None:
+        """Raise an error as if PyPI could not be reached."""
+        assert out_file is not None
+        raise OSError('no network')
+
+
+# pylint: disable-next=too-few-public-methods
+class _FakeThread:
+    """Records the thread target and runs it when started."""
+
+    def __init__(self, target: Callable[[], None], daemon: bool) -> None:
+        """Store the worker target and the daemon flag."""
+        self.target = target
+        self.daemon = daemon
+        self.started = False
+
+    def start(self) -> None:
+        """Run the stored target as the started worker would."""
+        self.started = True
+        self.target()
+
+
+def test_write_report_log(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the worker writes the version report to the log."""
+    monkeypatch.setattr(application, 'BloGuiVersionReporter', _FakeReporter)
+    app = _app()
+    app._write_version_report()
+    assert 'backlogops-gui report' in app.log.text()
+
+
+def test_write_report_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a failing report is logged rather than raised."""
+    monkeypatch.setattr(application, 'BloGuiVersionReporter', _FailReporter)
+    app = _app()
+    app._write_version_report()
+    assert 'Could not report versions: no network' in app.log.text()
+
+
+def test_report_thread(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the report runs on a started daemon thread via the log."""
+    made: list[_FakeThread] = []
+
+    def make_thread(target: Callable[[], None], daemon: bool) -> _FakeThread:
+        thread = _FakeThread(target, daemon)
+        made.append(thread)
+        return thread
+    monkeypatch.setattr('backlogops_gui.application.threading.Thread',
+                        make_thread)
+    monkeypatch.setattr(application, 'BloGuiVersionReporter', _FakeReporter)
+    app = _app()
+    app.report_versions()
+    assert len(made) == 1 and made[0].daemon is True
+    assert made[0].started is True
+    assert 'Collecting version information' in app.log.text()
+    assert 'backlogops-gui report' in app.log.text()
+
+
+def test_body_python_warn(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the body shows the Python version warning when present."""
+    monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
+    monkeypatch.setattr(application, 'check_python_version',
+                        lambda: 'old Python warning')
+    root = _root_or_skip()
+    try:
+        app = BacklogApp(root)
+        app.build_body()
+        texts = [w.cget('text') for w in app.root.winfo_children()
+                 if isinstance(w, tk.Label)]
+        assert 'old Python warning' in texts
+    finally:
+        root.destroy()

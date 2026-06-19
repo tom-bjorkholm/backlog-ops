@@ -8,6 +8,7 @@ import os
 import pkgutil
 import importlib
 from types import ModuleType, SimpleNamespace
+from typing import Callable
 import pytest
 import backlogops_cli
 from backlogops_cli.list import command_modules
@@ -15,6 +16,7 @@ from backlogops_cli.list import format_listing
 from backlogops_cli.list import main
 from backlogops_cli.list import _is_command
 from backlogops_cli.list import _python_prefix
+from backlogops_cli.bloc_version_reporter import BloCliVersionReporter
 
 
 def _fake_module(name: str, description: object) -> ModuleType:
@@ -105,3 +107,20 @@ def test_modules_have_desc() -> None:
         if callable(getattr(module, 'main', None)):
             description = getattr(module, 'DESCRIPTION', None)
             assert isinstance(description, str), info.name
+
+
+def _recorder(calls: list[bool]) -> Callable[..., None]:
+    """Return a support-check stub recording that it ran."""
+    def record(_self: object, _out: object = None) -> None:
+        """Record the support check call instead of running it."""
+        calls.append(True)
+    return record
+
+
+def test_main_checks_python(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the list command runs the unsupported-Python check."""
+    calls: list[bool] = []
+    monkeypatch.setattr(BloCliVersionReporter, 'check_if_unsupported_python',
+                        _recorder(calls))
+    main()
+    assert calls == [True]

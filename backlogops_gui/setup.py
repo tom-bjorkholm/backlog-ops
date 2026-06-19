@@ -20,6 +20,7 @@ setup(
   },
   install_requires=[
     'backlogops >= 0.1.1',
-    'argcomplete >= 3.6.3'
+    'argcomplete >= 3.6.3',
+    'versionreporter >= 0.3'
   ]
 )
