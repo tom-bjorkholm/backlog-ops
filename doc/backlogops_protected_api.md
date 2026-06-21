@@ -12,9 +12,6 @@
     * [\_memberships\_by\_person](#backlogops.available_teams.AvailableTeams._memberships_by_person)
     * [\_check\_capacity](#backlogops.available_teams.AvailableTeams._check_capacity)
     * [check\_consistency](#backlogops.available_teams.AvailableTeams.check_consistency)
-* [backlogops.console\_yes\_no\_bridge](#backlogops.console_yes_no_bridge)
-  * [ConsoleYesNoUiBridge](#backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge)
-    * [ask\_yes\_no](#backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge.ask_yes_no)
 * [backlogops.apply\_format\_rules](#backlogops.apply_format_rules)
   * [\_estimate\_format](#backlogops.apply_format_rules._estimate_format)
   * [\_item\_cell\_format](#backlogops.apply_format_rules._item_cell_format)
@@ -73,40 +70,68 @@
     * [name](#backlogops.person.Person.name)
     * [exceptions](#backlogops.person.Person.exceptions)
 * [backlogops.available\_teams\_wizard](#backlogops.available_teams_wizard)
-  * [YesNoUiBridge](#backlogops.available_teams_wizard.YesNoUiBridge)
-    * [ask\_yes\_no](#backlogops.available_teams_wizard.YesNoUiBridge.ask_yes_no)
-  * [available\_teams\_wizard](#backlogops.available_teams_wizard.available_teams_wizard)
+  * [\_Navigator](#backlogops.available_teams_wizard._Navigator)
+    * [\_\_init\_\_](#backlogops.available_teams_wizard._Navigator.__init__)
+    * [run](#backlogops.available_teams_wizard._Navigator.run)
+    * [level](#backlogops.available_teams_wizard._Navigator.level)
+    * [show](#backlogops.available_teams_wizard._Navigator.show)
+    * [error\_file](#backlogops.available_teams_wizard._Navigator.error_file)
+    * [ask\_text](#backlogops.available_teams_wizard._Navigator.ask_text)
+    * [ask\_number](#backlogops.available_teams_wizard._Navigator.ask_number)
+    * [ask\_int](#backlogops.available_teams_wizard._Navigator.ask_int)
+    * [ask\_count](#backlogops.available_teams_wizard._Navigator.ask_count)
+    * [ask\_yes\_no](#backlogops.available_teams_wizard._Navigator.ask_yes_no)
+    * [ask\_choice](#backlogops.available_teams_wizard._Navigator.ask_choice)
+    * [ask\_date](#backlogops.available_teams_wizard._Navigator.ask_date)
+    * [ask\_end\_date](#backlogops.available_teams_wizard._Navigator.ask_end_date)
+    * [ask\_opt\_date](#backlogops.available_teams_wizard._Navigator.ask_opt_date)
+    * [ask\_membership\_end](#backlogops.available_teams_wizard._Navigator.ask_membership_end)
+    * [ask\_person\_name](#backlogops.available_teams_wizard._Navigator.ask_person_name)
+    * [ask\_preset\_name](#backlogops.available_teams_wizard._Navigator.ask_preset_name)
+    * [ask\_tableio](#backlogops.available_teams_wizard._Navigator.ask_tableio)
+    * [ask\_schedule](#backlogops.available_teams_wizard._Navigator.ask_schedule)
+    * [ask\_column\_map](#backlogops.available_teams_wizard._Navigator.ask_column_map)
+    * [\_ask](#backlogops.available_teams_wizard._Navigator._ask)
+    * [\_replaying](#backlogops.available_teams_wizard._Navigator._replaying)
   * [\_as\_text](#backlogops.available_teams_wizard._as_text)
-  * [\_ask\_text](#backlogops.available_teams_wizard._ask_text)
-  * [\_ask\_number](#backlogops.available_teams_wizard._ask_number)
-  * [\_ask\_int](#backlogops.available_teams_wizard._ask_int)
-  * [\_ask\_yes\_no](#backlogops.available_teams_wizard._ask_yes_no)
-  * [\_ask\_date](#backlogops.available_teams_wizard._ask_date)
-  * [\_ask\_end\_date](#backlogops.available_teams_wizard._ask_end_date)
-  * [\_ask\_opt\_date](#backlogops.available_teams_wizard._ask_opt_date)
   * [\_parse\_date](#backlogops.available_teams_wizard._parse_date)
-  * [\_ask\_choice](#backlogops.available_teams_wizard._ask_choice)
+  * [\_read\_text](#backlogops.available_teams_wizard._read_text)
+  * [\_read\_number](#backlogops.available_teams_wizard._read_number)
+  * [\_read\_int](#backlogops.available_teams_wizard._read_int)
+  * [\_read\_date](#backlogops.available_teams_wizard._read_date)
+  * [\_read\_end\_date](#backlogops.available_teams_wizard._read_end_date)
+  * [\_read\_opt\_date](#backlogops.available_teams_wizard._read_opt_date)
+  * [\_read\_unique\_name](#backlogops.available_teams_wizard._read_unique_name)
+  * [\_read\_preset\_name](#backlogops.available_teams_wizard._read_preset_name)
+  * [\_read\_tableio](#backlogops.available_teams_wizard._read_tableio)
+  * [\_num\_text](#backlogops.available_teams_wizard._num_text)
+  * [\_is\_nonneg](#backlogops.available_teams_wizard._is_nonneg)
+  * [\_sched\_check](#backlogops.available_teams_wizard._sched_check)
+  * [\_map\_check](#backlogops.available_teams_wizard._map_check)
+  * [\_parse\_schedule](#backlogops.available_teams_wizard._parse_schedule)
+  * [\_parse\_column\_map](#backlogops.available_teams_wizard._parse_column_map)
+  * [\_read\_schedule](#backlogops.available_teams_wizard._read_schedule)
+  * [\_read\_column\_map](#backlogops.available_teams_wizard._read_column_map)
+  * [available\_teams\_wizard](#backlogops.available_teams_wizard.available_teams_wizard)
+  * [teams\_config\_wizard](#backlogops.available_teams_wizard.teams_config_wizard)
+  * [\_collect\_teams](#backlogops.available_teams_wizard._collect_teams)
+  * [\_collect\_config](#backlogops.available_teams_wizard._collect_config)
   * [\_build\_company](#backlogops.available_teams_wizard._build_company)
-  * [\_build\_schedule](#backlogops.available_teams_wizard._build_schedule)
   * [\_build\_exceptions](#backlogops.available_teams_wizard._build_exceptions)
   * [\_ask\_exception](#backlogops.available_teams_wizard._ask_exception)
   * [\_build\_persons](#backlogops.available_teams_wizard._build_persons)
-  * [\_ask\_person\_name](#backlogops.available_teams_wizard._ask_person_name)
+  * [\_ask\_person](#backlogops.available_teams_wizard._ask_person)
   * [\_build\_teams](#backlogops.available_teams_wizard._build_teams)
   * [\_ask\_team](#backlogops.available_teams_wizard._ask_team)
   * [\_build\_aliases](#backlogops.available_teams_wizard._build_aliases)
   * [\_build\_members](#backlogops.available_teams_wizard._build_members)
   * [\_ask\_membership](#backlogops.available_teams_wizard._ask_membership)
-  * [\_ask\_membership\_end](#backlogops.available_teams_wizard._ask_membership_end)
   * [\_build\_fte\_exceptions](#backlogops.available_teams_wizard._build_fte_exceptions)
   * [\_ask\_fte\_exception](#backlogops.available_teams_wizard._ask_fte_exception)
-  * [teams\_config\_wizard](#backlogops.available_teams_wizard.teams_config_wizard)
-  * [\_caps](#backlogops.available_teams_wizard._caps)
-  * [\_collect\_presets](#backlogops.available_teams_wizard._collect_presets)
   * [\_build\_input\_presets](#backlogops.available_teams_wizard._build_input_presets)
   * [\_build\_output\_presets](#backlogops.available_teams_wizard._build_output_presets)
-  * [\_ask\_preset\_name](#backlogops.available_teams_wizard._ask_preset_name)
-  * [\_build\_column\_map](#backlogops.available_teams_wizard._build_column_map)
+  * [\_ask\_input\_preset](#backlogops.available_teams_wizard._ask_input_preset)
+  * [\_ask\_output\_preset](#backlogops.available_teams_wizard._ask_output_preset)
 * [backlogops.backlog\_releases](#backlogops.backlog_releases)
   * [BacklogReleases](#backlogops.backlog_releases.BacklogReleases)
     * [add\_to\_releases](#backlogops.backlog_releases.BacklogReleases.add_to_releases)
@@ -612,49 +637,6 @@ more than full time on any day.
 - `ValueError` - If a field value violates a constraint, if team
   labels are not unique, or if a person is over-allocated.
 - `KeyError` - If a membership references an unknown person.
-
-<a id="backlogops.console_yes_no_bridge"></a>
-
-# backlogops.console\_yes\_no\_bridge
-
-Console wizard bridge that adds yes/no questions.
-
-The workforce wizard asks yes/no questions through a
-:class:`YesNoUiBridge`. This module provides the console implementation of
-that bridge, built on the text-based ``WizardUiBridgeConsole`` of
-``tableio_cfg_json``, so a command-line program can drive the wizard. A yes
-or no answer is read as free text such as ``y`` or ``no``, and an empty
-answer chooses the default.
-
-<a id="backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge"></a>
-
-## ConsoleYesNoUiBridge Objects
-
-```python
-class ConsoleYesNoUiBridge(WizardUiBridgeConsole, YesNoUiBridge)
-```
-
-Console wizard bridge that asks yes/no questions as free text.
-
-<a id="backlogops.console_yes_no_bridge.ConsoleYesNoUiBridge.ask_yes_no"></a>
-
-#### ask\_yes\_no
-
-```python
-def ask_yes_no(question: str, default: bool) -> bool
-```
-
-Ask a yes/no question, returning ``default`` for an empty answer.
-
-**Arguments**:
-
-- `question` - The yes/no question to ask.
-- `default` - The value to use when the user gives an empty answer.
-  
-
-**Returns**:
-
-  The user's choice as a boolean.
 
 <a id="backlogops.apply_format_rules"></a>
 
@@ -1732,35 +1714,149 @@ of part-time work or ordered over-time work.
 
 Interactively build an AvailableTeams workforce configuration.
 
-The public helper :func:`available_teams_wizard` asks the user for the
-company work hours, the persons and their personal work-hour exceptions,
-and the teams with their members. It takes a ``YesNoUiBridge`` (the
-``tableio_cfg_json`` bridge abstraction extended with yes/no controls) so
-the same wizard logic can drive a console text interface or a graphical
-user interface.
+The public helpers :func:`available_teams_wizard` and
+:func:`teams_config_wizard` ask the user for the company work hours, the
+persons and their personal work-hour exceptions, the teams with their
+members, and optional TableIO presets. They drive any ``WizardUiBridge``
+of ``tableio_cfg_json``, so the same wizard logic runs on a console text
+interface, a Textual full-screen interface or a graphical user interface.
+
+Each repeated part is asked by first requesting a count and then
+collecting exactly that many items, so there are no open-ended "add
+another?" prompts. The wizard is driven through a small navigator that
+records every answer and replays them when the body is re-run, which is
+how it honours the bridge's back, cancel-level and abort requests: going
+back drops the most recently asked question, even across levels.
 
 Individual field values are validated as they are entered, and date
 ranges are kept non-empty. Cross-item rules that span a whole workforce,
 such as non-overlapping exception periods and per-person capacity, are
-checked when the result is stored; an invalid combination is reported
-then and the workforce must be entered again.
+checked when the result is stored.
 
-<a id="backlogops.available_teams_wizard.YesNoUiBridge"></a>
+<a id="backlogops.available_teams_wizard._Navigator"></a>
 
-## YesNoUiBridge Objects
+## \_Navigator Objects
 
 ```python
-class YesNoUiBridge(WizardUiBridge)
+class _Navigator()
 ```
 
-Wizard bridge extended with a yes/no question.
+Drive a re-runnable wizard body with back, cancel and abort.
 
-The wizard asks every yes/no question through :meth:`ask_yes_no`, so a
-user interface implements it with whatever controls suit it: a console
-bridge reads a free-text ``y/N`` answer, while a graphical bridge can
-show a pair of yes and no buttons. Concrete bridges must implement it.
+The wizard body is an ordinary function that asks questions through
+this navigator. Every answered question is recorded, so the body can
+be replayed from the start to implement navigation: going back drops
+the most recently asked question and replays the rest, which re-asks
+the previous question even when it lives in an outer level.
 
-<a id="backlogops.available_teams_wizard.YesNoUiBridge.ask_yes_no"></a>
+<a id="backlogops.available_teams_wizard._Navigator.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(ui_bridge: WizardUiBridge) -> None
+```
+
+Store the bridge and start with no recorded answers.
+
+<a id="backlogops.available_teams_wizard._Navigator.run"></a>
+
+#### run
+
+```python
+def run(body: Callable[['_Navigator'], _T]) -> _T
+```
+
+Run the body, restarting it to honour back and cancel requests.
+
+A back request drops the most recent answer and replays the rest,
+re-asking the previous question. A cancel request that reaches the
+outermost body has no outer level to return to, so the question is
+asked again. An abort request propagates to the caller.
+
+<a id="backlogops.available_teams_wizard._Navigator.level"></a>
+
+#### level
+
+```python
+def level(body_fn: Callable[[], _T]) -> _T
+```
+
+Run a sub-level, restarting it when the user cancels the level.
+
+A cancel-level request discards the answers collected inside this
+level and asks its first question again. A cancel raised at the
+level's first question has no answer to discard here, so it
+propagates to the enclosing level.
+
+<a id="backlogops.available_teams_wizard._Navigator.show"></a>
+
+#### show
+
+```python
+def show(message: str) -> None
+```
+
+Show a message, unless recorded answers are being replayed.
+
+<a id="backlogops.available_teams_wizard._Navigator.error_file"></a>
+
+#### error\_file
+
+```python
+def error_file() -> TextIO
+```
+
+Return the bridge's diagnostics stream.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_text"></a>
+
+#### ask\_text
+
+```python
+def ask_text(question: str,
+             *,
+             default: Optional[str] = None,
+             allow_empty: bool = False) -> str
+```
+
+Ask for text with an optional default and re-ask on empty.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_number"></a>
+
+#### ask\_number
+
+```python
+def ask_number(question: str, default: float, minimum: Optional[float],
+               maximum: Optional[float]) -> float
+```
+
+Ask for a floating point value within optional bounds.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_int"></a>
+
+#### ask\_int
+
+```python
+def ask_int(question: str,
+            default: int,
+            minimum: int,
+            maximum: Optional[int] = None) -> int
+```
+
+Ask for a whole number within the given bounds.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_count"></a>
+
+#### ask\_count
+
+```python
+def ask_count(question: str, maximum: Optional[int] = None) -> int
+```
+
+Ask how many items to collect, defaulting to none.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_yes_no"></a>
 
 #### ask\_yes\_no
 
@@ -1768,25 +1864,339 @@ show a pair of yes and no buttons. Concrete bridges must implement it.
 def ask_yes_no(question: str, default: bool) -> bool
 ```
 
-Ask a yes/no question and return the chosen boolean.
+Ask a yes/no question through the bridge's dedicated control.
 
-**Arguments**:
+<a id="backlogops.available_teams_wizard._Navigator.ask_choice"></a>
 
-- `question` - The yes/no question to ask.
-- `default` - The value to use when the user makes no explicit
-  choice.
-  
+#### ask\_choice
 
-**Returns**:
+```python
+def ask_choice(question: str, choices: Sequence[str]) -> str
+```
 
-  The user's choice as a boolean.
+Ask the user to pick one of choices through the bridge.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_date"></a>
+
+#### ask\_date
+
+```python
+def ask_date(question: str) -> date
+```
+
+Ask for a required ISO 8601 date such as ``2026-06-13``.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_end_date"></a>
+
+#### ask\_end\_date
+
+```python
+def ask_end_date(question: str, start_date: date) -> date
+```
+
+Ask for an end date that is not before ``start_date``.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_opt_date"></a>
+
+#### ask\_opt\_date
+
+```python
+def ask_opt_date(question: str) -> Optional[date]
+```
+
+Ask for an optional ISO date; an empty answer returns ``None``.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_membership_end"></a>
+
+#### ask\_membership\_end
+
+```python
+def ask_membership_end(question: str,
+                       start_date: Optional[date]) -> Optional[date]
+```
+
+Ask for an optional end date not before the start date.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_person_name"></a>
+
+#### ask\_person\_name
+
+```python
+def ask_person_name(question: str, persons: dict[str, Person]) -> str
+```
+
+Ask for a person name that is not already used.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_preset_name"></a>
+
+#### ask\_preset\_name
+
+```python
+def ask_preset_name(question: str, used: set[str]) -> str
+```
+
+Ask for a preset name of letters and digits that is unused.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_tableio"></a>
+
+#### ask\_tableio
+
+```python
+def ask_tableio(file_access: FileAccess) -> TioJsonConfig
+```
+
+Ask for one TableIO endpoint configuration as one step.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_schedule"></a>
+
+#### ask\_schedule
+
+```python
+def ask_schedule() -> ScheduleWorkHours
+```
+
+Ask the weekly work-hours schedule as one table question.
+
+<a id="backlogops.available_teams_wizard._Navigator.ask_column_map"></a>
+
+#### ask\_column\_map
+
+```python
+def ask_column_map(from_label: str, to_label: str) -> dict[str, str]
+```
+
+Ask for column-name mappings as a count and one table.
+
+<a id="backlogops.available_teams_wizard._Navigator._ask"></a>
+
+#### \_ask
+
+```python
+def _ask(ask_fn: Callable[[], object]) -> object
+```
+
+Return the recorded answer when replaying, else ask live.
+
+<a id="backlogops.available_teams_wizard._Navigator._replaying"></a>
+
+#### \_replaying
+
+```python
+def _replaying() -> bool
+```
+
+Return whether recorded answers are being replayed.
+
+<a id="backlogops.available_teams_wizard._as_text"></a>
+
+#### \_as\_text
+
+```python
+def _as_text(answer: object) -> str
+```
+
+Return a bridge answer as text, accepting a numeric index too.
+
+<a id="backlogops.available_teams_wizard._parse_date"></a>
+
+#### \_parse\_date
+
+```python
+def _parse_date(answer: str) -> Optional[date]
+```
+
+Return the ISO date in ``answer``, or ``None`` when it is invalid.
+
+<a id="backlogops.available_teams_wizard._read_text"></a>
+
+#### \_read\_text
+
+```python
+def _read_text(ui: WizardUiBridge, question: str, default: Optional[str],
+               allow_empty: bool) -> str
+```
+
+Ask for a text value with an optional default and re-ask on empty.
+
+<a id="backlogops.available_teams_wizard._read_number"></a>
+
+#### \_read\_number
+
+```python
+def _read_number(ui: WizardUiBridge, question: str, default: float,
+                 minimum: Optional[float], maximum: Optional[float]) -> float
+```
+
+Ask for a floating point value within optional bounds.
+
+<a id="backlogops.available_teams_wizard._read_int"></a>
+
+#### \_read\_int
+
+```python
+def _read_int(ui: WizardUiBridge, question: str, default: int, minimum: int,
+              maximum: Optional[int]) -> int
+```
+
+Ask for a whole number within the given bounds.
+
+<a id="backlogops.available_teams_wizard._read_date"></a>
+
+#### \_read\_date
+
+```python
+def _read_date(ui: WizardUiBridge, question: str) -> date
+```
+
+Ask for a required ISO 8601 date such as ``2026-06-13``.
+
+<a id="backlogops.available_teams_wizard._read_end_date"></a>
+
+#### \_read\_end\_date
+
+```python
+def _read_end_date(ui: WizardUiBridge, question: str,
+                   start_date: date) -> date
+```
+
+Ask for an end date that is not before ``start_date``.
+
+<a id="backlogops.available_teams_wizard._read_opt_date"></a>
+
+#### \_read\_opt\_date
+
+```python
+def _read_opt_date(ui: WizardUiBridge, question: str,
+                   start_date: Optional[date]) -> Optional[date]
+```
+
+Ask for an optional ISO date not before an optional start date.
+
+<a id="backlogops.available_teams_wizard._read_unique_name"></a>
+
+#### \_read\_unique\_name
+
+```python
+def _read_unique_name(ui: WizardUiBridge, question: str,
+                      persons: dict[str, Person]) -> str
+```
+
+Ask for a person name that is not already a key in ``persons``.
+
+<a id="backlogops.available_teams_wizard._read_preset_name"></a>
+
+#### \_read\_preset\_name
+
+```python
+def _read_preset_name(ui: WizardUiBridge, question: str,
+                      used: set[str]) -> str
+```
+
+Ask for a preset name of letters and digits that is unused.
+
+<a id="backlogops.available_teams_wizard._read_tableio"></a>
+
+#### \_read\_tableio
+
+```python
+def _read_tableio(ui: WizardUiBridge,
+                  file_access: FileAccess) -> TioJsonConfig
+```
+
+Ask for one TableIO endpoint configuration through the wizard.
+
+<a id="backlogops.available_teams_wizard._num_text"></a>
+
+#### \_num\_text
+
+```python
+def _num_text(value: float) -> str
+```
+
+Return a compact decimal text for a default numeric value.
+
+<a id="backlogops.available_teams_wizard._is_nonneg"></a>
+
+#### \_is\_nonneg
+
+```python
+def _is_nonneg(text: Optional[str]) -> bool
+```
+
+Return whether ``text`` parses as a number that is at least zero.
+
+<a id="backlogops.available_teams_wizard._sched_check"></a>
+
+#### \_sched\_check
+
+```python
+def _sched_check(table: list[list[Optional[str]]],
+                 position: tuple[int, int]) -> tuple[bool, str]
+```
+
+Give early feedback that an edited work-hours cell is a number.
+
+<a id="backlogops.available_teams_wizard._map_check"></a>
+
+#### \_map\_check
+
+```python
+def _map_check(table: list[list[Optional[str]]],
+               position: tuple[int, int]) -> tuple[bool, str]
+```
+
+Give early feedback that an edited mapping cell is not empty.
+
+<a id="backlogops.available_teams_wizard._parse_schedule"></a>
+
+#### \_parse\_schedule
+
+```python
+def _parse_schedule(
+        days: Sequence[WeekDay], table: Sequence[Sequence[Optional[str]]]
+) -> Optional[ScheduleWorkHours]
+```
+
+Return the weekly schedule from a table, or None when invalid.
+
+<a id="backlogops.available_teams_wizard._parse_column_map"></a>
+
+#### \_parse\_column\_map
+
+```python
+def _parse_column_map(
+        table: Sequence[Sequence[Optional[str]]]) -> Optional[dict[str, str]]
+```
+
+Return the column-name mapping from a table, or None when invalid.
+
+<a id="backlogops.available_teams_wizard._read_schedule"></a>
+
+#### \_read\_schedule
+
+```python
+def _read_schedule(ui: WizardUiBridge) -> ScheduleWorkHours
+```
+
+Ask the weekly work-hours schedule as one table question.
+
+<a id="backlogops.available_teams_wizard._read_column_map"></a>
+
+#### \_read\_column\_map
+
+```python
+def _read_column_map(ui: WizardUiBridge, count: int, from_label: str,
+                     to_label: str) -> dict[str, str]
+```
+
+Ask the given number of column-name mappings as one table.
 
 <a id="backlogops.available_teams_wizard.available_teams_wizard"></a>
 
 #### available\_teams\_wizard
 
 ```python
-def available_teams_wizard(ui_bridge: YesNoUiBridge) -> AvailableTeams
+def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams
 ```
 
 Interactively create an available workforce configuration.
@@ -1805,272 +2215,14 @@ Interactively create an available workforce configuration.
 
 **Raises**:
 
-- `EOFError` - The input ended before all required answers were read.
-
-<a id="backlogops.available_teams_wizard._as_text"></a>
-
-#### \_as\_text
-
-```python
-def _as_text(answer: object) -> str
-```
-
-Return a bridge answer as text, accepting a numeric index too.
-
-<a id="backlogops.available_teams_wizard._ask_text"></a>
-
-#### \_ask\_text
-
-```python
-def _ask_text(ui_bridge: YesNoUiBridge,
-              question: str,
-              *,
-              default: Optional[str] = None,
-              allow_empty: bool = False) -> str
-```
-
-Ask for a text value with an optional default and re-ask on empty.
-
-<a id="backlogops.available_teams_wizard._ask_number"></a>
-
-#### \_ask\_number
-
-```python
-def _ask_number(ui_bridge: YesNoUiBridge, question: str, default: float,
-                minimum: Optional[float], maximum: Optional[float]) -> float
-```
-
-Ask for a floating point value within optional bounds.
-
-<a id="backlogops.available_teams_wizard._ask_int"></a>
-
-#### \_ask\_int
-
-```python
-def _ask_int(ui_bridge: YesNoUiBridge, question: str, default: int,
-             minimum: int) -> int
-```
-
-Ask for an integer value that is at least ``minimum``.
-
-<a id="backlogops.available_teams_wizard._ask_yes_no"></a>
-
-#### \_ask\_yes\_no
-
-```python
-def _ask_yes_no(ui_bridge: YesNoUiBridge, question: str,
-                default: bool) -> bool
-```
-
-Ask a yes/no question through the bridge's dedicated controls.
-
-<a id="backlogops.available_teams_wizard._ask_date"></a>
-
-#### \_ask\_date
-
-```python
-def _ask_date(ui_bridge: YesNoUiBridge, question: str) -> date
-```
-
-Ask for a required ISO 8601 date such as ``2026-06-13``.
-
-<a id="backlogops.available_teams_wizard._ask_end_date"></a>
-
-#### \_ask\_end\_date
-
-```python
-def _ask_end_date(ui_bridge: YesNoUiBridge, question: str,
-                  start_date: date) -> date
-```
-
-Ask for an end date that is not before ``start_date``.
-
-<a id="backlogops.available_teams_wizard._ask_opt_date"></a>
-
-#### \_ask\_opt\_date
-
-```python
-def _ask_opt_date(ui_bridge: YesNoUiBridge, question: str) -> Optional[date]
-```
-
-Ask for an optional ISO date; an empty answer returns ``None``.
-
-<a id="backlogops.available_teams_wizard._parse_date"></a>
-
-#### \_parse\_date
-
-```python
-def _parse_date(answer: str) -> Optional[date]
-```
-
-Return the ISO date in ``answer``, or ``None`` when it is invalid.
-
-<a id="backlogops.available_teams_wizard._ask_choice"></a>
-
-#### \_ask\_choice
-
-```python
-def _ask_choice(ui_bridge: YesNoUiBridge, question: str,
-                choices: Sequence[str]) -> str
-```
-
-Ask the user to pick one of ``choices`` by number or by name.
-
-<a id="backlogops.available_teams_wizard._build_company"></a>
-
-#### \_build\_company
-
-```python
-def _build_company(ui_bridge: YesNoUiBridge) -> CompanyWorkHours
-```
-
-Ask for the company weekly schedule and exception periods.
-
-<a id="backlogops.available_teams_wizard._build_schedule"></a>
-
-#### \_build\_schedule
-
-```python
-def _build_schedule(ui_bridge: YesNoUiBridge) -> ScheduleWorkHours
-```
-
-Ask for the work hours of each week day.
-
-<a id="backlogops.available_teams_wizard._build_exceptions"></a>
-
-#### \_build\_exceptions
-
-```python
-def _build_exceptions(ui_bridge: YesNoUiBridge,
-                      label: str) -> list[ExceptionWorkHours]
-```
-
-Loop asking for work-hour exception periods of the given kind.
-
-<a id="backlogops.available_teams_wizard._ask_exception"></a>
-
-#### \_ask\_exception
-
-```python
-def _ask_exception(ui_bridge: YesNoUiBridge) -> ExceptionWorkHours
-```
-
-Ask for one work-hour exception period.
-
-<a id="backlogops.available_teams_wizard._build_persons"></a>
-
-#### \_build\_persons
-
-```python
-def _build_persons(ui_bridge: YesNoUiBridge) -> dict[str, Person]
-```
-
-Loop asking for persons and their personal work-hour exceptions.
-
-<a id="backlogops.available_teams_wizard._ask_person_name"></a>
-
-#### \_ask\_person\_name
-
-```python
-def _ask_person_name(ui_bridge: YesNoUiBridge, persons: dict[str,
-                                                             Person]) -> str
-```
-
-Ask for a person name that is not already used.
-
-<a id="backlogops.available_teams_wizard._build_teams"></a>
-
-#### \_build\_teams
-
-```python
-def _build_teams(ui_bridge: YesNoUiBridge,
-                 person_names: list[str]) -> list[Team]
-```
-
-Loop asking for teams and their memberships.
-
-<a id="backlogops.available_teams_wizard._ask_team"></a>
-
-#### \_ask\_team
-
-```python
-def _ask_team(ui_bridge: YesNoUiBridge, person_names: list[str]) -> Team
-```
-
-Ask for one team and its memberships.
-
-<a id="backlogops.available_teams_wizard._build_aliases"></a>
-
-#### \_build\_aliases
-
-```python
-def _build_aliases(ui_bridge: YesNoUiBridge) -> list[str]
-```
-
-Loop asking for team aliases until an empty answer is given.
-
-<a id="backlogops.available_teams_wizard._build_members"></a>
-
-#### \_build\_members
-
-```python
-def _build_members(ui_bridge: YesNoUiBridge,
-                   person_names: list[str]) -> list[Membership]
-```
-
-Loop asking for team memberships referencing known persons.
-
-A person who is already a member of this team is not offered again,
-so each person joins the team at most once.
-
-<a id="backlogops.available_teams_wizard._ask_membership"></a>
-
-#### \_ask\_membership
-
-```python
-def _ask_membership(ui_bridge: YesNoUiBridge,
-                    person_names: list[str]) -> Membership
-```
-
-Ask for one team membership.
-
-<a id="backlogops.available_teams_wizard._ask_membership_end"></a>
-
-#### \_ask\_membership\_end
-
-```python
-def _ask_membership_end(ui_bridge: YesNoUiBridge,
-                        start_date: Optional[date]) -> Optional[date]
-```
-
-Ask for an optional membership end date not before the start date.
-
-<a id="backlogops.available_teams_wizard._build_fte_exceptions"></a>
-
-#### \_build\_fte\_exceptions
-
-```python
-def _build_fte_exceptions(ui_bridge: YesNoUiBridge) -> list[FteException]
-```
-
-Loop asking for full-time-equivalent exception periods.
-
-<a id="backlogops.available_teams_wizard._ask_fte_exception"></a>
-
-#### \_ask\_fte\_exception
-
-```python
-def _ask_fte_exception(ui_bridge: YesNoUiBridge) -> FteException
-```
-
-Ask for one full-time-equivalent exception period.
+- `EOFError` - The input ended, or the user abandoned the wizard.
 
 <a id="backlogops.available_teams_wizard.teams_config_wizard"></a>
 
 #### teams\_config\_wizard
 
 ```python
-def teams_config_wizard(ui_bridge: YesNoUiBridge) -> AvailableTeamsConfig
+def teams_config_wizard(ui_bridge: WizardUiBridge) -> AvailableTeamsConfig
 ```
 
 Interactively create a workforce with optional TableIO presets.
@@ -2091,73 +2243,195 @@ configuration presets that are stored alongside the workforce.
 
 **Raises**:
 
-- `EOFError` - The input ended before all required answers were read.
+- `EOFError` - The input ended, or the user abandoned the wizard.
 
-<a id="backlogops.available_teams_wizard._caps"></a>
+<a id="backlogops.available_teams_wizard._collect_teams"></a>
 
-#### \_caps
-
-```python
-def _caps(file_access: FileAccess, ui_bridge: YesNoUiBridge) -> Capabilities
-```
-
-Return the TableIO capabilities for one file access mode.
-
-<a id="backlogops.available_teams_wizard._collect_presets"></a>
-
-#### \_collect\_presets
+#### \_collect\_teams
 
 ```python
-def _collect_presets(
-        ui_bridge: YesNoUiBridge, file_access: FileAccess, label: str,
-        from_label: str,
-        to_label: str) -> list[tuple[str, TioJsonConfig, dict[str, str]]]
+def _collect_teams(nav: _Navigator) -> AvailableTeams
 ```
 
-Loop asking for named TableIO presets of one direction.
+Ask for the company, the persons and the teams of a workforce.
+
+<a id="backlogops.available_teams_wizard._collect_config"></a>
+
+#### \_collect\_config
+
+```python
+def _collect_config(nav: _Navigator) -> AvailableTeamsConfig
+```
+
+Ask for the workforce and its named TableIO presets.
+
+<a id="backlogops.available_teams_wizard._build_company"></a>
+
+#### \_build\_company
+
+```python
+def _build_company(nav: _Navigator) -> CompanyWorkHours
+```
+
+Ask for the company weekly schedule and exception periods.
+
+<a id="backlogops.available_teams_wizard._build_exceptions"></a>
+
+#### \_build\_exceptions
+
+```python
+def _build_exceptions(nav: _Navigator,
+                      count_question: str) -> list[ExceptionWorkHours]
+```
+
+Ask for a counted list of work-hour exception periods.
+
+<a id="backlogops.available_teams_wizard._ask_exception"></a>
+
+#### \_ask\_exception
+
+```python
+def _ask_exception(nav: _Navigator) -> ExceptionWorkHours
+```
+
+Ask for one work-hour exception period.
+
+<a id="backlogops.available_teams_wizard._build_persons"></a>
+
+#### \_build\_persons
+
+```python
+def _build_persons(nav: _Navigator) -> dict[str, Person]
+```
+
+Ask for a counted list of persons and their exceptions.
+
+<a id="backlogops.available_teams_wizard._ask_person"></a>
+
+#### \_ask\_person
+
+```python
+def _ask_person(nav: _Navigator, persons: dict[str, Person]) -> Person
+```
+
+Ask for one person and the personal work-hour exceptions.
+
+<a id="backlogops.available_teams_wizard._build_teams"></a>
+
+#### \_build\_teams
+
+```python
+def _build_teams(nav: _Navigator, person_names: list[str]) -> list[Team]
+```
+
+Ask for a counted list of teams and their memberships.
+
+<a id="backlogops.available_teams_wizard._ask_team"></a>
+
+#### \_ask\_team
+
+```python
+def _ask_team(nav: _Navigator, person_names: list[str]) -> Team
+```
+
+Ask for one team and its memberships.
+
+<a id="backlogops.available_teams_wizard._build_aliases"></a>
+
+#### \_build\_aliases
+
+```python
+def _build_aliases(nav: _Navigator) -> list[str]
+```
+
+Ask for a counted list of team aliases.
+
+<a id="backlogops.available_teams_wizard._build_members"></a>
+
+#### \_build\_members
+
+```python
+def _build_members(nav: _Navigator,
+                   person_names: list[str]) -> list[Membership]
+```
+
+Ask for a counted list of team memberships of distinct persons.
+
+A person joins a team at most once, so each membership is chosen from
+the persons not yet members of this team, and the count cannot exceed
+the number of available persons.
+
+<a id="backlogops.available_teams_wizard._ask_membership"></a>
+
+#### \_ask\_membership
+
+```python
+def _ask_membership(nav: _Navigator, person_names: list[str]) -> Membership
+```
+
+Ask for one team membership.
+
+<a id="backlogops.available_teams_wizard._build_fte_exceptions"></a>
+
+#### \_build\_fte\_exceptions
+
+```python
+def _build_fte_exceptions(nav: _Navigator) -> list[FteException]
+```
+
+Ask for a counted list of full-time-equivalent exception periods.
+
+<a id="backlogops.available_teams_wizard._ask_fte_exception"></a>
+
+#### \_ask\_fte\_exception
+
+```python
+def _ask_fte_exception(nav: _Navigator) -> FteException
+```
+
+Ask for one full-time-equivalent exception period.
 
 <a id="backlogops.available_teams_wizard._build_input_presets"></a>
 
 #### \_build\_input\_presets
 
 ```python
-def _build_input_presets(
-        ui_bridge: YesNoUiBridge) -> dict[str, InputFormatConfig]
+def _build_input_presets(nav: _Navigator) -> dict[str, InputFormatConfig]
 ```
 
-Return the named input presets entered by the user.
+Ask for a counted list of named input presets.
 
 <a id="backlogops.available_teams_wizard._build_output_presets"></a>
 
 #### \_build\_output\_presets
 
 ```python
-def _build_output_presets(
-        ui_bridge: YesNoUiBridge) -> dict[str, OutputFormatConfig]
+def _build_output_presets(nav: _Navigator) -> dict[str, OutputFormatConfig]
 ```
 
-Return the named output presets entered by the user.
+Ask for a counted list of named output presets.
 
-<a id="backlogops.available_teams_wizard._ask_preset_name"></a>
+<a id="backlogops.available_teams_wizard._ask_input_preset"></a>
 
-#### \_ask\_preset\_name
+#### \_ask\_input\_preset
 
 ```python
-def _ask_preset_name(ui_bridge: YesNoUiBridge, used: set[str]) -> str
+def _ask_input_preset(nav: _Navigator,
+                      used: set[str]) -> tuple[str, InputFormatConfig]
 ```
 
-Ask for a preset name of letters and digits that is not used yet.
+Ask for one named input preset and its column-name mapping.
 
-<a id="backlogops.available_teams_wizard._build_column_map"></a>
+<a id="backlogops.available_teams_wizard._ask_output_preset"></a>
 
-#### \_build\_column\_map
+#### \_ask\_output\_preset
 
 ```python
-def _build_column_map(ui_bridge: YesNoUiBridge, from_label: str,
-                      to_label: str) -> dict[str, str]
+def _ask_output_preset(nav: _Navigator,
+                       used: set[str]) -> tuple[str, OutputFormatConfig]
 ```
 
-Loop asking for column-name mappings of one direction.
+Ask for one named output preset and its column-name mapping.
 
 <a id="backlogops.backlog_releases"></a>
 

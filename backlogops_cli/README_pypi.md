@@ -177,3 +177,10 @@ backlogops_cli serves 2 purposes:
 ````
 
 ## Test summary
+
+- Test result: 1101 passed in 18s
+- No flake8 warnings.
+- No mypy errors found.
+- No python layout warnings.
+- Built version(s): 0.1.1
+- Build and test using Python 3.14.6

@@ -1,6 +1,17 @@
 # Table of Contents
 
 * [backlogops\_gui.gui\_wizard](#backlogops_gui.gui_wizard)
+  * [\_Cell](#backlogops_gui.gui_wizard._Cell)
+  * [\_cell\_text](#backlogops_gui.gui_wizard._cell_text)
+  * [\_TableEditor](#backlogops_gui.gui_wizard._TableEditor)
+    * [\_\_init\_\_](#backlogops_gui.gui_wizard._TableEditor.__init__)
+    * [values](#backlogops_gui.gui_wizard._TableEditor.values)
+    * [\_build\_header](#backlogops_gui.gui_wizard._TableEditor._build_header)
+    * [\_build\_row](#backlogops_gui.gui_wizard._TableEditor._build_row)
+    * [\_build\_cell](#backlogops_gui.gui_wizard._TableEditor._build_cell)
+    * [\_editable\_widget](#backlogops_gui.gui_wizard._TableEditor._editable_widget)
+    * [\_bind\_change](#backlogops_gui.gui_wizard._TableEditor._bind_change)
+    * [\_feedback](#backlogops_gui.gui_wizard._TableEditor._feedback)
   * [\_WizardWindow](#backlogops_gui.gui_wizard._WizardWindow)
     * [\_\_init\_\_](#backlogops_gui.gui_wizard._WizardWindow.__init__)
     * [\_build\_messages](#backlogops_gui.gui_wizard._WizardWindow._build_messages)
@@ -8,9 +19,17 @@
     * [close](#backlogops_gui.gui_wizard._WizardWindow.close)
     * [ask](#backlogops_gui.gui_wizard._WizardWindow.ask)
     * [ask\_yes\_no](#backlogops_gui.gui_wizard._WizardWindow.ask_yes_no)
+    * [ask\_choice](#backlogops_gui.gui_wizard._WizardWindow.ask_choice)
+    * [ask\_multi](#backlogops_gui.gui_wizard._WizardWindow.ask_multi)
+    * [ask\_table](#backlogops_gui.gui_wizard._WizardWindow.ask_table)
     * [\_ask\_text](#backlogops_gui.gui_wizard._WizardWindow._ask_text)
-    * [\_ask\_choice](#backlogops_gui.gui_wizard._WizardWindow._ask_choice)
+    * [\_ask\_index](#backlogops_gui.gui_wizard._WizardWindow._ask_index)
+    * [\_run\_multi](#backlogops_gui.gui_wizard._WizardWindow._run_multi)
+    * [\_choice\_list](#backlogops_gui.gui_wizard._WizardWindow._choice_list)
+    * [\_preset\_indexes](#backlogops_gui.gui_wizard._WizardWindow._preset_indexes)
     * [\_pick](#backlogops_gui.gui_wizard._WizardWindow._pick)
+    * [\_pick\_one](#backlogops_gui.gui_wizard._WizardWindow._pick_one)
+    * [\_pick\_many](#backlogops_gui.gui_wizard._WizardWindow._pick_many)
     * [\_begin](#backlogops_gui.gui_wizard._WizardWindow._begin)
     * [\_add\_label](#backlogops_gui.gui_wizard._WizardWindow._add_label)
     * [\_add\_buttons](#backlogops_gui.gui_wizard._WizardWindow._add_buttons)
@@ -21,6 +40,9 @@
     * [\_\_init\_\_](#backlogops_gui.gui_wizard.TkWizardBridge.__init__)
     * [ask](#backlogops_gui.gui_wizard.TkWizardBridge.ask)
     * [ask\_yes\_no](#backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no)
+    * [ask\_choice](#backlogops_gui.gui_wizard.TkWizardBridge.ask_choice)
+    * [ask\_multi](#backlogops_gui.gui_wizard.TkWizardBridge.ask_multi)
+    * [ask\_table](#backlogops_gui.gui_wizard.TkWizardBridge.ask_table)
     * [show](#backlogops_gui.gui_wizard.TkWizardBridge.show)
     * [error\_file](#backlogops_gui.gui_wizard.TkWizardBridge.error_file)
     * [close](#backlogops_gui.gui_wizard.TkWizardBridge.close)
@@ -190,12 +212,132 @@
 Graphical bridge that drives the synchronous teams wizard.
 
 The teams configuration wizard asks its questions through a
-:class:`WizardUiBridge`, extended here as a :class:`YesNoUiBridge` so
-yes/no questions can offer dedicated buttons. This module answers every
-call by updating one reused, fixed-size window, so the whole wizard session
-happens in a single pop-up that does not jump around the display. A
-cancelled prompt raises :class:`EOFError`, which the wizard documents as
-the way an interrupted input is reported.
+:class:`WizardUiBridge`. This module provides :class:`TkWizardBridge`, a
+concrete bridge that overrides every ask method of that base class with a
+real Tkinter control: a text entry, a yes/no button pair, a single- and a
+multi-selection list, and an editable table. All questions are answered in
+one reused, fixed-size window, so the whole wizard session happens in a
+single pop-up that does not jump around the display. A cancelled prompt
+raises :class:`EOFError`, which the wizard documents as the way an
+interrupted input is reported.
+
+<a id="backlogops_gui.gui_wizard._Cell"></a>
+
+## \_Cell Objects
+
+```python
+@dataclass(frozen=True)
+class _Cell()
+```
+
+One built table cell: its widget and how its value is read.
+
+A read-only cell keeps the fixed text it shows. An editable cell keeps
+the widget the user types in or selects from, and whether an empty
+cell is reported as ``None``.
+
+<a id="backlogops_gui.gui_wizard._cell_text"></a>
+
+#### \_cell\_text
+
+```python
+def _cell_text(cell: _Cell) -> Optional[str]
+```
+
+Return the final string a cell holds, or None for an empty cell.
+
+<a id="backlogops_gui.gui_wizard._TableEditor"></a>
+
+## \_TableEditor Objects
+
+```python
+class _TableEditor()
+```
+
+An editable grid of cells for one table question.
+
+<a id="backlogops_gui.gui_wizard._TableEditor.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, columns: Sequence[TableColumn],
+             rows: Sequence[Sequence[TableCell]],
+             partial_check: Optional[PartialCheck]) -> None
+```
+
+Build the header and one widget per cell of the given rows.
+
+<a id="backlogops_gui.gui_wizard._TableEditor.values"></a>
+
+#### values
+
+```python
+def values() -> list[list[Optional[str]]]
+```
+
+Return the whole table as rows of final cell strings.
+
+<a id="backlogops_gui.gui_wizard._TableEditor._build_header"></a>
+
+#### \_build\_header
+
+```python
+def _build_header() -> None
+```
+
+Show one bold heading label per column.
+
+<a id="backlogops_gui.gui_wizard._TableEditor._build_row"></a>
+
+#### \_build\_row
+
+```python
+def _build_row(row_index: int, row: Sequence[TableCell]) -> None
+```
+
+Build and store one widget per column of one table row.
+
+<a id="backlogops_gui.gui_wizard._TableEditor._build_cell"></a>
+
+#### \_build\_cell
+
+```python
+def _build_cell(row_index: int, col: int, column: TableColumn,
+                cell: TableCell) -> _Cell
+```
+
+Build one read-only label or one editable cell widget.
+
+<a id="backlogops_gui.gui_wizard._TableEditor._editable_widget"></a>
+
+#### \_editable\_widget
+
+```python
+def _editable_widget(cell: TableCell) -> tk.Widget
+```
+
+Return a drop-down for a cell with choices, else a text entry.
+
+<a id="backlogops_gui.gui_wizard._TableEditor._bind_change"></a>
+
+#### \_bind\_change
+
+```python
+def _bind_change(widget: tk.Widget, row: int, col: int) -> None
+```
+
+Show early per-cell feedback when an edited cell changes.
+
+<a id="backlogops_gui.gui_wizard._TableEditor._feedback"></a>
+
+#### \_feedback
+
+```python
+def _feedback(row: int, col: int) -> None
+```
+
+Run the partial check and show its message for one cell.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow"></a>
 
@@ -263,10 +405,46 @@ Ask one free-text or choice question and return the answer.
 #### ask\_yes\_no
 
 ```python
-def ask_yes_no(question: str, default: bool) -> bool
+def ask_yes_no(question: str, default: bool, re_ask: Optional[str]) -> bool
 ```
 
 Ask one yes/no question with dedicated buttons.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow.ask_choice"></a>
+
+#### ask\_choice
+
+```python
+def ask_choice(question: str, choices: Sequence[str], default: Optional[str],
+               re_ask: Optional[str]) -> str
+```
+
+Ask the user to pick exactly one choice and return it.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow.ask_multi"></a>
+
+#### ask\_multi
+
+```python
+def ask_multi(question: str, choices: Sequence[str],
+              default: Optional[Sequence[str]], min_select: int,
+              max_select: Optional[int], re_ask: Optional[str]) -> list[str]
+```
+
+Ask the user to pick several choices within the count bounds.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow.ask_table"></a>
+
+#### ask\_table
+
+```python
+def ask_table(
+        columns: Sequence[TableColumn], cells: Sequence[Sequence[TableCell]],
+        question: str, re_ask: Optional[str],
+        partial_check: Optional[PartialCheck]) -> list[list[Optional[str]]]
+```
+
+Ask the user to fill the given table rows and return them.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow._ask_text"></a>
 
@@ -278,16 +456,50 @@ def _ask_text(question: str, re_ask: Optional[str]) -> str
 
 Ask one free-text question and return the entered text.
 
-<a id="backlogops_gui.gui_wizard._WizardWindow._ask_choice"></a>
+<a id="backlogops_gui.gui_wizard._WizardWindow._ask_index"></a>
 
-#### \_ask\_choice
+#### \_ask\_index
 
 ```python
-def _ask_choice(question: str, re_ask: Optional[str],
-                choices: Sequence[str]) -> str | int
+def _ask_index(question: str, re_ask: Optional[str],
+               choices: Sequence[str]) -> str | int
 ```
 
 Ask one question with a single-selection list of choices.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow._run_multi"></a>
+
+#### \_run\_multi
+
+```python
+def _run_multi(question: str, re_ask: Optional[str], choices: Sequence[str],
+               default: Optional[Sequence[str]]) -> list[str]
+```
+
+Show a multi-selection list once and return the picked values.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow._choice_list"></a>
+
+#### \_choice\_list
+
+```python
+def _choice_list(choices: Sequence[str], marked: Optional[str | Sequence[str]],
+                 mode: str) -> tk.Listbox
+```
+
+Build a selection list, preselecting the marked choices.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow._preset_indexes"></a>
+
+#### \_preset\_indexes
+
+```python
+@staticmethod
+def _preset_indexes(choices: Sequence[str],
+                    marked: Optional[str | Sequence[str]]) -> list[int]
+```
+
+Return the indexes to preselect from a default value or list.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow._pick"></a>
 
@@ -298,6 +510,26 @@ def _pick(listbox: tk.Listbox) -> None
 ```
 
 Finish a choice question with the selected zero-based index.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow._pick_one"></a>
+
+#### \_pick\_one
+
+```python
+def _pick_one(listbox: tk.Listbox, choices: Sequence[str]) -> None
+```
+
+Finish a single-choice question with the selected value.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow._pick_many"></a>
+
+#### \_pick\_many
+
+```python
+def _pick_many(listbox: tk.Listbox, choices: Sequence[str]) -> None
+```
+
+Finish a multi-choice question with the selected values.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow._begin"></a>
 
@@ -365,7 +597,7 @@ Mark the session cancelled and release the waiting prompt.
 ## TkWizardBridge Objects
 
 ```python
-class TkWizardBridge(YesNoUiBridge)
+class TkWizardBridge(WizardUiBridge)
 ```
 
 Bridge that answers wizard prompts in one reused Tkinter window.
@@ -375,24 +607,15 @@ Bridge that answers wizard prompts in one reused Tkinter window.
 #### \_\_init\_\_
 
 ```python
-def __init__(parent: tk.Misc,
-             log: Optional[TextIO] = None,
-             ask_fn: Optional[
-                 Callable[[str, Optional[str], Optional[Sequence[str]]],
-                          str | int]] = None,
-             show_fn: Optional[Callable[[str], None]] = None,
-             yes_no_fn: Optional[Callable[[str, bool], bool]] = None) -> None
+def __init__(parent: tk.Misc, log: Optional[TextIO] = None) -> None
 ```
 
-Store the parent window, log sink, and optional test callables.
+Store the parent window and the optional diagnostics log.
 
 **Arguments**:
 
 - `parent` - The window the wizard window is shown over.
 - `log` - Stream that receives low-level wizard diagnostics.
-- `ask_fn` - Replacement for the question prompt, used by tests.
-- `show_fn` - Replacement for the message display, used by tests.
-- `yes_no_fn` - Replacement for the yes/no prompt, used by tests.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.ask"></a>
 
@@ -404,24 +627,70 @@ def ask(question: str,
         choices: Optional[Sequence[str]] = None) -> str | int
 ```
 
-Ask one question and return the user's answer.
-
-Returns the entered text, the zero-based index of a selected
-choice, or an empty string when the user requests the default.
-
-**Raises**:
-
-- `EOFError` - The user cancelled the wizard.
+Ask one free-text or choice question; see WizardUiBridge.ask.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no"></a>
 
 #### ask\_yes\_no
 
 ```python
-def ask_yes_no(question: str, default: bool) -> bool
+def ask_yes_no(question: str,
+               default: bool,
+               re_ask_reason: Optional[str] = None) -> bool
 ```
 
-Ask one yes/no question with dedicated buttons.
+Ask a yes/no question with dedicated yes and no buttons.
+
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_choice"></a>
+
+#### ask\_choice
+
+```python
+def ask_choice(question: str,
+               *,
+               choices: Sequence[str],
+               default: Optional[str] = None,
+               re_ask_reason: Optional[str] = None) -> str
+```
+
+Ask the user to pick one choice from a single-selection list.
+
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_multi"></a>
+
+#### ask\_multi
+
+```python
+def ask_multi(question: str,
+              *,
+              choices: Sequence[str],
+              default: Optional[Sequence[str]] = None,
+              min_select: int = 0,
+              max_select: Optional[int] = None,
+              re_ask_reason: Optional[str] = None) -> list[str]
+```
+
+Ask the user to pick several choices from a multi-selection list.
+
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_table"></a>
+
+#### ask\_table
+
+```python
+def ask_table(columns: Sequence[TableColumn],
+              cells: list[list[TableCell]],
+              question: str,
+              *,
+              re_ask_reason: Optional[str] = None,
+              partial_check: Optional[PartialCheck] = None,
+              min_rows: Optional[int] = None,
+              max_rows: Optional[int] = None) -> list[list[Optional[str]]]
+```
+
+Ask the user to fill an editable table of the given rows.
+
+Like the console bridge, this fills the rows given in ``cells`` and
+does not add or remove rows, so ``min_rows`` and ``max_rows`` are
+accepted but leave the row set fixed.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.show"></a>
 

@@ -51,8 +51,7 @@ from backlogops.apply_format_rules import format_backlog, format_releases
 from backlogops.move_keys_first import move_keys_first, get_keys_in_order
 from backlogops.key_list_io import read_key_list, write_key_list
 from backlogops.available_teams_wizard import (
-    available_teams_wizard, teams_config_wizard, YesNoUiBridge)
-from backlogops.console_yes_no_bridge import ConsoleYesNoUiBridge
+    available_teams_wizard, teams_config_wizard)
 from backlogops.work_hours import (
     WeekDay, ScheduleWorkHours, DEFAULT_WORK_WEEK, ExceptionWorkHours,
     CompanyWorkHours)
@@ -81,7 +80,6 @@ __all__ = [
     'adjust_release_content', 'format_content_changes', 'format_date_changes',
     'write_content_changes', 'write_date_changes',
     'move_keys_first', 'get_keys_in_order', 'read_key_list', 'write_key_list',
-    'available_teams_wizard', 'teams_config_wizard', 'YesNoUiBridge',
-    'ConsoleYesNoUiBridge', 'WeekDay',
+    'available_teams_wizard', 'teams_config_wizard', 'WeekDay',
     'ScheduleWorkHours', 'DEFAULT_WORK_WEEK', 'ExceptionWorkHours',
     'CompanyWorkHours', 'check_date_range', 'check_no_overlap', 'NoTextIO']

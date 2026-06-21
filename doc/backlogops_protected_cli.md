@@ -18,6 +18,7 @@
   * [main](#backlogops_cli.demo_backlog.main)
 * [backlogops\_cli.teams\_wizard](#backlogops_cli.teams_wizard)
   * [build\_parser](#backlogops_cli.teams_wizard.build_parser)
+  * [\_make\_bridge](#backlogops_cli.teams_wizard._make_bridge)
   * [main](#backlogops_cli.teams_wizard.main)
 * [backlogops\_cli.\_command\_io](#backlogops_cli._command_io)
   * [parsed\_args](#backlogops_cli._command_io.parsed_args)
@@ -260,6 +261,20 @@ def build_parser() -> argparse.ArgumentParser
 ```
 
 Build the command line parser for the teams wizard command.
+
+<a id="backlogops_cli.teams_wizard._make_bridge"></a>
+
+#### \_make\_bridge
+
+```python
+def _make_bridge(no_textual: bool) -> WizardUiBridge
+```
+
+Return the console bridge when forced, else the best text bridge.
+
+Without ``--no-textual`` the factory returns a Textual full-screen
+bridge in a real terminal and a console bridge otherwise, such as when
+input is redirected or under tests.
 
 <a id="backlogops_cli.teams_wizard.main"></a>
 

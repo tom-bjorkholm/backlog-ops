@@ -1,14 +1,16 @@
 #! /usr/local/bin/python3
-"""Tests for the Tkinter wizard bridge delegation."""
+"""Tests for the Tkinter wizard bridge controls."""
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
 import tkinter as tk
-from typing import Callable, Optional, Sequence, cast
+from typing import cast
 import pytest
+from tableio_cfg_json import TableCell, TableColumn
 from backlogops import NoTextIO
-from backlogops_gui.gui_wizard import TkWizardBridge, _WizardWindow
+from backlogops_gui.gui_wizard import TkWizardBridge, _TableEditor, \
+    _WizardWindow
 
 
 def _root_or_skip() -> tk.Tk:
@@ -21,60 +23,10 @@ def _root_or_skip() -> tk.Tk:
     return root
 
 
-def _bridge(ask_fn: Optional[Callable[
-                [str, Optional[str], Optional[Sequence[str]]],
-                str | int]] = None,
-            show_fn: Optional[Callable[[str], None]] = None,
-            yes_no_fn: Optional[Callable[[str, bool], bool]] = None
-            ) -> TkWizardBridge:
-    """Return a bridge over a dummy parent with injected callables."""
-    return TkWizardBridge(cast(tk.Misc, object()), ask_fn=ask_fn,
-                          show_fn=show_fn, yes_no_fn=yes_no_fn)
-
-
-def _cancel(_question: str, _reason: Optional[str],
-            _choices: Optional[Sequence[str]]) -> str | int:
-    """Raise as if the user cancelled the question dialog."""
-    raise EOFError('cancelled')
-
-
-def test_ask_returns_text() -> None:
-    """Test the bridge returns the injected free-text answer."""
-    bridge = _bridge(ask_fn=lambda question, reason, choices: 'hello')
-    assert bridge.ask('Name?') == 'hello'
-
-
-def test_ask_returns_index() -> None:
-    """Test the bridge returns the injected choice index."""
-    bridge = _bridge(ask_fn=lambda question, reason, choices: 2)
-    assert bridge.ask('Pick', None, ['a', 'b', 'c']) == 2
-
-
-def test_ask_cancel_raises() -> None:
-    """Test a cancelled question propagates as an end-of-input error."""
-    bridge = _bridge(ask_fn=_cancel)
-    with pytest.raises(EOFError):
-        bridge.ask('Name?')
-
-
-def test_ask_yes_no_delegates() -> None:
-    """Test the yes/no question forwards to the injected callable."""
-    bridge = _bridge(yes_no_fn=lambda question, default: not default)
-    assert bridge.ask_yes_no('Add?', False) is True
-    assert bridge.ask_yes_no('Add?', True) is False
-
-
-def test_show_forwards() -> None:
-    """Test showing a message forwards it to the injected callable."""
-    shown: list[str] = []
-    bridge = _bridge(show_fn=shown.append)
-    bridge.show('done')
-    assert shown == ['done']
-
-
 def test_error_file_is_sink() -> None:
     """Test the diagnostics stream discards its output without a log."""
-    assert isinstance(_bridge().error_file(), NoTextIO)
+    bridge = TkWizardBridge(cast(tk.Misc, object()))
+    assert isinstance(bridge.error_file(), NoTextIO)
 
 
 def test_error_file_uses_log() -> None:
@@ -86,7 +38,7 @@ def test_error_file_uses_log() -> None:
 
 def test_close_without_window() -> None:
     """Test closing is safe when no wizard window was opened."""
-    _bridge().close()
+    TkWizardBridge(cast(tk.Misc, object())).close()
 
 
 def test_real_text() -> None:
@@ -127,7 +79,7 @@ def test_real_reuse_window() -> None:
         root.destroy()
 
 
-def test_real_choice() -> None:
+def test_real_index() -> None:
     """Test a real window returns the selected choice index."""
     root = _root_or_skip()
     try:
@@ -146,6 +98,44 @@ def test_real_yes_no() -> None:
         bridge = TkWizardBridge(root)
         root.after(0, lambda: bridge._window_obj()._finish(True))
         assert bridge.ask_yes_no('Add?', False) is True
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_choice() -> None:
+    """Test a real window returns the selected choice value."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._finish('b'))
+        assert bridge.ask_choice('Pick', choices=['a', 'b', 'c']) == 'b'
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_multi() -> None:
+    """Test a real window returns the selected choice values."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._finish(['a', 'c']))
+        assert bridge.ask_multi('Pick', choices=['a', 'b', 'c']) == ['a', 'c']
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_table() -> None:
+    """Test a real window returns the table the user filled in."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        columns = [TableColumn(header='X')]
+        cells = [[TableCell(value='v')]]
+        root.after(0, lambda: bridge._window_obj()._finish([['v']]))
+        assert bridge.ask_table(columns, cells, 'Q') == [['v']]
         bridge.close()
     finally:
         root.destroy()
@@ -175,8 +165,45 @@ def test_real_cancel() -> None:
         root.destroy()
 
 
-def test_pick_selected() -> None:
-    """Test picking a selected choice finishes with its index."""
+def test_table_editor_text() -> None:
+    """Test a read-only cell keeps its text and an entry returns its text."""
+    root = _root_or_skip()
+    try:
+        columns = [TableColumn(header='Day', read_only=True),
+                   TableColumn(header='Hours')]
+        cells = [[TableCell(value='Mon'), TableCell(value='8')]]
+        editor = _TableEditor(tk.Frame(root), columns, cells, None)
+        assert editor.values() == [['Mon', '8']]
+    finally:
+        root.destroy()
+
+
+def test_table_editor_null() -> None:
+    """Test an empty nullable entry cell is reported as None."""
+    root = _root_or_skip()
+    try:
+        columns = [TableColumn(header='X')]
+        cells = [[TableCell(value=None, nullable=True)]]
+        editor = _TableEditor(tk.Frame(root), columns, cells, None)
+        assert editor.values() == [[None]]
+    finally:
+        root.destroy()
+
+
+def test_table_editor_choice() -> None:
+    """Test a cell with choices returns its preselected value."""
+    root = _root_or_skip()
+    try:
+        columns = [TableColumn(header='X')]
+        cells = [[TableCell(value='a', choices=('a', 'b'))]]
+        editor = _TableEditor(tk.Frame(root), columns, cells, None)
+        assert editor.values() == [['a']]
+    finally:
+        root.destroy()
+
+
+def test_pick_one() -> None:
+    """Test picking a single choice finishes with its value."""
     root = _root_or_skip()
     try:
         window = _WizardWindow(tk.Frame(root))
@@ -184,8 +211,25 @@ def test_pick_selected() -> None:
         listbox.insert('end', 'a')
         listbox.insert('end', 'b')
         listbox.selection_set(1)
-        window._pick(listbox)
-        assert window._result == 1
+        window._pick_one(listbox, ['a', 'b'])
+        assert window._result == 'b'
+        window.close()
+    finally:
+        root.destroy()
+
+
+def test_pick_many() -> None:
+    """Test picking several choices finishes with the values in order."""
+    root = _root_or_skip()
+    try:
+        window = _WizardWindow(tk.Frame(root))
+        listbox = tk.Listbox(window._content, selectmode='multiple')
+        for choice in ('a', 'b', 'c'):
+            listbox.insert('end', choice)
+        listbox.selection_set(0)
+        listbox.selection_set(2)
+        window._pick_many(listbox, ['a', 'b', 'c'])
+        assert window._result == ['a', 'c']
         window.close()
     finally:
         root.destroy()
@@ -195,7 +239,7 @@ def test_pick_empty() -> None:
     """Test picking with no selection leaves the answer unset."""
     root = _root_or_skip()
     try:
-        window = _WizardWindow(root)
+        window = _WizardWindow(tk.Frame(root))
         listbox = tk.Listbox(window._content)
         listbox.insert('end', 'a')
         window._pick(listbox)

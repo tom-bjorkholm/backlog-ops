@@ -5,6 +5,9 @@
     * [\_\_init\_\_](#backlogops_gui.gui_wizard.TkWizardBridge.__init__)
     * [ask](#backlogops_gui.gui_wizard.TkWizardBridge.ask)
     * [ask\_yes\_no](#backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no)
+    * [ask\_choice](#backlogops_gui.gui_wizard.TkWizardBridge.ask_choice)
+    * [ask\_multi](#backlogops_gui.gui_wizard.TkWizardBridge.ask_multi)
+    * [ask\_table](#backlogops_gui.gui_wizard.TkWizardBridge.ask_table)
     * [show](#backlogops_gui.gui_wizard.TkWizardBridge.show)
     * [error\_file](#backlogops_gui.gui_wizard.TkWizardBridge.error_file)
     * [close](#backlogops_gui.gui_wizard.TkWizardBridge.close)
@@ -90,19 +93,21 @@
 Graphical bridge that drives the synchronous teams wizard.
 
 The teams configuration wizard asks its questions through a
-:class:`WizardUiBridge`, extended here as a :class:`YesNoUiBridge` so
-yes/no questions can offer dedicated buttons. This module answers every
-call by updating one reused, fixed-size window, so the whole wizard session
-happens in a single pop-up that does not jump around the display. A
-cancelled prompt raises :class:`EOFError`, which the wizard documents as
-the way an interrupted input is reported.
+:class:`WizardUiBridge`. This module provides :class:`TkWizardBridge`, a
+concrete bridge that overrides every ask method of that base class with a
+real Tkinter control: a text entry, a yes/no button pair, a single- and a
+multi-selection list, and an editable table. All questions are answered in
+one reused, fixed-size window, so the whole wizard session happens in a
+single pop-up that does not jump around the display. A cancelled prompt
+raises :class:`EOFError`, which the wizard documents as the way an
+interrupted input is reported.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge"></a>
 
 ## TkWizardBridge Objects
 
 ```python
-class TkWizardBridge(YesNoUiBridge)
+class TkWizardBridge(WizardUiBridge)
 ```
 
 Bridge that answers wizard prompts in one reused Tkinter window.
@@ -112,24 +117,15 @@ Bridge that answers wizard prompts in one reused Tkinter window.
 #### \_\_init\_\_
 
 ```python
-def __init__(parent: tk.Misc,
-             log: Optional[TextIO] = None,
-             ask_fn: Optional[
-                 Callable[[str, Optional[str], Optional[Sequence[str]]],
-                          str | int]] = None,
-             show_fn: Optional[Callable[[str], None]] = None,
-             yes_no_fn: Optional[Callable[[str, bool], bool]] = None) -> None
+def __init__(parent: tk.Misc, log: Optional[TextIO] = None) -> None
 ```
 
-Store the parent window, log sink, and optional test callables.
+Store the parent window and the optional diagnostics log.
 
 **Arguments**:
 
 - `parent` - The window the wizard window is shown over.
 - `log` - Stream that receives low-level wizard diagnostics.
-- `ask_fn` - Replacement for the question prompt, used by tests.
-- `show_fn` - Replacement for the message display, used by tests.
-- `yes_no_fn` - Replacement for the yes/no prompt, used by tests.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.ask"></a>
 
@@ -141,24 +137,70 @@ def ask(question: str,
         choices: Optional[Sequence[str]] = None) -> str | int
 ```
 
-Ask one question and return the user's answer.
-
-Returns the entered text, the zero-based index of a selected
-choice, or an empty string when the user requests the default.
-
-**Raises**:
-
-- `EOFError` - The user cancelled the wizard.
+Ask one free-text or choice question; see WizardUiBridge.ask.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no"></a>
 
 #### ask\_yes\_no
 
 ```python
-def ask_yes_no(question: str, default: bool) -> bool
+def ask_yes_no(question: str,
+               default: bool,
+               re_ask_reason: Optional[str] = None) -> bool
 ```
 
-Ask one yes/no question with dedicated buttons.
+Ask a yes/no question with dedicated yes and no buttons.
+
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_choice"></a>
+
+#### ask\_choice
+
+```python
+def ask_choice(question: str,
+               *,
+               choices: Sequence[str],
+               default: Optional[str] = None,
+               re_ask_reason: Optional[str] = None) -> str
+```
+
+Ask the user to pick one choice from a single-selection list.
+
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_multi"></a>
+
+#### ask\_multi
+
+```python
+def ask_multi(question: str,
+              *,
+              choices: Sequence[str],
+              default: Optional[Sequence[str]] = None,
+              min_select: int = 0,
+              max_select: Optional[int] = None,
+              re_ask_reason: Optional[str] = None) -> list[str]
+```
+
+Ask the user to pick several choices from a multi-selection list.
+
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_table"></a>
+
+#### ask\_table
+
+```python
+def ask_table(columns: Sequence[TableColumn],
+              cells: list[list[TableCell]],
+              question: str,
+              *,
+              re_ask_reason: Optional[str] = None,
+              partial_check: Optional[PartialCheck] = None,
+              min_rows: Optional[int] = None,
+              max_rows: Optional[int] = None) -> list[list[Optional[str]]]
+```
+
+Ask the user to fill an editable table of the given rows.
+
+Like the console bridge, this fills the rows given in ``cells`` and
+does not add or remove rows, so ``min_rows`` and ``max_rows`` are
+accepted but leave the row set fixed.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.show"></a>
 

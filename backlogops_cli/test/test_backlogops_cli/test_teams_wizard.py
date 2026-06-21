@@ -26,6 +26,23 @@ def test_requires_output() -> None:
         teams_wizard.build_parser().parse_args([])
 
 
+def test_no_textual_flag() -> None:
+    """Test the --no-textual switch is parsed as a boolean flag."""
+    parser = teams_wizard.build_parser()
+    assert parser.parse_args(['-o', 'x']).no_textual is False
+    assert parser.parse_args(['-o', 'x', '--no-textual']).no_textual is True
+
+
+def test_no_textual_writes(tmp_path: Path,
+                           monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the forced console interface writes a configuration file."""
+    answers = [''] * 12
+    monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
+    assert teams_wizard.main(
+        ['-o', str(tmp_path / 'teams'), '--no-textual']) == 0
+    assert (tmp_path / 'teams.cfg').exists()
+
+
 def test_main_writes_file(tmp_path: Path,
                           monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the command adds the .cfg extension and writes a readable file."""

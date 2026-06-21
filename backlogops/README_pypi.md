@@ -197,3 +197,10 @@ from backlogops import (
 For the full set of public names see the API documentation linked above.
 
 ## Test summary
+
+- Test result: 1101 passed in 18s
+- No flake8 warnings.
+- No mypy errors found.
+- No python layout warnings.
+- Built version(s): 0.1.1
+- Build and test using Python 3.14.6

@@ -9,7 +9,9 @@ import argparse
 import sys
 from typing import Optional
 from config_as_json.file_extension import fix_file_extension
-from backlogops import ConsoleYesNoUiBridge, teams_config_wizard
+from tableio_cfg_json import WizardUiBridge, WizardUiBridgeConsole, \
+    make_text_ui_bridge
+from backlogops import teams_config_wizard
 from backlogops_cli._command_io import parsed_args
 
 DESCRIPTION = 'Create an AvailableTeams configuration file via a wizard'
@@ -22,7 +24,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('-o', '--output', dest='output', required=True,
                         help='Configuration file to write; the '
                         f'{CONFIG_EXTENSION} extension is added if missing.')
+    parser.add_argument('--no-textual', dest='no_textual', action='store_true',
+                        help='Force the plain console interface instead of '
+                        'the Textual full-screen interface.')
     return parser
+
+
+def _make_bridge(no_textual: bool) -> WizardUiBridge:
+    """Return the console bridge when forced, else the best text bridge.
+
+    Without ``--no-textual`` the factory returns a Textual full-screen
+    bridge in a real terminal and a console bridge otherwise, such as when
+    input is redirected or under tests.
+    """
+    if no_textual:
+        return WizardUiBridgeConsole(sys.stdout, sys.stdin, sys.stderr)
+    return make_text_ui_bridge(sys.stdout, sys.stdin, sys.stderr)
 
 
 def main(args: Optional[list[str]] = None) -> int:
@@ -40,7 +57,7 @@ def main(args: Optional[list[str]] = None) -> int:
     """
     parsed = parsed_args(build_parser(), args)
     output = fix_file_extension(parsed.output, CONFIG_EXTENSION)
-    bridge = ConsoleYesNoUiBridge(sys.stdout, sys.stdin, sys.stderr)
+    bridge = _make_bridge(parsed.no_textual)
     try:
         config = teams_config_wizard(bridge)
         config.write(to_json_filename=output, stderr_file=sys.stderr)
