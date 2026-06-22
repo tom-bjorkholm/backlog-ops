@@ -227,11 +227,6 @@ class _Navigator:
         return self._cursor < len(self._answers)
 
 
-def _as_text(answer: object) -> str:
-    """Return a bridge answer as text, accepting a numeric index too."""
-    return answer if isinstance(answer, str) else str(answer)
-
-
 def _parse_date(answer: str) -> Optional[date]:
     """Return the ISO date in ``answer``, or ``None`` when it is invalid."""
     try:
@@ -246,8 +241,8 @@ def _read_text(ui: WizardUiBridge, question: str, default: Optional[str],
     prompt = question if default is None else f'{question} [{default}]'
     reason: Optional[str] = None
     while True:
-        answer = _as_text(ui.ask(prompt, reason))
-        if answer != '':
+        answer = ui.ask_text(prompt, reason, nullable=True)
+        if answer is not None:
             return answer
         if default is not None:
             return default
@@ -261,8 +256,8 @@ def _read_number(ui: WizardUiBridge, question: str, default: float,
     """Ask for a floating point value within optional bounds."""
     reason: Optional[str] = None
     while True:
-        answer = _as_text(ui.ask(f'{question} [{default}]', reason))
-        if answer == '':
+        answer = ui.ask_text(f'{question} [{default}]', reason, nullable=True)
+        if answer is None:
             return default
         try:
             value = float(answer)
@@ -279,31 +274,22 @@ def _read_number(ui: WizardUiBridge, question: str, default: float,
 
 def _read_int(ui: WizardUiBridge, question: str, default: int, minimum: int,
               maximum: Optional[int]) -> int:
-    """Ask for a whole number within the given bounds."""
-    reason: Optional[str] = None
-    while True:
-        answer = _as_text(ui.ask(f'{question} [{default}]', reason))
-        if answer == '':
-            return default
-        try:
-            value = int(answer)
-        except ValueError:
-            reason = 'Please enter a whole number.'
-            continue
-        if value < minimum:
-            reason = f'Please enter a value of at least {minimum}.'
-        elif maximum is not None and value > maximum:
-            reason = f'Please enter a value of at most {maximum}.'
-        else:
-            return value
+    """Ask for a whole number within the given bounds.
+
+    The bridge's typed ask_int re-asks invalid or out-of-range answers,
+    and an empty answer keeps the default.
+    """
+    answer = ui.ask_int(f'{question} [{default}]', nullable=True,
+                        min_value=minimum, max_value=maximum)
+    return default if answer is None else answer
 
 
 def _read_date(ui: WizardUiBridge, question: str) -> date:
     """Ask for a required ISO 8601 date such as ``2026-06-13``."""
     reason: Optional[str] = None
     while True:
-        answer = _as_text(ui.ask(f'{question} (YYYY-MM-DD)', reason))
-        parsed = _parse_date(answer)
+        answer = ui.ask_text(f'{question} (YYYY-MM-DD)', reason, nullable=True)
+        parsed = _parse_date(answer) if answer is not None else None
         if parsed is not None:
             return parsed
         reason = 'Please enter a date as YYYY-MM-DD.'
@@ -314,8 +300,8 @@ def _read_end_date(ui: WizardUiBridge, question: str, start_date: date
     """Ask for an end date that is not before ``start_date``."""
     reason: Optional[str] = None
     while True:
-        answer = _as_text(ui.ask(f'{question} (YYYY-MM-DD)', reason))
-        parsed = _parse_date(answer)
+        answer = ui.ask_text(f'{question} (YYYY-MM-DD)', reason, nullable=True)
+        parsed = _parse_date(answer) if answer is not None else None
         if parsed is None:
             reason = 'Please enter a date as YYYY-MM-DD.'
         elif parsed < start_date:
@@ -329,9 +315,9 @@ def _read_opt_date(ui: WizardUiBridge, question: str,
     """Ask for an optional ISO date not before an optional start date."""
     reason: Optional[str] = None
     while True:
-        answer = _as_text(ui.ask(f'{question} (YYYY-MM-DD, blank for none)',
-                                 reason))
-        if answer == '':
+        answer = ui.ask_text(f'{question} (YYYY-MM-DD, blank for none)',
+                             reason, nullable=True)
+        if answer is None:
             return None
         parsed = _parse_date(answer)
         if parsed is None:
@@ -347,8 +333,8 @@ def _read_unique_name(ui: WizardUiBridge, question: str,
     """Ask for a person name that is not already a key in ``persons``."""
     reason: Optional[str] = None
     while True:
-        answer = _as_text(ui.ask(question, reason))
-        if answer == '':
+        answer = ui.ask_text(question, reason, nullable=True)
+        if answer is None:
             reason = 'Please enter a non-empty value.'
         elif answer.lower() in persons:
             reason = f'A person named {answer!r} already exists.'
@@ -361,8 +347,8 @@ def _read_preset_name(ui: WizardUiBridge, question: str, used: set[str]
     """Ask for a preset name of letters and digits that is unused."""
     reason: Optional[str] = None
     while True:
-        answer = _as_text(ui.ask(question, reason))
-        if PRESET_NAME_RE.match(answer) is None:
+        answer = ui.ask_text(question, reason, nullable=True)
+        if answer is None or PRESET_NAME_RE.match(answer) is None:
             reason = 'Use only letters and digits for a preset name.'
         elif answer in used:
             reason = f'A preset named {answer!r} already exists.'

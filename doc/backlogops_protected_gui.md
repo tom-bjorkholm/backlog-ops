@@ -1,38 +1,45 @@
 # Table of Contents
 
 * [backlogops\_gui.gui\_wizard](#backlogops_gui.gui_wizard)
+  * [\_uniform](#backlogops_gui.gui_wizard._uniform)
+  * [\_new\_row\_template](#backlogops_gui.gui_wizard._new_row_template)
   * [\_Cell](#backlogops_gui.gui_wizard._Cell)
   * [\_cell\_text](#backlogops_gui.gui_wizard._cell_text)
   * [\_TableEditor](#backlogops_gui.gui_wizard._TableEditor)
     * [\_\_init\_\_](#backlogops_gui.gui_wizard._TableEditor.__init__)
+    * [is\_variable](#backlogops_gui.gui_wizard._TableEditor.is_variable)
     * [values](#backlogops_gui.gui_wizard._TableEditor.values)
+    * [add\_row](#backlogops_gui.gui_wizard._TableEditor.add_row)
+    * [remove\_row](#backlogops_gui.gui_wizard._TableEditor.remove_row)
+    * [\_build\_grid\_area](#backlogops_gui.gui_wizard._TableEditor._build_grid_area)
+    * [\_build\_scroll](#backlogops_gui.gui_wizard._TableEditor._build_scroll)
+    * [\_scroll\_to\_end](#backlogops_gui.gui_wizard._TableEditor._scroll_to_end)
     * [\_build\_header](#backlogops_gui.gui_wizard._TableEditor._build_header)
-    * [\_build\_row](#backlogops_gui.gui_wizard._TableEditor._build_row)
+    * [\_append\_cells](#backlogops_gui.gui_wizard._TableEditor._append_cells)
     * [\_build\_cell](#backlogops_gui.gui_wizard._TableEditor._build_cell)
     * [\_editable\_widget](#backlogops_gui.gui_wizard._TableEditor._editable_widget)
     * [\_bind\_change](#backlogops_gui.gui_wizard._TableEditor._bind_change)
     * [\_feedback](#backlogops_gui.gui_wizard._TableEditor._feedback)
+    * [\_show](#backlogops_gui.gui_wizard._TableEditor._show)
   * [\_WizardWindow](#backlogops_gui.gui_wizard._WizardWindow)
     * [\_\_init\_\_](#backlogops_gui.gui_wizard._WizardWindow.__init__)
     * [\_build\_messages](#backlogops_gui.gui_wizard._WizardWindow._build_messages)
     * [show](#backlogops_gui.gui_wizard._WizardWindow.show)
     * [close](#backlogops_gui.gui_wizard._WizardWindow.close)
-    * [ask](#backlogops_gui.gui_wizard._WizardWindow.ask)
+    * [ask\_text](#backlogops_gui.gui_wizard._WizardWindow.ask_text)
     * [ask\_yes\_no](#backlogops_gui.gui_wizard._WizardWindow.ask_yes_no)
     * [ask\_choice](#backlogops_gui.gui_wizard._WizardWindow.ask_choice)
     * [ask\_multi](#backlogops_gui.gui_wizard._WizardWindow.ask_multi)
     * [ask\_table](#backlogops_gui.gui_wizard._WizardWindow.ask_table)
-    * [\_ask\_text](#backlogops_gui.gui_wizard._WizardWindow._ask_text)
-    * [\_ask\_index](#backlogops_gui.gui_wizard._WizardWindow._ask_index)
     * [\_run\_multi](#backlogops_gui.gui_wizard._WizardWindow._run_multi)
     * [\_choice\_list](#backlogops_gui.gui_wizard._WizardWindow._choice_list)
     * [\_preset\_indexes](#backlogops_gui.gui_wizard._WizardWindow._preset_indexes)
-    * [\_pick](#backlogops_gui.gui_wizard._WizardWindow._pick)
     * [\_pick\_one](#backlogops_gui.gui_wizard._WizardWindow._pick_one)
     * [\_pick\_many](#backlogops_gui.gui_wizard._WizardWindow._pick_many)
     * [\_begin](#backlogops_gui.gui_wizard._WizardWindow._begin)
     * [\_add\_label](#backlogops_gui.gui_wizard._WizardWindow._add_label)
     * [\_add\_buttons](#backlogops_gui.gui_wizard._WizardWindow._add_buttons)
+    * [\_add\_table\_buttons](#backlogops_gui.gui_wizard._WizardWindow._add_table_buttons)
     * [\_add\_nav\_buttons](#backlogops_gui.gui_wizard._WizardWindow._add_nav_buttons)
     * [\_wait](#backlogops_gui.gui_wizard._WizardWindow._wait)
     * [\_finish](#backlogops_gui.gui_wizard._WizardWindow._finish)
@@ -42,7 +49,7 @@
     * [\_navigate](#backlogops_gui.gui_wizard._WizardWindow._navigate)
   * [TkWizardBridge](#backlogops_gui.gui_wizard.TkWizardBridge)
     * [\_\_init\_\_](#backlogops_gui.gui_wizard.TkWizardBridge.__init__)
-    * [ask](#backlogops_gui.gui_wizard.TkWizardBridge.ask)
+    * [ask\_text](#backlogops_gui.gui_wizard.TkWizardBridge.ask_text)
     * [ask\_yes\_no](#backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no)
     * [ask\_choice](#backlogops_gui.gui_wizard.TkWizardBridge.ask_choice)
     * [ask\_multi](#backlogops_gui.gui_wizard.TkWizardBridge.ask_multi)
@@ -230,14 +237,45 @@ Graphical bridge that drives the synchronous teams wizard.
 
 The teams configuration wizard asks its questions through a
 :class:`WizardUiBridge`. This module provides :class:`TkWizardBridge`, a
-concrete bridge that overrides every ask method of that base class with a
-real Tkinter control: a text entry, a yes/no button pair, a single- and a
-multi-selection list, and an editable table. All questions are answered in
-one reused, fixed-size window, so the whole wizard session happens in a
-single pop-up that does not jump around the display. Every prompt also
-offers back, out-one-level and abort buttons, which raise the matching
-:class:`WizardNavigation` request so the wizard can step within the
-configuration or abandon it.
+concrete bridge that overrides every typed ask method of that base class
+with a real Tkinter control: a text entry, a yes/no button pair, a
+single- and a multi-selection list, and an editable table. All questions
+are answered in one reused, fixed-size window, so the whole wizard
+session happens in a single pop-up that does not jump around the display.
+Every prompt also offers back, out-one-level and abort buttons, which
+raise the matching :class:`WizardNavigation` request so the wizard can
+step within the configuration or abandon it.
+
+A table question may have a fixed set of rows or, when it is asked with
+both a minimum and a maximum row count, a variable set of rows. A
+variable table offers add-row and remove-row buttons and shows its grid
+in a scrolling area, so a long table stays usable in the fixed window.
+
+<a id="backlogops_gui.gui_wizard._uniform"></a>
+
+#### \_uniform
+
+```python
+def _uniform(values: list[_V], default: _V) -> _V
+```
+
+Return the value shared by every entry, or the default.
+
+<a id="backlogops_gui.gui_wizard._new_row_template"></a>
+
+#### \_new\_row\_template
+
+```python
+def _new_row_template(columns: Sequence[TableColumn],
+                      rows: Sequence[Sequence[TableCell]]) -> list[TableCell]
+```
+
+Return the cell descriptors used for rows added at run time.
+
+For each column the new cell keeps the value, choices and nullable
+flag shared by every seed cell of that column, and falls back to an
+empty string, no choices and not-nullable when they differ. A cell in
+an added row is always editable, even in a read-only column.
 
 <a id="backlogops_gui.gui_wizard._Cell"></a>
 
@@ -250,9 +288,9 @@ class _Cell()
 
 One built table cell: its widget and how its value is read.
 
-A read-only cell keeps the fixed text it shows. An editable cell keeps
-the widget the user types in or selects from, and whether an empty
-cell is reported as ``None``.
+A read-only cell keeps the fixed text it shows in its label. An
+editable cell keeps the widget the user types in or selects from, and
+whether an empty cell is reported as ``None``.
 
 <a id="backlogops_gui.gui_wizard._cell_text"></a>
 
@@ -274,17 +312,36 @@ class _TableEditor()
 
 An editable grid of cells for one table question.
 
+A fixed table fills the seed rows only. A variable table, asked with
+both a minimum and a maximum row count, adds editable rows up to the
+maximum and removes the last row down to the minimum. A variable
+table shows its grid in a scrolling area, so a long table stays
+usable in the fixed wizard window.
+
 <a id="backlogops_gui.gui_wizard._TableEditor.__init__"></a>
 
 #### \_\_init\_\_
 
 ```python
-def __init__(parent: tk.Misc, columns: Sequence[TableColumn],
+def __init__(parent: tk.Misc,
+             columns: Sequence[TableColumn],
              rows: Sequence[Sequence[TableCell]],
-             partial_check: Optional[PartialCheck]) -> None
+             partial_check: Optional[PartialCheck],
+             min_rows: Optional[int] = None,
+             max_rows: Optional[int] = None) -> None
 ```
 
-Build the header and one widget per cell of the given rows.
+Build the header and one widget per cell of the seed rows.
+
+<a id="backlogops_gui.gui_wizard._TableEditor.is_variable"></a>
+
+#### is\_variable
+
+```python
+def is_variable() -> bool
+```
+
+Return whether the table can add and remove rows.
 
 <a id="backlogops_gui.gui_wizard._TableEditor.values"></a>
 
@@ -296,6 +353,56 @@ def values() -> list[list[Optional[str]]]
 
 Return the whole table as rows of final cell strings.
 
+<a id="backlogops_gui.gui_wizard._TableEditor.add_row"></a>
+
+#### add\_row
+
+```python
+def add_row() -> None
+```
+
+Append one editable row, up to the maximum row count.
+
+<a id="backlogops_gui.gui_wizard._TableEditor.remove_row"></a>
+
+#### remove\_row
+
+```python
+def remove_row() -> None
+```
+
+Remove the last row, down to the minimum row count.
+
+<a id="backlogops_gui.gui_wizard._TableEditor._build_grid_area"></a>
+
+#### \_build\_grid\_area
+
+```python
+def _build_grid_area(parent: tk.Misc) -> tk.Frame
+```
+
+Return the frame holding the grid, scrolling when variable.
+
+<a id="backlogops_gui.gui_wizard._TableEditor._build_scroll"></a>
+
+#### \_build\_scroll
+
+```python
+def _build_scroll(parent: tk.Misc) -> tk.Frame
+```
+
+Build a fixed-height scrolling area and return its inner frame.
+
+<a id="backlogops_gui.gui_wizard._TableEditor._scroll_to_end"></a>
+
+#### \_scroll\_to\_end
+
+```python
+def _scroll_to_end() -> None
+```
+
+Bring the newly added last row into the scrolling area.
+
 <a id="backlogops_gui.gui_wizard._TableEditor._build_header"></a>
 
 #### \_build\_header
@@ -306,23 +413,23 @@ def _build_header() -> None
 
 Show one bold heading label per column.
 
-<a id="backlogops_gui.gui_wizard._TableEditor._build_row"></a>
+<a id="backlogops_gui.gui_wizard._TableEditor._append_cells"></a>
 
-#### \_build\_row
+#### \_append\_cells
 
 ```python
-def _build_row(row_index: int, row: Sequence[TableCell]) -> None
+def _append_cells(row: Sequence[TableCell], added: bool) -> None
 ```
 
-Build and store one widget per column of one table row.
+Build and store one widget per column of one new table row.
 
 <a id="backlogops_gui.gui_wizard._TableEditor._build_cell"></a>
 
 #### \_build\_cell
 
 ```python
-def _build_cell(row_index: int, col: int, column: TableColumn,
-                cell: TableCell) -> _Cell
+def _build_cell(index: int, col: int, pair: tuple[TableColumn, TableCell],
+                added: bool) -> _Cell
 ```
 
 Build one read-only label or one editable cell widget.
@@ -356,6 +463,16 @@ def _feedback(row: int, col: int) -> None
 ```
 
 Run the partial check and show its message for one cell.
+
+<a id="backlogops_gui.gui_wizard._TableEditor._show"></a>
+
+#### \_show
+
+```python
+def _show(message: str) -> None
+```
+
+Show a status message below the grid.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow"></a>
 
@@ -407,16 +524,16 @@ def close() -> None
 
 Destroy the wizard window.
 
-<a id="backlogops_gui.gui_wizard._WizardWindow.ask"></a>
+<a id="backlogops_gui.gui_wizard._WizardWindow.ask_text"></a>
 
-#### ask
+#### ask\_text
 
 ```python
-def ask(question: str, re_ask: Optional[str],
-        choices: Optional[Sequence[str]]) -> str | int
+def ask_text(question: str, re_ask: Optional[str],
+             nullable: bool) -> Optional[str]
 ```
 
-Ask one free-text or choice question and return the answer.
+Ask one free-text question and return the entered text.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow.ask_yes_no"></a>
 
@@ -456,34 +573,14 @@ Ask the user to pick several choices within the count bounds.
 #### ask\_table
 
 ```python
-def ask_table(
-        columns: Sequence[TableColumn], cells: Sequence[Sequence[TableCell]],
-        question: str, re_ask: Optional[str],
-        partial_check: Optional[PartialCheck]) -> list[list[Optional[str]]]
+def ask_table(columns: Sequence[TableColumn],
+              cells: Sequence[Sequence[TableCell]], question: str,
+              re_ask: Optional[str], partial_check: Optional[PartialCheck],
+              min_rows: Optional[int],
+              max_rows: Optional[int]) -> list[list[Optional[str]]]
 ```
 
 Ask the user to fill the given table rows and return them.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._ask_text"></a>
-
-#### \_ask\_text
-
-```python
-def _ask_text(question: str, re_ask: Optional[str]) -> str
-```
-
-Ask one free-text question and return the entered text.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._ask_index"></a>
-
-#### \_ask\_index
-
-```python
-def _ask_index(question: str, re_ask: Optional[str],
-               choices: Sequence[str]) -> str | int
-```
-
-Ask one question with a single-selection list of choices.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow._run_multi"></a>
 
@@ -518,16 +615,6 @@ def _preset_indexes(choices: Sequence[str],
 ```
 
 Return the indexes to preselect from a default value or list.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._pick"></a>
-
-#### \_pick
-
-```python
-def _pick(listbox: tk.Listbox) -> None
-```
-
-Finish a choice question with the selected zero-based index.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow._pick_one"></a>
 
@@ -574,11 +661,20 @@ Add one wrapped label to the content area.
 #### \_add\_buttons
 
 ```python
-def _add_buttons(on_ok: Callable[[], None],
-                 on_default: Optional[Callable[[], None]]) -> None
+def _add_buttons(on_ok: Callable[[], None]) -> None
 ```
 
-Add the confirm, optional default, and navigation buttons.
+Add the confirm and navigation buttons.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow._add_table_buttons"></a>
+
+#### \_add\_table\_buttons
+
+```python
+def _add_table_buttons(editor: _TableEditor) -> None
+```
+
+Add confirm, optional add/remove-row and navigation buttons.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow._add_nav_buttons"></a>
 
@@ -675,17 +771,17 @@ Store the parent window and the optional diagnostics log.
 - `parent` - The window the wizard window is shown over.
 - `log` - Stream that receives low-level wizard diagnostics.
 
-<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask"></a>
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_text"></a>
 
-#### ask
+#### ask\_text
 
 ```python
-def ask(question: str,
-        re_ask_reason: Optional[str] = None,
-        choices: Optional[Sequence[str]] = None) -> str | int
+def ask_text(question: str,
+             re_ask_reason: Optional[str] = None,
+             nullable: bool = False) -> Optional[str]
 ```
 
-Ask one free-text or choice question; see WizardUiBridge.ask.
+Ask for free text; see WizardUiBridge.ask_text.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no"></a>
 
@@ -746,9 +842,10 @@ def ask_table(columns: Sequence[TableColumn],
 
 Ask the user to fill an editable table of the given rows.
 
-Like the console bridge, this fills the rows given in ``cells`` and
-does not add or remove rows, so ``min_rows`` and ``max_rows`` are
-accepted but leave the row set fixed.
+With both ``min_rows`` and ``max_rows`` given the table has a
+variable number of rows: add-row and remove-row buttons grow the
+table up to ``max_rows`` and shrink it down to ``min_rows``.
+Otherwise the rows given in ``cells`` are fixed and only filled.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.show"></a>
 

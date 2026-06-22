@@ -11,7 +11,7 @@ from tableio_cfg_json import TableCell, TableColumn, WizardAbort, \
     WizardBack, WizardCancelLevel
 from backlogops import NoTextIO
 from backlogops_gui.gui_wizard import TkWizardBridge, _TableEditor, \
-    _WizardWindow
+    _WizardWindow, _new_row_template, _uniform
 
 
 def _root_or_skip() -> tk.Tk:
@@ -48,7 +48,31 @@ def test_real_text() -> None:
     try:
         bridge = TkWizardBridge(root)
         root.after(0, lambda: bridge._window_obj()._finish('typed'))
-        assert bridge.ask('Name?') == 'typed'
+        assert bridge.ask_text('Name?') == 'typed'
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_text_null() -> None:
+    """Test an empty answer is reported as None when the cell is nullable."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._finish(''))
+        assert bridge.ask_text('Name?', nullable=True) is None
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_text_empty() -> None:
+    """Test an empty answer is the empty string when not nullable."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._finish(''))
+        assert bridge.ask_text('Name?') == ''
         bridge.close()
     finally:
         root.destroy()
@@ -60,7 +84,7 @@ def test_real_reask() -> None:
     try:
         bridge = TkWizardBridge(root)
         root.after(0, lambda: bridge._window_obj()._finish('again'))
-        assert bridge.ask('Name?', 'try again') == 'again'
+        assert bridge.ask_text('Name?', 'try again') == 'again'
         bridge.close()
     finally:
         root.destroy()
@@ -72,21 +96,9 @@ def test_real_reuse_window() -> None:
     try:
         bridge = TkWizardBridge(root)
         root.after(0, lambda: bridge._window_obj()._finish('one'))
-        assert bridge.ask('Q1?') == 'one'
+        assert bridge.ask_text('Q1?') == 'one'
         root.after(0, lambda: bridge._window_obj()._finish('two'))
-        assert bridge.ask('Q2?') == 'two'
-        bridge.close()
-    finally:
-        root.destroy()
-
-
-def test_real_index() -> None:
-    """Test a real window returns the selected choice index."""
-    root = _root_or_skip()
-    try:
-        bridge = TkWizardBridge(root)
-        root.after(0, lambda: bridge._window_obj()._finish(1))
-        assert bridge.ask('Pick', None, ['a', 'b', 'c']) == 1
+        assert bridge.ask_text('Q2?') == 'two'
         bridge.close()
     finally:
         root.destroy()
@@ -142,6 +154,28 @@ def test_real_table() -> None:
         root.destroy()
 
 
+def test_table_variable_add() -> None:
+    """Test a variable table returns the seed row plus an added row."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        columns = [TableColumn(header='Src'), TableColumn(header='Dst')]
+        cells = [[TableCell(value='a'), TableCell(value='b')]]
+
+        def drive() -> None:
+            window = bridge._window_obj()
+            assert window._editor is not None
+            window._editor.add_row()
+            window._finish(window._editor.values())
+
+        root.after(0, drive)
+        result = bridge.ask_table(columns, cells, 'Q', min_rows=0, max_rows=3)
+        assert result == [['a', 'b'], ['a', 'b']]
+        bridge.close()
+    finally:
+        root.destroy()
+
+
 def test_real_show_and_close() -> None:
     """Test showing a message opens the window, then close removes it."""
     root = _root_or_skip()
@@ -160,7 +194,7 @@ def test_real_abort() -> None:
         bridge = TkWizardBridge(root)
         root.after(0, lambda: bridge._window_obj()._cancel())
         with pytest.raises(WizardAbort):
-            bridge.ask('Name?')
+            bridge.ask_text('Name?')
         bridge.close()
     finally:
         root.destroy()
@@ -173,7 +207,7 @@ def test_real_back() -> None:
         bridge = TkWizardBridge(root)
         root.after(0, lambda: bridge._window_obj()._back())
         with pytest.raises(WizardBack):
-            bridge.ask('Name?')
+            bridge.ask_text('Name?')
         bridge.close()
     finally:
         root.destroy()
@@ -186,10 +220,33 @@ def test_real_cancel_level() -> None:
         bridge = TkWizardBridge(root)
         root.after(0, lambda: bridge._window_obj()._cancel_level())
         with pytest.raises(WizardCancelLevel):
-            bridge.ask('Name?')
+            bridge.ask_text('Name?')
         bridge.close()
     finally:
         root.destroy()
+
+
+def test_uniform() -> None:
+    """Test a shared value is kept and a mix falls back to the default."""
+    assert _uniform([1, 1, 1], 0) == 1
+    assert _uniform([1, 2], 0) == 0
+    assert _uniform([], 0) == 0
+
+
+def test_new_row_template() -> None:
+    """Test the added-row template keeps shared cells and clears the rest."""
+    columns = [TableColumn(header='A'), TableColumn(header='B')]
+    rows = [[TableCell(value='x', choices=('x', 'y')), TableCell(value='m')],
+            [TableCell(value='x', choices=('x', 'y')), TableCell(value='n')]]
+    template = _new_row_template(columns, rows)
+    assert template[0] == TableCell(value='x', choices=('x', 'y'))
+    assert template[1] == TableCell(value='')
+
+
+def test_template_empty() -> None:
+    """Test the template of an empty seed is all default cells."""
+    columns = [TableColumn(header='A')]
+    assert _new_row_template(columns, []) == [TableCell(value='')]
 
 
 def test_table_editor_text() -> None:
@@ -201,6 +258,7 @@ def test_table_editor_text() -> None:
         cells = [[TableCell(value='Mon'), TableCell(value='8')]]
         editor = _TableEditor(tk.Frame(root), columns, cells, None)
         assert editor.values() == [['Mon', '8']]
+        assert editor.is_variable() is False
     finally:
         root.destroy()
 
@@ -225,6 +283,86 @@ def test_table_editor_choice() -> None:
         cells = [[TableCell(value='a', choices=('a', 'b'))]]
         editor = _TableEditor(tk.Frame(root), columns, cells, None)
         assert editor.values() == [['a']]
+    finally:
+        root.destroy()
+
+
+def test_table_add_row() -> None:
+    """Test adding a row appends an editable row from the template."""
+    root = _root_or_skip()
+    try:
+        columns = [TableColumn(header='Src'), TableColumn(header='Dst')]
+        cells = [[TableCell(value='a'), TableCell(value='b')]]
+        editor = _TableEditor(tk.Frame(root), columns, cells, None, min_rows=0,
+                              max_rows=3)
+        assert editor.is_variable() is True
+        editor.add_row()
+        assert editor.values() == [['a', 'b'], ['a', 'b']]
+    finally:
+        root.destroy()
+
+
+def test_table_add_row_at_max() -> None:
+    """Test adding past the maximum keeps the rows and warns the user."""
+    root = _root_or_skip()
+    try:
+        columns = [TableColumn(header='X')]
+        cells = [[TableCell(value='v')]]
+        editor = _TableEditor(tk.Frame(root), columns, cells, None, min_rows=0,
+                              max_rows=2)
+        editor.add_row()
+        editor.add_row()
+        assert len(editor.values()) == 2
+        assert 'At most 2' in editor._status.cget('text')
+    finally:
+        root.destroy()
+
+
+def test_table_remove_row() -> None:
+    """Test removing a row drops the last row of the table."""
+    root = _root_or_skip()
+    try:
+        columns = [TableColumn(header='A'), TableColumn(header='B')]
+        cells = [[TableCell(value='a'), TableCell(value='b')],
+                 [TableCell(value='c'), TableCell(value='d')]]
+        editor = _TableEditor(tk.Frame(root), columns, cells, None, min_rows=0,
+                              max_rows=3)
+        editor.remove_row()
+        assert editor.values() == [['a', 'b']]
+    finally:
+        root.destroy()
+
+
+def test_remove_row_at_min() -> None:
+    """Test removing past the minimum keeps the rows and warns the user."""
+    root = _root_or_skip()
+    try:
+        columns = [TableColumn(header='X')]
+        cells = [[TableCell(value='v')]]
+        editor = _TableEditor(tk.Frame(root), columns, cells, None, min_rows=1,
+                              max_rows=3)
+        editor.remove_row()
+        assert len(editor.values()) == 1
+        assert 'At least 1' in editor._status.cget('text')
+    finally:
+        root.destroy()
+
+
+def test_added_row_editable() -> None:
+    """Test an added row is editable even in a read-only column."""
+    root = _root_or_skip()
+    try:
+        columns = [TableColumn(header='Day', read_only=True),
+                   TableColumn(header='Hours')]
+        cells = [[TableCell(value='Mon'), TableCell(value='8')]]
+        editor = _TableEditor(tk.Frame(root), columns, cells, None, min_rows=0,
+                              max_rows=2)
+        assert editor._cells[0][0].read_only is True
+        editor.add_row()
+        added = editor._cells[1][0]
+        assert added.read_only is False
+        assert isinstance(added.widget, tk.Entry)
+        assert editor.values()[1][0] == 'Mon'
     finally:
         root.destroy()
 
@@ -257,20 +395,6 @@ def test_pick_many() -> None:
         listbox.selection_set(2)
         window._pick_many(listbox, ['a', 'b', 'c'])
         assert window._result == ['a', 'c']
-        window.close()
-    finally:
-        root.destroy()
-
-
-def test_pick_empty() -> None:
-    """Test picking with no selection leaves the answer unset."""
-    root = _root_or_skip()
-    try:
-        window = _WizardWindow(tk.Frame(root))
-        listbox = tk.Listbox(window._content)
-        listbox.insert('end', 'a')
-        window._pick(listbox)
-        assert window._result == ''
         window.close()
     finally:
         root.destroy()

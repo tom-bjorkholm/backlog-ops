@@ -3,7 +3,7 @@
 * [backlogops\_gui.gui\_wizard](#backlogops_gui.gui_wizard)
   * [TkWizardBridge](#backlogops_gui.gui_wizard.TkWizardBridge)
     * [\_\_init\_\_](#backlogops_gui.gui_wizard.TkWizardBridge.__init__)
-    * [ask](#backlogops_gui.gui_wizard.TkWizardBridge.ask)
+    * [ask\_text](#backlogops_gui.gui_wizard.TkWizardBridge.ask_text)
     * [ask\_yes\_no](#backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no)
     * [ask\_choice](#backlogops_gui.gui_wizard.TkWizardBridge.ask_choice)
     * [ask\_multi](#backlogops_gui.gui_wizard.TkWizardBridge.ask_multi)
@@ -97,14 +97,19 @@ Graphical bridge that drives the synchronous teams wizard.
 
 The teams configuration wizard asks its questions through a
 :class:`WizardUiBridge`. This module provides :class:`TkWizardBridge`, a
-concrete bridge that overrides every ask method of that base class with a
-real Tkinter control: a text entry, a yes/no button pair, a single- and a
-multi-selection list, and an editable table. All questions are answered in
-one reused, fixed-size window, so the whole wizard session happens in a
-single pop-up that does not jump around the display. Every prompt also
-offers back, out-one-level and abort buttons, which raise the matching
-:class:`WizardNavigation` request so the wizard can step within the
-configuration or abandon it.
+concrete bridge that overrides every typed ask method of that base class
+with a real Tkinter control: a text entry, a yes/no button pair, a
+single- and a multi-selection list, and an editable table. All questions
+are answered in one reused, fixed-size window, so the whole wizard
+session happens in a single pop-up that does not jump around the display.
+Every prompt also offers back, out-one-level and abort buttons, which
+raise the matching :class:`WizardNavigation` request so the wizard can
+step within the configuration or abandon it.
+
+A table question may have a fixed set of rows or, when it is asked with
+both a minimum and a maximum row count, a variable set of rows. A
+variable table offers add-row and remove-row buttons and shows its grid
+in a scrolling area, so a long table stays usable in the fixed window.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge"></a>
 
@@ -131,17 +136,17 @@ Store the parent window and the optional diagnostics log.
 - `parent` - The window the wizard window is shown over.
 - `log` - Stream that receives low-level wizard diagnostics.
 
-<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask"></a>
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_text"></a>
 
-#### ask
+#### ask\_text
 
 ```python
-def ask(question: str,
-        re_ask_reason: Optional[str] = None,
-        choices: Optional[Sequence[str]] = None) -> str | int
+def ask_text(question: str,
+             re_ask_reason: Optional[str] = None,
+             nullable: bool = False) -> Optional[str]
 ```
 
-Ask one free-text or choice question; see WizardUiBridge.ask.
+Ask for free text; see WizardUiBridge.ask_text.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no"></a>
 
@@ -202,9 +207,10 @@ def ask_table(columns: Sequence[TableColumn],
 
 Ask the user to fill an editable table of the given rows.
 
-Like the console bridge, this fills the rows given in ``cells`` and
-does not add or remove rows, so ``min_rows`` and ``max_rows`` are
-accepted but leave the row set fixed.
+With both ``min_rows`` and ``max_rows`` given the table has a
+variable number of rows: add-row and remove-row buttons grow the
+table up to ``max_rows`` and shrink it down to ``min_rows``.
+Otherwise the rows given in ``cells`` are fixed and only filled.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.show"></a>
 

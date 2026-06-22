@@ -3,14 +3,19 @@
 
 The teams configuration wizard asks its questions through a
 :class:`WizardUiBridge`. This module provides :class:`TkWizardBridge`, a
-concrete bridge that overrides every ask method of that base class with a
-real Tkinter control: a text entry, a yes/no button pair, a single- and a
-multi-selection list, and an editable table. All questions are answered in
-one reused, fixed-size window, so the whole wizard session happens in a
-single pop-up that does not jump around the display. Every prompt also
-offers back, out-one-level and abort buttons, which raise the matching
-:class:`WizardNavigation` request so the wizard can step within the
-configuration or abandon it.
+concrete bridge that overrides every typed ask method of that base class
+with a real Tkinter control: a text entry, a yes/no button pair, a
+single- and a multi-selection list, and an editable table. All questions
+are answered in one reused, fixed-size window, so the whole wizard
+session happens in a single pop-up that does not jump around the display.
+Every prompt also offers back, out-one-level and abort buttons, which
+raise the matching :class:`WizardNavigation` request so the wizard can
+step within the configuration or abandon it.
+
+A table question may have a fixed set of rows or, when it is asked with
+both a minimum and a maximum row count, a variable set of rows. A
+variable table offers add-row and remove-row buttons and shows its grid
+in a scrolling area, so a long table stays usable in the fixed window.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -19,7 +24,7 @@ configuration or abandon it.
 import tkinter as tk
 from dataclasses import dataclass
 from tkinter import ttk
-from typing import Callable, Optional, Sequence, TextIO
+from typing import Callable, Optional, Sequence, TextIO, TypeVar
 from tableio_cfg_json import PartialCheck, TableCell, TableColumn, \
     WizardAbort, WizardBack, WizardCancelLevel, WizardNavigation, \
     WizardUiBridge
@@ -30,19 +35,48 @@ WINDOW_SIZE = '620x520'
 WRAP_LENGTH = 520
 MESSAGE_HEIGHT = 8
 CHOICE_HEIGHT = 10
+TABLE_VIEW_HEIGHT = 240
 HEADER_FONT = ('TkDefaultFont', 10, 'bold')
+
+_V = TypeVar('_V')
+
+
+def _uniform(values: list[_V], default: _V) -> _V:
+    """Return the value shared by every entry, or the default."""
+    if values and all(value == values[0] for value in values):
+        return values[0]
+    return default
+
+
+def _new_row_template(columns: Sequence[TableColumn],
+                      rows: Sequence[Sequence[TableCell]]) -> list[TableCell]:
+    """Return the cell descriptors used for rows added at run time.
+
+    For each column the new cell keeps the value, choices and nullable
+    flag shared by every seed cell of that column, and falls back to an
+    empty string, no choices and not-nullable when they differ. A cell in
+    an added row is always editable, even in a read-only column.
+    """
+    template: list[TableCell] = []
+    for col in range(len(columns)):
+        column = [row[col] for row in rows]
+        template.append(TableCell(
+            value=_uniform([cell.value for cell in column], ''),
+            choices=_uniform([cell.choices for cell in column], None),
+            nullable=_uniform([cell.nullable for cell in column], False)))
+    return template
 
 
 @dataclass(frozen=True)
 class _Cell:
     """One built table cell: its widget and how its value is read.
 
-    A read-only cell keeps the fixed text it shows. An editable cell keeps
-    the widget the user types in or selects from, and whether an empty
-    cell is reported as ``None``.
+    A read-only cell keeps the fixed text it shows in its label. An
+    editable cell keeps the widget the user types in or selects from, and
+    whether an empty cell is reported as ``None``.
     """
 
-    widget: Optional[tk.Widget]
+    widget: tk.Widget
     read_only: bool
     fixed: Optional[str]
     nullable: bool
@@ -50,7 +84,7 @@ class _Cell:
 
 def _cell_text(cell: _Cell) -> Optional[str]:
     """Return the final string a cell holds, or None for an empty cell."""
-    if cell.read_only or cell.widget is None:
+    if cell.read_only:
         return cell.fixed
     assert isinstance(cell.widget, (tk.Entry, ttk.Combobox))
     text = cell.widget.get()
@@ -59,64 +93,132 @@ def _cell_text(cell: _Cell) -> Optional[str]:
     return text
 
 
-# pylint: disable-next=too-few-public-methods
+# pylint: disable-next=too-many-instance-attributes
 class _TableEditor:
-    """An editable grid of cells for one table question."""
+    """An editable grid of cells for one table question.
 
+    A fixed table fills the seed rows only. A variable table, asked with
+    both a minimum and a maximum row count, adds editable rows up to the
+    maximum and removes the last row down to the minimum. A variable
+    table shows its grid in a scrolling area, so a long table stays
+    usable in the fixed wizard window.
+    """
+
+    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
     def __init__(self, parent: tk.Misc, columns: Sequence[TableColumn],
                  rows: Sequence[Sequence[TableCell]],
-                 partial_check: Optional[PartialCheck]) -> None:
-        """Build the header and one widget per cell of the given rows."""
+                 partial_check: Optional[PartialCheck],
+                 min_rows: Optional[int] = None,
+                 max_rows: Optional[int] = None) -> None:
+        """Build the header and one widget per cell of the seed rows."""
         self._columns = columns
         self._check = partial_check
+        self._variable = min_rows is not None and max_rows is not None
+        self._min_rows = len(rows) if min_rows is None else min_rows
+        self._max_rows = len(rows) if max_rows is None else max_rows
+        self._template = _new_row_template(columns, rows)
         self._cells: list[list[_Cell]] = []
-        self._frame = tk.Frame(parent)
-        self._frame.pack(anchor='w', pady=6)
+        self._canvas: Optional[tk.Canvas] = None
+        self._grid = self._build_grid_area(parent)
         self._status = tk.Label(parent, fg='red', wraplength=WRAP_LENGTH,
                                 justify='left')
         self._status.pack(anchor='w')
         self._build_header()
-        for row_index, row in enumerate(rows):
-            self._build_row(row_index, row)
+        for row in rows:
+            self._append_cells(list(row), False)
+
+    def is_variable(self) -> bool:
+        """Return whether the table can add and remove rows."""
+        return self._variable
 
     def values(self) -> list[list[Optional[str]]]:
         """Return the whole table as rows of final cell strings."""
         return [[_cell_text(cell) for cell in row] for row in self._cells]
 
+    def add_row(self) -> None:
+        """Append one editable row, up to the maximum row count."""
+        if len(self._cells) >= self._max_rows:
+            self._show(f'At most {self._max_rows} rows allowed.')
+            return
+        self._append_cells(self._template, True)
+        self._show('')
+        self._scroll_to_end()
+
+    def remove_row(self) -> None:
+        """Remove the last row, down to the minimum row count."""
+        if len(self._cells) <= self._min_rows:
+            self._show(f'At least {self._min_rows} rows required.')
+            return
+        for cell in self._cells.pop():
+            cell.widget.destroy()
+        self._show('')
+
+    def _build_grid_area(self, parent: tk.Misc) -> tk.Frame:
+        """Return the frame holding the grid, scrolling when variable."""
+        if not self._variable:
+            frame = tk.Frame(parent)
+            frame.pack(anchor='w', pady=6)
+            return frame
+        return self._build_scroll(parent)
+
+    def _build_scroll(self, parent: tk.Misc) -> tk.Frame:
+        """Build a fixed-height scrolling area and return its inner frame."""
+        box = tk.Frame(parent)
+        box.pack(anchor='w', fill='x', pady=6)
+        canvas = tk.Canvas(box, height=TABLE_VIEW_HEIGHT, highlightthickness=0)
+        scrollbar = tk.Scrollbar(box, orient='vertical', command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side='right', fill='y')
+        canvas.pack(side='left', fill='both', expand=True)
+        inner = tk.Frame(canvas)
+        canvas.create_window((0, 0), window=inner, anchor='nw')
+        inner.bind('<Configure>', lambda _event: canvas.configure(
+            scrollregion=canvas.bbox('all')))
+        self._canvas = canvas
+        return inner
+
+    def _scroll_to_end(self) -> None:
+        """Bring the newly added last row into the scrolling area."""
+        assert self._canvas is not None
+        self._canvas.update_idletasks()
+        self._canvas.yview_moveto(1.0)
+
     def _build_header(self) -> None:
         """Show one bold heading label per column."""
         for col, column in enumerate(self._columns):
-            tk.Label(self._frame, text=column.header, font=HEADER_FONT).grid(
+            tk.Label(self._grid, text=column.header, font=HEADER_FONT).grid(
                 row=0, column=col, padx=4, pady=2, sticky='w')
 
-    def _build_row(self, row_index: int, row: Sequence[TableCell]) -> None:
-        """Build and store one widget per column of one table row."""
-        cells = [self._build_cell(row_index, col, column, cell)
-                 for col, (column, cell) in enumerate(zip(self._columns, row))]
-        self._cells.append(cells)
+    def _append_cells(self, row: Sequence[TableCell], added: bool) -> None:
+        """Build and store one widget per column of one new table row."""
+        index = len(self._cells)
+        built = [self._build_cell(index, col, pair, added)
+                 for col, pair in enumerate(zip(self._columns, row))]
+        self._cells.append(built)
 
-    def _build_cell(self, row_index: int, col: int, column: TableColumn,
-                    cell: TableCell) -> _Cell:
+    def _build_cell(self, index: int, col: int,
+                    pair: tuple[TableColumn, TableCell], added: bool) -> _Cell:
         """Build one read-only label or one editable cell widget."""
-        grid_row = row_index + 1
-        if column.read_only:
-            label = tk.Label(self._frame, text=cell.value or '')
+        column, cell = pair
+        grid_row = index + 1
+        if column.read_only and not added:
+            label = tk.Label(self._grid, text=cell.value or '')
             label.grid(row=grid_row, column=col, padx=4, pady=2, sticky='w')
-            return _Cell(None, True, cell.value, False)
+            return _Cell(label, True, cell.value, False)
         widget = self._editable_widget(cell)
         widget.grid(row=grid_row, column=col, padx=4, pady=2)
-        self._bind_change(widget, row_index, col)
+        self._bind_change(widget, index, col)
         return _Cell(widget, False, None, cell.nullable)
 
     def _editable_widget(self, cell: TableCell) -> tk.Widget:
         """Return a drop-down for a cell with choices, else a text entry."""
         if cell.choices is not None:
-            box = ttk.Combobox(self._frame, values=list(cell.choices),
+            box = ttk.Combobox(self._grid, values=list(cell.choices),
                                state='readonly', width=18)
             if cell.value is not None:
                 box.set(cell.value)
             return box
-        entry = tk.Entry(self._frame, width=20)
+        entry = tk.Entry(self._grid, width=20)
         if cell.value is not None:
             entry.insert(0, cell.value)
         return entry
@@ -133,7 +235,11 @@ class _TableEditor:
         """Run the partial check and show its message for one cell."""
         assert self._check is not None
         accepted, message = self._check(self.values(), (row, col))
-        self._status.config(text='' if accepted else message)
+        self._show('' if accepted else message)
+
+    def _show(self, message: str) -> None:
+        """Show a status message below the grid."""
+        self._status.config(text=message)
 
 
 class _WizardWindow:
@@ -143,6 +249,7 @@ class _WizardWindow:
         """Create the fixed-size window and its lasting message area."""
         self._result: object = ''
         self._nav: Optional[type[WizardNavigation]] = None
+        self._editor: Optional[_TableEditor] = None
         self._win = tk.Toplevel(parent)
         self._win.title(WIZARD_TITLE)
         self._win.geometry(WINDOW_SIZE)
@@ -174,12 +281,18 @@ class _WizardWindow:
         """Destroy the wizard window."""
         self._win.destroy()
 
-    def ask(self, question: str, re_ask: Optional[str],
-            choices: Optional[Sequence[str]]) -> str | int:
-        """Ask one free-text or choice question and return the answer."""
-        if choices is None:
-            return self._ask_text(question, re_ask)
-        return self._ask_index(question, re_ask, choices)
+    def ask_text(self, question: str, re_ask: Optional[str],
+                 nullable: bool) -> Optional[str]:
+        """Ask one free-text question and return the entered text."""
+        self._begin(question, re_ask)
+        entry = tk.Entry(self._content, width=44)
+        entry.pack(anchor='w', pady=6)
+        entry.focus_set()
+        self._add_buttons(lambda: self._finish(entry.get()))
+        self._win.bind('<Return>', lambda event: self._finish(entry.get()))
+        result = self._wait()
+        assert isinstance(result, str)
+        return None if (nullable and result == '') else result
 
     def ask_yes_no(self, question: str, default: bool,
                    re_ask: Optional[str]) -> bool:
@@ -204,7 +317,7 @@ class _WizardWindow:
         """Ask the user to pick exactly one choice and return it."""
         self._begin(question, re_ask)
         listbox = self._choice_list(choices, default, 'browse')
-        self._add_buttons(lambda: self._pick_one(listbox, choices), None)
+        self._add_buttons(lambda: self._pick_one(listbox, choices))
         result = self._wait()
         assert isinstance(result, str)
         return result
@@ -225,39 +338,20 @@ class _WizardWindow:
             else:
                 return chosen
 
+    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
     def ask_table(self, columns: Sequence[TableColumn],
                   cells: Sequence[Sequence[TableCell]], question: str,
-                  re_ask: Optional[str], partial_check: Optional[PartialCheck]
+                  re_ask: Optional[str], partial_check: Optional[PartialCheck],
+                  min_rows: Optional[int], max_rows: Optional[int]
                   ) -> list[list[Optional[str]]]:
         """Ask the user to fill the given table rows and return them."""
         self._begin(question, re_ask)
-        editor = _TableEditor(self._content, columns, cells, partial_check)
-        self._add_buttons(lambda: self._finish(editor.values()), None)
+        editor = _TableEditor(self._content, columns, cells, partial_check,
+                              min_rows, max_rows)
+        self._editor = editor
+        self._add_table_buttons(editor)
         result = self._wait()
         assert isinstance(result, list)
-        return result
-
-    def _ask_text(self, question: str, re_ask: Optional[str]) -> str:
-        """Ask one free-text question and return the entered text."""
-        self._begin(question, re_ask)
-        entry = tk.Entry(self._content, width=44)
-        entry.pack(anchor='w', pady=6)
-        entry.focus_set()
-        self._add_buttons(lambda: self._finish(entry.get()), None)
-        self._win.bind('<Return>', lambda event: self._finish(entry.get()))
-        result = self._wait()
-        assert isinstance(result, str)
-        return result
-
-    def _ask_index(self, question: str, re_ask: Optional[str],
-                   choices: Sequence[str]) -> str | int:
-        """Ask one question with a single-selection list of choices."""
-        self._begin(question, re_ask)
-        listbox = self._choice_list(choices, None, 'browse')
-        self._add_buttons(lambda: self._pick(listbox),
-                          lambda: self._finish(''))
-        result = self._wait()
-        assert isinstance(result, (str, int))
         return result
 
     def _run_multi(self, question: str, re_ask: Optional[str],
@@ -266,7 +360,7 @@ class _WizardWindow:
         """Show a multi-selection list once and return the picked values."""
         self._begin(question, re_ask)
         listbox = self._choice_list(choices, default, 'multiple')
-        self._add_buttons(lambda: self._pick_many(listbox, choices), None)
+        self._add_buttons(lambda: self._pick_many(listbox, choices))
         result = self._wait()
         assert isinstance(result, list)
         return result
@@ -295,12 +389,6 @@ class _WizardWindow:
         return [index for index, choice in enumerate(choices)
                 if choice in wanted]
 
-    def _pick(self, listbox: tk.Listbox) -> None:
-        """Finish a choice question with the selected zero-based index."""
-        picks = listbox.curselection()  # type: ignore[no-untyped-call]
-        if picks:
-            self._finish(int(picks[0]))
-
     def _pick_one(self, listbox: tk.Listbox, choices: Sequence[str]) -> None:
         """Finish a single-choice question with the selected value."""
         picks = listbox.curselection()  # type: ignore[no-untyped-call]
@@ -315,6 +403,7 @@ class _WizardWindow:
     def _begin(self, question: str, re_ask: Optional[str]) -> None:
         """Clear the content area and show the question and any reason."""
         self._nav = None
+        self._editor = None
         self._win.unbind('<Return>')
         for child in self._content.winfo_children():
             child.destroy()
@@ -328,15 +417,25 @@ class _WizardWindow:
                          wraplength=WRAP_LENGTH, justify='left')
         label.pack(anchor='w', pady=4)
 
-    def _add_buttons(self, on_ok: Callable[[], None],
-                     on_default: Optional[Callable[[], None]]) -> None:
-        """Add the confirm, optional default, and navigation buttons."""
+    def _add_buttons(self, on_ok: Callable[[], None]) -> None:
+        """Add the confirm and navigation buttons."""
         box = tk.Frame(self._content)
         box.pack(anchor='w', pady=10)
         tk.Button(box, text='OK', command=on_ok).pack(side='left')
-        if on_default is not None:
-            tk.Button(box, text='Use default',
-                      command=on_default).pack(side='left', padx=6)
+        self._add_nav_buttons(box)
+
+    def _add_table_buttons(self, editor: _TableEditor) -> None:
+        """Add confirm, optional add/remove-row and navigation buttons."""
+        box = tk.Frame(self._content)
+        box.pack(anchor='w', pady=10)
+        tk.Button(box, text='OK',
+                  command=lambda: self._finish(editor.values())).pack(
+                      side='left')
+        if editor.is_variable():
+            tk.Button(box, text='Add row',
+                      command=editor.add_row).pack(side='left', padx=6)
+            tk.Button(box, text='Remove row',
+                      command=editor.remove_row).pack(side='left', padx=6)
         self._add_nav_buttons(box)
 
     def _add_nav_buttons(self, box: tk.Frame) -> None:
@@ -392,10 +491,10 @@ class TkWizardBridge(WizardUiBridge):
         self._log = log
         self._window: Optional[_WizardWindow] = None
 
-    def ask(self, question: str, re_ask_reason: Optional[str] = None,
-            choices: Optional[Sequence[str]] = None) -> str | int:
-        """Ask one free-text or choice question; see WizardUiBridge.ask."""
-        return self._window_obj().ask(question, re_ask_reason, choices)
+    def ask_text(self, question: str, re_ask_reason: Optional[str] = None,
+                 nullable: bool = False) -> Optional[str]:
+        """Ask for free text; see WizardUiBridge.ask_text."""
+        return self._window_obj().ask_text(question, re_ask_reason, nullable)
 
     def ask_yes_no(self, question: str, default: bool,
                    re_ask_reason: Optional[str] = None) -> bool:
@@ -419,7 +518,7 @@ class TkWizardBridge(WizardUiBridge):
                                             min_select, max_select,
                                             re_ask_reason)
 
-    # pylint: disable-next=too-many-arguments,unused-argument
+    # pylint: disable-next=too-many-arguments
     def ask_table(self, columns: Sequence[TableColumn],
                   cells: list[list[TableCell]], question: str, *,
                   re_ask_reason: Optional[str] = None,
@@ -428,12 +527,14 @@ class TkWizardBridge(WizardUiBridge):
                   max_rows: Optional[int] = None) -> list[list[Optional[str]]]:
         """Ask the user to fill an editable table of the given rows.
 
-        Like the console bridge, this fills the rows given in ``cells`` and
-        does not add or remove rows, so ``min_rows`` and ``max_rows`` are
-        accepted but leave the row set fixed.
+        With both ``min_rows`` and ``max_rows`` given the table has a
+        variable number of rows: add-row and remove-row buttons grow the
+        table up to ``max_rows`` and shrink it down to ``min_rows``.
+        Otherwise the rows given in ``cells`` are fixed and only filled.
         """
         return self._window_obj().ask_table(columns, cells, question,
-                                            re_ask_reason, partial_check)
+                                            re_ask_reason, partial_check,
+                                            min_rows, max_rows)
 
     def show(self, message: str) -> None:
         """Show an informational message to the user."""

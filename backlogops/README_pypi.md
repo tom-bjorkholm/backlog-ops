@@ -198,7 +198,7 @@ For the full set of public names see the API documentation linked above.
 
 ## Test summary
 
-- Test result: 1118 passed, 157 warnings in 19s
+- Test result: 1127 passed in 19s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

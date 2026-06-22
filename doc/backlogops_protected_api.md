@@ -93,7 +93,6 @@
     * [ask\_column\_map](#backlogops.available_teams_wizard._Navigator.ask_column_map)
     * [\_ask](#backlogops.available_teams_wizard._Navigator._ask)
     * [\_replaying](#backlogops.available_teams_wizard._Navigator._replaying)
-  * [\_as\_text](#backlogops.available_teams_wizard._as_text)
   * [\_parse\_date](#backlogops.available_teams_wizard._parse_date)
   * [\_read\_text](#backlogops.available_teams_wizard._read_text)
   * [\_read\_number](#backlogops.available_teams_wizard._read_number)
@@ -1990,16 +1989,6 @@ def _replaying() -> bool
 
 Return whether recorded answers are being replayed.
 
-<a id="backlogops.available_teams_wizard._as_text"></a>
-
-#### \_as\_text
-
-```python
-def _as_text(answer: object) -> str
-```
-
-Return a bridge answer as text, accepting a numeric index too.
-
 <a id="backlogops.available_teams_wizard._parse_date"></a>
 
 #### \_parse\_date
@@ -2042,6 +2031,9 @@ def _read_int(ui: WizardUiBridge, question: str, default: int, minimum: int,
 ```
 
 Ask for a whole number within the given bounds.
+
+The bridge's typed ask_int re-asks invalid or out-of-range answers,
+and an empty answer keeps the default.
 
 <a id="backlogops.available_teams_wizard._read_date"></a>
 
