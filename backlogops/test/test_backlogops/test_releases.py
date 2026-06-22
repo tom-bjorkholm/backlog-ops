@@ -6,12 +6,20 @@
 
 from datetime import date, datetime
 from io import StringIO
+from typing import Optional
 
 import pytest
 
 from backlogops.releases import Release, check_releases
 from backlogops.releases import get_release, get_releases
+from backlogops.releases import order_releases_by_date
 from backlogops.no_text_io import NoTextIO
+
+
+def _rel(name: str, planned: Optional[date] = None,
+         estimated: Optional[date] = None) -> Release:
+    """Return one release with optional planned and estimated dates."""
+    return Release(name=name, planned_date=planned, estimated_date=estimated)
 
 
 def _valid_data() -> dict[str, object]:
@@ -180,3 +188,64 @@ def test_check_releases_bad() -> None:
     releases = [Release(name='R 1')]
     with pytest.raises(ValueError):
         check_releases(releases, NoTextIO())
+
+
+def test_order_by_planned() -> None:
+    """Test releases are ordered by ascending planned date."""
+    releases = [_rel('B', date(2026, 3, 1)), _rel('A', date(2026, 1, 1)),
+                _rel('C', date(2026, 2, 1))]
+    result = order_releases_by_date(releases, stderr_file=NoTextIO())
+    assert [release.name for release in result] == ['A', 'C', 'B']
+
+
+def test_order_by_estimated() -> None:
+    """Test the estimated date is used when by_estimated is True."""
+    releases = [_rel('B', date(2026, 1, 1), date(2026, 3, 1)),
+                _rel('A', date(2026, 3, 1), date(2026, 1, 1))]
+    result = order_releases_by_date(releases, by_estimated=True,
+                                    stderr_file=NoTextIO())
+    assert [release.name for release in result] == ['A', 'B']
+
+
+def test_order_planned_none() -> None:
+    """Test a release with no planned date is placed at the end."""
+    releases = [_rel('A', date(2026, 2, 1)), _rel('B'),
+                _rel('C', date(2026, 1, 1))]
+    result = order_releases_by_date(releases, stderr_file=NoTextIO())
+    assert [release.name for release in result] == ['C', 'A', 'B']
+
+
+def test_order_est_none() -> None:
+    """Test a missing estimated date sends the release to the end."""
+    releases = [_rel('A', planned=date(2026, 1, 1)),
+                _rel('B', date(2026, 2, 1), date(2026, 1, 1))]
+    result = order_releases_by_date(releases, by_estimated=True,
+                                    stderr_file=NoTextIO())
+    assert [release.name for release in result] == ['B', 'A']
+
+
+def test_order_stable_ties() -> None:
+    """Test releases sharing a date keep their original order."""
+    day = date(2026, 1, 1)
+    releases = [_rel('A', day), _rel('B', day), _rel('C', day)]
+    result = order_releases_by_date(releases, stderr_file=NoTextIO())
+    assert [release.name for release in result] == ['A', 'B', 'C']
+
+
+def test_order_all_none() -> None:
+    """Test releases without any date keep their original order."""
+    releases = [_rel('B'), _rel('A'), _rel('C')]
+    result = order_releases_by_date(releases, stderr_file=NoTextIO())
+    assert [release.name for release in result] == ['B', 'A', 'C']
+
+
+def test_order_empty() -> None:
+    """Test ordering an empty list returns an empty list."""
+    assert order_releases_by_date([], stderr_file=NoTextIO()) == []
+
+
+def test_order_keeps_input() -> None:
+    """Test the input list is not modified in place."""
+    releases = [_rel('B', date(2026, 2, 1)), _rel('A', date(2026, 1, 1))]
+    order_releases_by_date(releases, stderr_file=NoTextIO())
+    assert [release.name for release in releases] == ['B', 'A']

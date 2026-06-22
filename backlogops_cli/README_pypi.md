@@ -168,6 +168,8 @@ backlogops_cli serves 2 purposes:
      Reorder a backlog so that dependencies are fulfilled
   python3 -m backlogops_cli.order_by_keys
      Reorder a backlog so that key-list items come first
+  python3 -m backlogops_cli.order_releases
+     Order the releases by their planned or estimated date
   python3 -m backlogops_cli.plan_release_dates
      Set planned release dates from the estimated release dates
   python3 -m backlogops_cli.teams_wizard
@@ -178,7 +180,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 1127 passed in 19s
+- Test result: 1154 passed in 19s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

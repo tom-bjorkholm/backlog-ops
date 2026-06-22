@@ -13,10 +13,11 @@ from backlogops_gui.io_dialogs import (
     MODE_FILE, MODE_INFER, MODE_PRESET, ConfigChoice, DepOptions, ReadOptions,
     StartChoice, WriteOptions, format_value)
 from backlogops_gui.io_dialogs import (
-    _BufferDialog, _DepOptionsDialog, _FormatDialog, _KeysDialog,
-    _LevelsDialog, _ModalDialog, _NoConfigDialog, _StartDateDialog)
+    _BufferDialog, _DateOrderDialog, _DepOptionsDialog, _FormatDialog,
+    _KeysDialog, _LevelsDialog, _ModalDialog, _NoConfigDialog,
+    _StartDateDialog)
 from backlogops_gui.io_dialogs import (
-    ask_buffer_days, ask_dep_options, ask_keys, ask_levels,
+    ask_buffer_days, ask_date_order, ask_dep_options, ask_keys, ask_levels,
     ask_no_config_choice, ask_read_options, ask_start_date, ask_write_options,
     choose_changes_output, choose_config_file, choose_existing_config,
     choose_input_file, choose_key_list_output, choose_output_file,
@@ -261,6 +262,51 @@ def test_ask_buffer_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         assert ask_buffer_days(root) is None
+    finally:
+        root.destroy()
+
+
+def test_date_order_est(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the date order dialog stores the estimated choice."""
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    root = _root_or_skip()
+    try:
+        dialog = _DateOrderDialog(root)
+        dialog._estimated.set(True)
+        dialog._confirm()
+        assert dialog.by_estimated is True
+    finally:
+        root.destroy()
+
+
+def test_date_order_planned(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the date order dialog defaults to the planned date."""
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    root = _root_or_skip()
+    try:
+        dialog = _DateOrderDialog(root)
+        dialog._confirm()
+        assert dialog.by_estimated is False
+    finally:
+        root.destroy()
+
+
+def test_ask_date_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the wrapper returns the confirmed planned-date choice."""
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    root = _root_or_skip()
+    try:
+        assert ask_date_order(root) is False
+    finally:
+        root.destroy()
+
+
+def test_ask_date_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a cancelled date order dialog returns nothing."""
+    monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
+    root = _root_or_skip()
+    try:
+        assert ask_date_order(root) is None
     finally:
         root.destroy()
 

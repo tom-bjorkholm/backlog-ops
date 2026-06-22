@@ -168,3 +168,30 @@ def check_releases(releases: Releases,
             report_bad_value('name', release.name, 'duplicate release name',
                              stderr_file, subject='Release')
         seen.add(release.name)
+
+
+def order_releases_by_date(releases: Releases, by_estimated: bool = False,
+                           stderr_file: TextIO = sys.stderr) -> Releases:
+    """Order a list of releases by date.
+
+    The releases are ordered by the planned date, or the estimated date if
+    ``by_estimated`` is True. A release with a None date is placed at the end
+    of the list. Releases with the same date will keep their original order.
+
+    Args:
+        releases: The list of releases to order.
+        by_estimated: If True, order by the estimated date instead of the
+                      planned date. Default is False.
+        stderr_file: The file to report errors to.
+
+    Returns:
+        The ordered list of releases.
+    """
+    _ = stderr_file
+
+    def sort_key(release: Release) -> date:
+        """Return the chosen date, or ``date.max`` when it is None."""
+        chosen = release.estimated_date if by_estimated \
+            else release.planned_date
+        return chosen if chosen is not None else date.max
+    return sorted(releases, key=sort_key)

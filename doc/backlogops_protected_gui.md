@@ -113,6 +113,7 @@
   * [set\_plan](#backlogops_gui.backlog_window.set_plan)
   * [adjust\_content](#backlogops_gui.backlog_window.adjust_content)
   * [plan\_dates](#backlogops_gui.backlog_window.plan_dates)
+  * [order\_dates](#backlogops_gui.backlog_window.order_dates)
   * [extract\_keys](#backlogops_gui.backlog_window.extract_keys)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
@@ -131,6 +132,7 @@
     * [\_set\_plan](#backlogops_gui.backlog_window.BacklogWindow._set_plan)
     * [\_adjust\_content](#backlogops_gui.backlog_window.BacklogWindow._adjust_content)
     * [\_plan\_dates](#backlogops_gui.backlog_window.BacklogWindow._plan_dates)
+    * [\_order\_dates](#backlogops_gui.backlog_window.BacklogWindow._order_dates)
     * [\_extract\_keys](#backlogops_gui.backlog_window.BacklogWindow._extract_keys)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
   * [ConfigChoice](#backlogops_gui.io_dialogs.ConfigChoice)
@@ -194,10 +196,15 @@
     * [\_\_init\_\_](#backlogops_gui.io_dialogs._LevelsDialog.__init__)
     * [\_build](#backlogops_gui.io_dialogs._LevelsDialog._build)
     * [\_confirm](#backlogops_gui.io_dialogs._LevelsDialog._confirm)
+  * [\_DateOrderDialog](#backlogops_gui.io_dialogs._DateOrderDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._DateOrderDialog.__init__)
+    * [\_build](#backlogops_gui.io_dialogs._DateOrderDialog._build)
+    * [\_confirm](#backlogops_gui.io_dialogs._DateOrderDialog._confirm)
   * [ask\_keys](#backlogops_gui.io_dialogs.ask_keys)
   * [ask\_dep\_options](#backlogops_gui.io_dialogs.ask_dep_options)
   * [ask\_start\_date](#backlogops_gui.io_dialogs.ask_start_date)
   * [ask\_levels](#backlogops_gui.io_dialogs.ask_levels)
+  * [ask\_date\_order](#backlogops_gui.io_dialogs.ask_date_order)
 * [backlogops\_gui.blog\_version\_reporter](#backlogops_gui.blog_version_reporter)
   * [BloGuiVersionReporter](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter)
     * [package\_names](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter.package_names)
@@ -1557,6 +1564,19 @@ def plan_dates(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for a buffer and set planned release dates from the estimate.
 
+<a id="backlogops_gui.backlog_window.order_dates"></a>
+
+#### order\_dates
+
+```python
+def order_dates(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                refresh: Callable[[], None], on_error: Callable[[str, str],
+                                                                None],
+                on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for the date kind and order the releases by that date.
+
 <a id="backlogops_gui.backlog_window.extract_keys"></a>
 
 #### extract\_keys
@@ -1757,6 +1777,16 @@ def _plan_dates() -> None
 ```
 
 Set planned release dates from the estimate and refresh.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._order_dates"></a>
+
+#### \_order\_dates
+
+```python
+def _order_dates() -> None
+```
+
+Order the releases by date and refresh the tables.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._extract_keys"></a>
 
@@ -2408,6 +2438,46 @@ def _confirm() -> None
 
 Store the chosen levels, requiring at least one selection.
 
+<a id="backlogops_gui.io_dialogs._DateOrderDialog"></a>
+
+## \_DateOrderDialog Objects
+
+```python
+class _DateOrderDialog(_ModalDialog)
+```
+
+Modal dialog choosing planned or estimated date for ordering.
+
+<a id="backlogops_gui.io_dialogs._DateOrderDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the date order dialog.
+
+<a id="backlogops_gui.io_dialogs._DateOrderDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the estimated-date check box, off for the planned date.
+
+<a id="backlogops_gui.io_dialogs._DateOrderDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the chosen date kind and close the dialog.
+
 <a id="backlogops_gui.io_dialogs.ask_keys"></a>
 
 #### ask\_keys
@@ -2447,6 +2517,16 @@ def ask_levels(parent: tk.Misc) -> Optional[list[int]]
 ```
 
 Ask for the levels to extract, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_date_order"></a>
+
+#### ask\_date\_order
+
+```python
+def ask_date_order(parent: tk.Misc) -> Optional[bool]
+```
+
+Ask whether to order by estimated date, or None when cancelled.
 
 <a id="backlogops_gui.blog_version_reporter"></a>
 

@@ -10,7 +10,8 @@ from typing import Optional, TextIO, Sequence
 import sys
 from backlogops.backlog import Backlog, check_backlog_consistency
 from backlogops.backlog_helpers import report_unknown_reference
-from backlogops.releases import Release, Releases, check_releases
+from backlogops.releases import Release, Releases, check_releases, \
+    order_releases_by_date
 from backlogops.move_keys_first import move_keys_first
 from backlogops.order_by_dependencies import order_by_dependencies, \
     DependencyMode
@@ -297,3 +298,19 @@ class BacklogReleases:
         self.releases, changes = release_plan_on_estimate(self.releases,
                                                           buffer)
         return changes
+
+    def order_releases_by_date(self, by_estimated: bool = False,
+                               stderr_file: TextIO = sys.stderr) -> None:
+        """Order the member releases by date.
+
+        The member releases are replaced by the releases ordered by date,
+        as documented for
+        :func:`backlogops.releases.order_releases_by_date`.
+
+        Args:
+            by_estimated: If True, order by the estimated date instead of the
+                          planned date. Default is False.
+            stderr_file: The file to report errors to.
+        """
+        self.releases = order_releases_by_date(self.releases, by_estimated,
+                                               stderr_file)

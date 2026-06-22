@@ -4,6 +4,7 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+from datetime import date
 from typing import Optional
 
 import pytest
@@ -131,3 +132,21 @@ def test_cons_bad_release() -> None:
                                        [Release(name='R 1')])
     with pytest.raises(ValueError):
         backlog_releases.check_consistency(NoTextIO())
+
+
+def test_order_dates_planned() -> None:
+    """Test the wrapper orders the member releases by planned date."""
+    releases = [Release(name='B', planned_date=date(2026, 2, 1)),
+                Release(name='A', planned_date=date(2026, 1, 1))]
+    data = BacklogReleases([], releases)
+    data.order_releases_by_date(stderr_file=NoTextIO())
+    assert [release.name for release in data.releases] == ['A', 'B']
+
+
+def test_order_dates_est() -> None:
+    """Test the wrapper can order by the estimated date instead."""
+    releases = [Release(name='A', estimated_date=date(2026, 2, 1)),
+                Release(name='B', estimated_date=date(2026, 1, 1))]
+    data = BacklogReleases([], releases)
+    data.order_releases_by_date(by_estimated=True, stderr_file=NoTextIO())
+    assert [release.name for release in data.releases] == ['B', 'A']

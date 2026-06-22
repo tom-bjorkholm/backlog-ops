@@ -44,6 +44,7 @@
   * [set\_plan](#backlogops_gui.backlog_window.set_plan)
   * [adjust\_content](#backlogops_gui.backlog_window.adjust_content)
   * [plan\_dates](#backlogops_gui.backlog_window.plan_dates)
+  * [order\_dates](#backlogops_gui.backlog_window.order_dates)
   * [extract\_keys](#backlogops_gui.backlog_window.extract_keys)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
@@ -69,6 +70,7 @@
   * [ask\_dep\_options](#backlogops_gui.io_dialogs.ask_dep_options)
   * [ask\_start\_date](#backlogops_gui.io_dialogs.ask_start_date)
   * [ask\_levels](#backlogops_gui.io_dialogs.ask_levels)
+  * [ask\_date\_order](#backlogops_gui.io_dialogs.ask_date_order)
 * [backlogops\_gui.blog\_version\_reporter](#backlogops_gui.blog_version_reporter)
   * [BloGuiVersionReporter](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter)
     * [package\_names](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter.package_names)
@@ -662,6 +664,19 @@ def plan_dates(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for a buffer and set planned release dates from the estimate.
 
+<a id="backlogops_gui.backlog_window.order_dates"></a>
+
+#### order\_dates
+
+```python
+def order_dates(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                refresh: Callable[[], None], on_error: Callable[[str, str],
+                                                                None],
+                on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for the date kind and order the releases by that date.
+
 <a id="backlogops_gui.backlog_window.extract_keys"></a>
 
 #### extract\_keys
@@ -944,6 +959,16 @@ def ask_levels(parent: tk.Misc) -> Optional[list[int]]
 ```
 
 Ask for the levels to extract, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_date_order"></a>
+
+#### ask\_date\_order
+
+```python
+def ask_date_order(parent: tk.Misc) -> Optional[bool]
+```
+
+Ask whether to order by estimated date, or None when cancelled.
 
 <a id="backlogops_gui.blog_version_reporter"></a>
 

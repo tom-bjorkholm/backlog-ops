@@ -53,6 +53,10 @@
   * [build\_parser](#backlogops_cli.plan_release_dates.build_parser)
   * [\_plan](#backlogops_cli.plan_release_dates._plan)
   * [main](#backlogops_cli.plan_release_dates.main)
+* [backlogops\_cli.order\_releases](#backlogops_cli.order_releases)
+  * [build\_parser](#backlogops_cli.order_releases.build_parser)
+  * [\_ordered](#backlogops_cli.order_releases._ordered)
+  * [main](#backlogops_cli.order_releases.main)
 * [backlogops\_cli.order\_by\_deps](#backlogops_cli.order_by_deps)
   * [build\_parser](#backlogops_cli.order_by_deps.build_parser)
   * [\_ordered](#backlogops_cli.order_by_deps._ordered)
@@ -724,6 +728,61 @@ Set the planned release dates and write the output file.
 **Returns**:
 
   ``0`` on success, ``1`` when the data cannot be read, planned or
+  written.
+
+<a id="backlogops_cli.order_releases"></a>
+
+# backlogops\_cli.order\_releases
+
+Order the releases by date and write the result.
+
+The command reads a backlog and its releases from an input file and orders
+the releases by their planned date, or by their estimated date when
+``--by-estimated`` is given. A release with no date of the chosen kind is
+placed at the end, and releases that share a date keep their original
+order. The backlog is written back unchanged together with the ordered
+releases. The input and output formats are inferred from the file name
+extensions, but can be overridden by a configuration file or by a named
+preset.
+
+<a id="backlogops_cli.order_releases.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the order_releases command.
+
+<a id="backlogops_cli.order_releases._ordered"></a>
+
+#### \_ordered
+
+```python
+def _ordered(parsed: argparse.Namespace) -> BacklogReleases
+```
+
+Read the data and return it with the releases ordered by date.
+
+<a id="backlogops_cli.order_releases.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Order the releases by date and write the output file.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the data cannot be read, ordered or
   written.
 
 <a id="backlogops_cli.order_by_deps"></a>

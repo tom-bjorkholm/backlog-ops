@@ -14,8 +14,8 @@ from backlogops import (
 from backlogops_gui import backlog_window
 from backlogops_gui.backlog_window import (
     BacklogWindow, adjust_content, estimate_date, extract_keys, order_by_deps,
-    order_by_keys, plan_dates, save_backlog, save_changes, set_plan,
-    show_changes)
+    order_by_keys, order_dates, plan_dates, save_backlog, save_changes,
+    set_plan, show_changes)
 from backlogops_gui.io_dialogs import (
     DepOptions, StartChoice, WriteOptions, show_change_list)
 
@@ -107,6 +107,11 @@ class _FakeData:
         """Record a release-plan-on-estimate call and return no changes."""
         self._record(f'plandates:{buffer.days}')
         return []
+
+    def order_releases_by_date(self, by_estimated: bool,
+                               _sink: TextIO) -> None:
+        """Record an order-releases-by-date call."""
+        self._record(f'orderdates:{by_estimated}')
 
 
 def _refresher(store: list[bool]) -> Callable[[], None]:
@@ -304,6 +309,55 @@ def test_order_deps_success(monkeypatch: pytest.MonkeyPatch) -> None:
                   _record(infos))
     assert data.calls == ['deps:False:KEEP:None']
     assert done == [True]
+
+
+def test_order_dates_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the date order dialog changes nothing."""
+    monkeypatch.setattr(backlog_window, 'ask_date_order', lambda _p: None)
+    done: list[bool] = []
+    data = _FakeData()
+    order_dates(PARENT, _as_data(data), SINK, _refresher(done), _record([]),
+                _record([]))
+    assert not data.calls and not done
+
+
+def test_order_dates_planned(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the planned-date choice orders the releases and refreshes."""
+    monkeypatch.setattr(backlog_window, 'ask_date_order', lambda _p: False)
+    done: list[bool] = []
+    data = _FakeData()
+    infos: list[tuple[str, str]] = []
+    order_dates(PARENT, _as_data(data), SINK, _refresher(done), _record([]),
+                _record(infos))
+    assert data.calls == ['orderdates:False']
+    assert done == [True]
+    assert infos == [('Ordered releases',
+                      'Ordered the releases by planned date.')]
+
+
+def test_order_dates_est(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the estimated-date choice is passed on and reported."""
+    monkeypatch.setattr(backlog_window, 'ask_date_order', lambda _p: True)
+    done: list[bool] = []
+    data = _FakeData()
+    infos: list[tuple[str, str]] = []
+    order_dates(PARENT, _as_data(data), SINK, _refresher(done), _record([]),
+                _record(infos))
+    assert data.calls == ['orderdates:True']
+    assert infos == [('Ordered releases',
+                      'Ordered the releases by estimated date.')]
+
+
+def test_order_dates_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an ordering failure is reported and skips the refresh."""
+    monkeypatch.setattr(backlog_window, 'ask_date_order', lambda _p: False)
+    done: list[bool] = []
+    data = _FakeData(TypeError('bad'))
+    errors: list[tuple[str, str]] = []
+    order_dates(PARENT, _as_data(data), SINK, _refresher(done),
+                _record(errors), _record([]))
+    assert errors == [('Could not order releases', 'bad')]
+    assert not done
 
 
 def test_estimate_no_teams() -> None:
@@ -536,12 +590,14 @@ def test_extract_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
 _ACTION_METHODS = [
     '_save', '_order_by_keys', '_order_by_deps', '_estimate_date',
-    '_set_plan', '_adjust_content', '_plan_dates', '_extract_keys']
+    '_set_plan', '_adjust_content', '_plan_dates', '_order_dates',
+    '_extract_keys']
 """The window action methods that delegate to a module helper."""
 
 _DELEGATES = [
     'save_backlog', 'order_by_keys', 'order_by_deps', 'estimate_date',
-    'set_plan', 'adjust_content', 'plan_dates', 'extract_keys']
+    'set_plan', 'adjust_content', 'plan_dates', 'order_dates',
+    'extract_keys']
 """The module helpers each action method delegates to, in the same order."""
 
 

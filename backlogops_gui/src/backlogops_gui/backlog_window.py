@@ -24,9 +24,9 @@ from backlogops import (
     write_key_list)
 from backlogops_gui.backlog_io import write_backlog
 from backlogops_gui.io_dialogs import (
-    ask_buffer_days, ask_dep_options, ask_keys, ask_levels, ask_start_date,
-    ask_write_options, choose_changes_output, choose_key_list_output,
-    choose_output_file, show_change_list)
+    ask_buffer_days, ask_date_order, ask_dep_options, ask_keys, ask_levels,
+    ask_start_date, ask_write_options, choose_changes_output,
+    choose_key_list_output, choose_output_file, show_change_list)
 from backlogops_gui.table_view import (
     backlog_table, make_table, release_table)
 
@@ -264,6 +264,21 @@ def plan_dates(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
                 'Could not set planned release dates', 'Release date changes')
 
 
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def order_dates(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                refresh: Callable[[], None],
+                on_error: Callable[[str, str], None],
+                on_info: Callable[[str, str], None]) -> None:
+    """Ask for the date kind and order the releases by that date."""
+    by_estimated = ask_date_order(parent)
+    if by_estimated is None:
+        return
+    kind = 'estimated' if by_estimated else 'planned'
+    _apply_change(lambda: data.order_releases_by_date(by_estimated, sink),
+                  refresh, on_error, on_info, 'Could not order releases',
+                  'Ordered releases', f'Ordered the releases by {kind} date.')
+
+
 def extract_keys(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
                  on_error: Callable[[str, str], None],
                  on_info: Callable[[str, str], None]) -> None:
@@ -361,6 +376,8 @@ class BacklogWindow:
                          command=self._adjust_content)
         menu.add_command(label='Adjust planned release dates…',
                          command=self._plan_dates)
+        menu.add_command(label='Order releases by date…',
+                         command=self._order_dates)
         menu.add_command(label='Extract keys…', command=self._extract_keys)
 
     def _add_table(self, heading: str, columns: list[str],
@@ -428,6 +445,11 @@ class BacklogWindow:
         """Set planned release dates from the estimate and refresh."""
         plan_dates(self._win, self._data, self._sink, self._refresh_tables,
                    self._report_error, self._report_info)
+
+    def _order_dates(self) -> None:
+        """Order the releases by date and refresh the tables."""
+        order_dates(self._win, self._data, self._sink, self._refresh_tables,
+                    self._report_error, self._report_info)
 
     def _extract_keys(self) -> None:
         """Extract backlog keys at chosen levels to a key list file."""

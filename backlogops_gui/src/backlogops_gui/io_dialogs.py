@@ -526,6 +526,30 @@ class _LevelsDialog(_ModalDialog):
         super()._confirm()
 
 
+# pylint: disable-next=too-few-public-methods
+class _DateOrderDialog(_ModalDialog):
+    """Modal dialog choosing planned or estimated date for ordering."""
+
+    def __init__(self, parent: tk.Misc) -> None:
+        """Build, show and wait for the date order dialog."""
+        super().__init__(parent, 'Order releases by date')
+        self.by_estimated = False
+        self._estimated = tk.BooleanVar(self._win, False)
+        self._build()
+        self._show()
+
+    def _build(self) -> None:
+        """Add the estimated-date check box, off for the planned date."""
+        tk.Checkbutton(self._win, variable=self._estimated,
+                       text='Order by estimated date instead of planned '
+                       'date').pack(anchor='w', padx=12, pady=(10, 2))
+
+    def _confirm(self) -> None:
+        """Store the chosen date kind and close the dialog."""
+        self.by_estimated = self._estimated.get()
+        super()._confirm()
+
+
 def ask_keys(parent: tk.Misc, sink: TextIO) -> Optional[list[str]]:
     """Ask for the leading keys, or None when the dialog is cancelled."""
     dialog = _KeysDialog(parent, sink)
@@ -556,3 +580,11 @@ def ask_levels(parent: tk.Misc) -> Optional[list[int]]:
     if dialog.cancelled:
         return None
     return dialog.levels
+
+
+def ask_date_order(parent: tk.Misc) -> Optional[bool]:
+    """Ask whether to order by estimated date, or None when cancelled."""
+    dialog = _DateOrderDialog(parent)
+    if dialog.cancelled:
+        return None
+    return dialog.by_estimated

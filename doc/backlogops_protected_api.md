@@ -144,6 +144,7 @@
     * [set\_plan\_from\_estimate](#backlogops.backlog_releases.BacklogReleases.set_plan_from_estimate)
     * [adjust\_release\_content](#backlogops.backlog_releases.BacklogReleases.adjust_release_content)
     * [release\_plan\_on\_estimate](#backlogops.backlog_releases.BacklogReleases.release_plan_on_estimate)
+    * [order\_releases\_by\_date](#backlogops.backlog_releases.BacklogReleases.order_releases_by_date)
 * [backlogops.demo\_backlog](#backlogops.demo_backlog)
   * [\_POINTS](#backlogops.demo_backlog._POINTS)
   * [\_STATUSES](#backlogops.demo_backlog._STATUSES)
@@ -298,6 +299,7 @@
   * [get\_release](#backlogops.releases.get_release)
   * [get\_releases](#backlogops.releases.get_releases)
   * [check\_releases](#backlogops.releases.check_releases)
+  * [order\_releases\_by\_date](#backlogops.releases.order_releases_by_date)
 * [backlogops.table\_rows](#backlogops.table_rows)
   * [BACKLOG\_FIELDS](#backlogops.table_rows.BACKLOG_FIELDS)
   * [RELEASE\_FIELDS](#backlogops.table_rows.RELEASE_FIELDS)
@@ -2773,6 +2775,27 @@ documented for :func:`backlogops.release_plan_on_estimate`.
 
 - `ValueError` - If the buffer is negative.
 
+<a id="backlogops.backlog_releases.BacklogReleases.order_releases_by_date"></a>
+
+#### order\_releases\_by\_date
+
+```python
+def order_releases_by_date(by_estimated: bool = False,
+                           stderr_file: TextIO = sys.stderr) -> None
+```
+
+Order the member releases by date.
+
+The member releases are replaced by the releases ordered by date,
+as documented for
+:func:`backlogops.releases.order_releases_by_date`.
+
+**Arguments**:
+
+- `by_estimated` - If True, order by the estimated date instead of the
+  planned date. Default is False.
+- `stderr_file` - The file to report errors to.
+
 <a id="backlogops.demo_backlog"></a>
 
 # backlogops.demo\_backlog
@@ -5117,6 +5140,34 @@ to be unique.
 - `TypeError` - If a field has the wrong type.
 - `ValueError` - If a name violates the key syntax constraint, or if
   two releases share the same name.
+
+<a id="backlogops.releases.order_releases_by_date"></a>
+
+#### order\_releases\_by\_date
+
+```python
+def order_releases_by_date(releases: Releases,
+                           by_estimated: bool = False,
+                           stderr_file: TextIO = sys.stderr) -> Releases
+```
+
+Order a list of releases by date.
+
+The releases are ordered by the planned date, or the estimated date if
+``by_estimated`` is True. A release with a None date is placed at the end
+of the list. Releases with the same date will keep their original order.
+
+**Arguments**:
+
+- `releases` - The list of releases to order.
+- `by_estimated` - If True, order by the estimated date instead of the
+  planned date. Default is False.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  The ordered list of releases.
 
 <a id="backlogops.table_rows"></a>
 
