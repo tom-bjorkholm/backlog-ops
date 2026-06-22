@@ -16,7 +16,7 @@ setup(
   install_requires=[
     'config-as-json >= 1.2',
     'tableio >= 1.0',
-    'tableio-cfg-json >= 0.5',
+    'tableio-cfg-json >= 0.6',
     'versionreporter >= 0.3'
   ]
 )
