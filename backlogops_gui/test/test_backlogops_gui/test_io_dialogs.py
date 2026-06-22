@@ -10,16 +10,17 @@ from typing import Callable, Optional
 import pytest
 from backlogops import DependencyMode
 from backlogops_gui.io_dialogs import (
-    MODE_FILE, MODE_INFER, MODE_PRESET, DepOptions, ReadOptions, StartChoice,
-    WriteOptions, format_value)
+    MODE_FILE, MODE_INFER, MODE_PRESET, ConfigChoice, DepOptions, ReadOptions,
+    StartChoice, WriteOptions, format_value)
 from backlogops_gui.io_dialogs import (
     _BufferDialog, _DepOptionsDialog, _FormatDialog, _KeysDialog,
-    _LevelsDialog, _ModalDialog, _StartDateDialog)
+    _LevelsDialog, _ModalDialog, _NoConfigDialog, _StartDateDialog)
 from backlogops_gui.io_dialogs import (
-    ask_buffer_days, ask_dep_options, ask_keys, ask_levels, ask_read_options,
-    ask_start_date, ask_write_options, choose_changes_output,
-    choose_config_file, choose_input_file, choose_key_list_output,
-    choose_output_file, show_change_list)
+    ask_buffer_days, ask_dep_options, ask_keys, ask_levels,
+    ask_no_config_choice, ask_read_options, ask_start_date, ask_write_options,
+    choose_changes_output, choose_config_file, choose_existing_config,
+    choose_input_file, choose_key_list_output, choose_output_file,
+    show_change_list)
 from backlogops.no_text_io import NoTextIO
 
 
@@ -90,6 +91,7 @@ CHOOSERS: list[tuple[Callable[[tk.Misc], Optional[str]], str]] = [
     (choose_input_file, 'askopenfilename'),
     (choose_output_file, 'asksaveasfilename'),
     (choose_config_file, 'asksaveasfilename'),
+    (choose_existing_config, 'askopenfilename'),
     (choose_key_list_output, 'asksaveasfilename'),
     (choose_changes_output, 'asksaveasfilename')]
 """Each file chooser paired with the file dialog it calls."""
@@ -500,6 +502,65 @@ def test_modal_show_real() -> None:
     try:
         dialog = _AutoBuffer(root)
         assert dialog.days == 5
+    finally:
+        root.destroy()
+
+
+def _no_config_wait(self: _NoConfigDialog) -> None:
+    """Stand in for the no-config show without grabbing or waiting."""
+    assert self is not None
+
+
+@pytest.mark.parametrize('choice', [
+    ConfigChoice.WIZARD, ConfigChoice.LOAD, ConfigChoice.EXIT])
+def test_no_config_choice(monkeypatch: pytest.MonkeyPatch,
+                          choice: ConfigChoice) -> None:
+    """Test each button records its choice in the no-config dialog."""
+    monkeypatch.setattr(_NoConfigDialog, '_show', _no_config_wait)
+    root = _root_or_skip()
+    try:
+        dialog = _NoConfigDialog(root)
+        dialog._choose(choice)
+        assert dialog.choice is choice
+    finally:
+        root.destroy()
+
+
+def test_no_config_frame(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the no-config dialog over a non-window parent defaults to exit."""
+    monkeypatch.setattr(_NoConfigDialog, '_show', _no_config_wait)
+    root = _root_or_skip()
+    try:
+        frame = tk.Frame(root)
+        assert _NoConfigDialog(frame).choice is ConfigChoice.EXIT
+    finally:
+        root.destroy()
+
+
+class _AutoNoConfig(_NoConfigDialog):
+    """No-config dialog that picks the wizard once shown, for coverage."""
+
+    def _show(self) -> None:
+        """Schedule a wizard choice and run the real modal show."""
+        self._win.after(0, lambda: self._choose(ConfigChoice.WIZARD))
+        super()._show()
+
+
+def test_no_config_show_real() -> None:
+    """Test the real no-config show waits and returns the picked choice."""
+    root = _root_or_skip()
+    try:
+        assert _AutoNoConfig(root).choice is ConfigChoice.WIZARD
+    finally:
+        root.destroy()
+
+
+def test_ask_no_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the ask wrapper returns the dialog's recorded choice."""
+    monkeypatch.setattr(_NoConfigDialog, '_show', _no_config_wait)
+    root = _root_or_skip()
+    try:
+        assert ask_no_config_choice(root) is ConfigChoice.EXIT
     finally:
         root.destroy()
 

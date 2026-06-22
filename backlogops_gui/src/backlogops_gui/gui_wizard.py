@@ -7,9 +7,10 @@ concrete bridge that overrides every ask method of that base class with a
 real Tkinter control: a text entry, a yes/no button pair, a single- and a
 multi-selection list, and an editable table. All questions are answered in
 one reused, fixed-size window, so the whole wizard session happens in a
-single pop-up that does not jump around the display. A cancelled prompt
-raises :class:`EOFError`, which the wizard documents as the way an
-interrupted input is reported.
+single pop-up that does not jump around the display. Every prompt also
+offers back, out-one-level and abort buttons, which raise the matching
+:class:`WizardNavigation` request so the wizard can step within the
+configuration or abandon it.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -20,6 +21,7 @@ from dataclasses import dataclass
 from tkinter import ttk
 from typing import Callable, Optional, Sequence, TextIO
 from tableio_cfg_json import PartialCheck, TableCell, TableColumn, \
+    WizardAbort, WizardBack, WizardCancelLevel, WizardNavigation, \
     WizardUiBridge
 from backlogops import NoTextIO
 
@@ -29,7 +31,6 @@ WRAP_LENGTH = 520
 MESSAGE_HEIGHT = 8
 CHOICE_HEIGHT = 10
 HEADER_FONT = ('TkDefaultFont', 10, 'bold')
-CANCEL_TEXT = 'Configuration wizard cancelled by the user.'
 
 
 @dataclass(frozen=True)
@@ -141,7 +142,7 @@ class _WizardWindow:
     def __init__(self, parent: tk.Misc) -> None:
         """Create the fixed-size window and its lasting message area."""
         self._result: object = ''
-        self._cancelled = False
+        self._nav: Optional[type[WizardNavigation]] = None
         self._win = tk.Toplevel(parent)
         self._win.title(WIZARD_TITLE)
         self._win.geometry(WINDOW_SIZE)
@@ -190,6 +191,7 @@ class _WizardWindow:
         no = tk.Button(box, text='No', command=lambda: self._finish(False))
         yes.pack(side='left', padx=6)
         no.pack(side='left', padx=6)
+        self._add_nav_buttons(box)
         chosen = yes if default else no
         chosen.focus_set()
         self._win.bind('<Return>', lambda event: chosen.invoke())
@@ -312,6 +314,7 @@ class _WizardWindow:
 
     def _begin(self, question: str, re_ask: Optional[str]) -> None:
         """Clear the content area and show the question and any reason."""
+        self._nav = None
         self._win.unbind('<Return>')
         for child in self._content.winfo_children():
             child.destroy()
@@ -327,21 +330,29 @@ class _WizardWindow:
 
     def _add_buttons(self, on_ok: Callable[[], None],
                      on_default: Optional[Callable[[], None]]) -> None:
-        """Add the confirm, optional default, and cancel buttons."""
+        """Add the confirm, optional default, and navigation buttons."""
         box = tk.Frame(self._content)
         box.pack(anchor='w', pady=10)
         tk.Button(box, text='OK', command=on_ok).pack(side='left')
         if on_default is not None:
             tk.Button(box, text='Use default',
                       command=on_default).pack(side='left', padx=6)
-        tk.Button(box, text='Cancel',
+        self._add_nav_buttons(box)
+
+    def _add_nav_buttons(self, box: tk.Frame) -> None:
+        """Add the back, out-one-level and abort navigation buttons."""
+        tk.Button(box, text='Back',
+                  command=self._back).pack(side='left', padx=6)
+        tk.Button(box, text='Out one level',
+                  command=self._cancel_level).pack(side='left', padx=6)
+        tk.Button(box, text='Abort',
                   command=self._cancel).pack(side='left', padx=6)
 
     def _wait(self) -> object:
-        """Block until the current prompt is answered or cancelled."""
+        """Block until the prompt is answered or navigation is requested."""
         self._win.wait_variable(self._done)
-        if self._cancelled:
-            raise EOFError(CANCEL_TEXT)
+        if self._nav is not None:
+            raise self._nav()
         return self._result
 
     def _finish(self, value: object) -> None:
@@ -349,9 +360,21 @@ class _WizardWindow:
         self._result = value
         self._done.set(self._done.get() + 1)
 
+    def _back(self) -> None:
+        """Request a step back to the previous question."""
+        self._navigate(WizardBack)
+
+    def _cancel_level(self) -> None:
+        """Request leaving the current level by one step."""
+        self._navigate(WizardCancelLevel)
+
     def _cancel(self) -> None:
-        """Mark the session cancelled and release the waiting prompt."""
-        self._cancelled = True
+        """Request abandoning the whole configuration."""
+        self._navigate(WizardAbort)
+
+    def _navigate(self, request: type[WizardNavigation]) -> None:
+        """Record a navigation request and release the waiting prompt."""
+        self._nav = request
         self._done.set(self._done.get() + 1)
 
 

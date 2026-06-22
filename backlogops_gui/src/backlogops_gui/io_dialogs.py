@@ -16,6 +16,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from dataclasses import dataclass
 from datetime import date
+from enum import Enum
 from typing import Callable, Optional, Sequence, TextIO
 from backlogops import DependencyMode, DEFAULT_LEVELS, read_key_list
 
@@ -24,6 +25,19 @@ MODE_PRESET = 1
 MODE_FILE = 2
 KEY_READ_ERRORS = (ValueError, TypeError, KeyError, OSError)
 DEFAULT_BUFFER_DAYS = 5
+NO_CONFIG_WRAP = 360
+NO_CONFIG_TEXT = (
+    'The application cannot run without a configuration. Choose to run '
+    'the configuration wizard, load an existing configuration file, or '
+    'exit the application.')
+
+
+class ConfigChoice(Enum):
+    """The action chosen in the no-configuration startup dialog."""
+
+    WIZARD = 'wizard'
+    LOAD = 'load'
+    EXIT = 'exit'
 
 
 def format_value(mode: int, preset: str, path: str) -> Optional[str]:
@@ -71,6 +85,59 @@ def choose_config_file(parent: tk.Misc) -> Optional[str]:
     name = filedialog.asksaveasfilename(parent=parent,
                                         title='Write configuration')
     return name or None
+
+
+def choose_existing_config(parent: tk.Misc) -> Optional[str]:
+    """Ask for an existing configuration file, or None when cancelled."""
+    name = filedialog.askopenfilename(parent=parent,
+                                      title='Load configuration')
+    return name or None
+
+
+# pylint: disable-next=too-few-public-methods
+class _NoConfigDialog:
+    """Modal dialog offering to create, load, or exit without a config."""
+
+    def __init__(self, parent: tk.Misc) -> None:
+        """Build, show and wait for the no-configuration dialog."""
+        self.choice = ConfigChoice.EXIT
+        self._win = tk.Toplevel(parent)
+        self._win.title('No configuration')
+        if isinstance(parent, tk.Wm):
+            self._win.transient(parent)
+        self._win.protocol('WM_DELETE_WINDOW', self._win.destroy)
+        self._build()
+        self._show()
+
+    def _build(self) -> None:
+        """Add the explanation and the three action buttons."""
+        tk.Label(self._win, text=NO_CONFIG_TEXT, justify='left',
+                 wraplength=NO_CONFIG_WRAP).pack(anchor='w', padx=12,
+                                                 pady=(12, 6))
+        self._add_button('Run the configuration wizard', ConfigChoice.WIZARD)
+        self._add_button('Load configuration from a file…', ConfigChoice.LOAD)
+        self._add_button('Exit the application', ConfigChoice.EXIT)
+
+    def _add_button(self, text: str, choice: ConfigChoice) -> None:
+        """Add one action button that selects the given choice."""
+        button = tk.Button(self._win, text=text,
+                           command=lambda: self._choose(choice))
+        button.pack(fill='x', padx=12, pady=4)
+
+    def _show(self) -> None:
+        """Grab the focus and wait for the dialog to close."""
+        self._win.grab_set()
+        self._win.wait_window()
+
+    def _choose(self, choice: ConfigChoice) -> None:
+        """Record the chosen action and close the dialog."""
+        self.choice = choice
+        self._win.destroy()
+
+
+def ask_no_config_choice(parent: tk.Misc) -> ConfigChoice:
+    """Ask whether to run the wizard, load a file, or exit."""
+    return _NoConfigDialog(parent).choice
 
 
 # pylint: disable-next=too-few-public-methods

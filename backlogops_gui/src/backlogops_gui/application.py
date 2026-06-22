@@ -9,8 +9,9 @@ the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
 make clear that the application is running. The teams configuration is
 taken from the file given with ``-c`` or from the configured locations;
-when no configuration is found the wizard runs at startup, and cancelling
-it ends the application.
+when no configuration is found a startup dialog offers to run the wizard,
+load a configuration file, or exit. Cancelling the wizard or a dialog
+returns to that choice, so the application ends only when the user exits.
 """
 
 # PYTHON_ARGCOMPLETE_OK
@@ -33,7 +34,8 @@ from backlogops_gui.backlog_window import BacklogWindow
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 from backlogops_gui.gui_wizard import TkWizardBridge
 from backlogops_gui.io_dialogs import (
-    ask_read_options, choose_config_file, choose_input_file)
+    ConfigChoice, ask_no_config_choice, ask_read_options, choose_config_file,
+    choose_existing_config, choose_input_file)
 from backlogops_gui.log_buffer import LogBuffer
 from backlogops_gui.python_version import check_python_version
 from backlogops_gui.tcltk_version import check_tcltk_version
@@ -112,11 +114,12 @@ class BacklogApp:
         messagebox.showinfo(title, message, parent=self.root)
 
     def start(self, config_arg: Optional[str]) -> bool:
-        """Load the startup configuration, running the wizard if needed.
+        """Load the startup configuration, offering choices if needed.
 
         A configuration named with ``-c`` that cannot be read is reported
-        before the wizard runs. When no configuration is loaded and the
-        wizard is cancelled, the application is not ready to run.
+        before the no-configuration dialog is shown. When no configuration
+        is loaded the user may run the wizard, load a file, or exit, and
+        the application is ready only once a configuration is in place.
 
         Args:
             config_arg: The file from ``-c``, or None to search defaults.
@@ -125,17 +128,53 @@ class BacklogApp:
             Whether the application is ready to enter its main loop.
         """
         config, error = initial_config(config_arg, self.log)
-        if config is None:
-            if config_arg is not None and error is not None:
-                self.show_error('Configuration error', error)
-            config = self.run_wizard()
-            if config is None:
-                return False
-            self.config_source = 'the wizard'
-        else:
+        if config is not None:
+            self.config = config
             self.config_source = (config_arg if config_arg is not None
                                   else 'the default location')
+            return True
+        if config_arg is not None and error is not None:
+            self.show_error('Configuration error', error)
+        return self._resolve_missing_config()
+
+    def _resolve_missing_config(self) -> bool:
+        """Offer to create, load, or exit until a configuration is ready.
+
+        The no-configuration dialog is shown repeatedly: running the
+        wizard or loading a file makes the application ready, while
+        cancelling either one returns to the dialog. Only the exit choice,
+        or closing the dialog, ends the application.
+        """
+        while True:
+            choice = ask_no_config_choice(self.root)
+            if choice is ConfigChoice.WIZARD and self._adopt_startup_wizard():
+                return True
+            if choice is ConfigChoice.LOAD and self._adopt_loaded_config():
+                return True
+            if choice is ConfigChoice.EXIT:
+                return False
+
+    def _adopt_startup_wizard(self) -> bool:
+        """Run the startup wizard, adopting a configuration it produces."""
+        config = self.run_wizard()
+        if config is None:
+            return False
         self.config = config
+        self.config_source = 'the wizard'
+        return True
+
+    def _adopt_loaded_config(self) -> bool:
+        """Load a chosen configuration file, adopting it on success."""
+        path = choose_existing_config(self.root)
+        if path is None:
+            return False
+        config, error = initial_config(path, self.log)
+        if config is None:
+            self.show_error('Configuration error',
+                            error or 'Could not load the configuration.')
+            return False
+        self.config = config
+        self.config_source = path
         return True
 
     def run_wizard(self) -> Optional[AvailableTeamsConfig]:

@@ -7,7 +7,8 @@
 import tkinter as tk
 from typing import cast
 import pytest
-from tableio_cfg_json import TableCell, TableColumn
+from tableio_cfg_json import TableCell, TableColumn, WizardAbort, \
+    WizardBack, WizardCancelLevel
 from backlogops import NoTextIO
 from backlogops_gui.gui_wizard import TkWizardBridge, _TableEditor, \
     _WizardWindow
@@ -152,13 +153,39 @@ def test_real_show_and_close() -> None:
         root.destroy()
 
 
-def test_real_cancel() -> None:
-    """Test cancelling a real prompt raises an end-of-input error."""
+def test_real_abort() -> None:
+    """Test the abort button raises a wizard-abort request."""
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
         root.after(0, lambda: bridge._window_obj()._cancel())
-        with pytest.raises(EOFError):
+        with pytest.raises(WizardAbort):
+            bridge.ask('Name?')
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_back() -> None:
+    """Test the back button raises a wizard-back request."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._back())
+        with pytest.raises(WizardBack):
+            bridge.ask('Name?')
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_real_cancel_level() -> None:
+    """Test the out-one-level button raises a cancel-level request."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        root.after(0, lambda: bridge._window_obj()._cancel_level())
+        with pytest.raises(WizardCancelLevel):
             bridge.ask('Name?')
         bridge.close()
     finally:

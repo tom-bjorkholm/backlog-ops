@@ -48,12 +48,15 @@
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
+  * [ConfigChoice](#backlogops_gui.io_dialogs.ConfigChoice)
   * [format\_value](#backlogops_gui.io_dialogs.format_value)
   * [ReadOptions](#backlogops_gui.io_dialogs.ReadOptions)
   * [WriteOptions](#backlogops_gui.io_dialogs.WriteOptions)
   * [choose\_input\_file](#backlogops_gui.io_dialogs.choose_input_file)
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
+  * [choose\_existing\_config](#backlogops_gui.io_dialogs.choose_existing_config)
+  * [ask\_no\_config\_choice](#backlogops_gui.io_dialogs.ask_no_config_choice)
   * [ask\_read\_options](#backlogops_gui.io_dialogs.ask_read_options)
   * [ask\_write\_options](#backlogops_gui.io_dialogs.ask_write_options)
   * [choose\_key\_list\_output](#backlogops_gui.io_dialogs.choose_key_list_output)
@@ -98,9 +101,10 @@ concrete bridge that overrides every ask method of that base class with a
 real Tkinter control: a text entry, a yes/no button pair, a single- and a
 multi-selection list, and an editable table. All questions are answered in
 one reused, fixed-size window, so the whole wizard session happens in a
-single pop-up that does not jump around the display. A cancelled prompt
-raises :class:`EOFError`, which the wizard documents as the way an
-interrupted input is reported.
+single pop-up that does not jump around the display. Every prompt also
+offers back, out-one-level and abort buttons, which raise the matching
+:class:`WizardNavigation` request so the wizard can step within the
+configuration or abandon it.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge"></a>
 
@@ -246,8 +250,9 @@ the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
 make clear that the application is running. The teams configuration is
 taken from the file given with ``-c`` or from the configured locations;
-when no configuration is found the wizard runs at startup, and cancelling
-it ends the application.
+when no configuration is found a startup dialog offers to run the wizard,
+load a configuration file, or exit. Cancelling the wizard or a dialog
+returns to that choice, so the application ends only when the user exits.
 
 <a id="backlogops_gui.application.initial_config"></a>
 
@@ -356,11 +361,12 @@ Show an informational message to the user.
 def start(config_arg: Optional[str]) -> bool
 ```
 
-Load the startup configuration, running the wizard if needed.
+Load the startup configuration, offering choices if needed.
 
 A configuration named with ``-c`` that cannot be read is reported
-before the wizard runs. When no configuration is loaded and the
-wizard is cancelled, the application is not ready to run.
+before the no-configuration dialog is shown. When no configuration
+is loaded the user may run the wizard, load a file, or exit, and
+the application is ready only once a configuration is in place.
 
 **Arguments**:
 
@@ -705,6 +711,16 @@ offers to put the releases before the backlog. The chosen format is
 returned as a single value understood by the resolver in
 :mod:`backlogops_gui.backlog_io`.
 
+<a id="backlogops_gui.io_dialogs.ConfigChoice"></a>
+
+## ConfigChoice Objects
+
+```python
+class ConfigChoice(Enum)
+```
+
+The action chosen in the no-configuration startup dialog.
+
 <a id="backlogops_gui.io_dialogs.format_value"></a>
 
 #### format\_value
@@ -769,6 +785,26 @@ def choose_config_file(parent: tk.Misc) -> Optional[str]
 ```
 
 Ask for a configuration file to create, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.choose_existing_config"></a>
+
+#### choose\_existing\_config
+
+```python
+def choose_existing_config(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for an existing configuration file, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_no_config_choice"></a>
+
+#### ask\_no\_config\_choice
+
+```python
+def ask_no_config_choice(parent: tk.Misc) -> ConfigChoice
+```
+
+Ask whether to run the wizard, load a file, or exit.
 
 <a id="backlogops_gui.io_dialogs.ask_read_options"></a>
 

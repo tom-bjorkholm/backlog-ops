@@ -33,9 +33,13 @@
     * [\_begin](#backlogops_gui.gui_wizard._WizardWindow._begin)
     * [\_add\_label](#backlogops_gui.gui_wizard._WizardWindow._add_label)
     * [\_add\_buttons](#backlogops_gui.gui_wizard._WizardWindow._add_buttons)
+    * [\_add\_nav\_buttons](#backlogops_gui.gui_wizard._WizardWindow._add_nav_buttons)
     * [\_wait](#backlogops_gui.gui_wizard._WizardWindow._wait)
     * [\_finish](#backlogops_gui.gui_wizard._WizardWindow._finish)
+    * [\_back](#backlogops_gui.gui_wizard._WizardWindow._back)
+    * [\_cancel\_level](#backlogops_gui.gui_wizard._WizardWindow._cancel_level)
     * [\_cancel](#backlogops_gui.gui_wizard._WizardWindow._cancel)
+    * [\_navigate](#backlogops_gui.gui_wizard._WizardWindow._navigate)
   * [TkWizardBridge](#backlogops_gui.gui_wizard.TkWizardBridge)
     * [\_\_init\_\_](#backlogops_gui.gui_wizard.TkWizardBridge.__init__)
     * [ask](#backlogops_gui.gui_wizard.TkWizardBridge.ask)
@@ -57,6 +61,9 @@
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
     * [show\_info](#backlogops_gui.application.BacklogApp.show_info)
     * [start](#backlogops_gui.application.BacklogApp.start)
+    * [\_resolve\_missing\_config](#backlogops_gui.application.BacklogApp._resolve_missing_config)
+    * [\_adopt\_startup\_wizard](#backlogops_gui.application.BacklogApp._adopt_startup_wizard)
+    * [\_adopt\_loaded\_config](#backlogops_gui.application.BacklogApp._adopt_loaded_config)
     * [run\_wizard](#backlogops_gui.application.BacklogApp.run_wizard)
     * [run\_teams\_wizard](#backlogops_gui.application.BacklogApp.run_teams_wizard)
     * [write\_config](#backlogops_gui.application.BacklogApp.write_config)
@@ -118,12 +125,21 @@
     * [\_plan\_dates](#backlogops_gui.backlog_window.BacklogWindow._plan_dates)
     * [\_extract\_keys](#backlogops_gui.backlog_window.BacklogWindow._extract_keys)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
+  * [ConfigChoice](#backlogops_gui.io_dialogs.ConfigChoice)
   * [format\_value](#backlogops_gui.io_dialogs.format_value)
   * [ReadOptions](#backlogops_gui.io_dialogs.ReadOptions)
   * [WriteOptions](#backlogops_gui.io_dialogs.WriteOptions)
   * [choose\_input\_file](#backlogops_gui.io_dialogs.choose_input_file)
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
+  * [choose\_existing\_config](#backlogops_gui.io_dialogs.choose_existing_config)
+  * [\_NoConfigDialog](#backlogops_gui.io_dialogs._NoConfigDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._NoConfigDialog.__init__)
+    * [\_build](#backlogops_gui.io_dialogs._NoConfigDialog._build)
+    * [\_add\_button](#backlogops_gui.io_dialogs._NoConfigDialog._add_button)
+    * [\_show](#backlogops_gui.io_dialogs._NoConfigDialog._show)
+    * [\_choose](#backlogops_gui.io_dialogs._NoConfigDialog._choose)
+  * [ask\_no\_config\_choice](#backlogops_gui.io_dialogs.ask_no_config_choice)
   * [\_ModalDialog](#backlogops_gui.io_dialogs._ModalDialog)
     * [\_\_init\_\_](#backlogops_gui.io_dialogs._ModalDialog.__init__)
     * [\_show](#backlogops_gui.io_dialogs._ModalDialog._show)
@@ -217,9 +233,10 @@ concrete bridge that overrides every ask method of that base class with a
 real Tkinter control: a text entry, a yes/no button pair, a single- and a
 multi-selection list, and an editable table. All questions are answered in
 one reused, fixed-size window, so the whole wizard session happens in a
-single pop-up that does not jump around the display. A cancelled prompt
-raises :class:`EOFError`, which the wizard documents as the way an
-interrupted input is reported.
+single pop-up that does not jump around the display. Every prompt also
+offers back, out-one-level and abort buttons, which raise the matching
+:class:`WizardNavigation` request so the wizard can step within the
+configuration or abandon it.
 
 <a id="backlogops_gui.gui_wizard._Cell"></a>
 
@@ -560,7 +577,17 @@ def _add_buttons(on_ok: Callable[[], None],
                  on_default: Optional[Callable[[], None]]) -> None
 ```
 
-Add the confirm, optional default, and cancel buttons.
+Add the confirm, optional default, and navigation buttons.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow._add_nav_buttons"></a>
+
+#### \_add\_nav\_buttons
+
+```python
+def _add_nav_buttons(box: tk.Frame) -> None
+```
+
+Add the back, out-one-level and abort navigation buttons.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow._wait"></a>
 
@@ -570,7 +597,7 @@ Add the confirm, optional default, and cancel buttons.
 def _wait() -> object
 ```
 
-Block until the current prompt is answered or cancelled.
+Block until the prompt is answered or navigation is requested.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow._finish"></a>
 
@@ -582,6 +609,26 @@ def _finish(value: object) -> None
 
 Store the answer and release the waiting prompt.
 
+<a id="backlogops_gui.gui_wizard._WizardWindow._back"></a>
+
+#### \_back
+
+```python
+def _back() -> None
+```
+
+Request a step back to the previous question.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow._cancel_level"></a>
+
+#### \_cancel\_level
+
+```python
+def _cancel_level() -> None
+```
+
+Request leaving the current level by one step.
+
 <a id="backlogops_gui.gui_wizard._WizardWindow._cancel"></a>
 
 #### \_cancel
@@ -590,7 +637,17 @@ Store the answer and release the waiting prompt.
 def _cancel() -> None
 ```
 
-Mark the session cancelled and release the waiting prompt.
+Request abandoning the whole configuration.
+
+<a id="backlogops_gui.gui_wizard._WizardWindow._navigate"></a>
+
+#### \_navigate
+
+```python
+def _navigate(request: type[WizardNavigation]) -> None
+```
+
+Record a navigation request and release the waiting prompt.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge"></a>
 
@@ -746,8 +803,9 @@ the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
 make clear that the application is running. The teams configuration is
 taken from the file given with ``-c`` or from the configured locations;
-when no configuration is found the wizard runs at startup, and cancelling
-it ends the application.
+when no configuration is found a startup dialog offers to run the wizard,
+load a configuration file, or exit. Cancelling the wizard or a dialog
+returns to that choice, so the application ends only when the user exits.
 
 <a id="backlogops_gui.application.initial_config"></a>
 
@@ -856,11 +914,12 @@ Show an informational message to the user.
 def start(config_arg: Optional[str]) -> bool
 ```
 
-Load the startup configuration, running the wizard if needed.
+Load the startup configuration, offering choices if needed.
 
 A configuration named with ``-c`` that cannot be read is reported
-before the wizard runs. When no configuration is loaded and the
-wizard is cancelled, the application is not ready to run.
+before the no-configuration dialog is shown. When no configuration
+is loaded the user may run the wizard, load a file, or exit, and
+the application is ready only once a configuration is in place.
 
 **Arguments**:
 
@@ -870,6 +929,41 @@ wizard is cancelled, the application is not ready to run.
 **Returns**:
 
   Whether the application is ready to enter its main loop.
+
+<a id="backlogops_gui.application.BacklogApp._resolve_missing_config"></a>
+
+#### \_resolve\_missing\_config
+
+```python
+def _resolve_missing_config() -> bool
+```
+
+Offer to create, load, or exit until a configuration is ready.
+
+The no-configuration dialog is shown repeatedly: running the
+wizard or loading a file makes the application ready, while
+cancelling either one returns to the dialog. Only the exit choice,
+or closing the dialog, ends the application.
+
+<a id="backlogops_gui.application.BacklogApp._adopt_startup_wizard"></a>
+
+#### \_adopt\_startup\_wizard
+
+```python
+def _adopt_startup_wizard() -> bool
+```
+
+Run the startup wizard, adopting a configuration it produces.
+
+<a id="backlogops_gui.application.BacklogApp._adopt_loaded_config"></a>
+
+#### \_adopt\_loaded\_config
+
+```python
+def _adopt_loaded_config() -> bool
+```
+
+Load a chosen configuration file, adopting it on success.
 
 <a id="backlogops_gui.application.BacklogApp.run_wizard"></a>
 
@@ -1577,6 +1671,16 @@ offers to put the releases before the backlog. The chosen format is
 returned as a single value understood by the resolver in
 :mod:`backlogops_gui.backlog_io`.
 
+<a id="backlogops_gui.io_dialogs.ConfigChoice"></a>
+
+## ConfigChoice Objects
+
+```python
+class ConfigChoice(Enum)
+```
+
+The action chosen in the no-configuration startup dialog.
+
 <a id="backlogops_gui.io_dialogs.format_value"></a>
 
 #### format\_value
@@ -1641,6 +1745,86 @@ def choose_config_file(parent: tk.Misc) -> Optional[str]
 ```
 
 Ask for a configuration file to create, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.choose_existing_config"></a>
+
+#### choose\_existing\_config
+
+```python
+def choose_existing_config(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for an existing configuration file, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs._NoConfigDialog"></a>
+
+## \_NoConfigDialog Objects
+
+```python
+class _NoConfigDialog()
+```
+
+Modal dialog offering to create, load, or exit without a config.
+
+<a id="backlogops_gui.io_dialogs._NoConfigDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the no-configuration dialog.
+
+<a id="backlogops_gui.io_dialogs._NoConfigDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the explanation and the three action buttons.
+
+<a id="backlogops_gui.io_dialogs._NoConfigDialog._add_button"></a>
+
+#### \_add\_button
+
+```python
+def _add_button(text: str, choice: ConfigChoice) -> None
+```
+
+Add one action button that selects the given choice.
+
+<a id="backlogops_gui.io_dialogs._NoConfigDialog._show"></a>
+
+#### \_show
+
+```python
+def _show() -> None
+```
+
+Grab the focus and wait for the dialog to close.
+
+<a id="backlogops_gui.io_dialogs._NoConfigDialog._choose"></a>
+
+#### \_choose
+
+```python
+def _choose(choice: ConfigChoice) -> None
+```
+
+Record the chosen action and close the dialog.
+
+<a id="backlogops_gui.io_dialogs.ask_no_config_choice"></a>
+
+#### ask\_no\_config\_choice
+
+```python
+def ask_no_config_choice(parent: tk.Misc) -> ConfigChoice
+```
+
+Ask whether to run the wizard, load a file, or exit.
 
 <a id="backlogops_gui.io_dialogs._ModalDialog"></a>
 

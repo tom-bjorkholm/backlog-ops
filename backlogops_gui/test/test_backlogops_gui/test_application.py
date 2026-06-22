@@ -10,7 +10,7 @@ import pytest
 from backlogops import AvailableTeamsConfig, BacklogReleases
 from backlogops_gui import application
 from backlogops_gui.application import APP_TITLE, BacklogApp
-from backlogops_gui.io_dialogs import ReadOptions
+from backlogops_gui.io_dialogs import ConfigChoice, ReadOptions
 
 DATA = BacklogReleases(backlog=[], releases=[])
 
@@ -102,6 +102,24 @@ def _raise_missing(_arg: object, _sink: object) -> AvailableTeamsConfig:
     raise FileNotFoundError('missing')
 
 
+def _choices(*values: ConfigChoice) -> Callable[[object], ConfigChoice]:
+    """Return a stub yielding the given no-config choices in turn."""
+    pending = list(values)
+
+    def chooser(_parent: object) -> ConfigChoice:
+        return pending.pop(0)
+    return chooser
+
+
+def _load_for_path(config: object) -> Callable[[object, object], object]:
+    """Return a loader that fails without a path and works with one."""
+    def loader(arg: object, _sink: object) -> object:
+        if arg is None:
+            raise RuntimeError('none')
+        return config
+    return loader
+
+
 def _read_opts(_parent: object, _presets: object) -> ReadOptions:
     """Return read options as if the format dialog was confirmed."""
     return ReadOptions(None)
@@ -169,9 +187,11 @@ def test_start_with_config(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_start_runs_wizard(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test start runs the wizard when no configuration is found."""
+    """Test the no-config dialog can run the wizard to become ready."""
     config = cast(AvailableTeamsConfig, FakeConfig())
     monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    monkeypatch.setattr(application, 'ask_no_config_choice',
+                        _choices(ConfigChoice.WIZARD))
     app = _app()
     monkeypatch.setattr(app, 'run_wizard', lambda: config)
     errors: list[tuple[str, str]] = []
@@ -182,18 +202,69 @@ def test_start_runs_wizard(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not errors
 
 
-def test_start_wizard_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test start is not ready when the startup wizard is cancelled."""
+def test_start_exit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test choosing exit in the no-config dialog is not ready."""
     monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    monkeypatch.setattr(application, 'ask_no_config_choice',
+                        _choices(ConfigChoice.EXIT))
+    assert _app().start(None) is False
+
+
+def test_start_wizard_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a cancelled startup wizard returns to the no-config dialog."""
+    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    monkeypatch.setattr(application, 'ask_no_config_choice',
+                        _choices(ConfigChoice.WIZARD, ConfigChoice.EXIT))
     app = _app()
     monkeypatch.setattr(app, 'run_wizard', lambda: None)
     assert app.start(None) is False
 
 
+def test_start_loads_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the no-config dialog can load a chosen configuration file."""
+    config = FakeConfig()
+    monkeypatch.setattr(application, 'get_available_teams',
+                        _load_for_path(config))
+    monkeypatch.setattr(application, 'ask_no_config_choice',
+                        _choices(ConfigChoice.LOAD))
+    monkeypatch.setattr(application, 'choose_existing_config',
+                        lambda parent: 'teams.cfg')
+    app = _app()
+    assert app.start(None) is True
+    assert app.config is cast(AvailableTeamsConfig, config)
+    assert app.config_source == 'teams.cfg'
+
+
+def test_start_load_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the load chooser returns to the no-config dialog."""
+    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    monkeypatch.setattr(application, 'ask_no_config_choice',
+                        _choices(ConfigChoice.LOAD, ConfigChoice.EXIT))
+    monkeypatch.setattr(application, 'choose_existing_config',
+                        lambda parent: None)
+    assert _app().start(None) is False
+
+
+def test_start_load_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a bad chosen file is reported and returns to the dialog."""
+    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    monkeypatch.setattr(application, 'ask_no_config_choice',
+                        _choices(ConfigChoice.LOAD, ConfigChoice.EXIT))
+    monkeypatch.setattr(application, 'choose_existing_config',
+                        lambda parent: 'bad.cfg')
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    assert app.start(None) is False
+    assert errors == [('Configuration error', 'none')]
+
+
 def test_bad_config_shows_err(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a bad named configuration is reported before the wizard."""
+    """Test a bad named configuration is reported before the dialog."""
     config = cast(AvailableTeamsConfig, FakeConfig())
     monkeypatch.setattr(application, 'get_available_teams', _raise_missing)
+    monkeypatch.setattr(application, 'ask_no_config_choice',
+                        _choices(ConfigChoice.WIZARD))
     app = _app()
     monkeypatch.setattr(app, 'run_wizard', lambda: config)
     errors: list[tuple[str, str]] = []
