@@ -175,6 +175,30 @@ def test_cancel_level() -> None:
     assert sorted(teams.persons) == ['ada']
 
 
+def test_cancel_to_count() -> None:
+    """Test cancelling a level from an item re-asks the group's count.
+
+    Cancelling at the second person's name returns to the person count
+    question and re-asks the whole group, so the first person entered is
+    discarded.
+    """
+    answers = (SCHED + ['0']
+               + ['2', 'Sam', '0', ':c', '1', 'Ada', '0']
+               + ['0'])
+    teams = _run(answers)
+    assert sorted(teams.persons) == ['ada']
+
+
+def test_no_outer_level() -> None:
+    """Test cancelling at a top-level count reports there is no outer level."""
+    stdin = io.StringIO('\n'.join(SCHED + ['0', ':c', '0', '0']) + '\n')
+    stdout = io.StringIO()
+    teams = available_teams_wizard(
+        WizardUiBridgeConsole(stdout, stdin, io.StringIO()))
+    assert not teams.persons
+    assert 'no outer level' in stdout.getvalue().lower()
+
+
 def test_abort() -> None:
     """Test an abort request ends the wizard with an end-of-input error."""
     with pytest.raises(EOFError):

@@ -53,6 +53,7 @@
     * [\_window\_obj](#backlogops_gui.gui_wizard.TkWizardBridge._window_obj)
 * [backlogops\_gui.application](#backlogops_gui.application)
   * [initial\_config](#backlogops_gui.application.initial_config)
+  * [\_config\_failure](#backlogops_gui.application._config_failure)
   * [BacklogApp](#backlogops_gui.application.BacklogApp)
     * [\_\_init\_\_](#backlogops_gui.application.BacklogApp.__init__)
     * [in\_presets](#backlogops_gui.application.BacklogApp.in_presets)
@@ -823,7 +824,9 @@ Return the startup configuration and an optional error message.
 The configuration is looked up as documented for
 :func:`backlogops.get_available_teams`. A failure is mapped to a None
 configuration and the error text, so the caller can decide whether to
-show the error and whether to run the wizard.
+show the error and offer the no-configuration choices. Diagnostics are
+captured, so a loader that reports a missing file and then calls
+``sys.exit`` becomes an error message instead of ending the program.
 
 **Arguments**:
 
@@ -834,6 +837,16 @@ show the error and whether to run the wizard.
 **Returns**:
 
   The loaded configuration and None, or None and the error text.
+
+<a id="backlogops_gui.application._config_failure"></a>
+
+#### \_config\_failure
+
+```python
+def _config_failure(captured: StringIO, fallback: str) -> str
+```
+
+Return the captured diagnostics, or the fallback when there are none.
 
 <a id="backlogops_gui.application.BacklogApp"></a>
 

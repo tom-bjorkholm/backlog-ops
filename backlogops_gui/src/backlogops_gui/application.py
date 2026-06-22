@@ -21,13 +21,14 @@ returns to that choice, so the application ends only when the user exits.
 import argparse
 import threading
 import tkinter as tk
+from io import StringIO
 from tkinter import messagebox, ttk
 from typing import Optional, TextIO
 import argcomplete
 from config_as_json.file_extension import fix_file_extension
 from backlogops import (
     AvailableTeams, AvailableTeamsConfig, BacklogReleases, InputFormatConfig,
-    NoTextIO, OutputFormatConfig, get_demo_backlog, get_available_teams,
+    OutputFormatConfig, get_demo_backlog, get_available_teams,
     teams_config_wizard)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
@@ -64,7 +65,9 @@ def initial_config(config_arg: Optional[str], sink: Optional[TextIO] = None
     The configuration is looked up as documented for
     :func:`backlogops.get_available_teams`. A failure is mapped to a None
     configuration and the error text, so the caller can decide whether to
-    show the error and whether to run the wizard.
+    show the error and offer the no-configuration choices. Diagnostics are
+    captured, so a loader that reports a missing file and then calls
+    ``sys.exit`` becomes an error message instead of ending the program.
 
     Args:
         config_arg: The file from ``-c``, or None to search the defaults.
@@ -73,11 +76,23 @@ def initial_config(config_arg: Optional[str], sink: Optional[TextIO] = None
     Returns:
         The loaded configuration and None, or None and the error text.
     """
-    out = NoTextIO() if sink is None else sink
+    captured = StringIO()
     try:
-        return get_available_teams(config_arg, out), None
+        config = get_available_teams(config_arg, captured)
     except CONFIG_ERRORS as error:
-        return None, str(error)
+        return None, _config_failure(captured, str(error))
+    except SystemExit:
+        message = 'Could not load the configuration.'
+        return None, _config_failure(captured, message)
+    if sink is not None:
+        sink.write(captured.getvalue())
+    return config, None
+
+
+def _config_failure(captured: StringIO, fallback: str) -> str:
+    """Return the captured diagnostics, or the fallback when there are none."""
+    text = captured.getvalue().strip()
+    return text if text else fallback
 
 
 class BacklogApp:

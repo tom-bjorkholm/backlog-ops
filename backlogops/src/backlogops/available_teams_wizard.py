@@ -10,10 +10,13 @@ interface, a Textual full-screen interface or a graphical user interface.
 
 Each repeated part is asked by first requesting a count and then
 collecting exactly that many items, so there are no open-ended "add
-another?" prompts. The wizard is driven through a small navigator that
-records every answer and replays them when the body is re-run, which is
-how it honours the bridge's back, cancel-level and abort requests: going
-back drops the most recently asked question, even across levels.
+another?" prompts. Each counted group is collected inside its own level
+whose opening question is the count, so a cancel-level request from any
+item returns to that count question and re-asks the group. The wizard is
+driven through a small navigator that records every answer and replays
+them when the body is re-run, which is how it honours the bridge's back,
+cancel-level and abort requests: going back drops the most recently asked
+question, even across levels.
 
 Individual field values are validated as they are entered, and date
 ranges are kept non-empty. Cross-item rules that span a whole workforce,
@@ -516,9 +519,9 @@ def _collect_teams(nav: _Navigator) -> AvailableTeams:
     """Ask for the company, the persons and the teams of a workforce."""
     nav.show('Configure the available workforce.')
     company = _build_company(nav)
-    persons = _build_persons(nav)
+    persons = nav.level(lambda: _build_persons(nav))
     names = [person.name for person in persons.values()]
-    teams = _build_teams(nav, names)
+    teams = nav.level(lambda: _build_teams(nav, names))
     return AvailableTeams(persons=persons, teams=teams,
                           company_work_hours=company)
 
@@ -527,16 +530,16 @@ def _collect_config(nav: _Navigator) -> AvailableTeamsConfig:
     """Ask for the workforce and its named TableIO presets."""
     teams = _collect_teams(nav)
     config = AvailableTeamsConfig(neutral=teams)
-    config.input_configs = _build_input_presets(nav)
-    config.output_configs = _build_output_presets(nav)
+    config.input_configs = nav.level(lambda: _build_input_presets(nav))
+    config.output_configs = nav.level(lambda: _build_output_presets(nav))
     return config
 
 
 def _build_company(nav: _Navigator) -> CompanyWorkHours:
     """Ask for the company weekly schedule and exception periods."""
     work_hours = nav.ask_schedule()
-    exceptions = _build_exceptions(
-        nav, 'Number of company holiday, closure or special-work periods')
+    question = 'Number of company holiday, closure or special-work periods'
+    exceptions = nav.level(lambda: _build_exceptions(nav, question))
     return CompanyWorkHours(work_hours=work_hours, exceptions=exceptions)
 
 
@@ -572,8 +575,8 @@ def _build_persons(nav: _Navigator) -> dict[str, Person]:
 def _ask_person(nav: _Navigator, persons: dict[str, Person]) -> Person:
     """Ask for one person and the personal work-hour exceptions."""
     name = nav.ask_person_name('Person name', persons)
-    exceptions = _build_exceptions(
-        nav, f'Number of vacation or work-hour exceptions for {name}')
+    question = f'Number of vacation or work-hour exceptions for {name}'
+    exceptions = nav.level(lambda: _build_exceptions(nav, question))
     return Person(name=name, exceptions=exceptions)
 
 
@@ -591,8 +594,8 @@ def _ask_team(nav: _Navigator, person_names: list[str]) -> Team:
     sum_fte = nav.ask_number('Sum of full-time equivalents at that velocity',
                              1.0, None, None)
     sprint_length = nav.ask_int('Sprint length in working days', 10, 1)
-    aliases = _build_aliases(nav)
-    members = _build_members(nav, person_names)
+    aliases = nav.level(lambda: _build_aliases(nav))
+    members = nav.level(lambda: _build_members(nav, person_names))
     return Team(name=name, velocity=velocity, sum_fte_at_velocity=sum_fte,
                 sprint_length=sprint_length, aliases=aliases, members=members)
 
@@ -630,7 +633,7 @@ def _ask_membership(nav: _Navigator, person_names: list[str]) -> Membership:
     fte = nav.ask_number('Full-time equivalent in this team', 1.0, 0.0, 1.0)
     start_date = nav.ask_opt_date('Membership start date')
     end_date = nav.ask_membership_end('Membership end date', start_date)
-    fte_exceptions = _build_fte_exceptions(nav)
+    fte_exceptions = nav.level(lambda: _build_fte_exceptions(nav))
     return Membership(person_name=person_name, fte=fte, start_date=start_date,
                       end_date=end_date, fte_exceptions=fte_exceptions)
 
@@ -679,7 +682,8 @@ def _ask_input_preset(nav: _Navigator,
     """Ask for one named input preset and its column-name mapping."""
     name = nav.ask_preset_name('Preset name (letters and digits)', used)
     tableio = nav.ask_tableio(FileAccess.READ)
-    column_map = nav.ask_column_map('external column', 'internal field')
+    column_map = nav.level(
+        lambda: nav.ask_column_map('external column', 'internal field'))
     return name, make_input_config(tableio, column_map)
 
 
@@ -688,5 +692,6 @@ def _ask_output_preset(nav: _Navigator,
     """Ask for one named output preset and its column-name mapping."""
     name = nav.ask_preset_name('Preset name (letters and digits)', used)
     tableio = nav.ask_tableio(FileAccess.CREATE)
-    column_map = nav.ask_column_map('internal field', 'external column')
+    column_map = nav.level(
+        lambda: nav.ask_column_map('internal field', 'external column'))
     return name, make_output_config(tableio, column_map)

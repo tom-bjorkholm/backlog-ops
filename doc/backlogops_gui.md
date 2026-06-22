@@ -270,7 +270,9 @@ Return the startup configuration and an optional error message.
 The configuration is looked up as documented for
 :func:`backlogops.get_available_teams`. A failure is mapped to a None
 configuration and the error text, so the caller can decide whether to
-show the error and whether to run the wizard.
+show the error and offer the no-configuration choices. Diagnostics are
+captured, so a loader that reports a missing file and then calls
+``sys.exit`` becomes an error message instead of ending the program.
 
 **Arguments**:
 

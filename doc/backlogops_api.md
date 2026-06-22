@@ -1222,10 +1222,13 @@ interface, a Textual full-screen interface or a graphical user interface.
 
 Each repeated part is asked by first requesting a count and then
 collecting exactly that many items, so there are no open-ended "add
-another?" prompts. The wizard is driven through a small navigator that
-records every answer and replays them when the body is re-run, which is
-how it honours the bridge's back, cancel-level and abort requests: going
-back drops the most recently asked question, even across levels.
+another?" prompts. Each counted group is collected inside its own level
+whose opening question is the count, so a cancel-level request from any
+item returns to that count question and re-asks the group. The wizard is
+driven through a small navigator that records every answer and replays
+them when the body is re-run, which is how it honours the bridge's back,
+cancel-level and abort requests: going back drops the most recently asked
+question, even across levels.
 
 Individual field values are validated as they are entered, and date
 ranges are kept non-empty. Cross-item rules that span a whole workforce,

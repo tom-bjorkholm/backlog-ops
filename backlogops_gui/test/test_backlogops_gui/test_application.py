@@ -102,6 +102,12 @@ def _raise_missing(_arg: object, _sink: object) -> AvailableTeamsConfig:
     raise FileNotFoundError('missing')
 
 
+def _raise_exit(_arg: object, captured: TextIO) -> AvailableTeamsConfig:
+    """Report a missing file and exit, as the config loader does."""
+    captured.write('File aha does not exist. Cannot proceed.\n')
+    raise SystemExit(1)
+
+
 def _choices(*values: ConfigChoice) -> Callable[[object], ConfigChoice]:
     """Return a stub yielding the given no-config choices in turn."""
     pending = list(values)
@@ -174,6 +180,14 @@ def test_initial_config_err(monkeypatch: pytest.MonkeyPatch) -> None:
     result, error = application.initial_config(None)
     assert result is None
     assert error == 'none'
+
+
+def test_initial_config_exit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a loader that exits is reported instead of ending the program."""
+    monkeypatch.setattr(application, 'get_available_teams', _raise_exit)
+    result, error = application.initial_config('aha')
+    assert result is None
+    assert error == 'File aha does not exist. Cannot proceed.'
 
 
 def test_start_with_config(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -257,6 +271,25 @@ def test_start_load_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app, 'show_error', _record(errors))
     assert app.start(None) is False
     assert errors == [('Configuration error', 'none')]
+
+
+def test_exit_config_dialog(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a -c file that makes the loader exit reaches the no-config dialog.
+
+    This is the missing-file case that previously ended the application
+    silently instead of reporting the error and offering the choices.
+    """
+    config = cast(AvailableTeamsConfig, FakeConfig())
+    monkeypatch.setattr(application, 'get_available_teams', _raise_exit)
+    monkeypatch.setattr(application, 'ask_no_config_choice',
+                        _choices(ConfigChoice.WIZARD))
+    app = _app()
+    monkeypatch.setattr(app, 'run_wizard', lambda: config)
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    assert app.start('aha') is True
+    assert errors == [('Configuration error',
+                       'File aha does not exist. Cannot proceed.')]
 
 
 def test_bad_config_shows_err(monkeypatch: pytest.MonkeyPatch) -> None:
