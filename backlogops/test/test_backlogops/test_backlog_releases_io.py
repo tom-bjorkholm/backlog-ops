@@ -6,12 +6,13 @@
 
 from datetime import date
 from pathlib import Path
+from typing import Optional
 import pytest
 from backlogops import (
-    BacklogItem, BacklogReleases, FormatRules, Release, Status, item_to_row,
-    make_input_config, make_output_config, read_backlog_releases,
-    release_to_row, resolve_input_config, resolve_output_config, row_to_item,
-    row_to_release, write_backlog_releases)
+    BacklogItem, BacklogReleases, FileExistsCb, FormatRules, Release, Status,
+    allow_overwrite, item_to_row, make_input_config, make_output_config,
+    read_backlog_releases, release_to_row, resolve_input_config,
+    resolve_output_config, row_to_item, row_to_release, write_backlog_releases)
 from backlogops.no_text_io import NoTextIO
 
 NO_OUTPUT = NoTextIO()
@@ -179,3 +180,39 @@ def test_bad_table(tmp_path: Path) -> None:
                                         stderr_file=NO_OUTPUT)
     with pytest.raises(ValueError):
         read_backlog_releases(path, input_config, stderr_file=NO_OUTPUT)
+
+
+def _write(data: BacklogReleases, path: Path,
+           callback: Optional[FileExistsCb] = None) -> None:
+    """Write ``data`` to ``path``, optionally with an overwrite callback."""
+    output = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    write_backlog_releases(data, path, output, stderr_file=NO_OUTPUT,
+                           file_exists_callback=callback)
+
+
+def test_overwrite_refused(tmp_path: Path) -> None:
+    """Test writing over an existing file is refused without a callback."""
+    path = tmp_path / 'data.csv'
+    _write(_sample(), path)
+    with pytest.raises(FileExistsError):
+        _write(_sample(), path)
+
+
+def test_overwrite_allowed(tmp_path: Path) -> None:
+    """Test the allow-overwrite callback lets the file be rewritten."""
+    path = tmp_path / 'data.csv'
+    _write(_sample(), path)
+    _write(_sample(), path, allow_overwrite)
+    assert path.is_file()
+
+
+def test_overwrite_declined(tmp_path: Path) -> None:
+    """Test a raising callback keeps the existing file from being written."""
+    path = tmp_path / 'data.csv'
+    _write(_sample(), path)
+
+    def refuse(name: str) -> None:
+        """Refuse the overwrite as a declining callback would."""
+        raise FileExistsError(name)
+    with pytest.raises(FileExistsError):
+        _write(_sample(), path, refuse)

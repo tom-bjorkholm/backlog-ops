@@ -16,7 +16,9 @@ import argparse
 import sys
 from typing import Optional
 from backlogops import get_keys_in_order, write_key_list
-from backlogops_cli._command_io import add_input_args, parsed_args, read_input
+from backlogops_cli._command_io import (
+    add_force_arg, add_input_args, overwrite_callback, parsed_args,
+    read_input)
 
 DESCRIPTION = 'Extract backlog keys at the given levels to a key list'
 
@@ -32,6 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
                         help='Key list file to create; stdout if omitted.')
     parser.add_argument('--io-config', dest='io_config',
                         help='Configuration file holding the named presets.')
+    add_force_arg(parser)
     return parser
 
 
@@ -43,13 +46,14 @@ def _level_value(text: str) -> int | str:
         return text
 
 
-def _emit(keys: list[str], output: Optional[str]) -> None:
+def _emit(keys: list[str], output: Optional[str], force: bool) -> None:
     """Write the keys to the output file, or to stdout when none is given."""
     if output is None:
         for key in keys:
             print(key)
     else:
-        write_key_list(keys, output)
+        write_key_list(keys, output,
+                       file_exists_callback=overwrite_callback(force))
 
 
 def main(args: Optional[list[str]] = None) -> int:
@@ -66,7 +70,8 @@ def main(args: Optional[list[str]] = None) -> int:
     try:
         data = read_input(parsed)
         levels = [_level_value(text) for text in parsed.levels]
-        _emit(get_keys_in_order(data.backlog, levels), parsed.output)
+        _emit(get_keys_in_order(data.backlog, levels), parsed.output,
+              parsed.force)
     except (ValueError, TypeError, KeyError, OSError) as error:
         print(f'Could not extract keys: {error}', file=sys.stderr)
         return 1

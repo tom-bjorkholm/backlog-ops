@@ -55,6 +55,29 @@ def test_main_writes_file(tmp_path: Path,
     assert not loaded.teams
 
 
+def test_overwrite_declined(tmp_path: Path,
+                            monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test declining the overwrite keeps the config and skips the wizard."""
+    target = tmp_path / 'teams.cfg'
+    target.write_text('OLD', encoding='utf-8')
+    monkeypatch.setattr('sys.stdin', io.StringIO('n\n'))
+    assert teams_wizard.main(['-o', str(tmp_path / 'teams'),
+                              '--no-textual']) == 1
+    assert target.read_text(encoding='utf-8') == 'OLD'
+
+
+def test_overwrite_force(tmp_path: Path,
+                         monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the force flag overwrites the existing config without asking."""
+    target = tmp_path / 'teams.cfg'
+    target.write_text('OLD', encoding='utf-8')
+    answers = [''] * 12
+    monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
+    assert teams_wizard.main(['-o', str(tmp_path / 'teams'),
+                              '--no-textual', '-f']) == 0
+    assert not read_available_teams(target, NoTextIO()).teams
+
+
 def test_main_reports_failure(tmp_path: Path,
                               monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an inconsistent workforce makes the command return 1."""

@@ -16,7 +16,7 @@ view rather than on a console.
 from typing import Optional, TextIO
 from backlogops import (
     BacklogReleases, FormatRules, InputFormatConfig, OutputFormatConfig,
-    NoTextIO, read_backlog_releases, write_backlog_releases,
+    NoTextIO, allow_overwrite, read_backlog_releases, write_backlog_releases,
     resolve_input_config, resolve_output_config)
 
 
@@ -65,4 +65,5 @@ def write_backlog(data: BacklogReleases, path: str, value: Optional[str],
     config = resolve_output_config(value, data_file=path, presets=presets,
                                    stderr_file=out)
     rules = FormatRules(backlog_first=not releases_first)
-    write_backlog_releases(data, path, config, rules, stderr_file=out)
+    write_backlog_releases(data, path, config, rules, stderr_file=out,
+                           file_exists_callback=allow_overwrite)

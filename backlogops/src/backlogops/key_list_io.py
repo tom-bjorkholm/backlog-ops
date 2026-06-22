@@ -26,7 +26,7 @@ may have one. Either way the table must have exactly one column.
 # MIT License
 
 from pathlib import Path
-from typing import TextIO
+from typing import Optional, TextIO
 from collections.abc import Sequence
 import sys
 from config_as_json import PathOrStr
@@ -34,7 +34,7 @@ from tableio import DictData, FileAccess, ListData, Value, \
     access_capabilities, tio_config_create
 from backlogops.backlog_helpers import report_bad_value
 from backlogops.io_config import resolve_input_config
-from backlogops.table_create import create_output_table
+from backlogops.table_create import create_output_table, FileExistsCb
 
 TEXT_EXTENSIONS = {'.txt', '.dat'}
 """File name extensions read and written as plain UTF-8 text."""
@@ -165,12 +165,23 @@ def read_key_list(file_name: PathOrStr, *, skip_column_names: bool = False,
     return _read_table(file_name, skip_column_names, stderr_file)
 
 
-def _ensure_absent(file_name: PathOrStr, stderr_file: TextIO) -> None:
-    """Raise ``FileExistsError`` when the target file already exists."""
-    if Path(file_name).exists():
-        message = f'File already exists: {file_name}'
-        print(message, file=stderr_file)
-        raise FileExistsError(message)
+def _ensure_absent(file_name: PathOrStr, stderr_file: TextIO,
+                   file_exists_callback: Optional[FileExistsCb]) -> None:
+    """Handle an existing target file before a plain text write.
+
+    When the file is absent nothing happens. When it exists the
+    ``file_exists_callback`` decides: returning allows the overwrite and
+    raising refuses it. Without a callback an existing file is refused
+    with ``FileExistsError``.
+    """
+    if not Path(file_name).exists():
+        return
+    if file_exists_callback is not None:
+        file_exists_callback(str(file_name))
+        return
+    message = f'File already exists: {file_name}'
+    print(message, file=stderr_file)
+    raise FileExistsError(message)
 
 
 def _write_text(key_list: Sequence[str], file_name: PathOrStr,
@@ -182,9 +193,11 @@ def _write_text(key_list: Sequence[str], file_name: PathOrStr,
 
 
 def _write_table(key_list: Sequence[str], file_name: PathOrStr,
-                 add_column_name: bool, stderr_file: TextIO) -> None:
+                 add_column_name: bool, stderr_file: TextIO,
+                 file_exists_callback: Optional[FileExistsCb]) -> None:
     """Write a key list as a one column TableIO table."""
-    with create_output_table(file_name, stderr_file) as tableio:
+    with create_output_table(file_name, stderr_file,
+                             file_exists_callback) as tableio:
         if add_column_name:
             dict_rows: DictData[Value] = [{KEY_COLUMN_NAME: key}
                                           for key in key_list]
@@ -196,7 +209,9 @@ def _write_table(key_list: Sequence[str], file_name: PathOrStr,
 
 def write_key_list(key_list: Sequence[str], file_name: PathOrStr, *,
                    add_column_name: bool = False,
-                   stderr_file: TextIO = sys.stderr) -> None:
+                   stderr_file: TextIO = sys.stderr,
+                   file_exists_callback: Optional[FileExistsCb]
+                   = None) -> None:
     """Write a key list to a file.
 
     The file type is chosen from the file name extension. A ``.txt`` or
@@ -213,15 +228,19 @@ def write_key_list(key_list: Sequence[str], file_name: PathOrStr, *,
         file_name: The file to create.
         add_column_name: Whether to write the column name ``Keys`` first.
         stderr_file: The stream to report errors to.
+        file_exists_callback: Called when the file already exists, as
+                              documented for :mod:`backlogops.table_create`.
+                              None refuses an existing file.
 
     Raises:
-        FileExistsError: If the file already exists.
+        FileExistsError: If the file exists and the callback refuses it.
         IsADirectoryError: If the file is a directory.
         PermissionError: If the file is not writable.
         ValueError: If the extension is not a supported table format.
     """
-    _ensure_absent(file_name, stderr_file)
     if _is_text(file_name):
+        _ensure_absent(file_name, stderr_file, file_exists_callback)
         _write_text(key_list, file_name, add_column_name)
     else:
-        _write_table(key_list, file_name, add_column_name, stderr_file)
+        _write_table(key_list, file_name, add_column_name, stderr_file,
+                     file_exists_callback)

@@ -19,9 +19,9 @@ from typing import Callable, Optional, TextIO
 from tableio import ValueFmt
 from backlogops import (
     AvailableTeams, BacklogReleases, OutputFormatConfig, ReleaseChanges,
-    ReleaseDateChanges, format_content_changes, format_date_changes,
-    get_keys_in_order, write_content_changes, write_date_changes,
-    write_key_list)
+    ReleaseDateChanges, allow_overwrite, format_content_changes,
+    format_date_changes, get_keys_in_order, write_content_changes,
+    write_date_changes, write_key_list)
 from backlogops_gui.backlog_io import write_backlog
 from backlogops_gui.io_dialogs import (
     ask_buffer_days, ask_date_order, ask_dep_options, ask_keys, ask_levels,
@@ -158,18 +158,30 @@ def show_changes(parent: tk.Misc, title: str, text: str,
 
 def _date_report(changes: ReleaseDateChanges, sink: TextIO
                  ) -> tuple[str, Optional[Callable[[str], None]]]:
-    """Return the date change listing and a writer, None when empty."""
-    writer = None if not changes else \
-        (lambda path: write_date_changes(changes, path, sink))
-    return format_date_changes(changes), writer
+    """Return the date change listing and a writer, None when empty.
+
+    The native save dialog has already confirmed the overwrite, so the
+    writer allows overwriting an existing file.
+    """
+    def write(path: str) -> None:
+        """Write the date changes; the dialog confirmed the overwrite."""
+        write_date_changes(changes, path, sink,
+                           file_exists_callback=allow_overwrite)
+    return format_date_changes(changes), (write if changes else None)
 
 
 def _content_report(changes: ReleaseChanges, sink: TextIO
                     ) -> tuple[str, Optional[Callable[[str], None]]]:
-    """Return the content change listing and a writer, None when empty."""
-    writer = None if not changes else \
-        (lambda path: write_content_changes(changes, path, sink))
-    return format_content_changes(changes), writer
+    """Return the content change listing and a writer, None when empty.
+
+    The native save dialog has already confirmed the overwrite, so the
+    writer allows overwriting an existing file.
+    """
+    def write(path: str) -> None:
+        """Write the content changes; the dialog confirmed the overwrite."""
+        write_content_changes(changes, path, sink,
+                              file_exists_callback=allow_overwrite)
+    return format_content_changes(changes), (write if changes else None)
 
 
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
@@ -291,7 +303,8 @@ def extract_keys(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
         return
     try:
         keys = get_keys_in_order(data.backlog, levels)
-        write_key_list(keys, path, stderr_file=sink)
+        write_key_list(keys, path, stderr_file=sink,
+                       file_exists_callback=allow_overwrite)
     except ACTION_ERRORS as error:
         on_error('Could not extract keys', str(error))
         return

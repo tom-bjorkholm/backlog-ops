@@ -4,6 +4,7 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import io
 from pathlib import Path
 import pytest
 from backlogops import (
@@ -67,3 +68,29 @@ def test_missing_input(tmp_path: Path) -> None:
     """Test a missing input file makes the command return 1."""
     assert extract_keys.main(['-i', str(tmp_path / 'no.csv'),
                               '--levels', 'Story']) == 1
+
+
+def _extract(source: Path, target: Path, extra: list[str]) -> int:
+    """Run extract_keys writing epics to target with extra arguments."""
+    return extract_keys.main(['-i', str(source), '--levels', 'Epic',
+                              '-o', str(target), *extra])
+
+
+def test_overwrite_declined(tmp_path: Path,
+                            monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test answering no leaves the existing key list file unchanged."""
+    source, target = tmp_path / 'in.ods', tmp_path / 'keys.txt'
+    _write_source(source)
+    target.write_text('OLD\n', encoding='utf-8')
+    monkeypatch.setattr('sys.stdin', io.StringIO('n\n'))
+    assert _extract(source, target, []) == 1
+    assert target.read_text(encoding='utf-8') == 'OLD\n'
+
+
+def test_overwrite_force(tmp_path: Path) -> None:
+    """Test the force flag overwrites the existing key list file."""
+    source, target = tmp_path / 'in.ods', tmp_path / 'keys.txt'
+    _write_source(source)
+    target.write_text('OLD\n', encoding='utf-8')
+    assert _extract(source, target, ['-f']) == 0
+    assert read_key_list(target, stderr_file=NO_OUTPUT) == ['E1', 'E2']

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from tableio import FileAccess, Value, access_capabilities, tio_config_create
 from backlogops import (
-    ReleaseChange, ReleaseDateChange, format_content_changes,
+    ReleaseChange, ReleaseDateChange, allow_overwrite, format_content_changes,
     format_date_changes, resolve_input_config, write_content_changes,
     write_date_changes)
 from backlogops.no_text_io import NoTextIO
@@ -82,3 +82,23 @@ def test_write_existing_file(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError):
         write_date_changes([ReleaseDateChange('R1', None, date(2026, 1, 1))],
                            target, NO_OUTPUT)
+
+
+def test_write_overwrite_ok(tmp_path: Path) -> None:
+    """Test the allow-overwrite callback rewrites an existing changes file."""
+    target = tmp_path / 'changes.csv'
+    target.write_text('x', encoding='utf-8')
+    changes = [ReleaseDateChange('R1', None, date(2026, 1, 1))]
+    write_date_changes(changes, target, NO_OUTPUT,
+                       file_exists_callback=allow_overwrite)
+    assert _read_rows(target)[0] == ['release', 'old_date', 'new_date']
+
+
+def test_content_overwrite(tmp_path: Path) -> None:
+    """Test the content-change writer also honors the overwrite callback."""
+    target = tmp_path / 'changes.csv'
+    target.write_text('x', encoding='utf-8')
+    write_content_changes([ReleaseChange('A1', None, 'R1')], target, NO_OUTPUT,
+                          file_exists_callback=allow_overwrite)
+    assert _read_rows(target)[0] == ['backlog_key', 'old_release',
+                                     'new_release']

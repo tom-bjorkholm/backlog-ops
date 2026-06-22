@@ -1480,6 +1480,9 @@ def _date_report(changes: ReleaseDateChanges,
 
 Return the date change listing and a writer, None when empty.
 
+The native save dialog has already confirmed the overwrite, so the
+writer allows overwriting an existing file.
+
 <a id="backlogops_gui.backlog_window._content_report"></a>
 
 #### \_content\_report
@@ -1491,6 +1494,9 @@ def _content_report(
 ```
 
 Return the content change listing and a writer, None when empty.
+
+The native save dialog has already confirmed the overwrite, so the
+writer allows overwriting an existing file.
 
 <a id="backlogops_gui.backlog_window._run_change"></a>
 

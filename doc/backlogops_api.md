@@ -79,6 +79,7 @@
   * [write\_content\_changes](#backlogops.release_change_io.write_content_changes)
   * [write\_date\_changes](#backlogops.release_change_io.write_date_changes)
 * [backlogops.table\_create](#backlogops.table_create)
+  * [allow\_overwrite](#backlogops.table_create.allow_overwrite)
   * [create\_output\_table](#backlogops.table_create.create_output_table)
 * [backlogops.team](#backlogops.team)
   * [FteException](#backlogops.team.FteException)
@@ -1142,11 +1143,13 @@ and is skipped (dict reading). A table must have exactly one column.
 #### write\_key\_list
 
 ```python
-def write_key_list(key_list: Sequence[str],
-                   file_name: PathOrStr,
-                   *,
-                   add_column_name: bool = False,
-                   stderr_file: TextIO = sys.stderr) -> None
+def write_key_list(
+        key_list: Sequence[str],
+        file_name: PathOrStr,
+        *,
+        add_column_name: bool = False,
+        stderr_file: TextIO = sys.stderr,
+        file_exists_callback: Optional[FileExistsCb] = None) -> None
 ```
 
 Write a key list to a file.
@@ -1166,11 +1169,14 @@ the keys and a table file holds only data rows (list writing).
 - `file_name` - The file to create.
 - `add_column_name` - Whether to write the column name ``Keys`` first.
 - `stderr_file` - The stream to report errors to.
+- `file_exists_callback` - Called when the file already exists, as
+  documented for :mod:`backlogops.table_create`.
+  None refuses an existing file.
   
 
 **Raises**:
 
-- `FileExistsError` - If the file already exists.
+- `FileExistsError` - If the file exists and the callback refuses it.
 - `IsADirectoryError` - If the file is a directory.
 - `PermissionError` - If the file is not writable.
 - `ValueError` - If the extension is not a supported table format.
@@ -1855,9 +1861,11 @@ Return release date changes as text for the console.
 #### write\_content\_changes
 
 ```python
-def write_content_changes(changes: ReleaseChanges,
-                          file_name: PathOrStr,
-                          stderr_file: TextIO = sys.stderr) -> None
+def write_content_changes(
+        changes: ReleaseChanges,
+        file_name: PathOrStr,
+        stderr_file: TextIO = sys.stderr,
+        file_exists_callback: Optional[FileExistsCb] = None) -> None
 ```
 
 Write release content changes to a one table file.
@@ -1872,11 +1880,14 @@ cell.
 - `changes` - The release content changes to write, in order.
 - `file_name` - The file to create.
 - `stderr_file` - The stream to report errors to.
+- `file_exists_callback` - Called when the file already exists, as
+  documented for :mod:`backlogops.table_create`.
+  None refuses an existing file.
   
 
 **Raises**:
 
-- `FileExistsError` - If the file already exists.
+- `FileExistsError` - If the file exists and the callback refuses it.
 - `ValueError` - If the extension is not a supported table format.
 
 <a id="backlogops.release_change_io.write_date_changes"></a>
@@ -1884,9 +1895,11 @@ cell.
 #### write\_date\_changes
 
 ```python
-def write_date_changes(changes: ReleaseDateChanges,
-                       file_name: PathOrStr,
-                       stderr_file: TextIO = sys.stderr) -> None
+def write_date_changes(
+        changes: ReleaseDateChanges,
+        file_name: PathOrStr,
+        stderr_file: TextIO = sys.stderr,
+        file_exists_callback: Optional[FileExistsCb] = None) -> None
 ```
 
 Write release date changes to a one table file.
@@ -1900,11 +1913,14 @@ TableIO table. The single table has the columns ``release``,
 - `changes` - The release date changes to write, in order.
 - `file_name` - The file to create.
 - `stderr_file` - The stream to report errors to.
+- `file_exists_callback` - Called when the file already exists, as
+  documented for :mod:`backlogops.table_create`.
+  None refuses an existing file.
   
 
 **Raises**:
 
-- `FileExistsError` - If the file already exists.
+- `FileExistsError` - If the file exists and the callback refuses it.
 - `ValueError` - If the extension is not a supported table format.
 
 <a id="backlogops.table_create"></a>
@@ -1919,14 +1935,33 @@ all resolve the output configuration from the file name, request CREATE
 capabilities, and open a TableIO context. This helper holds that shared
 setup so each writer only describes the rows it writes.
 
+The writers accept an optional ``file_exists_callback``. TableIO calls it
+with the file name when a CREATE would overwrite an existing file:
+returning from the callback allows the overwrite, raising refuses it.
+Without a callback an existing file is refused. :func:`allow_overwrite` is
+a ready callback that always allows the overwrite.
+
+<a id="backlogops.table_create.allow_overwrite"></a>
+
+#### allow\_overwrite
+
+```python
+def allow_overwrite(file_name: str) -> None
+```
+
+File-exists callback that always allows overwriting the file.
+
 <a id="backlogops.table_create.create_output_table"></a>
 
 #### create\_output\_table
 
 ```python
 @contextmanager
-def create_output_table(file_name: PathOrStr,
-                        stderr_file: TextIO = sys.stderr) -> Iterator[TableIO]
+def create_output_table(
+        file_name: PathOrStr,
+        stderr_file: TextIO = sys.stderr,
+        file_exists_callback: Optional[FileExistsCb] = None
+) -> Iterator[TableIO]
 ```
 
 Yield a TableIO opened to create a one table file.
@@ -1939,6 +1974,9 @@ write the table inside the ``with`` block.
 
 - `file_name` - The file to create.
 - `stderr_file` - The stream to report errors to.
+- `file_exists_callback` - Called when the file already exists, as
+  documented for the module. None refuses an
+  existing file.
   
 
 **Yields**:
@@ -3975,11 +4013,13 @@ checked here.
 #### write\_backlog\_releases
 
 ```python
-def write_backlog_releases(data: BacklogReleases,
-                           data_file: PathOrStr,
-                           config: OutputFormatConfig,
-                           format_rules: Optional[FormatRules] = None,
-                           stderr_file: TextIO = sys.stderr) -> None
+def write_backlog_releases(
+        data: BacklogReleases,
+        data_file: PathOrStr,
+        config: OutputFormatConfig,
+        format_rules: Optional[FormatRules] = None,
+        stderr_file: TextIO = sys.stderr,
+        file_exists_callback: Optional[FileExistsCb] = None) -> None
 ```
 
 Write a backlog, releases, or both to one file.
@@ -3998,6 +4038,9 @@ cell formatting; when omitted the default :class:`FormatRules` apply.
 - `format_rules` - How to format the written data, or None for the
   default format rules.
 - `stderr_file` - Stream used for user-facing diagnostics.
+- `file_exists_callback` - Called when the file already exists, as
+  documented for :mod:`backlogops.table_create`.
+  None refuses an existing file.
 
 <a id="backlogops.order_by_dependencies"></a>
 

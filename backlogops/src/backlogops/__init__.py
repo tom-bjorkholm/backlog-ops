@@ -42,6 +42,7 @@ from backlogops.release_change_io import (
 from backlogops.io_config import (
     InputFormatConfig, OutputFormatConfig, resolve_input_config,
     resolve_output_config, make_input_config, make_output_config)
+from backlogops.table_create import FileExistsCb, allow_overwrite
 from backlogops.backlog_releases_io import (
     read_backlog_releases, write_backlog_releases)
 from backlogops.table_rows import (
@@ -70,7 +71,8 @@ __all__ = [
     'write_available_teams', 'get_available_teams', 'order_by_dependencies',
     'DependencyMode', 'InputFormatConfig', 'OutputFormatConfig',
     'resolve_input_config', 'resolve_output_config', 'make_input_config',
-    'make_output_config', 'read_backlog_releases', 'write_backlog_releases',
+    'make_output_config', 'FileExistsCb', 'allow_overwrite',
+    'read_backlog_releases', 'write_backlog_releases',
     'item_to_row', 'row_to_item', 'release_to_row', 'row_to_release',
     'FormatRules', 'format_backlog', 'format_releases',
     'estimate_ready_date', 'set_plan_from_estimate',

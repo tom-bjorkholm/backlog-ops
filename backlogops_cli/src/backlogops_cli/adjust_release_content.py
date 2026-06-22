@@ -20,7 +20,8 @@ from datetime import timedelta
 from typing import Callable, Optional
 from backlogops import BacklogReleases
 from backlogops_cli._command_io import (
-    build_change_parser, content_report, parsed_args, run_change_command)
+    build_change_parser, content_report, overwrite_callback, parsed_args,
+    run_change_command)
 
 DESCRIPTION = 'Adjust release content to fit the planned release dates'
 
@@ -34,7 +35,7 @@ def _adjust(parsed: argparse.Namespace, data: BacklogReleases
             ) -> tuple[str, Optional[Callable[[str], None]]]:
     """Adjust the release content and return the change report."""
     changes = data.adjust_release_content(timedelta(days=parsed.buffer_days))
-    return content_report(changes)
+    return content_report(changes, overwrite_callback(parsed.force))
 
 
 def main(args: Optional[list[str]] = None) -> int:

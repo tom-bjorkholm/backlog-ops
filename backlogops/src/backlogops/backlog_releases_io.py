@@ -28,6 +28,7 @@ from tableio import CAP_IGNORABLE, Capabilities, DictData, FileAccess, \
 from backlogops.backlog import Backlog
 from backlogops.backlog_releases import BacklogReleases
 from backlogops.io_config import InputFormatConfig, OutputFormatConfig
+from backlogops.table_create import FileExistsCb
 from backlogops.levels import Levels
 from backlogops.releases import Releases
 from backlogops.format_rules import FormatRules
@@ -170,10 +171,13 @@ def _ordered_sections(data: BacklogReleases, rules: FormatRules
     return [section for section in sections if section[1]]
 
 
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
                            config: OutputFormatConfig,
                            format_rules: Optional[FormatRules] = None,
-                           stderr_file: TextIO = sys.stderr) -> None:
+                           stderr_file: TextIO = sys.stderr,
+                           file_exists_callback: Optional[FileExistsCb]
+                           = None) -> None:
     """Write a backlog, releases, or both to one file.
 
     Each non-empty table is written with a heading before it, so several
@@ -189,12 +193,17 @@ def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
         format_rules: How to format the written data, or None for the
                       default format rules.
         stderr_file: Stream used for user-facing diagnostics.
+        file_exists_callback: Called when the file already exists, as
+                              documented for :mod:`backlogops.table_create`.
+                              None refuses an existing file.
     """
     rules = FormatRules() if format_rules is None else format_rules
     capabilities = _write_capabilities(stderr_file)
     sections = _ordered_sections(data, rules)
     with tio_config_create(config=config.tableio, file_name=data_file,
                            file_access=FileAccess.CREATE,
-                           capabilities=capabilities) as tableio:
+                           capabilities=capabilities,
+                           file_exists_callback=file_exists_callback
+                           ) as tableio:
         for section in sections:
             _write_table(tableio, section, config.to_external, rules)

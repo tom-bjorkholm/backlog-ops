@@ -7,12 +7,14 @@
 
 import argparse
 import sys
+from pathlib import Path
 from typing import Optional
 from config_as_json.file_extension import fix_file_extension
 from tableio_cfg_json import WizardUiBridge, WizardUiBridgeConsole, \
     make_text_ui_bridge
 from backlogops import teams_config_wizard
-from backlogops_cli._command_io import parsed_args
+from backlogops_cli._command_io import (
+    add_force_arg, overwrite_callback, parsed_args)
 
 DESCRIPTION = 'Create an AvailableTeams configuration file via a wizard'
 CONFIG_EXTENSION = '.cfg'
@@ -27,7 +29,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--no-textual', dest='no_textual', action='store_true',
                         help='Force the plain console interface instead of '
                         'the Textual full-screen interface.')
+    add_force_arg(parser)
     return parser
+
+
+def _check_overwrite(output: str, force: bool) -> None:
+    """Ask before overwriting an existing configuration file.
+
+    The wizard would otherwise silently overwrite the file. The check is
+    done before the wizard runs, so the user is not asked to confirm an
+    overwrite only after entering the whole configuration.
+    """
+    if Path(output).exists():
+        overwrite_callback(force)(output)
 
 
 def _make_bridge(no_textual: bool) -> WizardUiBridge:
@@ -57,8 +71,9 @@ def main(args: Optional[list[str]] = None) -> int:
     """
     parsed = parsed_args(build_parser(), args)
     output = fix_file_extension(parsed.output, CONFIG_EXTENSION)
-    bridge = _make_bridge(parsed.no_textual)
     try:
+        _check_overwrite(output, parsed.force)
+        bridge = _make_bridge(parsed.no_textual)
         config = teams_config_wizard(bridge)
         config.write(to_json_filename=output, stderr_file=sys.stderr)
     except (ValueError, TypeError, KeyError, EOFError, OSError) as error:

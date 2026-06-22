@@ -13,15 +13,49 @@ underscore in the module name keeps it out of the command listing.
 import argparse
 import sys
 from collections.abc import Callable
-from typing import Optional
+from typing import Optional, TextIO
 import argcomplete
 from backlogops_cli.bloc_version_reporter import BloCliVersionReporter
 from backlogops import (
-    BacklogReleases, FormatRules, InputFormatConfig, OutputFormatConfig,
-    ReleaseChanges, ReleaseDateChanges, format_content_changes,
-    format_date_changes, read_available_teams, read_backlog_releases,
-    resolve_input_config, resolve_output_config, write_backlog_releases,
-    write_content_changes, write_date_changes)
+    BacklogReleases, FileExistsCb, FormatRules, InputFormatConfig,
+    OutputFormatConfig, ReleaseChanges, ReleaseDateChanges, allow_overwrite,
+    format_content_changes, format_date_changes, read_available_teams,
+    read_backlog_releases, resolve_input_config, resolve_output_config,
+    write_backlog_releases, write_content_changes, write_date_changes)
+
+
+def overwrite_callback(force: bool, in_stream: Optional[TextIO] = None,
+                       out_stream: Optional[TextIO] = None) -> FileExistsCb:
+    """Return a file-exists callback for writing CLI output files.
+
+    A writer calls the returned callback only when the target file
+    already exists. With ``force`` the overwrite is allowed silently.
+    Otherwise the user is asked on ``out_stream``/``in_stream`` and the
+    overwrite is allowed only on an explicit yes; any other answer, an
+    empty answer, or end of input refuses it with ``FileExistsError``.
+
+    Args:
+        force: Allow the overwrite without asking when True.
+        in_stream: Stream the answer is read from, or None for stdin.
+        out_stream: Stream the prompt is written to, or None for stdout.
+
+    Returns:
+        A callback suitable as ``file_exists_callback`` for the writers.
+    """
+    if force:
+        return allow_overwrite
+    reader = sys.stdin if in_stream is None else in_stream
+    writer = sys.stdout if out_stream is None else out_stream
+
+    def ask(file_name: str) -> None:
+        """Ask whether to overwrite ``file_name``; raise when refused."""
+        prompt = f'Output file {file_name} already exists. Overwrite? [y/N]: '
+        print(prompt, end='', file=writer)
+        writer.flush()
+        if reader.readline().strip().lower() in ('y', 'yes'):
+            return
+        raise FileExistsError(f'Did not overwrite existing file {file_name}.')
+    return ask
 
 
 def parsed_args(parser: argparse.ArgumentParser,
@@ -72,6 +106,13 @@ def read_input(parsed: argparse.Namespace) -> BacklogReleases:
     return data
 
 
+def add_force_arg(parser: argparse.ArgumentParser) -> None:
+    """Add the force flag that overwrites output files without asking."""
+    parser.add_argument('-f', '--force', dest='force', action='store_true',
+                        help='Overwrite existing output files without '
+                        'asking.')
+
+
 def add_output_args(parser: argparse.ArgumentParser) -> None:
     """Add the output-file, output-config and ordering arguments."""
     parser.add_argument('-o', '--output', dest='output', required=True,
@@ -84,6 +125,7 @@ def add_output_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--releases-first', dest='releases_first',
                         action='store_true',
                         help='Write the releases before the backlog.')
+    add_force_arg(parser)
 
 
 def _output_presets(io_config: Optional[str]
@@ -100,7 +142,9 @@ def _write_output(parsed: argparse.Namespace, data: BacklogReleases) -> None:
     config = resolve_output_config(parsed.output_config,
                                    data_file=parsed.output, presets=presets)
     rules = FormatRules(backlog_first=not parsed.releases_first)
-    write_backlog_releases(data, parsed.output, config, rules)
+    write_backlog_releases(data, parsed.output, config, rules,
+                           file_exists_callback=overwrite_callback(
+                               parsed.force))
 
 
 def run_write(parsed: argparse.Namespace,
@@ -157,20 +201,31 @@ def build_change_parser(description: str) -> argparse.ArgumentParser:
     return parser
 
 
-def date_report(changes: ReleaseDateChanges
+def date_report(changes: ReleaseDateChanges, file_exists_cb: FileExistsCb
                 ) -> tuple[str, Optional[Callable[[str], None]]]:
-    """Return the date change listing and a writer, None when empty."""
-    writer = None if not changes else \
-        (lambda path: write_date_changes(changes, path))
-    return format_date_changes(changes), writer
+    """Return the date change listing and a writer, None when empty.
+
+    The writer overwrites an existing changes file as decided by
+    ``file_exists_cb``.
+    """
+    def write(path: str) -> None:
+        """Write the date changes, overwriting as the callback decides."""
+        write_date_changes(changes, path, file_exists_callback=file_exists_cb)
+    return format_date_changes(changes), (write if changes else None)
 
 
-def content_report(changes: ReleaseChanges
+def content_report(changes: ReleaseChanges, file_exists_cb: FileExistsCb
                    ) -> tuple[str, Optional[Callable[[str], None]]]:
-    """Return the content change listing and a writer, None when empty."""
-    writer = None if not changes else \
-        (lambda path: write_content_changes(changes, path))
-    return format_content_changes(changes), writer
+    """Return the content change listing and a writer, None when empty.
+
+    The writer overwrites an existing changes file as decided by
+    ``file_exists_cb``.
+    """
+    def write(path: str) -> None:
+        """Write the content changes, overwriting as the callback decides."""
+        write_content_changes(changes, path,
+                              file_exists_callback=file_exists_cb)
+    return format_content_changes(changes), (write if changes else None)
 
 
 def run_change_command(parsed: argparse.Namespace,

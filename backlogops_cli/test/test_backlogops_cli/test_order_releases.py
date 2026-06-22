@@ -4,6 +4,7 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import io
 from datetime import date
 from pathlib import Path
 import pytest
@@ -73,3 +74,37 @@ def test_missing_input(tmp_path: Path) -> None:
     """Test a missing input file makes the command return 1."""
     assert order_releases.main(['-i', str(tmp_path / 'no.ods'),
                                 '-o', str(tmp_path / 'out.ods')]) == 1
+
+
+def _run_once(source: Path, target: Path) -> None:
+    """Write the source and create the output file once."""
+    _write_source(source)
+    assert order_releases.main(['-i', str(source), '-o', str(target)]) == 0
+
+
+def test_overwrite_declined(tmp_path: Path,
+                            monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test answering no leaves the existing output file unchanged."""
+    source, target = tmp_path / 'in.ods', tmp_path / 'out.ods'
+    _run_once(source, target)
+    before = target.read_bytes()
+    monkeypatch.setattr('sys.stdin', io.StringIO('n\n'))
+    assert order_releases.main(['-i', str(source), '-o', str(target)]) == 1
+    assert target.read_bytes() == before
+
+
+def test_overwrite_yes(tmp_path: Path,
+                       monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test answering yes overwrites the existing output file."""
+    source, target = tmp_path / 'in.ods', tmp_path / 'out.ods'
+    _run_once(source, target)
+    monkeypatch.setattr('sys.stdin', io.StringIO('y\n'))
+    assert order_releases.main(['-i', str(source), '-o', str(target)]) == 0
+
+
+def test_overwrite_force(tmp_path: Path) -> None:
+    """Test the force flag overwrites without asking."""
+    source, target = tmp_path / 'in.ods', tmp_path / 'out.ods'
+    _run_once(source, target)
+    assert order_releases.main(['-i', str(source), '-o', str(target),
+                                '-f']) == 0

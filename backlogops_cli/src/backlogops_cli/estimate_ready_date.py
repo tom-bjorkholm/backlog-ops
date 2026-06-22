@@ -24,7 +24,7 @@ from typing import Callable, Optional
 from backlogops import AvailableTeams, BacklogReleases, get_available_teams
 from backlogops_cli._command_io import (
     add_changes_arg, add_input_args, add_output_args, date_report,
-    parsed_args, run_change_command)
+    overwrite_callback, parsed_args, run_change_command)
 
 DESCRIPTION = 'Estimate ready dates for the backlog items'
 
@@ -73,7 +73,7 @@ def _estimate(parsed: argparse.Namespace, data: BacklogReleases
     changes = data.estimate_ready_date(teams, _start_date(parsed))
     if parsed.set_plan:
         data.set_plan_from_estimate()
-    return date_report(changes)
+    return date_report(changes, overwrite_callback(parsed.force))
 
 
 def main(args: Optional[list[str]] = None) -> int:

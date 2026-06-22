@@ -18,13 +18,16 @@
   * [main](#backlogops_cli.demo_backlog.main)
 * [backlogops\_cli.teams\_wizard](#backlogops_cli.teams_wizard)
   * [build\_parser](#backlogops_cli.teams_wizard.build_parser)
+  * [\_check\_overwrite](#backlogops_cli.teams_wizard._check_overwrite)
   * [\_make\_bridge](#backlogops_cli.teams_wizard._make_bridge)
   * [main](#backlogops_cli.teams_wizard.main)
 * [backlogops\_cli.\_command\_io](#backlogops_cli._command_io)
+  * [overwrite\_callback](#backlogops_cli._command_io.overwrite_callback)
   * [parsed\_args](#backlogops_cli._command_io.parsed_args)
   * [add\_input\_args](#backlogops_cli._command_io.add_input_args)
   * [\_input\_presets](#backlogops_cli._command_io._input_presets)
   * [read\_input](#backlogops_cli._command_io.read_input)
+  * [add\_force\_arg](#backlogops_cli._command_io.add_force_arg)
   * [add\_output\_args](#backlogops_cli._command_io.add_output_args)
   * [\_output\_presets](#backlogops_cli._command_io._output_presets)
   * [\_write\_output](#backlogops_cli._command_io._write_output)
@@ -266,6 +269,20 @@ def build_parser() -> argparse.ArgumentParser
 
 Build the command line parser for the teams wizard command.
 
+<a id="backlogops_cli.teams_wizard._check_overwrite"></a>
+
+#### \_check\_overwrite
+
+```python
+def _check_overwrite(output: str, force: bool) -> None
+```
+
+Ask before overwriting an existing configuration file.
+
+The wizard would otherwise silently overwrite the file. The check is
+done before the wizard runs, so the user is not asked to confirm an
+overwrite only after entering the whole configuration.
+
 <a id="backlogops_cli.teams_wizard._make_bridge"></a>
 
 #### \_make\_bridge
@@ -312,6 +329,35 @@ Shared command helpers for resolving output configs and writing.
 The helpers here are used by more than one command (for example by the
 ``convert`` command and the ``demo_backlog`` command). The leading
 underscore in the module name keeps it out of the command listing.
+
+<a id="backlogops_cli._command_io.overwrite_callback"></a>
+
+#### overwrite\_callback
+
+```python
+def overwrite_callback(force: bool,
+                       in_stream: Optional[TextIO] = None,
+                       out_stream: Optional[TextIO] = None) -> FileExistsCb
+```
+
+Return a file-exists callback for writing CLI output files.
+
+A writer calls the returned callback only when the target file
+already exists. With ``force`` the overwrite is allowed silently.
+Otherwise the user is asked on ``out_stream``/``in_stream`` and the
+overwrite is allowed only on an explicit yes; any other answer, an
+empty answer, or end of input refuses it with ``FileExistsError``.
+
+**Arguments**:
+
+- `force` - Allow the overwrite without asking when True.
+- `in_stream` - Stream the answer is read from, or None for stdin.
+- `out_stream` - Stream the prompt is written to, or None for stdout.
+  
+
+**Returns**:
+
+  A callback suitable as ``file_exists_callback`` for the writers.
 
 <a id="backlogops_cli._command_io.parsed_args"></a>
 
@@ -369,6 +415,16 @@ the presets file given by ``--io-config``, or a config file path.
 **Returns**:
 
   The validated backlog and releases read from the input file.
+
+<a id="backlogops_cli._command_io.add_force_arg"></a>
+
+#### add\_force\_arg
+
+```python
+def add_force_arg(parser: argparse.ArgumentParser) -> None
+```
+
+Add the force flag that overwrites output files without asking.
 
 <a id="backlogops_cli._command_io.add_output_args"></a>
 
@@ -467,11 +523,14 @@ Build a parser with input, buffer, output and changes arguments.
 
 ```python
 def date_report(
-    changes: ReleaseDateChanges
+    changes: ReleaseDateChanges, file_exists_cb: FileExistsCb
 ) -> tuple[str, Optional[Callable[[str], None]]]
 ```
 
 Return the date change listing and a writer, None when empty.
+
+The writer overwrites an existing changes file as decided by
+``file_exists_cb``.
 
 <a id="backlogops_cli._command_io.content_report"></a>
 
@@ -479,11 +538,14 @@ Return the date change listing and a writer, None when empty.
 
 ```python
 def content_report(
-        changes: ReleaseChanges
+    changes: ReleaseChanges, file_exists_cb: FileExistsCb
 ) -> tuple[str, Optional[Callable[[str], None]]]
 ```
 
 Return the content change listing and a writer, None when empty.
+
+The writer overwrites an existing changes file as decided by
+``file_exists_cb``.
 
 <a id="backlogops_cli._command_io.run_change_command"></a>
 
@@ -610,7 +672,7 @@ Return a level token as an int when numeric, else as a name.
 #### \_emit
 
 ```python
-def _emit(keys: list[str], output: Optional[str]) -> None
+def _emit(keys: list[str], output: Optional[str], force: bool) -> None
 ```
 
 Write the keys to the output file, or to stdout when none is given.

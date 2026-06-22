@@ -14,11 +14,10 @@ the file format from the file name extension.
 
 import sys
 from datetime import date
-from pathlib import Path
 from typing import Optional, Sequence, TextIO
 from config_as_json import PathOrStr
 from tableio import Value
-from backlogops.table_create import create_output_table
+from backlogops.table_create import create_output_table, FileExistsCb
 from backlogops.release_backlog_updates import ReleaseChanges, \
     ReleaseDateChanges
 
@@ -66,29 +65,25 @@ def _date_cell(value: Optional[date]) -> Value:
     return value.isoformat() if value is not None else None
 
 
-def _ensure_absent(file_name: PathOrStr, stderr_file: TextIO) -> None:
-    """Raise ``FileExistsError`` when the target file already exists."""
-    if Path(file_name).exists():
-        message = f'File already exists: {file_name}'
-        print(message, file=stderr_file)
-        raise FileExistsError(message)
-
-
 def _write_table(header: list[str], rows: list[list[Value]],
-                 file_name: PathOrStr, stderr_file: TextIO) -> None:
+                 file_name: PathOrStr, stderr_file: TextIO,
+                 file_exists_callback: Optional[FileExistsCb]) -> None:
     """Write a header row and the change rows as a one table file.
 
     The rows are written with list writing, so the header is the first
     data row. An empty change list still writes the header row, recording
-    that there were no changes.
+    that there were no changes. An existing file is handled by the
+    ``file_exists_callback`` as documented for the table writer.
     """
-    _ensure_absent(file_name, stderr_file)
-    with create_output_table(file_name, stderr_file) as tableio:
+    with create_output_table(file_name, stderr_file,
+                             file_exists_callback) as tableio:
         tableio.write_table_listdata([header, *rows])
 
 
 def write_content_changes(changes: ReleaseChanges, file_name: PathOrStr,
-                          stderr_file: TextIO = sys.stderr) -> None:
+                          stderr_file: TextIO = sys.stderr,
+                          file_exists_callback: Optional[FileExistsCb]
+                          = None) -> None:
     """Write release content changes to a one table file.
 
     The file format is chosen from the file name extension, as for any
@@ -100,19 +95,25 @@ def write_content_changes(changes: ReleaseChanges, file_name: PathOrStr,
         changes: The release content changes to write, in order.
         file_name: The file to create.
         stderr_file: The stream to report errors to.
+        file_exists_callback: Called when the file already exists, as
+                              documented for :mod:`backlogops.table_create`.
+                              None refuses an existing file.
 
     Raises:
-        FileExistsError: If the file already exists.
+        FileExistsError: If the file exists and the callback refuses it.
         ValueError: If the extension is not a supported table format.
     """
     rows: list[list[Value]] = \
         [[change.backlog_key, change.old_release, change.new_release]
          for change in changes]
-    _write_table(CONTENT_HEADER, rows, file_name, stderr_file)
+    _write_table(CONTENT_HEADER, rows, file_name, stderr_file,
+                 file_exists_callback)
 
 
 def write_date_changes(changes: ReleaseDateChanges, file_name: PathOrStr,
-                       stderr_file: TextIO = sys.stderr) -> None:
+                       stderr_file: TextIO = sys.stderr,
+                       file_exists_callback: Optional[FileExistsCb]
+                       = None) -> None:
     """Write release date changes to a one table file.
 
     The file format is chosen from the file name extension, as for any
@@ -123,12 +124,16 @@ def write_date_changes(changes: ReleaseDateChanges, file_name: PathOrStr,
         changes: The release date changes to write, in order.
         file_name: The file to create.
         stderr_file: The stream to report errors to.
+        file_exists_callback: Called when the file already exists, as
+                              documented for :mod:`backlogops.table_create`.
+                              None refuses an existing file.
 
     Raises:
-        FileExistsError: If the file already exists.
+        FileExistsError: If the file exists and the callback refuses it.
         ValueError: If the extension is not a supported table format.
     """
     rows: list[list[Value]] = \
         [[change.release, _date_cell(change.old_date),
           _date_cell(change.new_date)] for change in changes]
-    _write_table(DATE_HEADER, rows, file_name, stderr_file)
+    _write_table(DATE_HEADER, rows, file_name, stderr_file,
+                 file_exists_callback)

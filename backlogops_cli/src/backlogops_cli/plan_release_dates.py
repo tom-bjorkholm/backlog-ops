@@ -20,7 +20,8 @@ from datetime import timedelta
 from typing import Callable, Optional
 from backlogops import BacklogReleases
 from backlogops_cli._command_io import (
-    build_change_parser, date_report, parsed_args, run_change_command)
+    build_change_parser, date_report, overwrite_callback, parsed_args,
+    run_change_command)
 
 DESCRIPTION = 'Set planned release dates from the estimated release dates'
 
@@ -34,7 +35,7 @@ def _plan(parsed: argparse.Namespace, data: BacklogReleases
           ) -> tuple[str, Optional[Callable[[str], None]]]:
     """Set the planned release dates and return the change report."""
     changes = data.release_plan_on_estimate(timedelta(days=parsed.buffer_days))
-    return date_report(changes)
+    return date_report(changes, overwrite_callback(parsed.force))
 
 
 def main(args: Optional[list[str]] = None) -> int:

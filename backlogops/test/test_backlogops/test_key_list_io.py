@@ -6,7 +6,7 @@
 
 from pathlib import Path
 import pytest
-from backlogops import read_key_list, write_key_list
+from backlogops import allow_overwrite, read_key_list, write_key_list
 from backlogops.no_text_io import NoTextIO
 
 NO_OUTPUT = NoTextIO()
@@ -99,12 +99,37 @@ def test_table_two_columns(tmp_path: Path) -> None:
         read_key_list(source, stderr_file=NO_OUTPUT)
 
 
-def test_existing_file(tmp_path: Path) -> None:
+@pytest.mark.parametrize('extension', ['.txt', '.csv'])
+def test_existing_file(tmp_path: Path, extension: str) -> None:
     """Test writing over an existing file raises FileExistsError."""
-    target = tmp_path / 'keys.txt'
+    target = tmp_path / f'keys{extension}'
     target.write_text('', encoding='utf-8')
     with pytest.raises(FileExistsError):
         write_key_list(KEYS, target, stderr_file=NO_OUTPUT)
+
+
+@pytest.mark.parametrize('extension', ['.txt', '.csv'])
+def test_overwrite_allowed(tmp_path: Path, extension: str) -> None:
+    """Test the allow-overwrite callback rewrites an existing key list."""
+    target = tmp_path / f'keys{extension}'
+    target.write_text('old\n', encoding='utf-8')
+    write_key_list(KEYS, target, stderr_file=NO_OUTPUT,
+                   file_exists_callback=allow_overwrite)
+    assert read_key_list(target, stderr_file=NO_OUTPUT) == KEYS
+
+
+@pytest.mark.parametrize('extension', ['.txt', '.csv'])
+def test_overwrite_declined(tmp_path: Path, extension: str) -> None:
+    """Test a raising callback refuses to rewrite an existing key list."""
+    target = tmp_path / f'keys{extension}'
+    target.write_text('old\n', encoding='utf-8')
+
+    def refuse(name: str) -> None:
+        """Refuse the overwrite as a declining callback would."""
+        raise FileExistsError(name)
+    with pytest.raises(FileExistsError):
+        write_key_list(KEYS, target, stderr_file=NO_OUTPUT,
+                       file_exists_callback=refuse)
 
 
 def test_missing_file(tmp_path: Path) -> None:
