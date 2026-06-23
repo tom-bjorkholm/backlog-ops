@@ -550,6 +550,30 @@ class _DateOrderDialog(_ModalDialog):
         super()._confirm()
 
 
+# pylint: disable-next=too-few-public-methods
+class _ReleaseOrderDialog(_ModalDialog):
+    """Modal dialog choosing options for ordering by release order."""
+
+    def __init__(self, parent: tk.Misc) -> None:
+        """Build, show and wait for the release-order dialog."""
+        super().__init__(parent, 'Order by release order')
+        self.honor_dependencies = False
+        self._honor = tk.BooleanVar(self._win, False)
+        self._build()
+        self._show()
+
+    def _build(self) -> None:
+        """Add the honor-dependencies check box, off by default."""
+        tk.Checkbutton(self._win, variable=self._honor,
+                       text='Honor dependencies').pack(anchor='w', padx=12,
+                                                       pady=(10, 2))
+
+    def _confirm(self) -> None:
+        """Store whether dependencies should be honored and close."""
+        self.honor_dependencies = self._honor.get()
+        super()._confirm()
+
+
 def ask_keys(parent: tk.Misc, sink: TextIO) -> Optional[list[str]]:
     """Ask for the leading keys, or None when the dialog is cancelled."""
     dialog = _KeysDialog(parent, sink)
@@ -588,3 +612,11 @@ def ask_date_order(parent: tk.Misc) -> Optional[bool]:
     if dialog.cancelled:
         return None
     return dialog.by_estimated
+
+
+def ask_release_order(parent: tk.Misc) -> Optional[bool]:
+    """Ask whether to honor dependencies, or None when cancelled."""
+    dialog = _ReleaseOrderDialog(parent)
+    if dialog.cancelled:
+        return None
+    return dialog.honor_dependencies

@@ -2834,6 +2834,9 @@ are used in their current list order and are not sorted or
 otherwise changed; call :meth:`order_releases_by_date` first when a
 date order is wanted.
 
+Calling :meth:`check_consistency` before calling this method is
+recommended.
+
 **Arguments**:
 
 - `honor_dependencies` - If True, never place an item before an item
@@ -6646,6 +6649,9 @@ the dependency wins, so a prerequisite may end up earlier, or a
 dependent later, than the release order alone would place it. The
 result is always a valid delivery order. References to keys that are
 not in the backlog are ignored.
+
+Calling :func:`check_backlog_consistency` before calling this function
+is recommended.
 
 **Arguments**:
 

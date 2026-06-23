@@ -15,13 +15,13 @@ from backlogops_gui.io_dialogs import (
 from backlogops_gui.io_dialogs import (
     _BufferDialog, _DateOrderDialog, _DepOptionsDialog, _FormatDialog,
     _KeysDialog, _LevelsDialog, _ModalDialog, _NoConfigDialog,
-    _StartDateDialog)
+    _ReleaseOrderDialog, _StartDateDialog)
 from backlogops_gui.io_dialogs import (
     ask_buffer_days, ask_date_order, ask_dep_options, ask_keys, ask_levels,
-    ask_no_config_choice, ask_read_options, ask_start_date, ask_write_options,
-    choose_changes_output, choose_config_file, choose_existing_config,
-    choose_input_file, choose_key_list_output, choose_output_file,
-    show_change_list)
+    ask_no_config_choice, ask_read_options, ask_release_order,
+    ask_start_date, ask_write_options, choose_changes_output,
+    choose_config_file, choose_existing_config, choose_input_file,
+    choose_key_list_output, choose_output_file, show_change_list)
 from backlogops.no_text_io import NoTextIO
 
 
@@ -311,6 +311,51 @@ def test_ask_date_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
         root.destroy()
 
 
+def test_release_order_honor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the release-order dialog stores the honor choice."""
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    root = _root_or_skip()
+    try:
+        dialog = _ReleaseOrderDialog(root)
+        dialog._honor.set(True)
+        dialog._confirm()
+        assert dialog.honor_dependencies is True
+    finally:
+        root.destroy()
+
+
+def test_release_order_plain(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the release-order dialog defaults to plain release order."""
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    root = _root_or_skip()
+    try:
+        dialog = _ReleaseOrderDialog(root)
+        dialog._confirm()
+        assert dialog.honor_dependencies is False
+    finally:
+        root.destroy()
+
+
+def test_ask_release_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the wrapper returns the confirmed plain release-order choice."""
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    root = _root_or_skip()
+    try:
+        assert ask_release_order(root) is False
+    finally:
+        root.destroy()
+
+
+def test_ask_release_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a cancelled release-order dialog returns nothing."""
+    monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
+    root = _root_or_skip()
+    try:
+        assert ask_release_order(root) is None
+    finally:
+        root.destroy()
+
+
 def test_ask_wrappers_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test each ask wrapper returns the dialog result when confirmed."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
@@ -321,6 +366,7 @@ def test_ask_wrappers_ok(monkeypatch: pytest.MonkeyPatch) -> None:
         assert ask_dep_options(root) is None
         assert ask_start_date(root) is None
         assert ask_levels(root) is None
+        assert ask_release_order(root) is False
     finally:
         root.destroy()
 

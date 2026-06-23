@@ -9,13 +9,13 @@ from datetime import date, timedelta
 from typing import Callable, Optional, Sequence, TextIO, cast
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogReleases, DependencyMode, NoTextIO,
-    get_demo_backlog)
+    AvailableTeams, BacklogItem, BacklogReleases, DependencyMode, NoTextIO,
+    Release, Status, get_demo_backlog)
 from backlogops_gui import backlog_window
 from backlogops_gui.backlog_window import (
     BacklogWindow, adjust_content, estimate_date, extract_keys, order_by_deps,
-    order_by_keys, order_dates, plan_dates, save_backlog, save_changes,
-    set_plan, show_changes)
+    order_by_keys, order_by_release, order_dates, plan_dates, save_backlog,
+    save_changes, set_plan, show_changes)
 from backlogops_gui.io_dialogs import (
     DepOptions, StartChoice, WriteOptions, show_change_list)
 
@@ -85,6 +85,11 @@ class _FakeData:
                               **_kw: object) -> None:
         """Record an order-by-dependencies call."""
         self._record(f'deps:{later}:{mode.name}:{space_around}')
+
+    def backlog_in_release_order(self, honor_dependencies: bool = False,
+                                 **_kw: object) -> None:
+        """Record a backlog-in-release-order call."""
+        self._record(f'release:{honor_dependencies}')
 
     def estimate_ready_date(self, _teams: object, start_date: object,
                             _sink: TextIO) -> list[object]:
@@ -171,6 +176,19 @@ def _changes_recorder(store: list[tuple[str, str, object]]
 def _no_write(*_args: object) -> None:
     """Fail the test if a write is attempted."""
     raise AssertionError('write should not happen')
+
+
+def _release_item(key: str, release: str,
+                  deps: Optional[list[str]] = None) -> BacklogItem:
+    """Return a minimal item for release-order action tests."""
+    return BacklogItem(key=key, level=1, title=key, story_points=1,
+                       status=Status.TODO, release=release,
+                       depends_on_f2s=deps or [])
+
+
+def _keys(data: BacklogReleases) -> list[str]:
+    """Return the backlog keys from a backlog-and-releases object."""
+    return [item.key for item in data.backlog]
 
 
 def _write_fail(*_args: object) -> None:
@@ -309,6 +327,61 @@ def test_order_deps_success(monkeypatch: pytest.MonkeyPatch) -> None:
                   _record(infos))
     assert data.calls == ['deps:False:KEEP:None']
     assert done == [True]
+
+
+def test_order_release_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling release-order options changes nothing."""
+    monkeypatch.setattr(backlog_window, 'ask_release_order', lambda _p: None)
+    done: list[bool] = []
+    data = _FakeData()
+    order_by_release(PARENT, _as_data(data), SINK, _refresher(done),
+                     _record([]), _record([]))
+    assert not data.calls and not done
+
+
+def test_order_release_plain(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test plain release ordering is passed on and reported."""
+    monkeypatch.setattr(backlog_window, 'ask_release_order', lambda _p: False)
+    done: list[bool] = []
+    data = _FakeData()
+    infos: list[tuple[str, str]] = []
+    order_by_release(PARENT, _as_data(data), SINK, _refresher(done),
+                     _record([]), _record(infos))
+    assert data.calls == ['release:False']
+    assert done == [True]
+    assert infos == [
+        ('Ordered backlog',
+         'Ordered the backlog by release order without honoring '
+         'dependencies.')]
+
+
+def test_order_release_honor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test honored dependencies are passed to the real backlog order."""
+    monkeypatch.setattr(backlog_window, 'ask_release_order', lambda _p: True)
+    backlog = [_release_item('dep', 'R1', ['pre']),
+               _release_item('pre', 'R2'), _release_item('other', 'R1')]
+    data = BacklogReleases(backlog, [Release('R1'), Release('R2')])
+    done: list[bool] = []
+    infos: list[tuple[str, str]] = []
+    order_by_release(PARENT, data, SINK, _refresher(done), _record([]),
+                     _record(infos))
+    assert _keys(data) == ['other', 'pre', 'dep']
+    assert done == [True]
+    assert infos == [
+        ('Ordered backlog',
+         'Ordered the backlog by release order, honoring dependencies.')]
+
+
+def test_order_release_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a release-order failure is reported and skips the refresh."""
+    monkeypatch.setattr(backlog_window, 'ask_release_order', lambda _p: True)
+    done: list[bool] = []
+    data = _FakeData(ValueError('bad release'))
+    errors: list[tuple[str, str]] = []
+    order_by_release(PARENT, _as_data(data), SINK, _refresher(done),
+                     _record(errors), _record([]))
+    assert errors == [('Could not order by release order', 'bad release')]
+    assert not done
 
 
 def test_order_dates_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -532,6 +605,21 @@ def _root() -> tk.Tk:
         pytest.skip('no display available')
 
 
+def _menu_labels(window: BacklogWindow) -> list[str]:
+    """Return the labels in the backlog menu of a backlog window."""
+    menubar = window._win.nametowidget(window._win.cget('menu'))
+    assert isinstance(menubar, tk.Menu)
+    menu = menubar.nametowidget(menubar.entrycget(0, 'menu'))
+    assert isinstance(menu, tk.Menu)
+    last = menu.index('end')
+    assert last is not None
+    labels: list[str] = []
+    for index in range(last + 1):
+        if menu.type(index) != 'separator':
+            labels.append(menu.entrycget(index, 'label'))
+    return labels
+
+
 def test_change_list_build() -> None:
     """Test the change list pop-up builds and can be dismissed."""
     root = _root()
@@ -589,15 +677,15 @@ def test_extract_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 _ACTION_METHODS = [
-    '_save', '_order_by_keys', '_order_by_deps', '_estimate_date',
-    '_set_plan', '_adjust_content', '_plan_dates', '_order_dates',
-    '_extract_keys']
+    '_save', '_order_by_keys', '_order_by_deps', '_order_by_release',
+    '_estimate_date', '_set_plan', '_adjust_content', '_plan_dates',
+    '_order_dates', '_extract_keys']
 """The window action methods that delegate to a module helper."""
 
 _DELEGATES = [
-    'save_backlog', 'order_by_keys', 'order_by_deps', 'estimate_date',
-    'set_plan', 'adjust_content', 'plan_dates', 'order_dates',
-    'extract_keys']
+    'save_backlog', 'order_by_keys', 'order_by_deps', 'order_by_release',
+    'estimate_date', 'set_plan', 'adjust_content', 'plan_dates',
+    'order_dates', 'extract_keys']
 """The module helpers each action method delegates to, in the same order."""
 
 
@@ -612,6 +700,7 @@ def test_window_acts(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(backlog_window, 'messagebox', recorder)
         data = get_demo_backlog()
         window = BacklogWindow(root, data, 'Title', _none, _none, SINK)
+        assert 'Order by release order…' in _menu_labels(window)
         window._refresh_tables()
         window._report_error('E', 'err')
         window._report_info('I', 'info')

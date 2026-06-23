@@ -38,6 +38,7 @@
   * [save\_backlog](#backlogops_gui.backlog_window.save_backlog)
   * [order\_by\_keys](#backlogops_gui.backlog_window.order_by_keys)
   * [order\_by\_deps](#backlogops_gui.backlog_window.order_by_deps)
+  * [order\_by\_release](#backlogops_gui.backlog_window.order_by_release)
   * [save\_changes](#backlogops_gui.backlog_window.save_changes)
   * [show\_changes](#backlogops_gui.backlog_window.show_changes)
   * [estimate\_date](#backlogops_gui.backlog_window.estimate_date)
@@ -71,6 +72,7 @@
   * [ask\_start\_date](#backlogops_gui.io_dialogs.ask_start_date)
   * [ask\_levels](#backlogops_gui.io_dialogs.ask_levels)
   * [ask\_date\_order](#backlogops_gui.io_dialogs.ask_date_order)
+  * [ask\_release\_order](#backlogops_gui.io_dialogs.ask_release_order)
 * [backlogops\_gui.blog\_version\_reporter](#backlogops_gui.blog_version_reporter)
   * [BloGuiVersionReporter](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter)
     * [package\_names](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter.package_names)
@@ -582,6 +584,20 @@ def order_by_deps(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for the options and order the backlog by dependencies.
 
+<a id="backlogops_gui.backlog_window.order_by_release"></a>
+
+#### order\_by\_release
+
+```python
+def order_by_release(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                     refresh: Callable[[],
+                                       None], on_error: Callable[[str, str],
+                                                                 None],
+                     on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for options and order the backlog by release order.
+
 <a id="backlogops_gui.backlog_window.save_changes"></a>
 
 #### save\_changes
@@ -969,6 +985,16 @@ def ask_date_order(parent: tk.Misc) -> Optional[bool]
 ```
 
 Ask whether to order by estimated date, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_release_order"></a>
+
+#### ask\_release\_order
+
+```python
+def ask_release_order(parent: tk.Misc) -> Optional[bool]
+```
+
+Ask whether to honor dependencies, or None when cancelled.
 
 <a id="backlogops_gui.blog_version_reporter"></a>
 

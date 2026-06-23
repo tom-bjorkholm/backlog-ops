@@ -104,6 +104,7 @@
   * [\_apply\_change](#backlogops_gui.backlog_window._apply_change)
   * [order\_by\_keys](#backlogops_gui.backlog_window.order_by_keys)
   * [order\_by\_deps](#backlogops_gui.backlog_window.order_by_deps)
+  * [order\_by\_release](#backlogops_gui.backlog_window.order_by_release)
   * [save\_changes](#backlogops_gui.backlog_window.save_changes)
   * [show\_changes](#backlogops_gui.backlog_window.show_changes)
   * [\_date\_report](#backlogops_gui.backlog_window._date_report)
@@ -128,6 +129,7 @@
     * [\_save](#backlogops_gui.backlog_window.BacklogWindow._save)
     * [\_order\_by\_keys](#backlogops_gui.backlog_window.BacklogWindow._order_by_keys)
     * [\_order\_by\_deps](#backlogops_gui.backlog_window.BacklogWindow._order_by_deps)
+    * [\_order\_by\_release](#backlogops_gui.backlog_window.BacklogWindow._order_by_release)
     * [\_estimate\_date](#backlogops_gui.backlog_window.BacklogWindow._estimate_date)
     * [\_set\_plan](#backlogops_gui.backlog_window.BacklogWindow._set_plan)
     * [\_adjust\_content](#backlogops_gui.backlog_window.BacklogWindow._adjust_content)
@@ -200,11 +202,16 @@
     * [\_\_init\_\_](#backlogops_gui.io_dialogs._DateOrderDialog.__init__)
     * [\_build](#backlogops_gui.io_dialogs._DateOrderDialog._build)
     * [\_confirm](#backlogops_gui.io_dialogs._DateOrderDialog._confirm)
+  * [\_ReleaseOrderDialog](#backlogops_gui.io_dialogs._ReleaseOrderDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._ReleaseOrderDialog.__init__)
+    * [\_build](#backlogops_gui.io_dialogs._ReleaseOrderDialog._build)
+    * [\_confirm](#backlogops_gui.io_dialogs._ReleaseOrderDialog._confirm)
   * [ask\_keys](#backlogops_gui.io_dialogs.ask_keys)
   * [ask\_dep\_options](#backlogops_gui.io_dialogs.ask_dep_options)
   * [ask\_start\_date](#backlogops_gui.io_dialogs.ask_start_date)
   * [ask\_levels](#backlogops_gui.io_dialogs.ask_levels)
   * [ask\_date\_order](#backlogops_gui.io_dialogs.ask_date_order)
+  * [ask\_release\_order](#backlogops_gui.io_dialogs.ask_release_order)
 * [backlogops\_gui.blog\_version\_reporter](#backlogops_gui.blog_version_reporter)
   * [BloGuiVersionReporter](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter)
     * [package\_names](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter.package_names)
@@ -1439,6 +1446,20 @@ def order_by_deps(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for the options and order the backlog by dependencies.
 
+<a id="backlogops_gui.backlog_window.order_by_release"></a>
+
+#### order\_by\_release
+
+```python
+def order_by_release(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                     refresh: Callable[[],
+                                       None], on_error: Callable[[str, str],
+                                                                 None],
+                     on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for options and order the backlog by release order.
+
 <a id="backlogops_gui.backlog_window.save_changes"></a>
 
 #### save\_changes
@@ -1743,6 +1764,16 @@ def _order_by_deps() -> None
 ```
 
 Order the backlog by dependencies and refresh the tables.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._order_by_release"></a>
+
+#### \_order\_by\_release
+
+```python
+def _order_by_release() -> None
+```
+
+Order the backlog by release order and refresh the tables.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._estimate_date"></a>
 
@@ -2484,6 +2515,46 @@ def _confirm() -> None
 
 Store the chosen date kind and close the dialog.
 
+<a id="backlogops_gui.io_dialogs._ReleaseOrderDialog"></a>
+
+## \_ReleaseOrderDialog Objects
+
+```python
+class _ReleaseOrderDialog(_ModalDialog)
+```
+
+Modal dialog choosing options for ordering by release order.
+
+<a id="backlogops_gui.io_dialogs._ReleaseOrderDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the release-order dialog.
+
+<a id="backlogops_gui.io_dialogs._ReleaseOrderDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the honor-dependencies check box, off by default.
+
+<a id="backlogops_gui.io_dialogs._ReleaseOrderDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store whether dependencies should be honored and close.
+
 <a id="backlogops_gui.io_dialogs.ask_keys"></a>
 
 #### ask\_keys
@@ -2533,6 +2604,16 @@ def ask_date_order(parent: tk.Misc) -> Optional[bool]
 ```
 
 Ask whether to order by estimated date, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_release_order"></a>
+
+#### ask\_release\_order
+
+```python
+def ask_release_order(parent: tk.Misc) -> Optional[bool]
+```
+
+Ask whether to honor dependencies, or None when cancelled.
 
 <a id="backlogops_gui.blog_version_reporter"></a>
 

@@ -205,6 +205,8 @@ one with the list of releases. You will want to use the menus.
 
     - Order by dependencies...
 
+    - Order by release order...
+
     - Estimate ready date...
 
     - Set planned date from estimated
@@ -221,7 +223,7 @@ one with the list of releases. You will want to use the menus.
 
 ## Test summary
 
-- Test result: 1207 passed in 20s
+- Test result: 1230 passed in 23s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

@@ -64,6 +64,10 @@
   * [build\_parser](#backlogops_cli.order_by_deps.build_parser)
   * [\_ordered](#backlogops_cli.order_by_deps._ordered)
   * [main](#backlogops_cli.order_by_deps.main)
+* [backlogops\_cli.order\_by\_release](#backlogops_cli.order_by_release)
+  * [build\_parser](#backlogops_cli.order_by_release.build_parser)
+  * [\_ordered](#backlogops_cli.order_by_release._ordered)
+  * [main](#backlogops_cli.order_by_release.main)
 * [backlogops\_cli.order\_by\_keys](#backlogops_cli.order_by_keys)
   * [build\_parser](#backlogops_cli.order_by_keys.build_parser)
   * [\_reordered](#backlogops_cli.order_by_keys._reordered)
@@ -900,6 +904,63 @@ Reorder the backlog by dependencies and write the output file.
 
   ``0`` on success, ``1`` when the data cannot be read, reordered
   or written.
+
+<a id="backlogops_cli.order_by_release"></a>
+
+# backlogops\_cli.order\_by\_release
+
+Order the backlog to follow the release order and write the result.
+
+The command reads a backlog and its releases from an input file and orders
+the backlog items so that they follow the order of the releases. The
+releases are taken in their current file order and are written back
+unchanged; order the releases first (for example with the order_releases
+command) when a date order is wanted. By default the items are only grouped
+by release, keeping their original relative order within a release. With
+``--honor-deps`` no item is placed before an item that must be delivered
+before it. The input and output formats are inferred from the file name
+extensions, but can be overridden by a configuration file or by a named
+preset.
+
+<a id="backlogops_cli.order_by_release.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the order_by_release command.
+
+<a id="backlogops_cli.order_by_release._ordered"></a>
+
+#### \_ordered
+
+```python
+def _ordered(parsed: argparse.Namespace) -> BacklogReleases
+```
+
+Read the data and order the backlog by the release order.
+
+<a id="backlogops_cli.order_by_release.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Order the backlog by release order and write the output file.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the data cannot be read, ordered or
+  written.
 
 <a id="backlogops_cli.order_by_keys"></a>
 

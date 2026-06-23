@@ -25,8 +25,9 @@ from backlogops import (
 from backlogops_gui.backlog_io import write_backlog
 from backlogops_gui.io_dialogs import (
     ask_buffer_days, ask_date_order, ask_dep_options, ask_keys, ask_levels,
-    ask_start_date, ask_write_options, choose_changes_output,
-    choose_key_list_output, choose_output_file, show_change_list)
+    ask_release_order, ask_start_date, ask_write_options,
+    choose_changes_output, choose_key_list_output, choose_output_file,
+    show_change_list)
 from backlogops_gui.table_view import (
     backlog_table, make_table, release_table)
 
@@ -119,6 +120,31 @@ def order_by_deps(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
     _apply_change(change, refresh, on_error, on_info,
                   'Could not order by dependencies', 'Ordered backlog',
                   'Ordered the backlog by dependencies.')
+
+
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def order_by_release(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
+                     refresh: Callable[[], None],
+                     on_error: Callable[[str, str], None],
+                     on_info: Callable[[str, str], None]) -> None:
+    """Ask for options and order the backlog by release order."""
+    honor = ask_release_order(parent)
+    if honor is None:
+        return
+    if honor:
+        message = ('Ordered the backlog by release order, honoring '
+                   'dependencies.')
+    else:
+        message = ('Ordered the backlog by release order without honoring '
+                   'dependencies.')
+
+    def change() -> None:
+        """Order the backlog by release order with the chosen options."""
+        data.backlog_in_release_order(honor_dependencies=honor,
+                                      stderr_file=sink)
+    _apply_change(change, refresh, on_error, on_info,
+                  'Could not order by release order', 'Ordered backlog',
+                  message)
 
 
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
@@ -381,6 +407,8 @@ class BacklogWindow:
         menu.add_command(label='Order by keys…', command=self._order_by_keys)
         menu.add_command(label='Order by dependencies…',
                          command=self._order_by_deps)
+        menu.add_command(label='Order by release order…',
+                         command=self._order_by_release)
         menu.add_command(label='Estimate ready date…',
                          command=self._estimate_date)
         menu.add_command(label='Set planned date from estimated',
@@ -437,6 +465,12 @@ class BacklogWindow:
         """Order the backlog by dependencies and refresh the tables."""
         order_by_deps(self._win, self._data, self._sink, self._refresh_tables,
                       self._report_error, self._report_info)
+
+    def _order_by_release(self) -> None:
+        """Order the backlog by release order and refresh the tables."""
+        order_by_release(self._win, self._data, self._sink,
+                         self._refresh_tables, self._report_error,
+                         self._report_info)
 
     def _estimate_date(self) -> None:
         """Estimate the ready dates and refresh the tables."""
