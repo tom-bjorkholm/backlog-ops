@@ -21,6 +21,7 @@ from backlogops.available_teams import AvailableTeams
 from backlogops.release_backlog_updates import estimate_release_dates, \
     release_plan_on_estimate, adjust_release_content, ReleaseChanges, \
     ReleaseDateChanges
+from backlogops.backlog_in_release_order import backlog_in_release_order
 
 
 @dataclass
@@ -314,3 +315,30 @@ class BacklogReleases:
         """
         self.releases = order_releases_by_date(self.releases, by_estimated,
                                                stderr_file)
+
+    def backlog_in_release_order(self, honor_dependencies: bool = False,
+                                 stderr_file: TextIO = sys.stderr) -> None:
+        """Order the member backlog to follow the member release order.
+
+        The member backlog is replaced by a backlog whose items follow the
+        order of the member releases, exactly as documented for
+        :func:`backlogops.backlog_in_release_order`. The member releases
+        are used in their current list order and are not sorted or
+        otherwise changed; call :meth:`order_releases_by_date` first when a
+        date order is wanted.
+
+        Calling :meth:`check_consistency` before calling this method is
+        recommended.
+
+        Args:
+            honor_dependencies: If True, never place an item before an item
+                that must be delivered before it (a child before its
+                parent, or a depends_on_f2s or depends_on_f2f prerequisite
+                before its dependent), as documented for
+                :func:`backlogops.backlog_in_release_order`. Default is
+                False.
+            stderr_file: The file to report a missing release reference to.
+        """
+        self.backlog = backlog_in_release_order(self.backlog, self.releases,
+                                                honor_dependencies,
+                                                stderr_file)

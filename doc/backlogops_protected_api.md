@@ -145,6 +145,7 @@
     * [adjust\_release\_content](#backlogops.backlog_releases.BacklogReleases.adjust_release_content)
     * [release\_plan\_on\_estimate](#backlogops.backlog_releases.BacklogReleases.release_plan_on_estimate)
     * [order\_releases\_by\_date](#backlogops.backlog_releases.BacklogReleases.order_releases_by_date)
+    * [backlog\_in\_release\_order](#backlogops.backlog_releases.BacklogReleases.backlog_in_release_order)
 * [backlogops.demo\_backlog](#backlogops.demo_backlog)
   * [\_POINTS](#backlogops.demo_backlog._POINTS)
   * [\_STATUSES](#backlogops.demo_backlog._STATUSES)
@@ -387,6 +388,13 @@
   * [\_space\_one](#backlogops.order_by_dependencies._space_one)
   * [\_apply\_space\_around](#backlogops.order_by_dependencies._apply_space_around)
   * [order\_by\_dependencies](#backlogops.order_by_dependencies.order_by_dependencies)
+* [backlogops.backlog\_in\_release\_order](#backlogops.backlog_in_release_order)
+  * [\_report\_unknown\_release](#backlogops.backlog_in_release_order._report_unknown_release)
+  * [\_release\_rank](#backlogops.backlog_in_release_order._release_rank)
+  * [\_finish\_prereqs](#backlogops.backlog_in_release_order._finish_prereqs)
+  * [\_with\_leftovers](#backlogops.backlog_in_release_order._with_leftovers)
+  * [\_ordered\_keys](#backlogops.backlog_in_release_order._ordered_keys)
+  * [backlog\_in\_release\_order](#backlogops.backlog_in_release_order.backlog_in_release_order)
 * [backlogops.move\_keys\_first](#backlogops.move_keys_first)
   * [\_by\_key](#backlogops.move_keys_first._by_key)
   * [\_validate\_keys](#backlogops.move_keys_first._validate_keys)
@@ -2807,6 +2815,34 @@ as documented for
 - `by_estimated` - If True, order by the estimated date instead of the
   planned date. Default is False.
 - `stderr_file` - The file to report errors to.
+
+<a id="backlogops.backlog_releases.BacklogReleases.backlog_in_release_order"></a>
+
+#### backlog\_in\_release\_order
+
+```python
+def backlog_in_release_order(honor_dependencies: bool = False,
+                             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Order the member backlog to follow the member release order.
+
+The member backlog is replaced by a backlog whose items follow the
+order of the member releases, exactly as documented for
+:func:`backlogops.backlog_in_release_order`. The member releases
+are used in their current list order and are not sorted or
+otherwise changed; call :meth:`order_releases_by_date` first when a
+date order is wanted.
+
+**Arguments**:
+
+- `honor_dependencies` - If True, never place an item before an item
+  that must be delivered before it (a child before its
+  parent, or a depends_on_f2s or depends_on_f2f prerequisite
+  before its dependent), as documented for
+  :func:`backlogops.backlog_in_release_order`. Default is
+  False.
+- `stderr_file` - The file to report a missing release reference to.
 
 <a id="backlogops.demo_backlog"></a>
 
@@ -6478,6 +6514,153 @@ not move an item by itself.
 - `RuntimeError` - If space_around names more keys than allowed: more
   than five, or more than ten percent of a backlog of fewer
   than fifty items.
+
+<a id="backlogops.backlog_in_release_order"></a>
+
+# backlogops.backlog\_in\_release\_order
+
+Functions to sort backlog items in release order.
+
+<a id="backlogops.backlog_in_release_order._report_unknown_release"></a>
+
+#### \_report\_unknown\_release
+
+```python
+def _report_unknown_release(item: BacklogItem, stderr_file: TextIO) -> None
+```
+
+Report a backlog item that names a release not in the list.
+
+The message is written to ``stderr_file`` and no exception is raised,
+so the item is still ordered (after the last release).
+
+<a id="backlogops.backlog_in_release_order._release_rank"></a>
+
+#### \_release\_rank
+
+```python
+def _release_rank(backlog: Backlog, releases: Releases,
+                  stderr_file: TextIO) -> dict[str, int]
+```
+
+Return each backlog item key mapped to its release rank.
+
+The rank of an item is the position (zero based) of its release in
+the ``releases`` list. An item with no release, or with a release
+that is not present in the ``releases`` list, gets the rank
+``len(releases)``, which places it after every listed release. An
+unknown release is reported to ``stderr_file`` but is not an error.
+
+<a id="backlogops.backlog_in_release_order._finish_prereqs"></a>
+
+#### \_finish\_prereqs
+
+```python
+def _finish_prereqs(backlog: Backlog) -> dict[str, set[str]]
+```
+
+Return each key mapped to the keys that must be delivered first.
+
+A key ``X`` must be delivered (finished) before a key ``Y`` when
+``Y`` names ``X`` in ``depends_on_f2s`` or ``depends_on_f2f``, or
+when ``X`` is a child of ``Y`` (a parent is delivered only once all
+its children are delivered). A ``depends_on_s2s`` reference only
+constrains the start of an item, not its delivery, and so does not
+order the items here. A reference to a key that is not present in the
+backlog is ignored, so a partly broken backlog still gets ordered.
+
+<a id="backlogops.backlog_in_release_order._with_leftovers"></a>
+
+#### \_with\_leftovers
+
+```python
+def _with_leftovers(order: list[str], backlog: Backlog, rank: dict[str, int],
+                    position: dict[str, int]) -> list[str]
+```
+
+Append any keys a dependency cycle left out, in release order.
+
+A consistent backlog has no dependency cycle, so every key is already
+in ``order`` and nothing is appended. A cyclic backlog would leave
+some keys without a satisfiable order; those keys are added at the end
+in release order so that no backlog item is ever lost.
+
+<a id="backlogops.backlog_in_release_order._ordered_keys"></a>
+
+#### \_ordered\_keys
+
+```python
+def _ordered_keys(backlog: Backlog, rank: dict[str, int]) -> list[str]
+```
+
+Return all keys in release order honoring the finish prerequisites.
+
+The keys are emitted in release order (the release rank, then the
+original backlog position), but a key is never emitted before the
+keys that must be delivered before it, as given by
+:func:`_finish_prereqs`. A prerequisite is therefore pulled in as
+early as the release order allows once it becomes the next deliverable
+item, which may place it earlier, or its dependents later, than the
+release order alone would.
+
+<a id="backlogops.backlog_in_release_order.backlog_in_release_order"></a>
+
+#### backlog\_in\_release\_order
+
+```python
+def backlog_in_release_order(backlog: Backlog,
+                             releases: Releases,
+                             honor_dependencies: bool = False,
+                             stderr_file: TextIO = sys.stderr) -> Backlog
+```
+
+Return the backlog items ordered to follow the release order.
+
+A new backlog is returned and the ``backlog`` argument is never
+modified, not even when it is already in release order.
+
+The release order is taken as is from the ``releases`` list: items
+are grouped by release in the order the releases appear in that list.
+This function does not sort the releases by date; order the releases
+first (for example with
+:func:`backlogops.releases.order_releases_by_date`) when a date order
+is wanted. Items that share a release keep their original relative
+order from ``backlog``. An item with no release, or with a release
+that is not in the ``releases`` list, is placed after the items of the
+last listed release, again keeping its original relative order. A
+release named by an item but missing from ``releases`` is reported to
+``stderr_file`` but does not raise.
+
+When ``honor_dependencies`` is False (the default) this grouping by
+release is the whole result.
+
+When ``honor_dependencies`` is True the result is still led by the
+release order, but no item is placed before an item that must be
+delivered before it. An item ``X`` must be delivered before an item
+``Y`` when ``Y`` names ``X`` in ``depends_on_f2s`` or
+``depends_on_f2f``, or when ``X`` is a child of ``Y`` (so a child is
+always placed before its parent). A ``depends_on_s2s`` reference does
+not affect the order, because it constrains only the start of an item,
+not its delivery. Where a dependency and the release order disagree
+the dependency wins, so a prerequisite may end up earlier, or a
+dependent later, than the release order alone would place it. The
+result is always a valid delivery order. References to keys that are
+not in the backlog are ignored.
+
+**Arguments**:
+
+- `backlog` - The backlog to order. This argument is not modified.
+- `releases` - The releases to use for ordering. Their order in this
+  list defines the release order; the list is not modified.
+- `honor_dependencies` - If True, never place an item before an item
+  that must be delivered before it, as described above. Default
+  is False.
+- `stderr_file` - The file to report a missing release reference to.
+  
+
+**Returns**:
+
+  A new backlog with the items ordered as described above.
 
 <a id="backlogops.move_keys_first"></a>
 

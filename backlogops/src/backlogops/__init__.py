@@ -58,6 +58,7 @@ from backlogops.work_hours import (
     CompanyWorkHours)
 from backlogops.date_ranges import check_date_range, check_no_overlap
 from backlogops.no_text_io import NoTextIO
+from backlogops.backlog_in_release_order import backlog_in_release_order
 
 __all__ = [
     'Backlog', 'BacklogItem', 'Status', 'get_backlog', 'get_backlog_item',
@@ -84,4 +85,5 @@ __all__ = [
     'move_keys_first', 'get_keys_in_order', 'read_key_list', 'write_key_list',
     'available_teams_wizard', 'teams_config_wizard', 'WeekDay',
     'ScheduleWorkHours', 'DEFAULT_WORK_WEEK', 'ExceptionWorkHours',
-    'CompanyWorkHours', 'check_date_range', 'check_no_overlap', 'NoTextIO']
+    'CompanyWorkHours', 'check_date_range', 'check_no_overlap', 'NoTextIO',
+    'backlog_in_release_order']
