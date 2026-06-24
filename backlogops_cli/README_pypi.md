@@ -175,7 +175,7 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.plan_release_dates
      Set planned release dates from the estimated release dates
   python3 -m backlogops_cli.teams_wizard
-     Create an AvailableTeams configuration file via a wizard
+     Create a backlog-ops configuration file via a wizard
   python3 -m backlogops_cli.version
      Print version information for the backlogops_cli package
 ````

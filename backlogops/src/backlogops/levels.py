@@ -136,6 +136,39 @@ def check_levels_consistency(levels: Levels,
             seen_labels[lowered] = label
 
 
+def levels_from_list(level_list: list[Level],
+                     stderr_file: TextIO = sys.stderr) -> Levels:
+    """Return the levels keyed by level number from a list of levels.
+
+    Each level is indexed under its own level number. A level number
+    that appears more than once is rejected, because the levels mapping
+    cannot hold two levels with the same number. The resulting mapping
+    is then checked with :func:`check_levels_consistency`.
+
+    Args:
+        level_list: The levels to index by their level number.
+        stderr_file: The file to report errors to.
+
+    Returns:
+        The levels keyed by their level number.
+
+    Raises:
+        TypeError: If a field has the wrong type.
+        ValueError: If a level value violates a constraint or a level
+            number is used more than once.
+        KeyError: If a name or alias is not unique (case-insensitive).
+    """
+    levels: Levels = {}
+    for level in level_list:
+        if level.level in levels:
+            report_bad_value('level', level.level,
+                             'level number used more than once', stderr_file,
+                             'Level')
+        levels[level.level] = level
+    check_levels_consistency(levels, stderr_file)
+    return levels
+
+
 def level_number_from_name(name: str, levels: Levels,
                            stderr_file: TextIO = sys.stderr) -> int:
     """Return the level number whose name or alias matches ``name``.

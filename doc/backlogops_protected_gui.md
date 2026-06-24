@@ -66,6 +66,7 @@
     * [in\_presets](#backlogops_gui.application.BacklogApp.in_presets)
     * [out\_presets](#backlogops_gui.application.BacklogApp.out_presets)
     * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
+    * [levels](#backlogops_gui.application.BacklogApp.levels)
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
     * [show\_info](#backlogops_gui.application.BacklogApp.show_info)
     * [start](#backlogops_gui.application.BacklogApp.start)
@@ -927,17 +928,18 @@ returns to that choice, so the application ends only when the user exits.
 def initial_config(
     config_arg: Optional[str],
     sink: Optional[TextIO] = None
-) -> tuple[Optional[AvailableTeamsConfig], Optional[str]]
+) -> tuple[Optional[BacklogOpsConfig], Optional[str]]
 ```
 
 Return the startup configuration and an optional error message.
 
 The configuration is looked up as documented for
-:func:`backlogops.get_available_teams`. A failure is mapped to a None
-configuration and the error text, so the caller can decide whether to
-show the error and offer the no-configuration choices. Diagnostics are
-captured, so a loader that reports a missing file and then calls
-``sys.exit`` becomes an error message instead of ending the program.
+:func:`backlogops.get_backlog_ops_config`. A failure is mapped to a
+None configuration and the error text, so the caller can decide
+whether to show the error and offer the no-configuration choices.
+Diagnostics are captured, so a loader that reports a missing file and
+then calls ``sys.exit`` becomes an error message instead of ending
+the program.
 
 **Arguments**:
 
@@ -974,8 +976,7 @@ The backlog operations application and its menu actions.
 #### \_\_init\_\_
 
 ```python
-def __init__(root: tk.Tk,
-             config: Optional[AvailableTeamsConfig] = None) -> None
+def __init__(root: tk.Tk, config: Optional[BacklogOpsConfig] = None) -> None
 ```
 
 Store the main window, configuration, and a log buffer.
@@ -1008,7 +1009,17 @@ Return the output presets of the current configuration.
 def available_teams() -> Optional[AvailableTeams]
 ```
 
-Return the loaded teams configuration, or None when absent.
+Return the loaded workforce, or None when absent.
+
+<a id="backlogops_gui.application.BacklogApp.levels"></a>
+
+#### levels
+
+```python
+def levels() -> Optional[Levels]
+```
+
+Return the configured backlog item levels, or None when absent.
 
 <a id="backlogops_gui.application.BacklogApp.show_error"></a>
 
@@ -1094,7 +1105,7 @@ Load a chosen configuration file, adopting it on success.
 #### run\_wizard
 
 ```python
-def run_wizard() -> Optional[AvailableTeamsConfig]
+def run_wizard() -> Optional[BacklogOpsConfig]
 ```
 
 Run the teams wizard and return its configuration, or None.
@@ -2775,7 +2786,8 @@ Return the given diagnostics sink, or a discarding one.
 def read_backlog(path: str,
                  value: Optional[str],
                  presets: Optional[dict[str, InputFormatConfig]],
-                 sink: Optional[TextIO] = None) -> BacklogReleases
+                 sink: Optional[TextIO] = None,
+                 levels: Optional[Levels] = None) -> BacklogReleases
 ```
 
 Read and validate a backlog and releases from one file.
@@ -2786,6 +2798,8 @@ Read and validate a backlog and releases from one file.
 - `value` - The format selection, as documented for the module.
 - `presets` - Named input presets, or None when none are configured.
 - `sink` - Stream for diagnostics, or None to discard them.
+- `levels` - The backlog item levels to honour, or None for the
+  default levels.
   
 
 **Returns**:

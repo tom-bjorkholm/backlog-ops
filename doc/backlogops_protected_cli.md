@@ -25,7 +25,8 @@
   * [overwrite\_callback](#backlogops_cli._command_io.overwrite_callback)
   * [parsed\_args](#backlogops_cli._command_io.parsed_args)
   * [add\_input\_args](#backlogops_cli._command_io.add_input_args)
-  * [\_input\_presets](#backlogops_cli._command_io._input_presets)
+  * [\_ops\_config](#backlogops_cli._command_io._ops_config)
+  * [io\_levels](#backlogops_cli._command_io.io_levels)
   * [read\_input](#backlogops_cli._command_io.read_input)
   * [add\_force\_arg](#backlogops_cli._command_io.add_force_arg)
   * [add\_output\_args](#backlogops_cli._command_io.add_output_args)
@@ -384,16 +385,36 @@ def add_input_args(parser: argparse.ArgumentParser) -> None
 
 Add the input-file and input-config arguments.
 
-<a id="backlogops_cli._command_io._input_presets"></a>
+<a id="backlogops_cli._command_io._ops_config"></a>
 
-#### \_input\_presets
+#### \_ops\_config
 
 ```python
-def _input_presets(
-        io_config: Optional[str]) -> Optional[dict[str, InputFormatConfig]]
+def _ops_config(io_config: Optional[str]) -> Optional[BacklogOpsConfig]
 ```
 
-Return the named input presets from a presets file, if given.
+Return the backlog-ops configuration from a file, if one is given.
+
+<a id="backlogops_cli._command_io.io_levels"></a>
+
+#### io\_levels
+
+```python
+def io_levels(parsed: argparse.Namespace) -> Optional[Levels]
+```
+
+Return the configured levels from ``--io-config``, if one is given.
+
+**Arguments**:
+
+- `parsed` - Parsed command line arguments that may hold an
+  ``--io-config`` option.
+  
+
+**Returns**:
+
+  The levels configured in the ``--io-config`` file, or None when
+  no such file is given.
 
 <a id="backlogops_cli._command_io.read_input"></a>
 
@@ -407,7 +428,9 @@ Read and validate the backlog and releases from the input file.
 
 The input format is resolved from the ``--input-config`` value, which
 may be empty (inferred from the file name), a preset name looked up in
-the presets file given by ``--io-config``, or a config file path.
+the presets file given by ``--io-config``, or a config file path. When
+a ``--io-config`` is given its configured levels are honoured while
+reading the items.
 
 **Arguments**:
 

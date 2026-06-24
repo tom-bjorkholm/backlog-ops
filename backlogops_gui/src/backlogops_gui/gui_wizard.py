@@ -374,6 +374,7 @@ class _WizardWindow:
                              height=min(len(choices), CHOICE_HEIGHT))
         for choice in choices:
             listbox.insert('end', choice)
+        listbox.pack(anchor='w', pady=6)
         preset = self._preset_indexes(choices, marked)
         for index in preset:
             listbox.selection_set(index)

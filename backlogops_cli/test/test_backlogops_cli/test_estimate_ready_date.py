@@ -8,9 +8,10 @@ from datetime import date
 from pathlib import Path
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogItem, BacklogReleases, Membership, Person, Release,
-    Status, Team, read_backlog_releases, resolve_input_config,
-    resolve_output_config, write_available_teams, write_backlog_releases)
+    AvailableTeams, BacklogItem, BacklogOpsConfig, BacklogReleases,
+    Membership, Person, Release, Status, Team, read_backlog_releases,
+    resolve_input_config, resolve_output_config, write_available_teams,
+    write_backlog_releases)
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import estimate_ready_date
@@ -107,9 +108,9 @@ def test_missing_config(tmp_path: Path) -> None:
 
 def test_load_teams_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a RuntimeError while loading teams becomes a ValueError."""
-    def boom(config: object) -> AvailableTeams:
+    def boom(config: object, *args: object) -> BacklogOpsConfig:
         raise RuntimeError('no teams configured')
-    monkeypatch.setattr(estimate_ready_date, 'get_available_teams', boom)
+    monkeypatch.setattr(estimate_ready_date, 'get_backlog_ops_config', boom)
     with pytest.raises(ValueError, match='no teams configured'):
         estimate_ready_date._load_teams(None)
 

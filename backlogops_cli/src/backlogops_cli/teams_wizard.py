@@ -16,7 +16,7 @@ from backlogops import teams_config_wizard
 from backlogops_cli._command_io import (
     add_force_arg, overwrite_callback, parsed_args)
 
-DESCRIPTION = 'Create an AvailableTeams configuration file via a wizard'
+DESCRIPTION = 'Create a backlog-ops configuration file via a wizard'
 CONFIG_EXTENSION = '.cfg'
 
 
@@ -79,7 +79,7 @@ def main(args: Optional[list[str]] = None) -> int:
     except (ValueError, TypeError, KeyError, EOFError, OSError) as error:
         print(f'Could not create the configuration: {error}', file=sys.stderr)
         return 1
-    print(f'Workforce configuration written to {output}')
+    print(f'Backlog-ops configuration written to {output}')
     return 0
 
 

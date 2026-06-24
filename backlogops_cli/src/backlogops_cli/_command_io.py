@@ -17,9 +17,9 @@ from typing import Optional, TextIO
 import argcomplete
 from backlogops_cli.bloc_version_reporter import BloCliVersionReporter
 from backlogops import (
-    BacklogReleases, FileExistsCb, FormatRules, InputFormatConfig,
+    BacklogOpsConfig, BacklogReleases, FileExistsCb, FormatRules, Levels,
     OutputFormatConfig, ReleaseChanges, ReleaseDateChanges, allow_overwrite,
-    format_content_changes, format_date_changes, read_available_teams,
+    format_content_changes, format_date_changes, read_backlog_ops_config,
     read_backlog_releases, resolve_input_config, resolve_output_config,
     write_backlog_releases, write_content_changes, write_date_changes)
 
@@ -74,12 +74,26 @@ def add_input_args(parser: argparse.ArgumentParser) -> None:
                         help='Input format: a config file or a preset name.')
 
 
-def _input_presets(io_config: Optional[str]
-                   ) -> Optional[dict[str, InputFormatConfig]]:
-    """Return the named input presets from a presets file, if given."""
+def _ops_config(io_config: Optional[str]) -> Optional[BacklogOpsConfig]:
+    """Return the backlog-ops configuration from a file, if one is given."""
     if io_config is None:
         return None
-    return read_available_teams(io_config, sys.stderr).input_configs
+    return read_backlog_ops_config(io_config, sys.stderr)
+
+
+def io_levels(parsed: argparse.Namespace) -> Optional[Levels]:
+    """Return the configured levels from ``--io-config``, if one is given.
+
+    Args:
+        parsed: Parsed command line arguments that may hold an
+            ``--io-config`` option.
+
+    Returns:
+        The levels configured in the ``--io-config`` file, or None when
+        no such file is given.
+    """
+    config = _ops_config(getattr(parsed, 'io_config', None))
+    return config.get_levels() if config is not None else None
 
 
 def read_input(parsed: argparse.Namespace) -> BacklogReleases:
@@ -87,7 +101,9 @@ def read_input(parsed: argparse.Namespace) -> BacklogReleases:
 
     The input format is resolved from the ``--input-config`` value, which
     may be empty (inferred from the file name), a preset name looked up in
-    the presets file given by ``--io-config``, or a config file path.
+    the presets file given by ``--io-config``, or a config file path. When
+    a ``--io-config`` is given its configured levels are honoured while
+    reading the items.
 
     Args:
         parsed: Parsed command line arguments holding the input options
@@ -97,11 +113,12 @@ def read_input(parsed: argparse.Namespace) -> BacklogReleases:
     Returns:
         The validated backlog and releases read from the input file.
     """
-    io_config = getattr(parsed, 'io_config', None)
-    presets = _input_presets(io_config)
-    config = resolve_input_config(parsed.input_config, data_file=parsed.input,
-                                  presets=presets)
-    data = read_backlog_releases(parsed.input, config)
+    config = _ops_config(getattr(parsed, 'io_config', None))
+    presets = config.input_configs if config is not None else None
+    levels = config.get_levels() if config is not None else None
+    in_config = resolve_input_config(parsed.input_config,
+                                     data_file=parsed.input, presets=presets)
+    data = read_backlog_releases(parsed.input, in_config, levels)
     data.check_consistency(sys.stderr)
     return data
 
@@ -131,9 +148,8 @@ def add_output_args(parser: argparse.ArgumentParser) -> None:
 def _output_presets(io_config: Optional[str]
                     ) -> Optional[dict[str, OutputFormatConfig]]:
     """Return the named output presets from a presets file, if given."""
-    if io_config is None:
-        return None
-    return read_available_teams(io_config, sys.stderr).output_configs
+    config = _ops_config(io_config)
+    return config.output_configs if config is not None else None
 
 
 def _write_output(parsed: argparse.Namespace, data: BacklogReleases) -> None:

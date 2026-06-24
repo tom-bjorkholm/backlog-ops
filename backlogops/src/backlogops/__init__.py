@@ -18,7 +18,7 @@ from backlogops.backlog import (
 from backlogops.backlog_helpers import find_cycle
 from backlogops.levels import (
     Level, Levels, DEFAULT_LEVELS, check_levels_consistency,
-    level_number_from_name)
+    level_number_from_name, levels_from_list)
 from backlogops.person import Person
 from backlogops.team import FteException, Membership, Team
 from backlogops.releases import Release, Releases, get_release, get_releases
@@ -26,8 +26,10 @@ from backlogops.backlog_releases import BacklogReleases
 from backlogops.demo_backlog import get_demo_backlog
 from backlogops.available_teams import AvailableTeams
 from backlogops.available_teams_config import (
-    AvailableTeamsConfig, read_available_teams, write_available_teams,
-    get_available_teams)
+    AvailableTeamsConfig, read_available_teams, write_available_teams)
+from backlogops.backlog_ops_config import (
+    BacklogOpsConfig, read_backlog_ops_config, write_backlog_ops_config,
+    get_backlog_ops_config)
 from backlogops.order_by_dependencies import (
     order_by_dependencies, DependencyMode)
 from backlogops.estimate_ready_date import (
@@ -65,11 +67,14 @@ __all__ = [
     'check_backlog_consistency', 'build_dependency_graph',
     'item_dependency_edges', 'event_start', 'event_finish', 'find_cycle',
     'Level', 'Levels', 'DEFAULT_LEVELS', 'check_levels_consistency',
-    'level_number_from_name', 'Person', 'FteException', 'Membership', 'Team',
+    'level_number_from_name', 'levels_from_list', 'Person', 'FteException',
+    'Membership', 'Team',
     'Release', 'Releases', 'get_release', 'get_releases', 'BacklogReleases',
     'get_demo_backlog',
     'AvailableTeams', 'AvailableTeamsConfig', 'read_available_teams',
-    'write_available_teams', 'get_available_teams', 'order_by_dependencies',
+    'write_available_teams', 'BacklogOpsConfig', 'read_backlog_ops_config',
+    'write_backlog_ops_config', 'get_backlog_ops_config',
+    'order_by_dependencies',
     'DependencyMode', 'InputFormatConfig', 'OutputFormatConfig',
     'resolve_input_config', 'resolve_output_config', 'make_input_config',
     'make_output_config', 'FileExistsCb', 'allow_overwrite',

@@ -7,7 +7,7 @@
 from pathlib import Path
 import pytest
 from backlogops import (
-    AvailableTeams, AvailableTeamsConfig, BacklogItem, BacklogReleases,
+    AvailableTeams, BacklogItem, BacklogOpsConfig, BacklogReleases,
     Release, Status, make_output_config, read_backlog_releases,
     resolve_input_config, resolve_output_config, write_backlog_releases)
 from backlogops.no_text_io import NoTextIO
@@ -55,14 +55,15 @@ def test_convert_round_trip(tmp_path: Path) -> None:
 def test_output_preset(tmp_path: Path) -> None:
     """Test an output preset from the teams file renames written columns."""
     teams_file = tmp_path / 'teams.cfg'
-    teams = AvailableTeamsConfig(neutral=AvailableTeams(persons={}, teams=[]),
-                                 stderr_file=NO_OUTPUT)
+    config = BacklogOpsConfig(
+        available_teams=AvailableTeams(persons={}, teams=[]),
+        stderr_file=NO_OUTPUT)
     preset = make_output_config(
         resolve_output_config(None, data_file='x.csv',
                               stderr_file=NO_OUTPUT).tableio,
         {'level': 'Type'}, stderr_file=NO_OUTPUT)
-    teams.output_configs = {'rep': preset}
-    teams.write(to_json_filename=teams_file, stderr_file=NO_OUTPUT)
+    config.output_configs = {'rep': preset}
+    config.write(to_json_filename=teams_file, stderr_file=NO_OUTPUT)
     source = tmp_path / 'in.ods'
     target = tmp_path / 'out.csv'
     _write_source(source)

@@ -79,6 +79,17 @@
   * [format\_date\_changes](#backlogops.release_change_io.format_date_changes)
   * [write\_content\_changes](#backlogops.release_change_io.write_content_changes)
   * [write\_date\_changes](#backlogops.release_change_io.write_date_changes)
+* [backlogops.backlog\_ops\_config](#backlogops.backlog_ops_config)
+  * [BacklogOpsConfig](#backlogops.backlog_ops_config.BacklogOpsConfig)
+    * [\_\_init\_\_](#backlogops.backlog_ops_config.BacklogOpsConfig.__init__)
+    * [nested\_configs](#backlogops.backlog_ops_config.BacklogOpsConfig.nested_configs)
+    * [get\_validation\_plan](#backlogops.backlog_ops_config.BacklogOpsConfig.get_validation_plan)
+    * [serialize\_converters](#backlogops.backlog_ops_config.BacklogOpsConfig.serialize_converters)
+    * [check\_consistency](#backlogops.backlog_ops_config.BacklogOpsConfig.check_consistency)
+    * [get\_levels](#backlogops.backlog_ops_config.BacklogOpsConfig.get_levels)
+  * [write\_backlog\_ops\_config](#backlogops.backlog_ops_config.write_backlog_ops_config)
+  * [read\_backlog\_ops\_config](#backlogops.backlog_ops_config.read_backlog_ops_config)
+  * [get\_backlog\_ops\_config](#backlogops.backlog_ops_config.get_backlog_ops_config)
 * [backlogops.table\_create](#backlogops.table_create)
   * [allow\_overwrite](#backlogops.table_create.allow_overwrite)
   * [create\_output\_table](#backlogops.table_create.create_output_table)
@@ -140,7 +151,6 @@
     * [get\_validation\_plan](#backlogops.available_teams_config.AvailableTeamsConfig.get_validation_plan)
   * [write\_available\_teams](#backlogops.available_teams_config.write_available_teams)
   * [read\_available\_teams](#backlogops.available_teams_config.read_available_teams)
-  * [get\_available\_teams](#backlogops.available_teams_config.get_available_teams)
 * [backlogops.release\_backlog\_updates](#backlogops.release_backlog_updates)
   * [ReleaseChange](#backlogops.release_backlog_updates.ReleaseChange)
   * [BacklogReleaseChange](#backlogops.release_backlog_updates.BacklogReleaseChange)
@@ -190,6 +200,7 @@
   * [DEFAULT\_LEVELS](#backlogops.levels.DEFAULT_LEVELS)
   * [report\_duplicate\_label](#backlogops.levels.report_duplicate_label)
   * [check\_levels\_consistency](#backlogops.levels.check_levels_consistency)
+  * [levels\_from\_list](#backlogops.levels.levels_from_list)
   * [level\_number\_from\_name](#backlogops.levels.level_number_from_name)
 * [backlogops.backlog\_releases\_io](#backlogops.backlog_releases_io)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
@@ -1277,14 +1288,17 @@ Interactively create an available workforce configuration.
 #### teams\_config\_wizard
 
 ```python
-def teams_config_wizard(ui_bridge: WizardUiBridge) -> AvailableTeamsConfig
+def teams_config_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig
 ```
 
-Interactively create a workforce with optional TableIO presets.
+Interactively create a backlog-ops configuration.
 
-The workforce is entered as by :func:`available_teams_wizard`, and the
+The workforce is entered as by :func:`available_teams_wizard`, the
 user may then add any number of named input and output TableIO
-configuration presets that are stored alongside the workforce.
+configuration presets, and finally edit the backlog item levels. The
+levels start filled in with the default levels; when the user leaves
+them at the defaults they are stored as "use the defaults" rather
+than written out.
 
 **Arguments**:
 
@@ -1293,7 +1307,7 @@ configuration presets that are stored alongside the workforce.
 
 **Returns**:
 
-  The workforce configuration, ready to be written to a file.
+  The backlog-ops configuration, ready to be written to a file.
   
 
 **Raises**:
@@ -1956,6 +1970,217 @@ TableIO table. The single table has the columns ``release``,
 
 - `FileExistsError` - If the file exists and the callback refuses it.
 - `ValueError` - If the extension is not a supported table format.
+
+<a id="backlogops.backlog_ops_config"></a>
+
+# backlogops.backlog\_ops\_config
+
+Top-level backlog-ops configuration stored as config-as-json.
+
+The :class:`BacklogOpsConfig` is the single configuration object an
+application reads and writes. It groups together the available workforce,
+the named TableIO input and output presets, and an optional set of
+backlog item levels:
+
+* ``available_teams`` is the workforce (persons, teams and company work
+  hours), bridged to JSON by :class:`AvailableTeamsConfig`;
+* ``input_configs`` and ``output_configs`` are named TableIO presets;
+* ``levels`` is the optional list of backlog item levels. It is omitted
+  from the file while it is ``None``; :meth:`BacklogOpsConfig.get_levels`
+  then falls back to :data:`backlogops.levels.DEFAULT_LEVELS`.
+
+Earlier file versions stored the workforce members (``persons``,
+``teams`` and ``company_work_hours``) at the top level next to the
+presets. :class:`_BacklogOpsReadOldConfig` moves those into the nested
+``available_teams`` object so old files keep loading.
+
+<a id="backlogops.backlog_ops_config.BacklogOpsConfig"></a>
+
+## BacklogOpsConfig Objects
+
+```python
+class BacklogOpsConfig(Config)
+```
+
+Top-level backlog-ops configuration stored as config-as-json.
+
+<a id="backlogops.backlog_ops_config.BacklogOpsConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(*,
+             available_teams: Optional[AvailableTeams] = None,
+             from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create defaults, or read the configuration from JSON.
+
+The supplied workforce establishes the schema of the nested
+``available_teams`` member; the library's auto-wrap step turns it
+into an :class:`AvailableTeamsConfig`. The presets default to
+empty maps and the levels default to ``None`` (use the defaults).
+
+<a id="backlogops.backlog_ops_config.BacklogOpsConfig.nested_configs"></a>
+
+#### nested\_configs
+
+```python
+@override
+def nested_configs() -> NestedConfigs
+```
+
+Declare the workforce and the named TableIO preset maps.
+
+<a id="backlogops.backlog_ops_config.BacklogOpsConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Convert the levels member, then check whole-config consistency.
+
+<a id="backlogops.backlog_ops_config.BacklogOpsConfig.serialize_converters"></a>
+
+#### serialize\_converters
+
+```python
+@override
+def serialize_converters() -> SerializeConverters
+```
+
+Write the levels member as a list of JSON objects.
+
+<a id="backlogops.backlog_ops_config.BacklogOpsConfig.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the consistency of the configured levels, when present.
+
+The workforce and the preset maps are validated by their own
+nested configurations. Only the optional levels need a check
+here, and only when they are configured.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `TypeError` - If a level field has the wrong type.
+- `ValueError` - If a level value violates a constraint or a level
+  number is used more than once.
+- `KeyError` - If a level name or alias is not unique.
+
+<a id="backlogops.backlog_ops_config.BacklogOpsConfig.get_levels"></a>
+
+#### get\_levels
+
+```python
+def get_levels() -> Levels
+```
+
+Return the configured levels, or the default levels.
+
+**Returns**:
+
+  The levels keyed by level number, taken from the
+  configuration, or :data:`DEFAULT_LEVELS` when no levels are
+  configured.
+
+<a id="backlogops.backlog_ops_config.write_backlog_ops_config"></a>
+
+#### write\_backlog\_ops\_config
+
+```python
+def write_backlog_ops_config(config: BacklogOpsConfig,
+                             filename: PathOrStr,
+                             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Validate and write a backlog-ops configuration to a JSON file.
+
+**Arguments**:
+
+- `config` - The configuration to store.
+- `filename` - Destination JSON configuration file.
+- `stderr_file` - Stream used for user-facing diagnostics.
+
+<a id="backlogops.backlog_ops_config.read_backlog_ops_config"></a>
+
+#### read\_backlog\_ops\_config
+
+```python
+def read_backlog_ops_config(
+        filename: PathOrStr,
+        stderr_file: TextIO = sys.stderr) -> BacklogOpsConfig
+```
+
+Read a backlog-ops configuration from a JSON configuration file.
+
+**Arguments**:
+
+- `filename` - Source JSON configuration file.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The loaded configuration.
+
+<a id="backlogops.backlog_ops_config.get_backlog_ops_config"></a>
+
+#### get\_backlog\_ops\_config
+
+```python
+def get_backlog_ops_config(
+        filename: Optional[PathOrStr],
+        stderr_file: TextIO = sys.stderr) -> BacklogOpsConfig
+```
+
+Return the BacklogOpsConfig to use, reading or reusing as needed.
+
+If a filename is provided, the file is read and the BacklogOpsConfig
+is stored and returned. If no filename is provided and there is a
+stored BacklogOpsConfig, it is returned. If no filename is provided
+and there is no stored BacklogOpsConfig, this function looks for one
+in order of precedence:
+- File named in $BACKLOGOPS_CFG environment variable
+- File backlogops.cfg in folder specified by $BACKLOGOPS_DIR
+environment variable
+- $HOME/.backlogops.cfg
+If a file is found, it is read and the BacklogOpsConfig is stored and
+returned. If no file is found, an exception is raised.
+
+**Arguments**:
+
+- `filename` - Source JSON configuration file.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Raises**:
+
+- `FileNotFoundError` - If $BACKLOGOPS_CFG is set but the file does not
+  exist.
+- `NotADirectoryError` - If $BACKLOGOPS_DIR is set but the directory
+  does not exist.
+- `RuntimeError` - If no filename is provided and no stored
+  BacklogOpsConfig is found and no file is found in
+  the order of precedence.
+
+**Returns**:
+
+  The loaded configuration.
 
 <a id="backlogops.table_create"></a>
 
@@ -2958,9 +3183,6 @@ Create the bridge from a neutral workforce or from JSON.
 it requires ``persons`` and ``teams`` arguments that the bridge
 does not duplicate. ``Config.copy_initial_data`` establishes the
 schema from the supplied or default neutral workforce instead.
-The named input and output TableIO presets are not part of the
-neutral workforce; they are added here as the bridge's own
-members.
 
 <a id="backlogops.available_teams_config.AvailableTeamsConfig.nested_configs"></a>
 
@@ -2971,7 +3193,7 @@ members.
 def nested_configs() -> NestedConfigs
 ```
 
-Declare the persons, teams, work hours and TableIO presets.
+Declare the persons, teams and company work hours.
 
 <a id="backlogops.available_teams_config.AvailableTeamsConfig.get_validation_plan"></a>
 
@@ -3023,52 +3245,6 @@ Read an available workforce from a JSON configuration file.
 **Returns**:
 
   The loaded workforce. The returned object is an ``AvailableTeams``.
-
-<a id="backlogops.available_teams_config.get_available_teams"></a>
-
-#### get\_available\_teams
-
-```python
-def get_available_teams(
-        filename: Optional[PathOrStr],
-        stderr_file: TextIO = sys.stderr) -> AvailableTeamsConfig
-```
-
-Convinience get the AvailableTeamsConfig to use.
-
-If a filename is provided, the file is read and the AvailableTeamsConfig
-is stored and returned.
-If no filename is provided and there is a stored AvailableTeamsConfig,
-it is returned.
-If no filename is provided and there is no stored AvailableTeamsConfig,
-this function will look for these in order of precedence:
-- File named in $BACKLOGOPS_CFG environment variable
-- File backlogops.cfg in folder specified by $BACKLOGOPS_DIR
-environment variable
-- $HOME/.backlogops.cfg
-If a file is found, it is read and the AvailableTeamsConfig is stored and
-returned. If no file is found, an exception is raised.
-
-**Arguments**:
-
-- `filename` - Source JSON configuration file.
-- `stderr_file` - Stream used for user-facing diagnostics.
-  
-
-**Raises**:
-
-- `FileNotFoundError` - If $BACKLOGOPS_CFG is set but the file does not
-  exist.
-- `NotADirectoryError` - If $BACKLOGOPS_DIR is set but the directory
-  does not exist.
-- `RuntimeError` - If no filename is provided and no stored
-  AvailableTeamsConfig is found and no file is found in
-  the order of precedence.
-
-**Returns**:
-
-  The loaded workforce. The returned object is an
-  ``AvailableTeamsConfig``.
 
 <a id="backlogops.release_backlog_updates"></a>
 
@@ -3935,6 +4111,40 @@ comparison, so that a name and an alias may not differ only in case.
 - `TypeError` - If a field has the wrong type.
 - `ValueError` - If a field value violates a constraint, or a dict key
   does not match its level number.
+- `KeyError` - If a name or alias is not unique (case-insensitive).
+
+<a id="backlogops.levels.levels_from_list"></a>
+
+#### levels\_from\_list
+
+```python
+def levels_from_list(level_list: list[Level],
+                     stderr_file: TextIO = sys.stderr) -> Levels
+```
+
+Return the levels keyed by level number from a list of levels.
+
+Each level is indexed under its own level number. A level number
+that appears more than once is rejected, because the levels mapping
+cannot hold two levels with the same number. The resulting mapping
+is then checked with :func:`check_levels_consistency`.
+
+**Arguments**:
+
+- `level_list` - The levels to index by their level number.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  The levels keyed by their level number.
+  
+
+**Raises**:
+
+- `TypeError` - If a field has the wrong type.
+- `ValueError` - If a level value violates a constraint or a level
+  number is used more than once.
 - `KeyError` - If a name or alias is not unique (case-insensitive).
 
 <a id="backlogops.levels.level_number_from_name"></a>

@@ -7,7 +7,7 @@
 import tkinter as tk
 from typing import Callable, Optional, TextIO, cast
 import pytest
-from backlogops import AvailableTeamsConfig, BacklogReleases
+from backlogops import BacklogOpsConfig, BacklogReleases
 from backlogops_gui import application
 from backlogops_gui.application import APP_TITLE, BacklogApp
 from backlogops_gui.io_dialogs import ConfigChoice, ReadOptions
@@ -64,7 +64,12 @@ class FakeConfig:
         """Create non-empty presets and an unset written destination."""
         self.input_configs: dict[str, object] = {'in': object()}
         self.output_configs: dict[str, object] = {'out': object()}
+        self.available_teams: object = object()
         self.written: Optional[str] = None
+
+    def get_levels(self) -> dict[int, object]:
+        """Return an empty levels mapping, as the real config would."""
+        return {}
 
     def write(self, to_json_filename: str, stderr_file: object) -> None:
         """Record the destination the configuration was written to."""
@@ -74,7 +79,7 @@ class FakeConfig:
 
 def _app(config: Optional[FakeConfig] = None) -> BacklogApp:
     """Return an application over a dummy root for logic-only tests."""
-    typed = cast(Optional[AvailableTeamsConfig], config)
+    typed = cast(Optional[BacklogOpsConfig], config)
     return BacklogApp(cast(tk.Tk, object()), typed)
 
 
@@ -92,17 +97,17 @@ def _opener(store: list[object]) -> Callable[[BacklogReleases, str], None]:
     return recorder
 
 
-def _raise_none(_arg: object, _sink: object) -> AvailableTeamsConfig:
+def _raise_none(_arg: object, _sink: object) -> BacklogOpsConfig:
     """Raise as if no configuration file was found."""
     raise RuntimeError('none')
 
 
-def _raise_missing(_arg: object, _sink: object) -> AvailableTeamsConfig:
+def _raise_missing(_arg: object, _sink: object) -> BacklogOpsConfig:
     """Raise as if a named configuration file was missing."""
     raise FileNotFoundError('missing')
 
 
-def _raise_exit(_arg: object, captured: TextIO) -> AvailableTeamsConfig:
+def _raise_exit(_arg: object, captured: TextIO) -> BacklogOpsConfig:
     """Report a missing file and exit, as the config loader does."""
     captured.write('File aha does not exist. Cannot proceed.\n')
     raise SystemExit(1)
@@ -131,14 +136,14 @@ def _read_opts(_parent: object, _presets: object) -> ReadOptions:
     return ReadOptions(None)
 
 
-def _read_data(_path: object, _value: object, _presets: object,
-               _sink: object) -> BacklogReleases:
+def _read_data(_path: object, _value: object, _presets: object, _sink: object,
+               _levels: object = None) -> BacklogReleases:
     """Return fixed data as if a backlog file was read."""
     return DATA
 
 
-def _read_fail(_path: object, _value: object, _presets: object,
-               _sink: object) -> BacklogReleases:
+def _read_fail(_path: object, _value: object, _presets: object, _sink: object,
+               _levels: object = None) -> BacklogReleases:
     """Raise as if reading a backlog file failed."""
     raise ValueError('bad file')
 
@@ -168,15 +173,16 @@ def _pick_teams(_parent: object) -> str:
 def test_initial_config_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a loaded configuration is returned without an error."""
     config = FakeConfig()
-    monkeypatch.setattr(application, 'get_available_teams', _returns(config))
+    monkeypatch.setattr(application, 'get_backlog_ops_config',
+                        _returns(config))
     result, error = application.initial_config(None)
-    assert result is cast(AvailableTeamsConfig, config)
+    assert result is cast(BacklogOpsConfig, config)
     assert error is None
 
 
 def test_initial_config_err(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a lookup failure is mapped to a None config and a message."""
-    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_none)
     result, error = application.initial_config(None)
     assert result is None
     assert error == 'none'
@@ -184,7 +190,7 @@ def test_initial_config_err(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_initial_config_exit(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a loader that exits is reported instead of ending the program."""
-    monkeypatch.setattr(application, 'get_available_teams', _raise_exit)
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_exit)
     result, error = application.initial_config('aha')
     assert result is None
     assert error == 'File aha does not exist. Cannot proceed.'
@@ -193,17 +199,18 @@ def test_initial_config_exit(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_start_with_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test start adopts a loaded configuration and is ready."""
     config = FakeConfig()
-    monkeypatch.setattr(application, 'get_available_teams', _returns(config))
+    monkeypatch.setattr(application, 'get_backlog_ops_config',
+                        _returns(config))
     app = _app()
     assert app.start(None) is True
-    assert app.config is cast(AvailableTeamsConfig, config)
+    assert app.config is cast(BacklogOpsConfig, config)
     assert app.config_source == 'the default location'
 
 
 def test_start_runs_wizard(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the no-config dialog can run the wizard to become ready."""
-    config = cast(AvailableTeamsConfig, FakeConfig())
-    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    config = cast(BacklogOpsConfig, FakeConfig())
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_none)
     monkeypatch.setattr(application, 'ask_no_config_choice',
                         _choices(ConfigChoice.WIZARD))
     app = _app()
@@ -218,7 +225,7 @@ def test_start_runs_wizard(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_start_exit(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test choosing exit in the no-config dialog is not ready."""
-    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_none)
     monkeypatch.setattr(application, 'ask_no_config_choice',
                         _choices(ConfigChoice.EXIT))
     assert _app().start(None) is False
@@ -226,7 +233,7 @@ def test_start_exit(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_start_wizard_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled startup wizard returns to the no-config dialog."""
-    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_none)
     monkeypatch.setattr(application, 'ask_no_config_choice',
                         _choices(ConfigChoice.WIZARD, ConfigChoice.EXIT))
     app = _app()
@@ -237,7 +244,7 @@ def test_start_wizard_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_start_loads_file(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the no-config dialog can load a chosen configuration file."""
     config = FakeConfig()
-    monkeypatch.setattr(application, 'get_available_teams',
+    monkeypatch.setattr(application, 'get_backlog_ops_config',
                         _load_for_path(config))
     monkeypatch.setattr(application, 'ask_no_config_choice',
                         _choices(ConfigChoice.LOAD))
@@ -245,13 +252,13 @@ def test_start_loads_file(monkeypatch: pytest.MonkeyPatch) -> None:
                         lambda parent: 'teams.cfg')
     app = _app()
     assert app.start(None) is True
-    assert app.config is cast(AvailableTeamsConfig, config)
+    assert app.config is cast(BacklogOpsConfig, config)
     assert app.config_source == 'teams.cfg'
 
 
 def test_start_load_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test cancelling the load chooser returns to the no-config dialog."""
-    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_none)
     monkeypatch.setattr(application, 'ask_no_config_choice',
                         _choices(ConfigChoice.LOAD, ConfigChoice.EXIT))
     monkeypatch.setattr(application, 'choose_existing_config',
@@ -261,7 +268,7 @@ def test_start_load_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_start_load_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a bad chosen file is reported and returns to the dialog."""
-    monkeypatch.setattr(application, 'get_available_teams', _raise_none)
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_none)
     monkeypatch.setattr(application, 'ask_no_config_choice',
                         _choices(ConfigChoice.LOAD, ConfigChoice.EXIT))
     monkeypatch.setattr(application, 'choose_existing_config',
@@ -279,8 +286,8 @@ def test_exit_config_dialog(monkeypatch: pytest.MonkeyPatch) -> None:
     This is the missing-file case that previously ended the application
     silently instead of reporting the error and offering the choices.
     """
-    config = cast(AvailableTeamsConfig, FakeConfig())
-    monkeypatch.setattr(application, 'get_available_teams', _raise_exit)
+    config = cast(BacklogOpsConfig, FakeConfig())
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_exit)
     monkeypatch.setattr(application, 'ask_no_config_choice',
                         _choices(ConfigChoice.WIZARD))
     app = _app()
@@ -294,8 +301,8 @@ def test_exit_config_dialog(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_bad_config_shows_err(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a bad named configuration is reported before the dialog."""
-    config = cast(AvailableTeamsConfig, FakeConfig())
-    monkeypatch.setattr(application, 'get_available_teams', _raise_missing)
+    config = cast(BacklogOpsConfig, FakeConfig())
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_missing)
     monkeypatch.setattr(application, 'ask_no_config_choice',
                         _choices(ConfigChoice.WIZARD))
     app = _app()
@@ -377,7 +384,7 @@ def test_write_config_none(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_teams_wizard_active(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a wizard result becomes the active configuration."""
-    config = cast(AvailableTeamsConfig, FakeConfig())
+    config = cast(BacklogOpsConfig, FakeConfig())
     app = _app()
     monkeypatch.setattr(app, 'run_wizard', lambda: config)
     infos: list[tuple[str, str]] = []
@@ -405,9 +412,15 @@ def test_no_cfg_no_presets() -> None:
 def test_available_teams() -> None:
     """Test the available teams come from the loaded configuration."""
     config = FakeConfig()
-    assert _app(config).available_teams() is \
-        cast(AvailableTeamsConfig, config)
+    assert _app(config).available_teams() is config.available_teams
     assert _app().available_teams() is None
+
+
+def test_levels_from_config() -> None:
+    """Test the levels come from the loaded configuration, or None."""
+    config = FakeConfig()
+    assert _app(config).levels() == config.get_levels()
+    assert _app().levels() is None
 
 
 def test_show_messages(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -422,7 +435,7 @@ def test_show_messages(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_run_wizard_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a successful wizard run returns the configuration."""
-    config = cast(AvailableTeamsConfig, FakeConfig())
+    config = cast(BacklogOpsConfig, FakeConfig())
     monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
     monkeypatch.setattr(application, 'teams_config_wizard',
                         lambda bridge: config)
@@ -431,7 +444,7 @@ def test_run_wizard_ok(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_run_wizard_eof(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a wizard cancelled with EOF returns no configuration."""
-    def cancel(bridge: object) -> AvailableTeamsConfig:
+    def cancel(bridge: object) -> BacklogOpsConfig:
         raise EOFError()
     monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
     monkeypatch.setattr(application, 'teams_config_wizard', cancel)
@@ -440,7 +453,7 @@ def test_run_wizard_eof(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_run_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a wizard IO error is reported and returns no configuration."""
-    def boom(bridge: object) -> AvailableTeamsConfig:
+    def boom(bridge: object) -> BacklogOpsConfig:
         raise ValueError('bad')
     monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
     monkeypatch.setattr(application, 'teams_config_wizard', boom)
@@ -535,7 +548,7 @@ def test_body_config_warn(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(application, 'check_python_version', lambda: None)
     root = _root_or_skip()
     try:
-        app = BacklogApp(root, cast(AvailableTeamsConfig, FakeConfig()))
+        app = BacklogApp(root, cast(BacklogOpsConfig, FakeConfig()))
         app.config_source = 'a file'
         app.build_body()
         assert app._status_text() == 'Configuration loaded from a file.'

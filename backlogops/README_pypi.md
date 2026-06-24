@@ -170,7 +170,12 @@ from backlogops import (
   backlog and its releases from and to a table file.
 
 - `read_available_teams`, `write_available_teams`: read and write the
-  available-teams configuration.
+  available-teams workforce on its own.
+
+- `read_backlog_ops_config`, `write_backlog_ops_config`,
+  `get_backlog_ops_config`: read, write, and look up the top-level
+  `BacklogOpsConfig` (workforce, named input and output presets, and the
+  optional backlog item levels).
 
 - `read_key_list`, `write_key_list`: read and write a list of keys.
 

@@ -34,9 +34,10 @@ from tableio_cfg_json import TableCell, TableColumn, TioJsonConfig, \
     WizardAbort, WizardBack, WizardCancelLevel, WizardUiBridge, \
     tio_json_config_wizard
 from backlogops.available_teams import AvailableTeams
-from backlogops.available_teams_config import AvailableTeamsConfig
+from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.io_config import InputFormatConfig, OutputFormatConfig, \
     PRESET_NAME_RE, make_input_config, make_output_config
+from backlogops.levels import DEFAULT_LEVELS, Level, levels_from_list
 from backlogops.person import Person
 from backlogops.team import FteException, Membership, Team
 from backlogops.work_hours import CompanyWorkHours, DEFAULT_WORK_WEEK, \
@@ -199,6 +200,12 @@ class _Navigator:
         """Ask the weekly work-hours schedule as one table question."""
         result = self._ask(lambda: _read_schedule(self._ui))
         assert isinstance(result, dict)
+        return result
+
+    def ask_levels(self) -> list[Level]:
+        """Ask the backlog item levels as one variable-row table."""
+        result = self._ask(lambda: _read_levels(self._ui))
+        assert isinstance(result, list)
         return result
 
     def ask_column_map(self, from_label: str, to_label: str) -> dict[str, str]:
@@ -457,6 +464,107 @@ def _read_column_map(ui: WizardUiBridge, count: int, from_label: str,
         reason = 'Enter a non-empty name in every cell.'
 
 
+_MAX_LEVELS = 99
+"""Upper bound on the number of backlog item levels the wizard accepts."""
+
+
+def _parse_level_int(text: Optional[str]) -> Optional[int]:
+    """Return ``text`` as an int (sign allowed), or None when invalid."""
+    if text is None:
+        return None
+    try:
+        return int(text.strip())
+    except ValueError:
+        return None
+
+
+def _split_aliases(text: Optional[str]) -> list[str]:
+    """Return the trimmed, non-empty comma separated aliases in ``text``."""
+    if text is None:
+        return []
+    return [alias.strip() for alias in text.split(',') if alias.strip()]
+
+
+def _levels_check(table: list[list[Optional[str]]],
+                  position: tuple[int, int]) -> tuple[bool, str]:
+    """Give early feedback that a level number or name cell is valid."""
+    row, col = position
+    if col == 0:
+        ok = _parse_level_int(table[row][0]) is not None
+        return (ok, '' if ok else 'Enter the level as a whole number.')
+    if col == 1:
+        ok = bool(table[row][1])
+        return (ok, '' if ok else 'Enter a non-empty level name.')
+    return (True, '')
+
+
+def _parse_levels(table: list[list[Optional[str]]]) -> Optional[list[Level]]:
+    """Return the levels from a table, or None when a cell is invalid."""
+    levels: list[Level] = []
+    for row in table:
+        number = _parse_level_int(row[0])
+        name = row[1]
+        if number is None or not name:
+            return None
+        levels.append(Level(level=number, name=name,
+                            aliases=_split_aliases(row[2])))
+    return levels
+
+
+def _default_level_cells() -> list[list[TableCell]]:
+    """Return the table rows pre-filled with the default levels."""
+    return [[TableCell(value=str(level.level)),
+             TableCell(value=level.name),
+             TableCell(value=', '.join(level.aliases))]
+            for level in DEFAULT_LEVELS.values()]
+
+
+def _levels_problem(levels: list[Level], error_file: TextIO) -> Optional[str]:
+    """Return a re-ask reason when the levels are inconsistent, else None.
+
+    The whole-table rule reuses :func:`levels_from_list`, which rejects a
+    repeated level number and any duplicate or malformed name or alias.
+    """
+    try:
+        levels_from_list(levels, error_file)
+    except (TypeError, ValueError, KeyError) as problem:
+        return str(problem.args[0]) if problem.args else str(problem)
+    return None
+
+
+def _cells_from_table(table: list[list[Optional[str]]]
+                      ) -> list[list[TableCell]]:
+    """Return the user's table rows as seed cells for a re-ask."""
+    return [[TableCell(value=('' if cell is None else cell)) for cell in row]
+            for row in table]
+
+
+def _read_levels(ui: WizardUiBridge) -> list[Level]:
+    """Ask the backlog item levels as one variable-row table question.
+
+    Each cell is checked as it is entered, and the whole table is then
+    checked for consistency. An inconsistent table is re-asked with the
+    user's own rows kept, so the reported duplicate can be corrected.
+    """
+    columns = [TableColumn(header='Level'), TableColumn(header='Name'),
+               TableColumn(header='Aliases (comma separated)')]
+    cells = _default_level_cells()
+    reason: Optional[str] = None
+    while True:
+        table = ui.ask_table(columns, cells, 'Backlog item levels:',
+                             re_ask_reason=reason, partial_check=_levels_check,
+                             min_rows=1, max_rows=_MAX_LEVELS)
+        levels = _parse_levels(table)
+        if levels is not None:
+            reason = _levels_problem(levels, ui.error_file())
+            if reason is None:
+                return levels
+        else:
+            reason = ('Enter a whole-number level and a non-empty name in '
+                      'every row.')
+        cells = _cells_from_table(table)
+
+
 def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams:
     """Interactively create an available workforce configuration.
 
@@ -478,18 +586,21 @@ def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams:
         raise EOFError('Configuration abandoned by the user.') from abort
 
 
-def teams_config_wizard(ui_bridge: WizardUiBridge) -> AvailableTeamsConfig:
-    """Interactively create a workforce with optional TableIO presets.
+def teams_config_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig:
+    """Interactively create a backlog-ops configuration.
 
-    The workforce is entered as by :func:`available_teams_wizard`, and the
+    The workforce is entered as by :func:`available_teams_wizard`, the
     user may then add any number of named input and output TableIO
-    configuration presets that are stored alongside the workforce.
+    configuration presets, and finally edit the backlog item levels. The
+    levels start filled in with the default levels; when the user leaves
+    them at the defaults they are stored as "use the defaults" rather
+    than written out.
 
     Args:
         ui_bridge: Bridge between the wizard and the user interface.
 
     Returns:
-        The workforce configuration, ready to be written to a file.
+        The backlog-ops configuration, ready to be written to a file.
 
     Raises:
         EOFError: The input ended, or the user abandoned the wizard.
@@ -512,13 +623,21 @@ def _collect_teams(nav: _Navigator) -> AvailableTeams:
                           company_work_hours=company)
 
 
-def _collect_config(nav: _Navigator) -> AvailableTeamsConfig:
-    """Ask for the workforce and its named TableIO presets."""
+def _collect_config(nav: _Navigator) -> BacklogOpsConfig:
+    """Ask for the workforce, the named TableIO presets and the levels."""
     teams = _collect_teams(nav)
-    config = AvailableTeamsConfig(neutral=teams)
+    config = BacklogOpsConfig(available_teams=teams)
     config.input_configs = nav.level(lambda: _build_input_presets(nav))
     config.output_configs = nav.level(lambda: _build_output_presets(nav))
+    config.levels = _levels_or_none(nav.ask_levels())
     return config
+
+
+def _levels_or_none(levels: list[Level]) -> Optional[list[Level]]:
+    """Return the levels, or None when they match the default levels."""
+    if {level.level: level for level in levels} == DEFAULT_LEVELS:
+        return None
+    return levels
 
 
 def _build_company(nav: _Navigator) -> CompanyWorkHours:
@@ -574,14 +693,19 @@ def _build_teams(nav: _Navigator, person_names: list[str]) -> list[Team]:
 
 
 def _ask_team(nav: _Navigator, person_names: list[str]) -> Team:
-    """Ask for one team and its memberships."""
+    """Ask for one team and its memberships.
+
+    The team members are asked first, then the velocity and the matching
+    full-time-equivalent sum together. The sum defaults to the number of
+    members, the common case where every member works full time.
+    """
     name = nav.ask_text('Team name')
+    members = nav.level(lambda: _build_members(nav, person_names))
     velocity = nav.ask_number('Team velocity', 0.0, 0.0, None)
     sum_fte = nav.ask_number('Sum of full-time equivalents at that velocity',
-                             1.0, None, None)
+                             float(len(members)), None, None)
     sprint_length = nav.ask_int('Sprint length in working days', 10, 1)
     aliases = nav.level(lambda: _build_aliases(nav))
-    members = nav.level(lambda: _build_members(nav, person_names))
     return Team(name=name, velocity=velocity, sum_fte_at_velocity=sum_fte,
                 sprint_length=sprint_length, aliases=aliases, members=members)
 

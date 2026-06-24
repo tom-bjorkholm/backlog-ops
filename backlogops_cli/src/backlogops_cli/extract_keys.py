@@ -17,8 +17,8 @@ import sys
 from typing import Optional
 from backlogops import get_keys_in_order, write_key_list
 from backlogops_cli._command_io import (
-    add_force_arg, add_input_args, overwrite_callback, parsed_args,
-    read_input)
+    add_force_arg, add_input_args, io_levels, overwrite_callback,
+    parsed_args, read_input)
 
 DESCRIPTION = 'Extract backlog keys at the given levels to a key list'
 
@@ -69,9 +69,9 @@ def main(args: Optional[list[str]] = None) -> int:
     parsed = parsed_args(build_parser(), args)
     try:
         data = read_input(parsed)
-        levels = [_level_value(text) for text in parsed.levels]
-        _emit(get_keys_in_order(data.backlog, levels), parsed.output,
-              parsed.force)
+        only_levels = [_level_value(text) for text in parsed.levels]
+        keys = get_keys_in_order(data.backlog, only_levels, io_levels(parsed))
+        _emit(keys, parsed.output, parsed.force)
     except (ValueError, TypeError, KeyError, OSError) as error:
         print(f'Could not extract keys: {error}', file=sys.stderr)
         return 1

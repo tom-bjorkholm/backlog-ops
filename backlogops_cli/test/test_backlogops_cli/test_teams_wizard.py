@@ -8,8 +8,8 @@ import io
 from pathlib import Path
 import pytest
 from backlogops import (
-    AvailableTeams, AvailableTeamsConfig, Membership, NoTextIO, Person, Team,
-    read_available_teams)
+    AvailableTeams, BacklogOpsConfig, Membership, NoTextIO, Person, Team,
+    read_backlog_ops_config)
 from backlogops_cli.list import command_modules
 from backlogops_cli import teams_wizard
 
@@ -36,7 +36,7 @@ def test_no_textual_flag() -> None:
 def test_no_textual_writes(tmp_path: Path,
                            monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the forced console interface writes a configuration file."""
-    answers = [''] * 12
+    answers = [''] * 13
     monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
     assert teams_wizard.main(
         ['-o', str(tmp_path / 'teams'), '--no-textual']) == 0
@@ -46,13 +46,13 @@ def test_no_textual_writes(tmp_path: Path,
 def test_main_writes_file(tmp_path: Path,
                           monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the command adds the .cfg extension and writes a readable file."""
-    answers = [''] * 12
+    answers = [''] * 13
     monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
     assert teams_wizard.main(['-o', str(tmp_path / 'teams')]) == 0
     written = tmp_path / 'teams.cfg'
     assert written.exists()
-    loaded = read_available_teams(written, NoTextIO())
-    assert not loaded.teams
+    loaded = read_backlog_ops_config(written, NoTextIO())
+    assert not loaded.available_teams.teams
 
 
 def test_overwrite_declined(tmp_path: Path,
@@ -71,17 +71,18 @@ def test_overwrite_force(tmp_path: Path,
     """Test the force flag overwrites the existing config without asking."""
     target = tmp_path / 'teams.cfg'
     target.write_text('OLD', encoding='utf-8')
-    answers = [''] * 12
+    answers = [''] * 13
     monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
     assert teams_wizard.main(['-o', str(tmp_path / 'teams'),
                               '--no-textual', '-f']) == 0
-    assert not read_available_teams(target, NoTextIO()).teams
+    loaded = read_backlog_ops_config(target, NoTextIO())
+    assert not loaded.available_teams.teams
 
 
 def test_main_reports_failure(tmp_path: Path,
                               monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an inconsistent workforce makes the command return 1."""
-    def _bad_wizard(_bridge: object) -> AvailableTeamsConfig:
+    def _bad_wizard(_bridge: object) -> BacklogOpsConfig:
         """Return an over-allocated workforce that fails validation."""
         persons = {'ada': Person(name='Ada')}
         first = Team(name='A', velocity=1.0, sum_fte_at_velocity=1.0,
@@ -90,7 +91,7 @@ def test_main_reports_failure(tmp_path: Path,
                       sprint_length=10,
                       members=[Membership(person_name='Ada', fte=0.5)])
         bad = AvailableTeams(persons=persons, teams=[first, second])
-        return AvailableTeamsConfig(neutral=bad)
+        return BacklogOpsConfig(available_teams=bad)
     monkeypatch.setattr(teams_wizard, 'teams_config_wizard', _bad_wizard)
     assert teams_wizard.main(['-o', str(tmp_path / 'teams')]) == 1
     assert not (tmp_path / 'teams.cfg').exists()

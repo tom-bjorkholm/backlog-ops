@@ -9,12 +9,16 @@ from datetime import date
 import pytest
 from tableio_cfg_json import WizardUiBridgeConsole
 from backlogops.available_teams import AvailableTeams
-from backlogops.available_teams_config import AvailableTeamsConfig
+from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.available_teams_wizard import (
     available_teams_wizard, teams_config_wizard)
 from backlogops.available_teams_wizard import (
     _read_int, _read_number, _read_opt_date, _read_text)
+from backlogops.levels import DEFAULT_LEVELS
 from backlogops.work_hours import DEFAULT_WORK_WEEK, WeekDay
+
+LEVELS_KEEP = ['']
+"""A blank answer that accepts the pre-filled default levels table."""
 
 SCHED = [''] * 7
 """Blank answers that keep the seven default daily work hours."""
@@ -32,6 +36,14 @@ def _bridge(answers: list[str]) -> WizardUiBridgeConsole:
 def _run(answers: list[str]) -> AvailableTeams:
     """Run the wizard with scripted console answers and return the result."""
     return available_teams_wizard(_bridge(answers))
+
+
+def _run_config(answers: list[str]) -> tuple[BacklogOpsConfig, str]:
+    """Run the config wizard, returning the config and the stderr text."""
+    stderr = io.StringIO()
+    stdin = io.StringIO('\n'.join(answers) + '\n')
+    bridge = WizardUiBridgeConsole(io.StringIO(), stdin, stderr)
+    return teams_config_wizard(bridge), stderr.getvalue()
 
 
 def test_minimal_workforce() -> None:
@@ -55,16 +67,18 @@ def test_full_workforce() -> None:
     answers = (SCHED + ['0']
                + ['2', 'Ada', '0', 'Bo', '0']
                + ['1']
-               + ['Phoenix', '30', '', '']
-               + ['0']
+               + ['Phoenix']
                + ['2']
                + ['1', '', '', '', '0']
-               + ['1', '0.5', '', '', '0'])
+               + ['1', '0.5', '', '', '0']
+               + ['30', '', '']
+               + ['0'])
     teams = _run(answers)
     assert sorted(teams.persons) == ['ada', 'bo']
     team = teams.teams[0]
     assert team.name == 'Phoenix'
     assert team.velocity == 30.0
+    assert team.sum_fte_at_velocity == 2.0
     assert [(m.person_name, m.fte) for m in team.members] == \
         [('Ada', 1.0), ('Bo', 0.5)]
 
@@ -74,10 +88,11 @@ def test_choose_by_name() -> None:
     answers = (SCHED + ['0']
                + ['1', 'Ada', '0']
                + ['1']
-               + ['T', '', '', '']
-               + ['0']
+               + ['T']
                + ['1']
-               + ['ada', '', '', '', '0'])
+               + ['ada', '', '', '', '0']
+               + ['', '', '']
+               + ['0'])
     teams = _run(answers)
     assert teams.teams[0].members[0].person_name == 'Ada'
 
@@ -95,7 +110,9 @@ def test_reask_number() -> None:
     """Test a non-numeric velocity is rejected and then accepted."""
     answers = (SCHED + ['0', '0']
                + ['1']
-               + ['Phoenix', 'abc', '5', '', '']
+               + ['Phoenix']
+               + ['abc', '5']
+               + ['', '']
                + ['0'])
     teams = _run(answers)
     assert teams.teams[0].velocity == 5.0
@@ -140,14 +157,15 @@ def test_team_with_extras() -> None:
     answers = (SCHED + ['0']
                + ['1', 'Ada', '0']
                + ['1']
-               + ['T', '', '', '']
-               + ['1', 'Alpha']
+               + ['T']
                + ['1']
                + ['Ada', '']
                + ['2026-07-01']
                + ['2026-06-01', '2026-07-10']
                + ['1']
-               + ['2026-07-02', '2026-07-05', '0.5'])
+               + ['2026-07-02', '2026-07-05', '0.5']
+               + ['', '', '']
+               + ['1', 'Alpha'])
     teams = _run(answers)
     team = teams.teams[0]
     assert team.aliases == ['Alpha']
@@ -246,7 +264,8 @@ def test_preset_wizard() -> None:
     """Test the config wizard collects input and output TableIO presets.
 
     The run rejects an invalid preset name, adds one input preset with one
-    column-name mapping, and adds one output preset with no mapping.
+    column-name mapping, and adds one output preset with no mapping, and
+    accepts the default levels at the end.
     """
     answers = (SCHED + ['0', '0', '0']
                + ['1']
@@ -254,9 +273,79 @@ def test_preset_wizard() -> None:
                + ['1', 'Type', 'level']
                + ['1']
                + ['out1'] + ['1'] + CSV_OPTS
-               + ['0'])
+               + ['0']
+               + LEVELS_KEEP)
     config = teams_config_wizard(_bridge(answers))
-    assert isinstance(config, AvailableTeamsConfig)
+    assert isinstance(config, BacklogOpsConfig)
     assert sorted(config.input_configs) == ['in1']
     assert list(config.output_configs) == ['out1']
     assert config.input_configs['in1'].to_internal == {'Type': 'level'}
+
+
+def test_levels_default() -> None:
+    """Test accepting the pre-filled default levels stores None."""
+    answers = SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP
+    config = teams_config_wizard(_bridge(answers))
+    assert config.levels is None
+    assert config.get_levels() == DEFAULT_LEVELS
+
+
+def test_levels_edited_stored() -> None:
+    """Test editing a level name stores the levels and keeps the rest.
+
+    Row 1 of the pre-filled default table is edited to rename the level,
+    keeping its number and aliases, so the stored levels differ from the
+    defaults and are kept as a list.
+    """
+    edit_first = ['1', '', 'Chore', '']
+    answers = SCHED + ['0', '0', '0', '0', '0'] + edit_first + ['']
+    config = teams_config_wizard(_bridge(answers))
+    assert config.levels is not None
+    levels = config.get_levels()
+    assert levels[0].name == 'Chore'
+    assert levels[1].name == 'Story'
+    assert levels[1].aliases == ['Task', 'Bug']
+
+
+def test_levels_added() -> None:
+    """Test a negative-numbered level can be added in the wizard.
+
+    A new row is appended and filled with a negative level number, a
+    name and a two-alias comma separated cell, then the table is
+    accepted.
+    """
+    add_row = [':+', '-1', 'Spike', 'Research, Investigation']
+    answers = SCHED + ['0', '0', '0', '0', '0'] + add_row + ['']
+    config = teams_config_wizard(_bridge(answers))
+    assert config.levels is not None
+    levels = config.get_levels()
+    assert levels[-1].name == 'Spike'
+    assert levels[-1].aliases == ['Research', 'Investigation']
+
+
+def test_levels_dup_number() -> None:
+    """Test a repeated level number is reported and re-asked.
+
+    Row 2 is edited to reuse level number 0, which the whole-table check
+    rejects, then re-edited to a free number, so the table is accepted.
+    """
+    fix = ['2', '0', '', '', '', '2', '7', '', '', '']
+    answers = SCHED + ['0', '0', '0', '0', '0'] + fix
+    config, errors = _run_config(answers)
+    assert 'more than once' in errors
+    levels = config.get_levels()
+    assert levels[7].name == 'Story'
+    assert levels[7].aliases == ['Task', 'Bug']
+
+
+def test_levels_dup_name() -> None:
+    """Test a duplicate level name is reported and re-asked.
+
+    Row 1 is renamed to an existing level name, which the whole-table
+    check rejects, then renamed to a unique name, so it is accepted.
+    """
+    fix = ['1', '', 'Story', '', '', '1', '', 'Chore', '', '']
+    answers = SCHED + ['0', '0', '0', '0', '0'] + fix
+    config, errors = _run_config(answers)
+    assert 'duplicates' in errors
+    assert config.get_levels()[0].name == 'Chore'

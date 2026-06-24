@@ -21,7 +21,8 @@ import sys
 from datetime import date
 from pathlib import Path
 from typing import Callable, Optional
-from backlogops import AvailableTeams, BacklogReleases, get_available_teams
+from backlogops import AvailableTeams, BacklogReleases, \
+    get_backlog_ops_config
 from backlogops_cli._command_io import (
     add_changes_arg, add_input_args, add_output_args, date_report,
     overwrite_callback, parsed_args, run_change_command)
@@ -61,7 +62,7 @@ def _load_teams(config: Optional[str]) -> AvailableTeams:
     if config is not None and not Path(config).is_file():
         raise ValueError(f'Teams configuration file not found: {config}')
     try:
-        return get_available_teams(config)
+        return get_backlog_ops_config(config).available_teams
     except RuntimeError as error:
         raise ValueError(str(error)) from error
 

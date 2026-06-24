@@ -27,8 +27,8 @@ from typing import Optional, TextIO
 import argcomplete
 from config_as_json.file_extension import fix_file_extension
 from backlogops import (
-    AvailableTeams, AvailableTeamsConfig, BacklogReleases, InputFormatConfig,
-    OutputFormatConfig, get_demo_backlog, get_available_teams,
+    AvailableTeams, BacklogOpsConfig, BacklogReleases, InputFormatConfig,
+    Levels, OutputFormatConfig, get_demo_backlog, get_backlog_ops_config,
     teams_config_wizard)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
@@ -59,15 +59,16 @@ VERSION_ERRORS = (OSError, RuntimeError, ValueError)
 
 
 def initial_config(config_arg: Optional[str], sink: Optional[TextIO] = None
-                   ) -> tuple[Optional[AvailableTeamsConfig], Optional[str]]:
+                   ) -> tuple[Optional[BacklogOpsConfig], Optional[str]]:
     """Return the startup configuration and an optional error message.
 
     The configuration is looked up as documented for
-    :func:`backlogops.get_available_teams`. A failure is mapped to a None
-    configuration and the error text, so the caller can decide whether to
-    show the error and offer the no-configuration choices. Diagnostics are
-    captured, so a loader that reports a missing file and then calls
-    ``sys.exit`` becomes an error message instead of ending the program.
+    :func:`backlogops.get_backlog_ops_config`. A failure is mapped to a
+    None configuration and the error text, so the caller can decide
+    whether to show the error and offer the no-configuration choices.
+    Diagnostics are captured, so a loader that reports a missing file and
+    then calls ``sys.exit`` becomes an error message instead of ending
+    the program.
 
     Args:
         config_arg: The file from ``-c``, or None to search the defaults.
@@ -78,7 +79,7 @@ def initial_config(config_arg: Optional[str], sink: Optional[TextIO] = None
     """
     captured = StringIO()
     try:
-        config = get_available_teams(config_arg, captured)
+        config = get_backlog_ops_config(config_arg, captured)
     except CONFIG_ERRORS as error:
         return None, _config_failure(captured, str(error))
     except SystemExit:
@@ -99,7 +100,7 @@ class BacklogApp:
     """The backlog operations application and its menu actions."""
 
     def __init__(self, root: tk.Tk,
-                 config: Optional[AvailableTeamsConfig] = None) -> None:
+                 config: Optional[BacklogOpsConfig] = None) -> None:
         """Store the main window, configuration, and a log buffer."""
         self.root = root
         self.config = config
@@ -117,8 +118,12 @@ class BacklogApp:
         return self.config.output_configs if self.config else None
 
     def available_teams(self) -> Optional[AvailableTeams]:
-        """Return the loaded teams configuration, or None when absent."""
-        return self.config
+        """Return the loaded workforce, or None when absent."""
+        return self.config.available_teams if self.config else None
+
+    def levels(self) -> Optional[Levels]:
+        """Return the configured backlog item levels, or None when absent."""
+        return self.config.get_levels() if self.config else None
 
     def show_error(self, title: str, message: str) -> None:
         """Show an error message to the user."""
@@ -192,7 +197,7 @@ class BacklogApp:
         self.config_source = path
         return True
 
-    def run_wizard(self) -> Optional[AvailableTeamsConfig]:
+    def run_wizard(self) -> Optional[BacklogOpsConfig]:
         """Run the teams wizard and return its configuration, or None."""
         bridge = TkWizardBridge(self.root, self.log)
         try:
@@ -242,7 +247,8 @@ class BacklogApp:
         if options is None:
             return
         try:
-            data = read_backlog(path, options.config_value, presets, self.log)
+            data = read_backlog(path, options.config_value, presets, self.log,
+                                self.levels())
         except IO_ERRORS as error:
             self.show_error('Could not read file', str(error))
             return

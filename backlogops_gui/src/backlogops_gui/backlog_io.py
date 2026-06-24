@@ -15,9 +15,9 @@ view rather than on a console.
 
 from typing import Optional, TextIO
 from backlogops import (
-    BacklogReleases, FormatRules, InputFormatConfig, OutputFormatConfig,
-    NoTextIO, allow_overwrite, read_backlog_releases, write_backlog_releases,
-    resolve_input_config, resolve_output_config)
+    BacklogReleases, FormatRules, InputFormatConfig, Levels,
+    OutputFormatConfig, NoTextIO, allow_overwrite, read_backlog_releases,
+    write_backlog_releases, resolve_input_config, resolve_output_config)
 
 
 def _sink(sink: Optional[TextIO]) -> TextIO:
@@ -27,7 +27,8 @@ def _sink(sink: Optional[TextIO]) -> TextIO:
 
 def read_backlog(path: str, value: Optional[str],
                  presets: Optional[dict[str, InputFormatConfig]],
-                 sink: Optional[TextIO] = None) -> BacklogReleases:
+                 sink: Optional[TextIO] = None,
+                 levels: Optional[Levels] = None) -> BacklogReleases:
     """Read and validate a backlog and releases from one file.
 
     Args:
@@ -35,6 +36,8 @@ def read_backlog(path: str, value: Optional[str],
         value: The format selection, as documented for the module.
         presets: Named input presets, or None when none are configured.
         sink: Stream for diagnostics, or None to discard them.
+        levels: The backlog item levels to honour, or None for the
+            default levels.
 
     Returns:
         The validated backlog and releases read from the file.
@@ -42,7 +45,7 @@ def read_backlog(path: str, value: Optional[str],
     out = _sink(sink)
     config = resolve_input_config(value, data_file=path, presets=presets,
                                   stderr_file=out)
-    data = read_backlog_releases(path, config, None, out)
+    data = read_backlog_releases(path, config, levels, out)
     data.check_consistency(out)
     return data
 

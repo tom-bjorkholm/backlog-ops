@@ -367,6 +367,23 @@ def test_added_row_editable() -> None:
         root.destroy()
 
 
+def test_choice_list_shown() -> None:
+    """Test the choice list is packed and holds every choice.
+
+    This guards against a regression where the single-selection list was
+    built but never added to the window, so it stayed invisible.
+    """
+    root = _root_or_skip()
+    try:
+        window = _WizardWindow(tk.Frame(root))
+        listbox = window._choice_list(['a', 'b', 'c'], None, 'browse')
+        assert listbox.size() == 3
+        assert listbox.winfo_manager() == 'pack'
+        window.close()
+    finally:
+        root.destroy()
+
+
 def test_pick_one() -> None:
     """Test picking a single choice finishes with its value."""
     root = _root_or_skip()
