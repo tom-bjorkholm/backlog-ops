@@ -19,6 +19,7 @@
     * [out\_presets](#backlogops_gui.application.BacklogApp.out_presets)
     * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
     * [levels](#backlogops_gui.application.BacklogApp.levels)
+    * [gui\_display](#backlogops_gui.application.BacklogApp.gui_display)
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
     * [show\_info](#backlogops_gui.application.BacklogApp.show_info)
     * [start](#backlogops_gui.application.BacklogApp.start)
@@ -356,6 +357,16 @@ def levels() -> Optional[Levels]
 
 Return the configured backlog item levels, or None when absent.
 
+<a id="backlogops_gui.application.BacklogApp.gui_display"></a>
+
+#### gui\_display
+
+```python
+def gui_display() -> LevelDisplay
+```
+
+Return how levels are shown in the GUI tables.
+
 <a id="backlogops_gui.application.BacklogApp.show_error"></a>
 
 #### show\_error
@@ -554,8 +565,10 @@ module function so it can be tested without a display.
 ```python
 def save_backlog(parent: tk.Misc, data: BacklogReleases,
                  presets: Optional[dict[str, OutputFormatConfig]],
-                 sink: TextIO, on_error: Callable[[str, str], None],
-                 on_info: Callable[[str, str], None]) -> None
+                 levels: Optional[Levels], sink: TextIO,
+                 on_error: Callable[[str, str],
+                                    None], on_info: Callable[[str, str],
+                                                             None]) -> None
 ```
 
 Ask where and how to save a backlog and write it.
@@ -565,6 +578,8 @@ Ask where and how to save a backlog and write it.
 - `parent` - The window the dialogs are shown over.
 - `data` - The backlog and releases to write.
 - `presets` - Named output presets, or None when none are configured.
+- `levels` - The levels used to write level names, or None for the
+  default levels.
 - `sink` - Stream that receives low-level write diagnostics.
 - `on_error` - Callback used to report a write failure.
 - `on_info` - Callback used to report a successful write.
@@ -731,10 +746,16 @@ A top-level window showing one backlog and its releases.
 #### \_\_init\_\_
 
 ```python
-def __init__(root: tk.Misc, data: BacklogReleases, title: str,
-             presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
-             teams: Callable[[],
-                             Optional[AvailableTeams]], sink: TextIO) -> None
+def __init__(
+    root: tk.Misc,
+    data: BacklogReleases,
+    title: str,
+    presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
+    teams: Callable[[], Optional[AvailableTeams]],
+    sink: TextIO,
+    levels: Callable[[], Optional[Levels]] = lambda: None,
+    gui_display: Callable[[],
+                          LevelDisplay] = lambda: LevelDisplay.BOTH) -> None
 ```
 
 Build the window, its menu and the two tables.
@@ -747,6 +768,9 @@ Build the window, its menu and the two tables.
 - `presets` - Callable returning the current output presets.
 - `teams` - Callable returning the loaded teams configuration.
 - `sink` - Stream that receives low-level write diagnostics.
+- `levels` - Callable returning the configured levels, or None for
+  the default levels.
+- `gui_display` - Callable returning how levels are shown in tables.
 
 <a id="backlogops_gui.io_dialogs"></a>
 
@@ -1187,7 +1211,8 @@ def write_backlog(data: BacklogReleases,
                   value: Optional[str],
                   presets: Optional[dict[str, OutputFormatConfig]],
                   releases_first: bool,
-                  sink: Optional[TextIO] = None) -> None
+                  sink: Optional[TextIO] = None,
+                  levels: Optional[Levels] = None) -> None
 ```
 
 Write a backlog and releases to one file.
@@ -1200,6 +1225,8 @@ Write a backlog and releases to one file.
 - `presets` - Named output presets, or None when none are configured.
 - `releases_first` - Whether to write the releases before the backlog.
 - `sink` - Stream for diagnostics, or None to discard them.
+- `levels` - The levels used to write level names, or None for the
+  default levels.
 
 <a id="backlogops_gui.table_view"></a>
 
@@ -1221,10 +1248,17 @@ table can show any value type.
 
 ```python
 def backlog_table(
-        data: BacklogReleases) -> tuple[list[str], list[list[ValueFmt]]]
+        data: BacklogReleases,
+        levels: Optional[Levels] = None,
+        display: LevelDisplay = LevelDisplay.BOTH,
+        sink: Optional[TextIO] = None
+) -> tuple[list[str], list[list[ValueFmt]]]
 ```
 
 Return the columns and formatted rows for the backlog table.
+
+The level of each item is shown as its number, its name, or both, as
+``display`` decides, using ``levels`` to translate a number to a name.
 
 <a id="backlogops_gui.table_view.release_table"></a>
 

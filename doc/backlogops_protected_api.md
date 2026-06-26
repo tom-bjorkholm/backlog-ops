@@ -102,6 +102,9 @@
   * [\_read\_end\_date](#backlogops.available_teams_wizard._read_end_date)
   * [\_read\_opt\_date](#backlogops.available_teams_wizard._read_opt_date)
   * [\_read\_unique\_name](#backlogops.available_teams_wizard._read_unique_name)
+  * [\_OUT\_LEVEL\_QUESTION](#backlogops.available_teams_wizard._OUT_LEVEL_QUESTION)
+  * [\_GUI\_LEVEL\_QUESTION](#backlogops.available_teams_wizard._GUI_LEVEL_QUESTION)
+  * [\_ask\_level\_display](#backlogops.available_teams_wizard._ask_level_display)
   * [\_read\_preset\_name](#backlogops.available_teams_wizard._read_preset_name)
   * [\_read\_tableio](#backlogops.available_teams_wizard._read_tableio)
   * [\_num\_text](#backlogops.available_teams_wizard._num_text)
@@ -125,6 +128,7 @@
   * [teams\_config\_wizard](#backlogops.available_teams_wizard.teams_config_wizard)
   * [\_collect\_teams](#backlogops.available_teams_wizard._collect_teams)
   * [\_collect\_config](#backlogops.available_teams_wizard._collect_config)
+  * [\_build\_gui\_display](#backlogops.available_teams_wizard._build_gui_display)
   * [\_levels\_or\_none](#backlogops.available_teams_wizard._levels_or_none)
   * [\_build\_company](#backlogops.available_teams_wizard._build_company)
   * [\_build\_exceptions](#backlogops.available_teams_wizard._build_exceptions)
@@ -217,6 +221,7 @@
     * [serialize\_converters](#backlogops.backlog_ops_config.BacklogOpsConfig.serialize_converters)
     * [check\_consistency](#backlogops.backlog_ops_config.BacklogOpsConfig.check_consistency)
     * [get\_levels](#backlogops.backlog_ops_config.BacklogOpsConfig.get_levels)
+    * [get\_gui\_level\_display](#backlogops.backlog_ops_config.BacklogOpsConfig.get_gui_level_display)
   * [write\_backlog\_ops\_config](#backlogops.backlog_ops_config.write_backlog_ops_config)
   * [read\_backlog\_ops\_config](#backlogops.backlog_ops_config.read_backlog_ops_config)
   * [\_ConfigStore](#backlogops.backlog_ops_config._ConfigStore)
@@ -335,6 +340,8 @@
 * [backlogops.table\_rows](#backlogops.table_rows)
   * [BACKLOG\_FIELDS](#backlogops.table_rows.BACKLOG_FIELDS)
   * [RELEASE\_FIELDS](#backlogops.table_rows.RELEASE_FIELDS)
+  * [LEVEL\_COLUMN](#backlogops.table_rows.LEVEL_COLUMN)
+  * [LEVEL\_NAME\_COLUMN](#backlogops.table_rows.LEVEL_NAME_COLUMN)
   * [\_is\_empty](#backlogops.table_rows._is_empty)
   * [\_date\_cell](#backlogops.table_rows._date_cell)
   * [\_cell\_from\_field](#backlogops.table_rows._cell_from_field)
@@ -346,9 +353,18 @@
   * [\_present\_cells](#backlogops.table_rows._present_cells)
   * [row\_to\_item](#backlogops.table_rows.row_to_item)
   * [row\_to\_release](#backlogops.table_rows.row_to_release)
+  * [\_display\_columns](#backlogops.table_rows._display_columns)
+  * [display\_level\_order](#backlogops.table_rows.display_level_order)
+  * [\_name\_cell\_text](#backlogops.table_rows._name_cell_text)
+  * [\_expand\_level\_cell](#backlogops.table_rows._expand_level_cell)
+  * [\_report\_unnamed](#backlogops.table_rows._report_unnamed)
+  * [display\_level\_rows](#backlogops.table_rows.display_level_rows)
+  * [fold\_level\_name](#backlogops.table_rows.fold_level_name)
 * [backlogops.io\_config](#backlogops.io_config)
   * [EXTENSION\_FORMATS](#backlogops.io_config.EXTENSION_FORMATS)
   * [PRESET\_NAME\_RE](#backlogops.io_config.PRESET_NAME_RE)
+  * [\_DisplayReadOldConfig](#backlogops.io_config._DisplayReadOldConfig)
+    * [get\_missing\_path\_values](#backlogops.io_config._DisplayReadOldConfig.get_missing_path_values)
   * [\_capabilities](#backlogops.io_config._capabilities)
   * [\_tio\_default](#backlogops.io_config._tio_default)
   * [\_tio\_from\_json](#backlogops.io_config._tio_from_json)
@@ -361,8 +377,15 @@
     * [\_\_init\_\_](#backlogops.io_config.InputFormatConfig.__init__)
   * [OutputFormatConfig](#backlogops.io_config.OutputFormatConfig)
     * [\_\_init\_\_](#backlogops.io_config.OutputFormatConfig.__init__)
+    * [parse\_converters](#backlogops.io_config.OutputFormatConfig.parse_converters)
+    * [\_get\_read\_old\_config](#backlogops.io_config.OutputFormatConfig._get_read_old_config)
   * [make\_input\_config](#backlogops.io_config.make_input_config)
   * [make\_output\_config](#backlogops.io_config.make_output_config)
+  * [GuiDisplayConfig](#backlogops.io_config.GuiDisplayConfig)
+    * [\_\_init\_\_](#backlogops.io_config.GuiDisplayConfig.__init__)
+    * [parse\_converters](#backlogops.io_config.GuiDisplayConfig.parse_converters)
+    * [\_get\_read\_old\_config](#backlogops.io_config.GuiDisplayConfig._get_read_old_config)
+    * [get\_validation\_plan](#backlogops.io_config.GuiDisplayConfig.get_validation_plan)
   * [\_format\_from\_suffix](#backlogops.io_config._format_from_suffix)
   * [\_default\_input](#backlogops.io_config._default_input)
   * [\_default\_output](#backlogops.io_config._default_output)
@@ -379,6 +402,7 @@
   * [check\_date\_range](#backlogops.date_ranges.check_date_range)
   * [check\_no\_overlap](#backlogops.date_ranges.check_no_overlap)
 * [backlogops.levels](#backlogops.levels)
+  * [LevelDisplay](#backlogops.levels.LevelDisplay)
   * [Level](#backlogops.levels.Level)
     * [\_check\_level\_type](#backlogops.levels.Level._check_level_type)
     * [\_check\_labels](#backlogops.levels.Level._check_labels)
@@ -388,6 +412,7 @@
   * [check\_levels\_consistency](#backlogops.levels.check_levels_consistency)
   * [levels\_from\_list](#backlogops.levels.levels_from_list)
   * [level\_number\_from\_name](#backlogops.levels.level_number_from_name)
+  * [level\_name](#backlogops.levels.level_name)
 * [backlogops.backlog\_releases\_io](#backlogops.backlog_releases_io)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
@@ -399,6 +424,7 @@
   * [\_write\_capabilities](#backlogops.backlog_releases_io._write_capabilities)
   * [\_backlog\_order](#backlogops.backlog_releases_io._backlog_order)
   * [\_write\_table](#backlogops.backlog_releases_io._write_table)
+  * [\_backlog\_section](#backlogops.backlog_releases_io._backlog_section)
   * [\_ordered\_sections](#backlogops.backlog_releases_io._ordered_sections)
   * [write\_backlog\_releases](#backlogops.backlog_releases_io.write_backlog_releases)
 * [backlogops.order\_by\_dependencies](#backlogops.order_by_dependencies)
@@ -1927,7 +1953,9 @@ Ask a yes/no question through the bridge's dedicated control.
 #### ask\_choice
 
 ```python
-def ask_choice(question: str, choices: Sequence[str]) -> str
+def ask_choice(question: str,
+               choices: Sequence[str],
+               default: Optional[str] = None) -> str
 ```
 
 Ask the user to pick one of choices through the bridge.
@@ -2141,6 +2169,28 @@ def _read_unique_name(ui: WizardUiBridge, question: str,
 ```
 
 Ask for a person name that is not already a key in ``persons``.
+
+<a id="backlogops.available_teams_wizard._OUT_LEVEL_QUESTION"></a>
+
+#### \_OUT\_LEVEL\_QUESTION
+
+Wizard prompt for how an output preset writes levels.
+
+<a id="backlogops.available_teams_wizard._GUI_LEVEL_QUESTION"></a>
+
+#### \_GUI\_LEVEL\_QUESTION
+
+Wizard prompt for how the GUI shows levels.
+
+<a id="backlogops.available_teams_wizard._ask_level_display"></a>
+
+#### \_ask\_level\_display
+
+```python
+def _ask_level_display(nav: _Navigator, question: str) -> LevelDisplay
+```
+
+Ask how to show levels, defaulting to both number and name.
 
 <a id="backlogops.available_teams_wizard._read_preset_name"></a>
 
@@ -2383,10 +2433,11 @@ Interactively create a backlog-ops configuration.
 
 The workforce is entered as by :func:`available_teams_wizard`, the
 user may then add any number of named input and output TableIO
-configuration presets, and finally edit the backlog item levels. The
-levels start filled in with the default levels; when the user leaves
-them at the defaults they are stored as "use the defaults" rather
-than written out.
+configuration presets, edit the backlog item levels, and finally
+choose how levels are shown in the GUI. Each output preset also asks
+how levels are written. The levels start filled in with the default
+levels; when the user leaves them at the defaults they are stored as
+"use the defaults" rather than written out.
 
 **Arguments**:
 
@@ -2420,7 +2471,17 @@ Ask for the company, the persons and the teams of a workforce.
 def _collect_config(nav: _Navigator) -> BacklogOpsConfig
 ```
 
-Ask for the workforce, the named TableIO presets and the levels.
+Ask for workforce, TableIO presets, levels and GUI display.
+
+<a id="backlogops.available_teams_wizard._build_gui_display"></a>
+
+#### \_build\_gui\_display
+
+```python
+def _build_gui_display(nav: _Navigator) -> GuiDisplayConfig
+```
+
+Ask how the GUI should show levels and return the display config.
 
 <a id="backlogops.available_teams_wizard._levels_or_none"></a>
 
@@ -2602,7 +2663,7 @@ def _ask_output_preset(nav: _Navigator,
                        used: set[str]) -> tuple[str, OutputFormatConfig]
 ```
 
-Ask for one named output preset and its column-name mapping.
+Ask for one named output preset, its column map and level display.
 
 <a id="backlogops.backlog_releases"></a>
 
@@ -3613,7 +3674,7 @@ Move the old top-level workforce members under available_teams.
 def get_missing_path_values() -> dict[ConfigPath, object]
 ```
 
-Return empty preset maps for the members old files may omit.
+Return defaults for the members old files may omit.
 
 <a id="backlogops.backlog_ops_config.BacklogOpsConfig"></a>
 
@@ -3740,6 +3801,20 @@ Return the configured levels, or the default levels.
   The levels keyed by level number, taken from the
   configuration, or :data:`DEFAULT_LEVELS` when no levels are
   configured.
+
+<a id="backlogops.backlog_ops_config.BacklogOpsConfig.get_gui_level_display"></a>
+
+#### get\_gui\_level\_display
+
+```python
+def get_gui_level_display() -> LevelDisplay
+```
+
+Return how levels should be shown in the GUI.
+
+**Returns**:
+
+  The :class:`LevelDisplay` configured for the GUI display.
 
 <a id="backlogops.backlog_ops_config.write_backlog_ops_config"></a>
 
@@ -5690,6 +5765,18 @@ Internal backlog column names, in a stable write order.
 
 Internal release column names, in a stable write order.
 
+<a id="backlogops.table_rows.LEVEL_COLUMN"></a>
+
+#### LEVEL\_COLUMN
+
+Default column name carrying the numeric backlog item level.
+
+<a id="backlogops.table_rows.LEVEL_NAME_COLUMN"></a>
+
+#### LEVEL\_NAME\_COLUMN
+
+Default column name carrying the named backlog item level.
+
 <a id="backlogops.table_rows._is_empty"></a>
 
 #### \_is\_empty
@@ -5803,6 +5890,102 @@ def row_to_release(row: Mapping[str, object],
 
 Return a release from a row keyed by internal field name.
 
+<a id="backlogops.table_rows._display_columns"></a>
+
+#### \_display\_columns
+
+```python
+def _display_columns(display: LevelDisplay) -> tuple[bool, bool]
+```
+
+Return whether to write the numeric and the named level column.
+
+<a id="backlogops.table_rows.display_level_order"></a>
+
+#### display\_level\_order
+
+```python
+def display_level_order(order: list[str], display: LevelDisplay) -> list[str]
+```
+
+Return a column order with the level column expanded for display.
+
+The single internal ``level`` column is replaced by the numeric
+column, the named column, or both, as chosen by ``display``. Every
+other column is kept in place.
+
+<a id="backlogops.table_rows._name_cell_text"></a>
+
+#### \_name\_cell\_text
+
+```python
+def _name_cell_text(value: Value, levels: Levels) -> tuple[str, bool]
+```
+
+Return the displayed level name and whether a name was found.
+
+A level number with a configured name uses that name. A number
+without a configured name falls back to the number as text, so no
+value is ever lost; the second return value reports that fallback.
+
+<a id="backlogops.table_rows._expand_level_cell"></a>
+
+#### \_expand\_level\_cell
+
+```python
+def _expand_level_cell(row: dict[str, ValueFmt], levels: Levels,
+                       display: LevelDisplay,
+                       unnamed: list[Value]) -> dict[str, ValueFmt]
+```
+
+Return one row with its level cell expanded into display columns.
+
+<a id="backlogops.table_rows._report_unnamed"></a>
+
+#### \_report\_unnamed
+
+```python
+def _report_unnamed(unnamed: list[Value], stderr_file: TextIO) -> None
+```
+
+Inform that some level numbers had no configured name.
+
+<a id="backlogops.table_rows.display_level_rows"></a>
+
+#### display\_level\_rows
+
+```python
+def display_level_rows(rows: DictData[ValueFmt],
+                       levels: Levels,
+                       display: LevelDisplay,
+                       stderr_file: TextIO = sys.stderr) -> DictData[ValueFmt]
+```
+
+Return rows with the level column expanded for display.
+
+Each row's single internal ``level`` cell becomes the numeric column,
+the named column, or both, as chosen by ``display``. A level number
+with no configured name is shown as its number, and one information
+message then lists those numbers.
+
+<a id="backlogops.table_rows.fold_level_name"></a>
+
+#### fold\_level\_name
+
+```python
+def fold_level_name(rows: DictData[Value],
+                    stderr_file: TextIO = sys.stderr) -> None
+```
+
+Fold a ``level name`` column into the ``level`` column in place.
+
+When a row has both columns the numeric ``level`` column is kept and
+the ``level name`` column is discarded. When only the ``level name``
+column is present its value becomes the level, to be resolved by the
+item conversion. The ``level name`` column is always removed so it is
+never stored as an extra field. One information message is printed
+when both columns appeared together.
+
 <a id="backlogops.io_config"></a>
 
 # backlogops.io\_config
@@ -5844,6 +6027,30 @@ Map a data file name extension to a TableIO format name.
 #### PRESET\_NAME\_RE
 
 A configuration value made only of letters and digits is a preset.
+
+<a id="backlogops.io_config._DisplayReadOldConfig"></a>
+
+## \_DisplayReadOldConfig Objects
+
+```python
+class _DisplayReadOldConfig(ReadOldConfiguration)
+```
+
+Default the level display when an older file omits it.
+
+The enum member itself is supplied, not its name, because the missing
+value is inserted after the read-side scalar converters have run and
+so would otherwise stay an unconverted string.
+
+<a id="backlogops.io_config._DisplayReadOldConfig.get_missing_path_values"></a>
+
+#### get\_missing\_path\_values
+
+```python
+def get_missing_path_values() -> dict[ConfigPath, object]
+```
+
+Supply the default level display for an older file.
 
 <a id="backlogops.io_config._capabilities"></a>
 
@@ -5974,6 +6181,12 @@ class OutputFormatConfig(_FormatConfig)
 
 TableIO output endpoint with an internal-to-external column map.
 
+In addition to the column-name map the output endpoint carries a
+:class:`LevelDisplay`, deciding whether a backlog item level is
+written as its number, its name, or both. The member defaults to
+:data:`LevelDisplay.BOTH`; it may be absent from an older file, in
+which case the default applies.
+
 <a id="backlogops.io_config.OutputFormatConfig.__init__"></a>
 
 #### \_\_init\_\_
@@ -5984,7 +6197,29 @@ def __init__(from_json_data_text: Optional[str] = None,
              stderr_file: TextIO = sys.stderr) -> None
 ```
 
-Create the output map default, then run the shared constructor.
+Create the output defaults, then run the shared constructor.
+
+<a id="backlogops.io_config.OutputFormatConfig.parse_converters"></a>
+
+#### parse\_converters
+
+```python
+@override
+def parse_converters() -> dict[str, ParseConverter]
+```
+
+Parse the level display member from its enum member name.
+
+<a id="backlogops.io_config.OutputFormatConfig._get_read_old_config"></a>
+
+#### \_get\_read\_old\_config
+
+```python
+@override
+def _get_read_old_config() -> ReadOldConfiguration
+```
+
+Return the migration that defaults a missing level display.
 
 <a id="backlogops.io_config.make_input_config"></a>
 
@@ -6005,10 +6240,72 @@ Return an input config from a TableIO config and a column map.
 ```python
 def make_output_config(tableio: TioJsonConfig,
                        to_external: dict[str, str],
+                       level_display: LevelDisplay = LevelDisplay.BOTH,
                        stderr_file: TextIO = sys.stderr) -> OutputFormatConfig
 ```
 
-Return an output config from a TableIO config and a column map.
+Return an output config from a TableIO config, map and level display.
+
+<a id="backlogops.io_config.GuiDisplayConfig"></a>
+
+## GuiDisplayConfig Objects
+
+```python
+class GuiDisplayConfig(Config)
+```
+
+How a backlog and its releases are shown in the GUI.
+
+This mirrors the display part of an :class:`OutputFormatConfig`,
+without the TableIO endpoint configuration. For now it only carries a
+:class:`LevelDisplay`; per-table column-name maps are added later. The
+member defaults to :data:`LevelDisplay.BOTH` and may be absent from an
+older file, in which case the default applies.
+
+<a id="backlogops.io_config.GuiDisplayConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create the display defaults, then read them from JSON.
+
+<a id="backlogops.io_config.GuiDisplayConfig.parse_converters"></a>
+
+#### parse\_converters
+
+```python
+@override
+def parse_converters() -> dict[str, ParseConverter]
+```
+
+Parse the level display member from its enum member name.
+
+<a id="backlogops.io_config.GuiDisplayConfig._get_read_old_config"></a>
+
+#### \_get\_read\_old\_config
+
+```python
+@override
+def _get_read_old_config() -> ReadOldConfiguration
+```
+
+Return the migration that defaults a missing level display.
+
+<a id="backlogops.io_config.GuiDisplayConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Return an empty plan; the level display needs no checks.
 
 <a id="backlogops.io_config._format_from_suffix"></a>
 
@@ -6258,6 +6555,19 @@ overlap is found in a single pass.
 
 Levels of a backlog item.
 
+<a id="backlogops.levels.LevelDisplay"></a>
+
+## LevelDisplay Objects
+
+```python
+class LevelDisplay(Enum)
+```
+
+How a backlog item level is represented in a table or display.
+
+NUMERIC writes only the level number, NAME writes only the level
+name, and BOTH writes the number and the name in separate columns.
+
 <a id="backlogops.levels.Level"></a>
 
 ## Level Objects
@@ -6458,6 +6768,27 @@ considered. The levels are assumed to be consistent, as checked by
 
 - `ValueError` - If no level name or alias matches ``name``.
 
+<a id="backlogops.levels.level_name"></a>
+
+#### level\_name
+
+```python
+def level_name(number: int, levels: Levels) -> Optional[str]
+```
+
+Return the configured name for a level number, or None when unknown.
+
+**Arguments**:
+
+- `number` - The level number to look up.
+- `levels` - The levels to search.
+  
+
+**Returns**:
+
+  The name of the level with that number, or None when no level
+  with that number is configured.
+
 <a id="backlogops.backlog_releases_io"></a>
 
 # backlogops.backlog\_releases\_io
@@ -6478,6 +6809,12 @@ external column name to internal field name, and an
 external column name. The dependency lists of a backlog item are stored
 as one space separated string per dependency kind, and the extra fields
 of a backlog item become extra columns.
+
+The level of a backlog item is written as a numeric ``level`` column, a
+named ``level name`` column, or both, as the output configuration's
+:class:`LevelDisplay` decides. Both columns are recognised when reading;
+when both appear the numeric ``level`` column wins and the ``level name``
+column is ignored.
 
 <a id="backlogops.backlog_releases_io.BACKLOG_HEADING"></a>
 
@@ -6549,9 +6886,11 @@ Read a backlog, releases, or both from one file.
 
 Each table in the file is read and classified by its columns. The
 column names are translated to internal field names through the input
-configuration before classification and conversion. Field values are
-converted to their internal types; consistency across items is not
-checked here.
+configuration before classification and conversion. A ``level`` and a
+``level name`` column are both recognised; when both are present the
+numeric ``level`` column is used and the ``level name`` column is
+ignored. Field values are converted to their internal types;
+consistency across items is not checked here.
 
 **Arguments**:
 
@@ -6611,14 +6950,28 @@ def _write_table(tableio: TableIO, section: tuple[str, DictData[ValueFmt],
 
 Write one heading and one formatted, bordered table.
 
+<a id="backlogops.backlog_releases_io._backlog_section"></a>
+
+#### \_backlog\_section
+
+```python
+def _backlog_section(
+        data: BacklogReleases, rules: FormatRules, levels: Levels,
+        display: LevelDisplay,
+        stderr_file: TextIO) -> tuple[str, DictData[ValueFmt], list[str]]
+```
+
+Return the backlog heading, rows and order with levels expanded.
+
 <a id="backlogops.backlog_releases_io._ordered_sections"></a>
 
 #### \_ordered\_sections
 
 ```python
 def _ordered_sections(
-        data: BacklogReleases,
-        rules: FormatRules) -> list[tuple[str, DictData[ValueFmt], list[str]]]
+        data: BacklogReleases, rules: FormatRules, levels: Levels,
+        display: LevelDisplay, stderr_file: TextIO
+) -> list[tuple[str, DictData[ValueFmt], list[str]]]
 ```
 
 Return the non-empty tables to write, in the requested order.
@@ -6633,6 +6986,7 @@ def write_backlog_releases(
         data_file: PathOrStr,
         config: OutputFormatConfig,
         format_rules: Optional[FormatRules] = None,
+        levels: Optional[Levels] = None,
         stderr_file: TextIO = sys.stderr,
         file_exists_callback: Optional[FileExistsCb] = None) -> None
 ```
@@ -6641,17 +6995,23 @@ Write a backlog, releases, or both to one file.
 
 Each non-empty table is written with a heading before it, so several
 tables can share one file. Internal field names are translated to
-external column names through the output configuration. The format
-rules decide the table order, the borders, the filter range and the
-cell formatting; when omitted the default :class:`FormatRules` apply.
+external column names through the output configuration. The level of
+a backlog item is written as its number, its name, or both, as the
+output configuration's :class:`LevelDisplay` decides, using ``levels``
+to translate a number to a name. The format rules decide the table
+order, the borders, the filter range and the cell formatting; when
+omitted the default :class:`FormatRules` apply.
 
 **Arguments**:
 
 - `data` - The backlog and releases to write.
 - `data_file` - The data file to create.
-- `config` - The output configuration (format and column-name map).
+- `config` - The output configuration (format, column-name map and
+  level display).
 - `format_rules` - How to format the written data, or None for the
   default format rules.
+- `levels` - The levels used to translate a level number to a name, or
+  None for the default levels.
 - `stderr_file` - Stream used for user-facing diagnostics.
 - `file_exists_callback` - Called when the file already exists, as
   documented for :mod:`backlogops.table_create`.

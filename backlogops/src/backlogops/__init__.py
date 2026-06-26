@@ -17,8 +17,8 @@ from backlogops.backlog import (
     event_start, event_finish)
 from backlogops.backlog_helpers import find_cycle
 from backlogops.levels import (
-    Level, Levels, DEFAULT_LEVELS, check_levels_consistency,
-    level_number_from_name, levels_from_list)
+    Level, Levels, LevelDisplay, DEFAULT_LEVELS, check_levels_consistency,
+    level_number_from_name, level_name, levels_from_list)
 from backlogops.person import Person
 from backlogops.team import FteException, Membership, Team
 from backlogops.releases import Release, Releases, get_release, get_releases
@@ -42,13 +42,15 @@ from backlogops.release_change_io import (
     format_content_changes, format_date_changes, write_content_changes,
     write_date_changes)
 from backlogops.io_config import (
-    InputFormatConfig, OutputFormatConfig, resolve_input_config,
-    resolve_output_config, make_input_config, make_output_config)
+    GuiDisplayConfig, InputFormatConfig, OutputFormatConfig,
+    resolve_input_config, resolve_output_config, make_input_config,
+    make_output_config)
 from backlogops.table_create import FileExistsCb, allow_overwrite
 from backlogops.backlog_releases_io import (
     read_backlog_releases, write_backlog_releases)
 from backlogops.table_rows import (
-    item_to_row, row_to_item, release_to_row, row_to_release)
+    LEVEL_COLUMN, LEVEL_NAME_COLUMN, display_level_order, display_level_rows,
+    fold_level_name, item_to_row, row_to_item, release_to_row, row_to_release)
 from backlogops.format_rules import FormatRules
 from backlogops.apply_format_rules import format_backlog, format_releases
 from backlogops.move_keys_first import move_keys_first, get_keys_in_order
@@ -66,19 +68,21 @@ __all__ = [
     'Backlog', 'BacklogItem', 'Status', 'get_backlog', 'get_backlog_item',
     'check_backlog_consistency', 'build_dependency_graph',
     'item_dependency_edges', 'event_start', 'event_finish', 'find_cycle',
-    'Level', 'Levels', 'DEFAULT_LEVELS', 'check_levels_consistency',
-    'level_number_from_name', 'levels_from_list', 'Person', 'FteException',
-    'Membership', 'Team',
+    'Level', 'Levels', 'LevelDisplay', 'DEFAULT_LEVELS',
+    'check_levels_consistency', 'level_number_from_name', 'level_name',
+    'levels_from_list', 'Person', 'FteException', 'Membership', 'Team',
     'Release', 'Releases', 'get_release', 'get_releases', 'BacklogReleases',
     'get_demo_backlog',
     'AvailableTeams', 'AvailableTeamsConfig', 'read_available_teams',
     'write_available_teams', 'BacklogOpsConfig', 'read_backlog_ops_config',
     'write_backlog_ops_config', 'get_backlog_ops_config',
     'order_by_dependencies',
-    'DependencyMode', 'InputFormatConfig', 'OutputFormatConfig',
-    'resolve_input_config', 'resolve_output_config', 'make_input_config',
-    'make_output_config', 'FileExistsCb', 'allow_overwrite',
-    'read_backlog_releases', 'write_backlog_releases',
+    'DependencyMode', 'GuiDisplayConfig', 'InputFormatConfig',
+    'OutputFormatConfig', 'resolve_input_config', 'resolve_output_config',
+    'make_input_config', 'make_output_config', 'FileExistsCb',
+    'allow_overwrite', 'read_backlog_releases', 'write_backlog_releases',
+    'LEVEL_COLUMN', 'LEVEL_NAME_COLUMN', 'display_level_order',
+    'display_level_rows', 'fold_level_name',
     'item_to_row', 'row_to_item', 'release_to_row', 'row_to_release',
     'FormatRules', 'format_backlog', 'format_releases',
     'estimate_ready_date', 'set_plan_from_estimate',

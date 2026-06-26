@@ -18,10 +18,10 @@ from tkinter import messagebox, ttk
 from typing import Callable, Optional, TextIO
 from tableio import ValueFmt
 from backlogops import (
-    AvailableTeams, BacklogReleases, OutputFormatConfig, ReleaseChanges,
-    ReleaseDateChanges, allow_overwrite, format_content_changes,
-    format_date_changes, get_keys_in_order, write_content_changes,
-    write_date_changes, write_key_list)
+    AvailableTeams, BacklogReleases, LevelDisplay, Levels, OutputFormatConfig,
+    ReleaseChanges, ReleaseDateChanges, allow_overwrite,
+    format_content_changes, format_date_changes, get_keys_in_order,
+    write_content_changes, write_date_changes, write_key_list)
 from backlogops_gui.backlog_io import write_backlog
 from backlogops_gui.io_dialogs import (
     ask_buffer_days, ask_date_order, ask_dep_options, ask_keys, ask_levels,
@@ -39,7 +39,8 @@ RELEASE_COLUMN_WIDTH = 110
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def save_backlog(parent: tk.Misc, data: BacklogReleases,
                  presets: Optional[dict[str, OutputFormatConfig]],
-                 sink: TextIO, on_error: Callable[[str, str], None],
+                 levels: Optional[Levels], sink: TextIO,
+                 on_error: Callable[[str, str], None],
                  on_info: Callable[[str, str], None]) -> None:
     """Ask where and how to save a backlog and write it.
 
@@ -47,6 +48,8 @@ def save_backlog(parent: tk.Misc, data: BacklogReleases,
         parent: The window the dialogs are shown over.
         data: The backlog and releases to write.
         presets: Named output presets, or None when none are configured.
+        levels: The levels used to write level names, or None for the
+            default levels.
         sink: Stream that receives low-level write diagnostics.
         on_error: Callback used to report a write failure.
         on_info: Callback used to report a successful write.
@@ -60,7 +63,7 @@ def save_backlog(parent: tk.Misc, data: BacklogReleases,
         return
     try:
         write_backlog(data, path, options.config_value, presets,
-                      options.releases_first, sink)
+                      options.releases_first, sink, levels)
     except WRITE_ERRORS as error:
         on_error('Could not write file', str(error))
         return
@@ -345,8 +348,10 @@ class BacklogWindow:
     def __init__(self, root: tk.Misc, data: BacklogReleases, title: str,
                  presets: Callable[
                      [], Optional[dict[str, OutputFormatConfig]]],
-                 teams: Callable[[], Optional[AvailableTeams]],
-                 sink: TextIO) -> None:
+                 teams: Callable[[], Optional[AvailableTeams]], sink: TextIO,
+                 levels: Callable[[], Optional[Levels]] = lambda: None,
+                 gui_display: Callable[
+                     [], LevelDisplay] = lambda: LevelDisplay.BOTH) -> None:
         """Build the window, its menu and the two tables.
 
         Args:
@@ -356,11 +361,16 @@ class BacklogWindow:
             presets: Callable returning the current output presets.
             teams: Callable returning the loaded teams configuration.
             sink: Stream that receives low-level write diagnostics.
+            levels: Callable returning the configured levels, or None for
+                the default levels.
+            gui_display: Callable returning how levels are shown in tables.
         """
         self._data = data
         self._presets = presets
         self._teams = teams
         self._sink = sink
+        self._levels = levels
+        self._gui_display = gui_display
         self._win = tk.Toplevel(root)
         self._win.title(title)
         self._tables: list[tk.Widget] = []
@@ -377,9 +387,10 @@ class BacklogWindow:
 
     def _build_tables(self) -> None:
         """Build the backlog and releases tables from the current data."""
-        self._tables.append(
-            self._add_table('Backlog', *backlog_table(self._data),
-                            narrow=False))
+        backlog = backlog_table(self._data, self._levels(),
+                                self._gui_display(), self._sink)
+        table = self._add_table('Backlog', *backlog, narrow=False)
+        self._tables.append(table)
         self._tables.append(
             self._add_table('Releases', *release_table(self._data),
                             narrow=True))
@@ -453,8 +464,8 @@ class BacklogWindow:
 
     def _save(self) -> None:
         """Save the backlog through the shared save helper."""
-        save_backlog(self._win, self._data, self._presets(), self._sink,
-                     self._report_error, self._report_info)
+        save_backlog(self._win, self._data, self._presets(), self._levels(),
+                     self._sink, self._report_error, self._report_info)
 
     def _order_by_keys(self) -> None:
         """Order the backlog by leading keys and refresh the tables."""

@@ -35,9 +35,10 @@ from tableio_cfg_json import TableCell, TableColumn, TioJsonConfig, \
     tio_json_config_wizard
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog_ops_config import BacklogOpsConfig
-from backlogops.io_config import InputFormatConfig, OutputFormatConfig, \
-    PRESET_NAME_RE, make_input_config, make_output_config
-from backlogops.levels import DEFAULT_LEVELS, Level, levels_from_list
+from backlogops.io_config import GuiDisplayConfig, InputFormatConfig, \
+    OutputFormatConfig, PRESET_NAME_RE, make_input_config, make_output_config
+from backlogops.levels import DEFAULT_LEVELS, Level, LevelDisplay, \
+    levels_from_list
 from backlogops.person import Person
 from backlogops.team import FteException, Membership, Team
 from backlogops.work_hours import CompanyWorkHours, DEFAULT_WORK_WEEK, \
@@ -142,10 +143,12 @@ class _Navigator:
         assert isinstance(result, bool)
         return result
 
-    def ask_choice(self, question: str, choices: Sequence[str]) -> str:
+    def ask_choice(self, question: str, choices: Sequence[str],
+                   default: Optional[str] = None) -> str:
         """Ask the user to pick one of choices through the bridge."""
         result = self._ask(lambda: self._ui.ask_choice(question,
-                                                       choices=choices))
+                                                       choices=choices,
+                                                       default=default))
         assert isinstance(result, str)
         return result
 
@@ -347,6 +350,22 @@ def _read_unique_name(ui: WizardUiBridge, question: str,
             reason = f'A person named {answer!r} already exists.'
         else:
             return answer
+
+
+_OUT_LEVEL_QUESTION = 'How to write levels (numeric, name or both)'
+"""Wizard prompt for how an output preset writes levels."""
+
+_GUI_LEVEL_QUESTION = \
+    'How to show levels in the GUI (numeric, name or both)'
+"""Wizard prompt for how the GUI shows levels."""
+
+
+def _ask_level_display(nav: _Navigator, question: str) -> LevelDisplay:
+    """Ask how to show levels, defaulting to both number and name."""
+    choices = [display.name.lower() for display in LevelDisplay]
+    answer = nav.ask_choice(question, choices,
+                            default=LevelDisplay.BOTH.name.lower())
+    return LevelDisplay[answer.upper()]
 
 
 def _read_preset_name(ui: WizardUiBridge, question: str, used: set[str]
@@ -591,10 +610,11 @@ def teams_config_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig:
 
     The workforce is entered as by :func:`available_teams_wizard`, the
     user may then add any number of named input and output TableIO
-    configuration presets, and finally edit the backlog item levels. The
-    levels start filled in with the default levels; when the user leaves
-    them at the defaults they are stored as "use the defaults" rather
-    than written out.
+    configuration presets, edit the backlog item levels, and finally
+    choose how levels are shown in the GUI. Each output preset also asks
+    how levels are written. The levels start filled in with the default
+    levels; when the user leaves them at the defaults they are stored as
+    "use the defaults" rather than written out.
 
     Args:
         ui_bridge: Bridge between the wizard and the user interface.
@@ -624,13 +644,21 @@ def _collect_teams(nav: _Navigator) -> AvailableTeams:
 
 
 def _collect_config(nav: _Navigator) -> BacklogOpsConfig:
-    """Ask for the workforce, the named TableIO presets and the levels."""
+    """Ask for workforce, TableIO presets, levels and GUI display."""
     teams = _collect_teams(nav)
     config = BacklogOpsConfig(available_teams=teams)
     config.input_configs = nav.level(lambda: _build_input_presets(nav))
     config.output_configs = nav.level(lambda: _build_output_presets(nav))
     config.levels = _levels_or_none(nav.ask_levels())
+    config.gui_display = _build_gui_display(nav)
     return config
+
+
+def _build_gui_display(nav: _Navigator) -> GuiDisplayConfig:
+    """Ask how the GUI should show levels and return the display config."""
+    gui_display = GuiDisplayConfig()
+    gui_display.level_display = _ask_level_display(nav, _GUI_LEVEL_QUESTION)
+    return gui_display
 
 
 def _levels_or_none(levels: list[Level]) -> Optional[list[Level]]:
@@ -799,9 +827,10 @@ def _ask_input_preset(nav: _Navigator,
 
 def _ask_output_preset(nav: _Navigator,
                        used: set[str]) -> tuple[str, OutputFormatConfig]:
-    """Ask for one named output preset and its column-name mapping."""
+    """Ask for one named output preset, its column map and level display."""
     name = nav.ask_preset_name('Preset name (letters and digits)', used)
     tableio = nav.ask_tableio(FileAccess.CREATE)
     column_map = nav.level(
         lambda: nav.ask_column_map('internal field', 'external column'))
-    return name, make_output_config(tableio, column_map)
+    display = _ask_level_display(nav, _OUT_LEVEL_QUESTION)
+    return name, make_output_config(tableio, column_map, display)

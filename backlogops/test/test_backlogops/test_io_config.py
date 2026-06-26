@@ -8,8 +8,9 @@ from pathlib import Path
 import pytest
 from config_as_json import InvalidConfiguration
 from backlogops import (
-    InputFormatConfig, OutputFormatConfig, make_input_config,
-    make_output_config, resolve_input_config, resolve_output_config)
+    GuiDisplayConfig, InputFormatConfig, LevelDisplay, OutputFormatConfig,
+    make_input_config, make_output_config, resolve_input_config,
+    resolve_output_config)
 from backlogops.no_text_io import NoTextIO
 
 NO_OUTPUT = NoTextIO()
@@ -111,3 +112,63 @@ def test_map_types() -> None:
         OutputFormatConfig(
             from_json_data_text='{"tableio": {"format_name": "CSV"}, '
             '"to_external": {"level": 5}}', stderr_file=NO_OUTPUT)
+
+
+def test_out_display_default() -> None:
+    """Test a default output config shows both number and name."""
+    config = resolve_output_config(None, data_file='x.csv',
+                                   stderr_file=NO_OUTPUT)
+    assert config.level_display is LevelDisplay.BOTH
+
+
+def test_make_output_display() -> None:
+    """Test the level display passed to make_output_config is kept."""
+    tableio = resolve_output_config(None, data_file='x.csv',
+                                    stderr_file=NO_OUTPUT).tableio
+    config = make_output_config(tableio, {}, LevelDisplay.NAME,
+                                stderr_file=NO_OUTPUT)
+    assert config.level_display is LevelDisplay.NAME
+
+
+def test_out_display_rt(tmp_path: Path) -> None:
+    """Test the level display survives a write and read of the config."""
+    tableio = resolve_output_config(None, data_file='x.csv',
+                                    stderr_file=NO_OUTPUT).tableio
+    source = make_output_config(tableio, {}, LevelDisplay.NUMERIC,
+                                stderr_file=NO_OUTPUT)
+    config_file = tmp_path / 'out.cfg'
+    source.write(to_json_filename=config_file, stderr_file=NO_OUTPUT)
+    loaded = OutputFormatConfig(from_json_filename=config_file,
+                                stderr_file=NO_OUTPUT)
+    assert loaded.level_display is LevelDisplay.NUMERIC
+
+
+def test_out_old_no_display() -> None:
+    """Test an older output config without a display defaults to both."""
+    config = OutputFormatConfig(
+        from_json_data_text='{"tableio": {"format_name": "CSV"}, '
+        '"to_external": {}}', stderr_file=NO_OUTPUT)
+    assert config.level_display is LevelDisplay.BOTH
+
+
+def test_gui_display_default() -> None:
+    """Test a default GUI display config shows both number and name."""
+    assert GuiDisplayConfig(stderr_file=NO_OUTPUT).level_display is \
+        LevelDisplay.BOTH
+
+
+def test_gui_display_rt(tmp_path: Path) -> None:
+    """Test the GUI display survives a write and read of the config."""
+    source = GuiDisplayConfig(stderr_file=NO_OUTPUT)
+    source.level_display = LevelDisplay.NAME
+    config_file = tmp_path / 'gui.cfg'
+    source.write(to_json_filename=config_file, stderr_file=NO_OUTPUT)
+    loaded = GuiDisplayConfig(from_json_filename=config_file,
+                              stderr_file=NO_OUTPUT)
+    assert loaded.level_display is LevelDisplay.NAME
+
+
+def test_gui_old_default() -> None:
+    """Test a GUI display config without a member defaults to both."""
+    config = GuiDisplayConfig(from_json_data_text='{}', stderr_file=NO_OUTPUT)
+    assert config.level_display is LevelDisplay.BOTH

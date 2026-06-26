@@ -8,8 +8,9 @@ from io import StringIO
 
 import pytest
 
-from backlogops.levels import Level, Levels, DEFAULT_LEVELS
-from backlogops.levels import check_levels_consistency, level_number_from_name
+from backlogops.levels import Level, LevelDisplay, Levels, DEFAULT_LEVELS
+from backlogops.levels import check_levels_consistency, level_name
+from backlogops.levels import level_number_from_name
 from backlogops.no_text_io import NoTextIO
 
 
@@ -17,6 +18,22 @@ def _levels() -> Levels:
     """Return a small consistent set of levels for testing."""
     return {1: Level(level=1, name='Story', aliases=['Task', 'Bug']),
             2: Level(level=2, name='Epic', aliases=[])}
+
+
+def test_level_name_known() -> None:
+    """Test a configured level number resolves to its name."""
+    assert level_name(2, _levels()) == 'Epic'
+
+
+def test_level_name_unknown() -> None:
+    """Test an unconfigured level number resolves to None."""
+    assert level_name(7, _levels()) is None
+
+
+def test_level_display_kinds() -> None:
+    """Test the level display enum offers numeric, name and both."""
+    assert {member.name for member in LevelDisplay} == \
+        {'NUMERIC', 'NAME', 'BOTH'}
 
 
 def test_level_ok() -> None:

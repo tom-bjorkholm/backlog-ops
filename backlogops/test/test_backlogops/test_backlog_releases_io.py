@@ -4,15 +4,17 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import io
 from datetime import date
 from pathlib import Path
 from typing import Optional
 import pytest
 from backlogops import (
-    BacklogItem, BacklogReleases, FileExistsCb, FormatRules, Release, Status,
-    allow_overwrite, item_to_row, make_input_config, make_output_config,
-    read_backlog_releases, release_to_row, resolve_input_config,
-    resolve_output_config, row_to_item, row_to_release, write_backlog_releases)
+    BacklogItem, BacklogReleases, DEFAULT_LEVELS, FileExistsCb, FormatRules,
+    LevelDisplay, Release, Status, allow_overwrite, item_to_row,
+    make_input_config, make_output_config, read_backlog_releases,
+    release_to_row, resolve_input_config, resolve_output_config, row_to_item,
+    row_to_release, write_backlog_releases)
 from backlogops.no_text_io import NoTextIO
 
 NO_OUTPUT = NoTextIO()
@@ -216,3 +218,102 @@ def test_overwrite_declined(tmp_path: Path) -> None:
         raise FileExistsError(name)
     with pytest.raises(FileExistsError):
         _write(_sample(), path, refuse)
+
+
+def _one_item(level: int = 1) -> BacklogReleases:
+    """Return a one-item backlog at the given level and no releases."""
+    item = BacklogItem(key='A1', level=level, title='T', story_points=3,
+                       status=Status.TODO)
+    return BacklogReleases(backlog=[item], releases=[])
+
+
+def _write_display(data: BacklogReleases, path: Path,
+                   display: LevelDisplay) -> None:
+    """Write ``data`` with the given level display configuration."""
+    base = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    config = make_output_config(base.tableio, {}, display)
+    write_backlog_releases(data, path, config, levels=DEFAULT_LEVELS,
+                           stderr_file=NO_OUTPUT)
+
+
+def _csv_text(data: BacklogReleases, path: Path, display: LevelDisplay) -> str:
+    """Write a CSV with the given display and return its text."""
+    _write_display(data, path, display)
+    return path.read_text(encoding='UTF-8')
+
+
+def _read_back(path: Path) -> BacklogReleases:
+    """Read a backlog file with the default input configuration."""
+    config = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    return read_backlog_releases(path, config, DEFAULT_LEVELS, NO_OUTPUT)
+
+
+def test_display_both(tmp_path: Path) -> None:
+    """Test BOTH writes a numeric and a named level column."""
+    text = _csv_text(_one_item(), tmp_path / 'b.csv', LevelDisplay.BOTH)
+    assert '"level"' in text and '"level name"' in text
+    assert _read_back(tmp_path / 'b.csv').backlog[0].level == 1
+
+
+def test_display_numeric(tmp_path: Path) -> None:
+    """Test NUMERIC writes only the numeric level column."""
+    text = _csv_text(_one_item(), tmp_path / 'n.csv', LevelDisplay.NUMERIC)
+    assert '"level"' in text and '"level name"' not in text
+    assert _read_back(tmp_path / 'n.csv').backlog[0].level == 1
+
+
+def test_display_name(tmp_path: Path) -> None:
+    """Test NAME writes only the named level column and round-trips."""
+    text = _csv_text(_one_item(), tmp_path / 'm.csv', LevelDisplay.NAME)
+    assert '"level name"' in text and '"level"' not in text
+    assert 'Story' in text
+    assert _read_back(tmp_path / 'm.csv').backlog[0].level == 1
+
+
+def test_unnamed_level_number(tmp_path: Path) -> None:
+    """Test a level number without a name is shown as the number."""
+    errors = io.StringIO()
+    base = resolve_output_config(None, data_file=tmp_path / 'u.csv',
+                                 stderr_file=NO_OUTPUT)
+    config = make_output_config(base.tableio, {}, LevelDisplay.NAME)
+    write_backlog_releases(_one_item(level=9), tmp_path / 'u.csv', config,
+                           levels=DEFAULT_LEVELS, stderr_file=errors)
+    text = (tmp_path / 'u.csv').read_text(encoding='UTF-8')
+    assert '"9"' in text
+    assert 'without a configured name' in errors.getvalue()
+    assert _read_back(tmp_path / 'u.csv').backlog[0].level == 9
+
+
+def _backlog_csv(tmp_path: Path, header: str, row: str) -> Path:
+    """Write a one-table backlog CSV with the given header and row."""
+    path = tmp_path / 'in.csv'
+    path.write_text(f'# Backlog\n\n{header}\n{row}\n', encoding='UTF-8')
+    return path
+
+
+def test_read_name_only(tmp_path: Path) -> None:
+    """Test a sole level name column is resolved to its level number."""
+    path = _backlog_csv(tmp_path, 'key,level name,title,story_points,status',
+                        'A1,Epic,T,3,TODO')
+    assert _read_back(path).backlog[0].level == 2
+
+
+def test_read_both_columns(tmp_path: Path) -> None:
+    """Test the numeric column wins when both level columns are present."""
+    errors = io.StringIO()
+    path = _backlog_csv(tmp_path,
+                        'key,level,level name,title,story_points,status',
+                        'A1,2,Story,T,3,TODO')
+    config = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    back = read_backlog_releases(path, config, DEFAULT_LEVELS, errors)
+    assert back.backlog[0].level == 2
+    assert 'level name column' in errors.getvalue()
+
+
+def test_display_round_trip(tmp_path: Path) -> None:
+    """Test every level display round-trips the level for every format."""
+    for suffix in FORMATS:
+        for display in LevelDisplay:
+            path = tmp_path / f'{display.name}{suffix}'
+            _write_display(_one_item(level=2), path, display)
+            assert _read_back(path).backlog[0].level == 2

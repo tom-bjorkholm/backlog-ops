@@ -28,8 +28,8 @@ import argcomplete
 from config_as_json.file_extension import fix_file_extension
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, BacklogReleases, InputFormatConfig,
-    Levels, OutputFormatConfig, get_demo_backlog, get_backlog_ops_config,
-    teams_config_wizard)
+    LevelDisplay, Levels, OutputFormatConfig, get_demo_backlog,
+    get_backlog_ops_config, teams_config_wizard)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
@@ -124,6 +124,12 @@ class BacklogApp:
     def levels(self) -> Optional[Levels]:
         """Return the configured backlog item levels, or None when absent."""
         return self.config.get_levels() if self.config else None
+
+    def gui_display(self) -> LevelDisplay:
+        """Return how levels are shown in the GUI tables."""
+        if self.config is None:
+            return LevelDisplay.BOTH
+        return self.config.get_gui_level_display()
 
     def show_error(self, title: str, message: str) -> None:
         """Show an error message to the user."""
@@ -261,7 +267,8 @@ class BacklogApp:
     def open_backlog(self, data: BacklogReleases, title: str) -> None:
         """Open one backlog and its releases in a new window."""
         BacklogWindow(self.root, data, title, self.out_presets,
-                      self.available_teams, self.log)
+                      self.available_teams, self.log, self.levels,
+                      self.gui_display)
 
     def report_versions(self) -> None:
         """Report version information into the log on a worker thread.

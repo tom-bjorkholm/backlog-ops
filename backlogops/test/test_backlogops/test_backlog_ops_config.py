@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, DEFAULT_LEVELS, Level,
+    AvailableTeams, BacklogOpsConfig, DEFAULT_LEVELS, Level, LevelDisplay,
     make_input_config, make_output_config, read_backlog_ops_config,
     resolve_input_config, resolve_output_config, write_backlog_ops_config)
 from backlogops.no_text_io import NoTextIO
@@ -138,6 +138,35 @@ def test_old_no_presets(tmp_path: Path) -> None:
     loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
     assert not loaded.input_configs
     assert not loaded.output_configs
+
+
+def test_gui_display_default() -> None:
+    """Test a fresh configuration shows both number and name in the GUI."""
+    assert _empty().get_gui_level_display() is LevelDisplay.BOTH
+
+
+def test_gui_display_rt(tmp_path: Path) -> None:
+    """Test the GUI level display survives a write and read."""
+    config = _empty()
+    config.gui_display.level_display = LevelDisplay.NUMERIC
+    config_file = tmp_path / 'ops.cfg'
+    write_backlog_ops_config(config, config_file, NO_OUTPUT)
+    loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
+    assert loaded.get_gui_level_display() is LevelDisplay.NUMERIC
+
+
+def test_old_no_gui_display(tmp_path: Path) -> None:
+    """Test an old file without a GUI display loads with the default."""
+    new = _config_json(_empty())
+    workforce = new['available_teams']
+    assert isinstance(workforce, dict)
+    old: dict[str, object] = dict(workforce)
+    old['input_configs'] = {}
+    old['output_configs'] = {}
+    config_file = tmp_path / 'old.cfg'
+    config_file.write_text(json.dumps(old), encoding='UTF-8')
+    loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
+    assert loaded.get_gui_level_display() is LevelDisplay.BOTH
 
 
 def _ops_text(levels: object) -> str:

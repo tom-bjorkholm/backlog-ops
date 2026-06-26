@@ -53,7 +53,8 @@ def read_backlog(path: str, value: Optional[str],
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def write_backlog(data: BacklogReleases, path: str, value: Optional[str],
                   presets: Optional[dict[str, OutputFormatConfig]],
-                  releases_first: bool, sink: Optional[TextIO] = None) -> None:
+                  releases_first: bool, sink: Optional[TextIO] = None,
+                  levels: Optional[Levels] = None) -> None:
     """Write a backlog and releases to one file.
 
     Args:
@@ -63,10 +64,13 @@ def write_backlog(data: BacklogReleases, path: str, value: Optional[str],
         presets: Named output presets, or None when none are configured.
         releases_first: Whether to write the releases before the backlog.
         sink: Stream for diagnostics, or None to discard them.
+        levels: The levels used to write level names, or None for the
+            default levels.
     """
     out = _sink(sink)
     config = resolve_output_config(value, data_file=path, presets=presets,
                                    stderr_file=out)
     rules = FormatRules(backlog_first=not releases_first)
-    write_backlog_releases(data, path, config, rules, stderr_file=out,
+    write_backlog_releases(data, path, config, rules, levels=levels,
+                           stderr_file=out,
                            file_exists_callback=allow_overwrite)

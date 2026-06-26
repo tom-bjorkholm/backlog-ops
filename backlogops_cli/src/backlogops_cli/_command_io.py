@@ -159,6 +159,7 @@ def _write_output(parsed: argparse.Namespace, data: BacklogReleases) -> None:
                                    data_file=parsed.output, presets=presets)
     rules = FormatRules(backlog_first=not parsed.releases_first)
     write_backlog_releases(data, parsed.output, config, rules,
+                           levels=io_levels(parsed),
                            file_exists_callback=overwrite_callback(
                                parsed.force))
 

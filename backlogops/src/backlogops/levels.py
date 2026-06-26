@@ -5,10 +5,23 @@
 # MIT License
 
 from dataclasses import dataclass, field
+from enum import Enum, auto
 import sys
-from typing import NoReturn, TextIO
+from typing import NoReturn, Optional, TextIO
 from backlogops.backlog_helpers import check_key_syntax, report_bad_value
 from backlogops.backlog_helpers import report_wrong_type
+
+
+class LevelDisplay(Enum):
+    """How a backlog item level is represented in a table or display.
+
+    NUMERIC writes only the level number, NAME writes only the level
+    name, and BOTH writes the number and the name in separate columns.
+    """
+
+    NUMERIC = auto()
+    NAME = auto()
+    BOTH = auto()
 
 
 @dataclass
@@ -77,7 +90,7 @@ type Levels = dict[int, Level]
 
 DEFAULT_LEVELS: Levels = {
     0: Level(level=0, name='Sub-Task', aliases=[]),
-    1: Level(level=1, name='Story', aliases=['Task', 'Bug']),
+    1: Level(level=1, name='Story', aliases=['Task', 'Bug', 'Defect']),
     2: Level(level=2, name='Epic', aliases=[]),
     3: Level(level=3, name='Initiative', aliases=[]),
 }
@@ -196,3 +209,18 @@ def level_number_from_name(name: str, levels: Levels,
             return level.level
     report_bad_value('level', name, 'unknown level name or alias', stderr_file,
                      'Level')
+
+
+def level_name(number: int, levels: Levels) -> Optional[str]:
+    """Return the configured name for a level number, or None when unknown.
+
+    Args:
+        number: The level number to look up.
+        levels: The levels to search.
+
+    Returns:
+        The name of the level with that number, or None when no level
+        with that number is configured.
+    """
+    level = levels.get(number)
+    return level.name if level is not None else None

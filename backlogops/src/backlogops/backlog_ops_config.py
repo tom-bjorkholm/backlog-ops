@@ -34,8 +34,10 @@ from config_as_json import CallingWholeConfigValidator, Config, \
 from backlogops.available_teams import AvailableTeams
 from backlogops.available_teams_config import AvailableTeamsConfig
 from backlogops.backlog_helpers import report_bad_value, report_wrong_type
-from backlogops.io_config import InputFormatConfig, OutputFormatConfig
-from backlogops.levels import DEFAULT_LEVELS, Level, Levels, levels_from_list
+from backlogops.io_config import GuiDisplayConfig, InputFormatConfig, \
+    OutputFormatConfig
+from backlogops.levels import DEFAULT_LEVELS, Level, Levels, LevelDisplay, \
+    levels_from_list
 
 
 def _as_int(name: str, value: object, stderr_file: TextIO) -> int:
@@ -140,8 +142,9 @@ class _BacklogOpsReadOldConfig(ReadOldConfiguration):
                                       'company_work_hours'))]
 
     def get_missing_path_values(self) -> dict[ConfigPath, object]:
-        """Return empty preset maps for the members old files may omit."""
-        return {('input_configs',): {}, ('output_configs',): {}}
+        """Return defaults for the members old files may omit."""
+        return {('input_configs',): {}, ('output_configs',): {},
+                ('gui_display',): {}}
 
 
 class BacklogOpsConfig(Config):
@@ -163,6 +166,8 @@ class BacklogOpsConfig(Config):
             else available_teams)
         self.input_configs: dict[str, InputFormatConfig] = {}
         self.output_configs: dict[str, OutputFormatConfig] = {}
+        self.gui_display: GuiDisplayConfig = GuiDisplayConfig(
+            stderr_file=stderr_file)
         self.levels: Optional[list[Level]] = None
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
@@ -182,8 +187,10 @@ class BacklogOpsConfig(Config):
                                config_type=InputFormatConfig)
         out_cfg = ConfigNesting(kind=ConfigNestingKind.DICT_VALUE,
                                 config_type=OutputFormatConfig)
+        gui = ConfigNesting(kind=ConfigNestingKind.MEMBER,
+                            config_type=GuiDisplayConfig)
         return {'available_teams': member, 'input_configs': in_cfg,
-                'output_configs': out_cfg}
+                'output_configs': out_cfg, 'gui_display': gui}
 
     @override
     def _omit_none_from_json(self) -> list[str]:
@@ -235,6 +242,14 @@ class BacklogOpsConfig(Config):
         if self.levels is None:
             return DEFAULT_LEVELS
         return levels_from_list(self.levels)
+
+    def get_gui_level_display(self) -> LevelDisplay:
+        """Return how levels should be shown in the GUI.
+
+        Returns:
+            The :class:`LevelDisplay` configured for the GUI display.
+        """
+        return self.gui_display.level_display
 
 
 def write_backlog_ops_config(config: BacklogOpsConfig, filename: PathOrStr,

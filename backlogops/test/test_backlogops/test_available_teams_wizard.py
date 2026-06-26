@@ -14,8 +14,11 @@ from backlogops.available_teams_wizard import (
     available_teams_wizard, teams_config_wizard)
 from backlogops.available_teams_wizard import (
     _read_int, _read_number, _read_opt_date, _read_text)
-from backlogops.levels import DEFAULT_LEVELS
+from backlogops.levels import DEFAULT_LEVELS, LevelDisplay
 from backlogops.work_hours import DEFAULT_WORK_WEEK, WeekDay
+
+GUI_KEEP = ['']
+"""A blank answer that keeps the default GUI level display (both)."""
 
 LEVELS_KEEP = ['']
 """A blank answer that accepts the pre-filled default levels table."""
@@ -264,8 +267,9 @@ def test_preset_wizard() -> None:
     """Test the config wizard collects input and output TableIO presets.
 
     The run rejects an invalid preset name, adds one input preset with one
-    column-name mapping, and adds one output preset with no mapping, and
-    accepts the default levels at the end.
+    column-name mapping, adds one output preset with no mapping and a
+    numeric level display, accepts the default levels, and finally selects
+    a name-only GUI level display.
     """
     answers = (SCHED + ['0', '0', '0']
                + ['1']
@@ -273,21 +277,26 @@ def test_preset_wizard() -> None:
                + ['1', 'Type', 'level']
                + ['1']
                + ['out1'] + ['1'] + CSV_OPTS
-               + ['0']
-               + LEVELS_KEEP)
+               + ['0'] + ['numeric']
+               + LEVELS_KEEP
+               + ['name'])
     config = teams_config_wizard(_bridge(answers))
     assert isinstance(config, BacklogOpsConfig)
     assert sorted(config.input_configs) == ['in1']
     assert list(config.output_configs) == ['out1']
     assert config.input_configs['in1'].to_internal == {'Type': 'level'}
+    assert config.output_configs['out1'].level_display == \
+        LevelDisplay.NUMERIC
+    assert config.gui_display.level_display == LevelDisplay.NAME
 
 
 def test_levels_default() -> None:
     """Test accepting the pre-filled default levels stores None."""
-    answers = SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP
+    answers = SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP + GUI_KEEP
     config = teams_config_wizard(_bridge(answers))
     assert config.levels is None
     assert config.get_levels() == DEFAULT_LEVELS
+    assert config.gui_display.level_display == LevelDisplay.BOTH
 
 
 def test_levels_edited_stored() -> None:
@@ -298,7 +307,7 @@ def test_levels_edited_stored() -> None:
     defaults and are kept as a list.
     """
     edit_first = ['1', '', 'Chore', '']
-    answers = SCHED + ['0', '0', '0', '0', '0'] + edit_first + ['']
+    answers = SCHED + ['0', '0', '0', '0', '0'] + edit_first + [''] + GUI_KEEP
     config = teams_config_wizard(_bridge(answers))
     assert config.levels is not None
     levels = config.get_levels()
@@ -315,7 +324,7 @@ def test_levels_added() -> None:
     accepted.
     """
     add_row = [':+', '-1', 'Spike', 'Research, Investigation']
-    answers = SCHED + ['0', '0', '0', '0', '0'] + add_row + ['']
+    answers = SCHED + ['0', '0', '0', '0', '0'] + add_row + [''] + GUI_KEEP
     config = teams_config_wizard(_bridge(answers))
     assert config.levels is not None
     levels = config.get_levels()
@@ -330,7 +339,7 @@ def test_levels_dup_number() -> None:
     rejects, then re-edited to a free number, so the table is accepted.
     """
     fix = ['2', '0', '', '', '', '2', '7', '', '', '']
-    answers = SCHED + ['0', '0', '0', '0', '0'] + fix
+    answers = SCHED + ['0', '0', '0', '0', '0'] + fix + GUI_KEEP
     config, errors = _run_config(answers)
     assert 'more than once' in errors
     levels = config.get_levels()
@@ -345,7 +354,7 @@ def test_levels_dup_name() -> None:
     check rejects, then renamed to a unique name, so it is accepted.
     """
     fix = ['1', '', 'Story', '', '', '1', '', 'Chore', '', '']
-    answers = SCHED + ['0', '0', '0', '0', '0'] + fix
+    answers = SCHED + ['0', '0', '0', '0', '0'] + fix + GUI_KEEP
     config, errors = _run_config(answers)
     assert 'duplicates' in errors
     assert config.get_levels()[0].name == 'Chore'

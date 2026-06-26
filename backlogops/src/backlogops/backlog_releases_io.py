@@ -15,6 +15,12 @@ external column name to internal field name, and an
 external column name. The dependency lists of a backlog item are stored
 as one space separated string per dependency kind, and the extra fields
 of a backlog item become extra columns.
+
+The level of a backlog item is written as a numeric ``level`` column, a
+named ``level name`` column, or both, as the output configuration's
+:class:`LevelDisplay` decides. Both columns are recognised when reading;
+when both appear the numeric ``level`` column wins and the ``level name``
+column is ignored.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -29,12 +35,13 @@ from backlogops.backlog import Backlog
 from backlogops.backlog_releases import BacklogReleases
 from backlogops.io_config import InputFormatConfig, OutputFormatConfig
 from backlogops.table_create import FileExistsCb
-from backlogops.levels import Levels
+from backlogops.levels import DEFAULT_LEVELS, LevelDisplay, Levels
 from backlogops.releases import Releases
 from backlogops.format_rules import FormatRules
 from backlogops.apply_format_rules import format_backlog, format_releases
 from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS, \
-    row_to_item, row_to_release
+    display_level_order, display_level_rows, fold_level_name, row_to_item, \
+    row_to_release
 
 BACKLOG_HEADING = 'Backlog'
 """Heading written before the backlog table."""
@@ -93,9 +100,11 @@ def read_backlog_releases(data_file: PathOrStr, config: InputFormatConfig,
 
     Each table in the file is read and classified by its columns. The
     column names are translated to internal field names through the input
-    configuration before classification and conversion. Field values are
-    converted to their internal types; consistency across items is not
-    checked here.
+    configuration before classification and conversion. A ``level`` and a
+    ``level name`` column are both recognised; when both are present the
+    numeric ``level`` column is used and the ``level name`` column is
+    ignored. Field values are converted to their internal types;
+    consistency across items is not checked here.
 
     Args:
         data_file: The data file to read.
@@ -114,6 +123,7 @@ def read_backlog_releases(data_file: PathOrStr, config: InputFormatConfig,
     """
     backlog_rows, release_rows = _collect_tables(config, data_file,
                                                  stderr_file)
+    fold_level_name(backlog_rows, stderr_file)
     backlog: Backlog = [row_to_item(row, levels, stderr_file)
                         for row in backlog_rows]
     releases: Releases = [row_to_release(row, stderr_file)
@@ -159,12 +169,24 @@ def _write_table(tableio: TableIO,
                                  border_style=rules.border_style)
 
 
-def _ordered_sections(data: BacklogReleases, rules: FormatRules
+def _backlog_section(data: BacklogReleases, rules: FormatRules, levels: Levels,
+                     display: LevelDisplay, stderr_file: TextIO
+                     ) -> tuple[str, DictData[ValueFmt], list[str]]:
+    """Return the backlog heading, rows and order with levels expanded."""
+    rows = display_level_rows(format_backlog(data.backlog, rules), levels,
+                              display, stderr_file)
+    order = display_level_order(_backlog_order(data.backlog), display)
+    return (BACKLOG_HEADING, rows, order)
+
+
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def _ordered_sections(data: BacklogReleases, rules: FormatRules,
+                      levels: Levels, display: LevelDisplay,
+                      stderr_file: TextIO
                       ) -> list[tuple[str, DictData[ValueFmt], list[str]]]:
     """Return the non-empty tables to write, in the requested order."""
-    backlog_rows = format_backlog(data.backlog, rules)
+    backlog = _backlog_section(data, rules, levels, display, stderr_file)
     release_rows = format_releases(data.releases, rules)
-    backlog = (BACKLOG_HEADING, backlog_rows, _backlog_order(data.backlog))
     releases = (RELEASE_HEADING, release_rows, RELEASE_FIELDS)
     sections = [backlog, releases] if rules.backlog_first else \
         [releases, backlog]
@@ -175,6 +197,7 @@ def _ordered_sections(data: BacklogReleases, rules: FormatRules
 def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
                            config: OutputFormatConfig,
                            format_rules: Optional[FormatRules] = None,
+                           levels: Optional[Levels] = None,
                            stderr_file: TextIO = sys.stderr,
                            file_exists_callback: Optional[FileExistsCb]
                            = None) -> None:
@@ -182,24 +205,32 @@ def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
 
     Each non-empty table is written with a heading before it, so several
     tables can share one file. Internal field names are translated to
-    external column names through the output configuration. The format
-    rules decide the table order, the borders, the filter range and the
-    cell formatting; when omitted the default :class:`FormatRules` apply.
+    external column names through the output configuration. The level of
+    a backlog item is written as its number, its name, or both, as the
+    output configuration's :class:`LevelDisplay` decides, using ``levels``
+    to translate a number to a name. The format rules decide the table
+    order, the borders, the filter range and the cell formatting; when
+    omitted the default :class:`FormatRules` apply.
 
     Args:
         data: The backlog and releases to write.
         data_file: The data file to create.
-        config: The output configuration (format and column-name map).
+        config: The output configuration (format, column-name map and
+                level display).
         format_rules: How to format the written data, or None for the
                       default format rules.
+        levels: The levels used to translate a level number to a name, or
+                None for the default levels.
         stderr_file: Stream used for user-facing diagnostics.
         file_exists_callback: Called when the file already exists, as
                               documented for :mod:`backlogops.table_create`.
                               None refuses an existing file.
     """
     rules = FormatRules() if format_rules is None else format_rules
+    chosen_levels = DEFAULT_LEVELS if levels is None else levels
     capabilities = _write_capabilities(stderr_file)
-    sections = _ordered_sections(data, rules)
+    sections = _ordered_sections(data, rules, chosen_levels,
+                                 config.level_display, stderr_file)
     with tio_config_create(config=config.tableio, file_name=data_file,
                            file_access=FileAccess.CREATE,
                            capabilities=capabilities,

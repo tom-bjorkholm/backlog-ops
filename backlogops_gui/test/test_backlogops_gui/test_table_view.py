@@ -10,7 +10,9 @@ from datetime import date
 from typing import cast
 import pytest
 from tableio import Color, Fmt, ValueFmt
-from backlogops import BacklogReleases, Release, get_demo_backlog
+from backlogops import (
+    BacklogItem, BacklogReleases, LevelDisplay, Release, Status,
+    get_demo_backlog)
 from backlogops_gui import table_view
 from backlogops_gui.table_view import (
     HIGHLIGHT_FILL, backlog_table, make_table, release_table,
@@ -33,6 +35,33 @@ def test_release_columns() -> None:
     columns, rows = release_table(data)
     assert columns[0] == 'name'
     assert len(rows) == len(data.releases)
+
+
+def _one_item_data() -> BacklogReleases:
+    """Return a one-item backlog used by the level display tests."""
+    item = BacklogItem(key='A1', level=1, title='T', story_points=3,
+                       status=Status.TODO)
+    return BacklogReleases(backlog=[item], releases=[])
+
+
+def test_level_display_both() -> None:
+    """Test the default display shows a numeric and a named level column."""
+    columns, _rows = backlog_table(_one_item_data())
+    assert 'level' in columns and 'level name' in columns
+
+
+def test_level_disp_numeric() -> None:
+    """Test the numeric display shows only the numeric level column."""
+    columns, _rows = backlog_table(_one_item_data(),
+                                   display=LevelDisplay.NUMERIC)
+    assert 'level' in columns and 'level name' not in columns
+
+
+def test_level_display_name() -> None:
+    """Test the name display shows the level name in its own column."""
+    columns, rows = backlog_table(_one_item_data(), display=LevelDisplay.NAME)
+    assert 'level name' in columns and 'level' not in columns
+    assert rows[0][columns.index('level name')].value == 'Story'
 
 
 def test_empty_tables() -> None:

@@ -224,7 +224,8 @@ def test_save_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(backlog_window, 'write_backlog', _writer(written))
     errors: list[tuple[str, str]] = []
     infos: list[tuple[str, str]] = []
-    save_backlog(_parent(), DATA, None, SINK, _record(errors), _record(infos))
+    save_backlog(_parent(), DATA, None, None, SINK, _record(errors),
+                 _record(infos))
     assert written == ['out.csv']
     assert infos == [('Wrote file', 'Wrote out.csv')]
     assert not errors
@@ -235,7 +236,8 @@ def test_save_cancel_file(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(backlog_window, 'choose_output_file', _no_file)
     monkeypatch.setattr(backlog_window, 'write_backlog', _no_write)
     infos: list[tuple[str, str]] = []
-    save_backlog(_parent(), DATA, None, SINK, _record([]), _record(infos))
+    save_backlog(_parent(), DATA, None, None, SINK, _record([]),
+                 _record(infos))
     assert not infos
 
 
@@ -246,7 +248,8 @@ def test_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(backlog_window, 'write_backlog', _write_fail)
     errors: list[tuple[str, str]] = []
     infos: list[tuple[str, str]] = []
-    save_backlog(_parent(), DATA, None, SINK, _record(errors), _record(infos))
+    save_backlog(_parent(), DATA, None, None, SINK, _record(errors),
+                 _record(infos))
     assert errors == [('Could not write file', 'disk full')]
     assert not infos
 
@@ -257,7 +260,8 @@ def test_save_cancel_options(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(backlog_window, 'ask_write_options', _no_options)
     monkeypatch.setattr(backlog_window, 'write_backlog', _no_write)
     infos: list[tuple[str, str]] = []
-    save_backlog(_parent(), DATA, None, SINK, _record([]), _record(infos))
+    save_backlog(_parent(), DATA, None, None, SINK, _record([]),
+                 _record(infos))
     assert not infos
 
 

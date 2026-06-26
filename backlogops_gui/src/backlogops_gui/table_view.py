@@ -16,10 +16,11 @@ table can show any value type.
 import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
-from typing import Sequence
+from typing import Optional, Sequence, TextIO
 from tableio import Color, Fmt, Value, ValueFmt
 from backlogops import (
-    BacklogReleases, FormatRules, format_backlog, format_releases)
+    BacklogReleases, DEFAULT_LEVELS, FormatRules, LevelDisplay, Levels,
+    NoTextIO, display_level_rows, format_backlog, format_releases)
 
 COLUMN_WIDTH = 120
 BLANK_CELL = ValueFmt(value=None, fmt=Fmt())
@@ -54,10 +55,20 @@ def _table(rows: Sequence[dict[str, ValueFmt]]
     return columns, cells
 
 
-def backlog_table(data: BacklogReleases
+def backlog_table(data: BacklogReleases, levels: Optional[Levels] = None,
+                  display: LevelDisplay = LevelDisplay.BOTH,
+                  sink: Optional[TextIO] = None
                   ) -> tuple[list[str], list[list[ValueFmt]]]:
-    """Return the columns and formatted rows for the backlog table."""
-    return _table(format_backlog(data.backlog, FormatRules()))
+    """Return the columns and formatted rows for the backlog table.
+
+    The level of each item is shown as its number, its name, or both, as
+    ``display`` decides, using ``levels`` to translate a number to a name.
+    """
+    out = sink if sink is not None else NoTextIO()
+    chosen = DEFAULT_LEVELS if levels is None else levels
+    rows = display_level_rows(format_backlog(data.backlog, FormatRules()),
+                              chosen, display, out)
+    return _table(rows)
 
 
 def release_table(data: BacklogReleases

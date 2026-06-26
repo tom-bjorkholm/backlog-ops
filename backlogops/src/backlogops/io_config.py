@@ -35,10 +35,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import ClassVar, Optional, TextIO, override
 from config_as_json import Config, ConfigNesting, ConfigNestingKind, \
-    DictKeyValueTypesValidator, MemberValidationStep, NestedConfigs, \
-    PathOrStr, ValidationPlan
+    ConfigPath, DictKeyValueTypesValidator, MemberValidationStep, \
+    NestedConfigs, ParseConverter, PathOrStr, ReadOldConfiguration, \
+    ValidationPlan
 from tableio import Capabilities, FileAccess, access_capabilities
 from tableio_cfg_json import TioJsonConfig, tio_json_config_default
+from backlogops.levels import LevelDisplay
 
 EXTENSION_FORMATS: dict[str, str] = {
     '.csv': 'CSV', '.xlsx': 'Excel', '.xls': 'Excel', '.ods': 'ODS',
@@ -49,6 +51,19 @@ EXTENSION_FORMATS: dict[str, str] = {
 
 PRESET_NAME_RE = re.compile(r'^[A-Za-z0-9]+$')
 """A configuration value made only of letters and digits is a preset."""
+
+
+class _DisplayReadOldConfig(ReadOldConfiguration):
+    """Default the level display when an older file omits it.
+
+    The enum member itself is supplied, not its name, because the missing
+    value is inserted after the read-side scalar converters have run and
+    so would otherwise stay an unconverted string.
+    """
+
+    def get_missing_path_values(self) -> dict[ConfigPath, object]:
+        """Supply the default level display for an older file."""
+        return {('level_display',): LevelDisplay.BOTH}
 
 
 def _capabilities(file_access: FileAccess, stderr_file: TextIO
@@ -141,20 +156,39 @@ class InputFormatConfig(_FormatConfig):
 
 
 class OutputFormatConfig(_FormatConfig):
-    """TableIO output endpoint with an internal-to-external column map."""
+    """TableIO output endpoint with an internal-to-external column map.
+
+    In addition to the column-name map the output endpoint carries a
+    :class:`LevelDisplay`, deciding whether a backlog item level is
+    written as its number, its name, or both. The member defaults to
+    :data:`LevelDisplay.BOTH`; it may be absent from an older file, in
+    which case the default applies.
+    """
 
     _FILE_ACCESS = FileAccess.CREATE
     _MAP_NAME = 'to_external'
     to_external: dict[str, str]
+    level_display: LevelDisplay
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr) -> None:
-        """Create the output map default, then run the shared constructor."""
+        """Create the output defaults, then run the shared constructor."""
         self.to_external = {}
+        self.level_display = LevelDisplay.BOTH
         _FormatConfig.__init__(self, from_json_data_text=from_json_data_text,
                                from_json_filename=from_json_filename,
                                stderr_file=stderr_file)
+
+    @override
+    def parse_converters(self) -> dict[str, ParseConverter]:
+        """Parse the level display member from its enum member name."""
+        return {'level_display': self.get_converter_dict(LevelDisplay)}
+
+    @override
+    def _get_read_old_config(self) -> ReadOldConfiguration:
+        """Return the migration that defaults a missing level display."""
+        return _DisplayReadOldConfig()
 
 
 def make_input_config(tableio: TioJsonConfig, to_internal: dict[str, str],
@@ -167,12 +201,52 @@ def make_input_config(tableio: TioJsonConfig, to_internal: dict[str, str],
 
 
 def make_output_config(tableio: TioJsonConfig, to_external: dict[str, str],
+                       level_display: LevelDisplay = LevelDisplay.BOTH,
                        stderr_file: TextIO = sys.stderr) -> OutputFormatConfig:
-    """Return an output config from a TableIO config and a column map."""
+    """Return an output config from a TableIO config, map and level display."""
     config = OutputFormatConfig(stderr_file=stderr_file)
     config.tableio = tableio
     config.to_external = dict(to_external)
+    config.level_display = level_display
     return config
+
+
+class GuiDisplayConfig(Config):
+    """How a backlog and its releases are shown in the GUI.
+
+    This mirrors the display part of an :class:`OutputFormatConfig`,
+    without the TableIO endpoint configuration. For now it only carries a
+    :class:`LevelDisplay`; per-table column-name maps are added later. The
+    member defaults to :data:`LevelDisplay.BOTH` and may be absent from an
+    older file, in which case the default applies.
+    """
+
+    level_display: LevelDisplay
+
+    def __init__(self, from_json_data_text: Optional[str] = None,
+                 from_json_filename: Optional[PathOrStr] = None,
+                 stderr_file: TextIO = sys.stderr) -> None:
+        """Create the display defaults, then read them from JSON."""
+        self.level_display = LevelDisplay.BOTH
+        Config.__init__(self, from_json_data_text=from_json_data_text,
+                        from_json_filename=from_json_filename,
+                        stderr_file=stderr_file)
+
+    @override
+    def parse_converters(self) -> dict[str, ParseConverter]:
+        """Parse the level display member from its enum member name."""
+        return {'level_display': self.get_converter_dict(LevelDisplay)}
+
+    @override
+    def _get_read_old_config(self) -> ReadOldConfiguration:
+        """Return the migration that defaults a missing level display."""
+        return _DisplayReadOldConfig()
+
+    @override
+    def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
+        """Return an empty plan; the level display needs no checks."""
+        _ = stderr_file
+        return []
 
 
 def _format_from_suffix(data_file: PathOrStr) -> str:
