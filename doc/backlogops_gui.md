@@ -25,6 +25,7 @@
     * [start](#backlogops_gui.application.BacklogApp.start)
     * [run\_wizard](#backlogops_gui.application.BacklogApp.run_wizard)
     * [run\_config\_wizard](#backlogops_gui.application.BacklogApp.run_config_wizard)
+    * [create\_preset\_file](#backlogops_gui.application.BacklogApp.create_preset_file)
     * [write\_config](#backlogops_gui.application.BacklogApp.write_config)
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
@@ -255,8 +256,9 @@ Close the wizard window when one was opened.
 Tkinter application for backlog operations.
 
 The application opens a main window whose menu reads a backlog from a file,
-runs the teams configuration wizard, writes the running configuration to a
-file, and creates a demonstration backlog. Each backlog opens in its own
+runs the teams configuration wizard, creates a stand-alone input or output
+preset file, writes the running configuration to a file, and creates a
+demonstration backlog. Each backlog opens in its own
 window. On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
@@ -430,6 +432,16 @@ def run_config_wizard() -> None
 ```
 
 Run the wizard and make a new configuration active on success.
+
+<a id="backlogops_gui.application.BacklogApp.create_preset_file"></a>
+
+#### create\_preset\_file
+
+```python
+def create_preset_file() -> None
+```
+
+Run the IO preset wizard and write the preset to a chosen file.
 
 <a id="backlogops_gui.application.BacklogApp.write_config"></a>
 

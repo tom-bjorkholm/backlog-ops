@@ -47,6 +47,7 @@ def test_real_text() -> None:
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._finish('typed'))
         assert bridge.ask_text('Name?') == 'typed'
         bridge.close()
@@ -59,6 +60,7 @@ def test_real_text_null() -> None:
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._finish(''))
         assert bridge.ask_text('Name?', nullable=True) is None
         bridge.close()
@@ -71,6 +73,7 @@ def test_real_text_empty() -> None:
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._finish(''))
         assert bridge.ask_text('Name?') == ''
         bridge.close()
@@ -83,6 +86,7 @@ def test_real_reask() -> None:
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._finish('again'))
         assert bridge.ask_text('Name?', 'try again') == 'again'
         bridge.close()
@@ -95,8 +99,10 @@ def test_real_reuse_window() -> None:
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._finish('one'))
         assert bridge.ask_text('Q1?') == 'one'
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._finish('two'))
         assert bridge.ask_text('Q2?') == 'two'
         bridge.close()
@@ -109,6 +115,7 @@ def test_real_yes_no() -> None:
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._finish(True))
         assert bridge.ask_yes_no('Add?', False) is True
         bridge.close()
@@ -121,6 +128,7 @@ def test_real_choice() -> None:
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._finish('b'))
         assert bridge.ask_choice('Pick', choices=['a', 'b', 'c']) == 'b'
         bridge.close()
@@ -133,6 +141,7 @@ def test_real_multi() -> None:
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._finish(['a', 'c']))
         assert bridge.ask_multi('Pick', choices=['a', 'b', 'c']) == ['a', 'c']
         bridge.close()
@@ -147,6 +156,7 @@ def test_real_table() -> None:
         bridge = TkWizardBridge(root)
         columns = [TableColumn(header='X')]
         cells = [[TableCell(value='v')]]
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._finish([['v']]))
         assert bridge.ask_table(columns, cells, 'Q') == [['v']]
         bridge.close()
@@ -163,9 +173,13 @@ def test_table_variable_add() -> None:
         cells = [[TableCell(value='a'), TableCell(value='b')]]
 
         def drive() -> None:
+            # pylint: disable-next=protected-access
             window = bridge._window_obj()
+            # pylint: disable-next=protected-access
             assert window._editor is not None
+            # pylint: disable-next=protected-access
             window._editor.add_row()
+            # pylint: disable-next=protected-access
             window._finish(window._editor.values())
 
         root.after(0, drive)
@@ -192,6 +206,7 @@ def test_real_abort() -> None:
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._cancel())
         with pytest.raises(WizardAbort):
             bridge.ask_text('Name?')
@@ -205,6 +220,7 @@ def test_real_back() -> None:
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._back())
         with pytest.raises(WizardBack):
             bridge.ask_text('Name?')
@@ -218,6 +234,7 @@ def test_real_cancel_level() -> None:
     root = _root_or_skip()
     try:
         bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
         root.after(0, lambda: bridge._window_obj()._cancel_level())
         with pytest.raises(WizardCancelLevel):
             bridge.ask_text('Name?')
@@ -313,6 +330,7 @@ def test_table_add_row_at_max() -> None:
         editor.add_row()
         editor.add_row()
         assert len(editor.values()) == 2
+        # pylint: disable-next=protected-access
         assert 'At most 2' in editor._status.cget('text')
     finally:
         root.destroy()
@@ -343,6 +361,7 @@ def test_remove_row_at_min() -> None:
                               max_rows=3)
         editor.remove_row()
         assert len(editor.values()) == 1
+        # pylint: disable-next=protected-access
         assert 'At least 1' in editor._status.cget('text')
     finally:
         root.destroy()
@@ -357,8 +376,10 @@ def test_added_row_editable() -> None:
         cells = [[TableCell(value='Mon'), TableCell(value='8')]]
         editor = _TableEditor(tk.Frame(root), columns, cells, None, min_rows=0,
                               max_rows=2)
+        # pylint: disable-next=protected-access
         assert editor._cells[0][0].read_only is True
         editor.add_row()
+        # pylint: disable-next=protected-access
         added = editor._cells[1][0]
         assert added.read_only is False
         assert isinstance(added.widget, tk.Entry)
@@ -376,6 +397,7 @@ def test_choice_list_shown() -> None:
     root = _root_or_skip()
     try:
         window = _WizardWindow(tk.Frame(root))
+        # pylint: disable-next=protected-access
         listbox = window._choice_list(['a', 'b', 'c'], None, 'browse')
         assert listbox.size() == 3
         assert listbox.winfo_manager() == 'pack'
@@ -389,11 +411,14 @@ def test_pick_one() -> None:
     root = _root_or_skip()
     try:
         window = _WizardWindow(tk.Frame(root))
+        # pylint: disable-next=protected-access
         listbox = tk.Listbox(window._content)
         listbox.insert('end', 'a')
         listbox.insert('end', 'b')
         listbox.selection_set(1)
+        # pylint: disable-next=protected-access
         window._pick_one(listbox, ['a', 'b'])
+        # pylint: disable-next=protected-access
         assert window._result == 'b'
         window.close()
     finally:
@@ -405,12 +430,15 @@ def test_pick_many() -> None:
     root = _root_or_skip()
     try:
         window = _WizardWindow(tk.Frame(root))
+        # pylint: disable-next=protected-access
         listbox = tk.Listbox(window._content, selectmode='multiple')
         for choice in ('a', 'b', 'c'):
             listbox.insert('end', choice)
         listbox.selection_set(0)
         listbox.selection_set(2)
+        # pylint: disable-next=protected-access
         window._pick_many(listbox, ['a', 'b', 'c'])
+        # pylint: disable-next=protected-access
         assert window._result == ['a', 'c']
         window.close()
     finally:

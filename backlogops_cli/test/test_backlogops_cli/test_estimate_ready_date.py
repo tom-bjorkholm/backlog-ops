@@ -112,6 +112,7 @@ def test_load_teams_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
         raise RuntimeError('no teams configured')
     monkeypatch.setattr(estimate_ready_date, 'get_backlog_ops_config', boom)
     with pytest.raises(ValueError, match='no teams configured'):
+        # pylint: disable-next=protected-access
         estimate_ready_date._load_teams(None)
 
 

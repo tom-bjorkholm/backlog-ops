@@ -2,8 +2,9 @@
 """Tkinter application for backlog operations.
 
 The application opens a main window whose menu reads a backlog from a file,
-runs the teams configuration wizard, writes the running configuration to a
-file, and creates a demonstration backlog. Each backlog opens in its own
+runs the teams configuration wizard, creates a stand-alone input or output
+preset file, writes the running configuration to a file, and creates a
+demonstration backlog. Each backlog opens in its own
 window. On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
@@ -23,13 +24,15 @@ import threading
 import tkinter as tk
 from io import StringIO
 from tkinter import messagebox, ttk
-from typing import Optional, TextIO
+from typing import Callable, Optional, TextIO, TypeVar
 import argcomplete
+from config_as_json import Config
 from config_as_json.file_extension import fix_file_extension
+from tableio_cfg_json import WizardUiBridge
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, BacklogReleases, GuiDisplayConfig,
     InputFormatConfig, Levels, OutputFormatConfig, get_demo_backlog,
-    get_backlog_ops_config, backlog_ops_wizard)
+    get_backlog_ops_config, backlog_ops_wizard, preset_wizard)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
@@ -47,15 +50,17 @@ WRAP_LENGTH = 520
 LOG_REFRESH_MS = 800
 HEADING_FONT = ('TkDefaultFont', 14, 'bold')
 INSTRUCTIONS = (
-    'Use the menus to read a backlog file, run the teams wizard, write the '
-    'current configuration to a file, or create a demonstration backlog. '
-    'Each backlog opens in its own window. On macOS the menu bar is at the '
-    'top of the display.')
+    'Use the menus to read a backlog file, run the teams wizard, create a '
+    'stand-alone input or output preset file, write the current '
+    'configuration to a file, or create a demonstration backlog. Each '
+    'backlog opens in its own window. On macOS the menu bar is at the top '
+    'of the display.')
 DESCRIPTION = 'Graphical user interface for backlog operations'
 CONFIG_ERRORS = (FileNotFoundError, NotADirectoryError, RuntimeError,
                  ValueError, TypeError, KeyError, OSError)
 IO_ERRORS = (ValueError, TypeError, KeyError, OSError)
 VERSION_ERRORS = (OSError, RuntimeError, ValueError)
+_WizardConfig = TypeVar('_WizardConfig', bound=Config)
 
 
 def initial_config(config_arg: Optional[str], sink: Optional[TextIO] = None
@@ -203,18 +208,29 @@ class BacklogApp:
         self.config_source = path
         return True
 
-    def run_wizard(self) -> Optional[BacklogOpsConfig]:
-        """Run the config wizard and return its configuration, or None."""
+    def _run_bridge_wizard(self,
+                           wizard: Callable[[WizardUiBridge], _WizardConfig],
+                           error_title: str) -> Optional[_WizardConfig]:
+        """Run a wizard over a fresh Tk bridge, returning its config or None.
+
+        An abandoned wizard ends in ``EOFError`` and yields None; any other
+        wizard failure is reported under ``error_title`` and also yields
+        None. The bridge window is always closed afterwards.
+        """
         bridge = TkWizardBridge(self.root, self.log)
         try:
-            return backlog_ops_wizard(bridge)
+            return wizard(bridge)
         except EOFError:
             return None
         except IO_ERRORS as error:
-            self.show_error('Wizard error', str(error))
+            self.show_error(error_title, str(error))
             return None
         finally:
             bridge.close()
+
+    def run_wizard(self) -> Optional[BacklogOpsConfig]:
+        """Run the config wizard and return its configuration, or None."""
+        return self._run_bridge_wizard(backlog_ops_wizard, 'Wizard error')
 
     def run_config_wizard(self) -> None:
         """Run the wizard and make a new configuration active on success."""
@@ -225,22 +241,40 @@ class BacklogApp:
             self._update_status()
             self.show_info('Wizard', 'The new configuration is now active.')
 
+    def create_preset_file(self) -> None:
+        """Run the IO preset wizard and write the preset to a chosen file."""
+        config = self._run_bridge_wizard(preset_wizard, 'Preset wizard error')
+        if config is not None:
+            self._write_to_chosen(config, 'Could not write preset',
+                                  'Wrote preset')
+
     def write_config(self) -> None:
         """Write the running configuration to a chosen file."""
         if self.config is None:
             self.show_error('No configuration',
                             'There is no configuration to write.')
             return
+        self._write_to_chosen(self.config, 'Could not write configuration',
+                              'Wrote configuration')
+
+    def _write_to_chosen(self, config: Config, fail_title: str,
+                         ok_title: str) -> None:
+        """Write a configuration to a user-chosen file and report the outcome.
+
+        The chosen filename receives the ``.cfg`` extension when missing. A
+        cancelled chooser writes nothing; a write failure is reported under
+        ``fail_title`` and a success under ``ok_title``.
+        """
         path = choose_config_file(self.root)
         if path is None:
             return
         path = fix_file_extension(path, CONFIG_EXTENSION)
         try:
-            self.config.write(to_json_filename=path, stderr_file=self.log)
+            config.write(to_json_filename=path, stderr_file=self.log)
         except IO_ERRORS as error:
-            self.show_error('Could not write configuration', str(error))
+            self.show_error(fail_title, str(error))
             return
-        self.show_info('Wrote configuration', f'Wrote {path}')
+        self.show_info(ok_title, f'Wrote {path}')
 
     def read_backlog_file(self) -> None:
         """Read a backlog from a chosen file into a new window."""
@@ -317,6 +351,8 @@ class BacklogApp:
         menu = tk.Menu(menubar, tearoff=False)
         menu.add_command(label='Run configuration wizard…',
                          command=self.run_config_wizard)
+        menu.add_command(label='Create IO preset file…',
+                         command=self.create_preset_file)
         menu.add_command(label='Write configuration…',
                          command=self.write_config)
         menubar.add_cascade(label='Configuration', menu=menu)

@@ -604,13 +604,15 @@ def test_show_changes(monkeypatch: pytest.MonkeyPatch) -> None:
 def _root() -> tk.Tk:
     """Return a Tk root, or skip the test when no display is available."""
     try:
-        return tk.Tk()
+        root = tk.Tk()
     except tk.TclError:
         pytest.skip('no display available')
+    return root
 
 
 def _menu_labels(window: BacklogWindow) -> list[str]:
     """Return the labels in the backlog menu of a backlog window."""
+    # pylint: disable-next=protected-access
     menubar = window._win.nametowidget(window._win.cget('menu'))
     assert isinstance(menubar, tk.Menu)
     menu = menubar.nametowidget(menubar.entrycget(0, 'menu'))
@@ -734,8 +736,11 @@ def test_window_acts(monkeypatch: pytest.MonkeyPatch) -> None:
         data = get_demo_backlog()
         window = BacklogWindow(root, data, 'Title', _none, _none, SINK)
         assert 'Order by release order…' in _menu_labels(window)
+        # pylint: disable-next=protected-access
         window._refresh_tables()
+        # pylint: disable-next=protected-access
         window._report_error('E', 'err')
+        # pylint: disable-next=protected-access
         window._report_info('I', 'info')
         for method in _ACTION_METHODS:
             getattr(window, method)()

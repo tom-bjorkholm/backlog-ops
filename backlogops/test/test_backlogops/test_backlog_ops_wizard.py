@@ -11,11 +11,13 @@ from typing import Optional
 import pytest
 from tableio_cfg_json import WizardUiBridgeConsole
 import backlogops
+from backlogops import InputFormatConfig, OutputFormatConfig
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.backlog_ops_wizard import (
     available_teams_wizard, backlog_ops_wizard)
-from backlogops.backlog_ops_wizard import (
+from backlogops.io_preset_wizard import preset_wizard
+from backlogops.wizard_helpers import (
     _backlog_map_fields, _parse_column_renames, _parse_input_renames,
     _read_int, _read_number, _read_opt_date, _read_text)
 from backlogops.levels import DEFAULT_LEVELS, LevelDisplay
@@ -526,3 +528,52 @@ def test_old_module_gone() -> None:
     """Test the misleadingly named old wizard module no longer exists."""
     with pytest.raises(ModuleNotFoundError):
         importlib.import_module('backlogops.available_teams_wizard')
+
+
+def test_preset_input() -> None:
+    """Test the preset wizard builds an input preset with a rename.
+
+    The direction is input; the CSV format is kept; the backlog table
+    reads file column ``Type`` into ``level`` and the releases table is
+    kept unchanged.
+    """
+    answers = ['input', '1'] + CSV_OPTS + ['2', 'Type', ''] + ['']
+    config = preset_wizard(_bridge(answers))
+    assert isinstance(config, InputFormatConfig)
+    assert config.backlog_to_internal == {'Type': 'level'}
+    assert not config.release_to_internal
+
+
+def test_preset_output() -> None:
+    """Test the preset wizard builds an output preset with a display.
+
+    The direction is output; the CSV format is kept; both rename tables
+    are accepted unchanged and the level display is set to numeric.
+    """
+    answers = ['output', '1'] + CSV_OPTS + MAPS_KEEP + ['numeric']
+    config = preset_wizard(_bridge(answers))
+    assert isinstance(config, OutputFormatConfig)
+    assert config.level_display == LevelDisplay.NUMERIC
+    assert not config.backlog_to_external
+    assert not config.release_to_external
+
+
+def test_preset_default_input() -> None:
+    """Test a blank direction answer defaults to an empty input preset."""
+    answers = [''] + ['1'] + CSV_OPTS + MAPS_KEEP
+    config = preset_wizard(_bridge(answers))
+    assert isinstance(config, InputFormatConfig)
+    assert not config.backlog_to_internal
+    assert not config.release_to_internal
+
+
+def test_preset_abort() -> None:
+    """Test aborting the preset wizard ends with an end-of-input error."""
+    with pytest.raises(EOFError):
+        preset_wizard(_bridge([':q']))
+
+
+def test_preset_reexport() -> None:
+    """Test the package re-exports the preset wizard."""
+    assert backlogops.preset_wizard is preset_wizard
+    assert 'preset_wizard' in backlogops.__all__

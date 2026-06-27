@@ -149,6 +149,7 @@ def _row_tagged(tree: ttk.Treeview, tag: str) -> bool:
     return bool(tree.tag_has(tag, item))
 
 
+# pylint: disable-next=too-few-public-methods
 class _RaisingTk:
     """Tk stand-in whose call always raises, as an old Tk would."""
 
@@ -157,6 +158,7 @@ class _RaisingTk:
         raise tk.TclError('tag cell not supported')
 
 
+# pylint: disable-next=too-few-public-methods
 class _FakeTree:
     """Minimal Treeview stand-in for the cell-tag support probe."""
 
@@ -175,6 +177,7 @@ def test_no_cell_tags() -> None:
     assert supports_cell_tags(tree) is False
 
 
+# pylint: disable-next=too-few-public-methods
 class _RecordingTk:
     """Tk stand-in that records cell-tag calls without a real Tk 8.7."""
 
@@ -200,11 +203,11 @@ class _CellTree:
         """Return a widget path the cell-tag call can use."""
         return 'celltree'
 
-    def tag_configure(self, name: str, **kwargs: object) -> None:
+    def tag_configure(self, name: str, **_kwargs: object) -> None:
         """Accept a tag configuration without a real widget."""
         assert name
 
-    def insert(self, parent: str, index: str, values: object = None) -> str:
+    def insert(self, _parent: str, _index: str, values: object = None) -> str:
         """Record one inserted row and return its item id."""
         self.inserted.append(values)
         return f'I{len(self.inserted)}'

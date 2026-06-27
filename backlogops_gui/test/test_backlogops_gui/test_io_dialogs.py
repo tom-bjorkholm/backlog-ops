@@ -9,6 +9,7 @@ from datetime import date
 from typing import Callable, Optional
 import pytest
 from backlogops import DependencyMode
+from backlogops.no_text_io import NoTextIO
 from backlogops_gui.io_dialogs import (
     MODE_FILE, MODE_INFER, MODE_PRESET, ConfigChoice, DepOptions, ReadOptions,
     StartChoice, WriteOptions, format_value)
@@ -22,7 +23,6 @@ from backlogops_gui.io_dialogs import (
     ask_start_date, ask_write_options, choose_changes_output,
     choose_config_file, choose_existing_config, choose_input_file,
     choose_key_list_output, choose_output_file, show_change_list)
-from backlogops.no_text_io import NoTextIO
 
 
 def _root_or_skip() -> tk.Tk:
@@ -40,6 +40,7 @@ def _no_wait(self: _ModalDialog) -> None:
     assert self is not None
 
 
+# pylint: disable-next=too-few-public-methods
 class _MsgRec:
     """Record message-box error calls raised by a dialog."""
 
@@ -85,6 +86,7 @@ def test_action_dataclasses() -> None:
 
 def _cancel_show(self: _ModalDialog) -> None:
     """Stand in for the modal show that cancels at once."""
+    # pylint: disable-next=protected-access
     self._cancel()
 
 
@@ -120,9 +122,13 @@ def test_fmt_preset(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _FormatDialog(root, ['p1', 'p2'], True)
+        # pylint: disable-next=protected-access
         dialog._mode.set(MODE_PRESET)
+        # pylint: disable-next=protected-access
         dialog._preset.set('p2')
+        # pylint: disable-next=protected-access
         dialog._rel_first.set(True)
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.value == 'p2'
         assert dialog.releases_first is True
@@ -136,8 +142,11 @@ def test_fmt_file(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _FormatDialog(root, ['p1'], False)
+        # pylint: disable-next=protected-access
         dialog._mode.set(MODE_FILE)
+        # pylint: disable-next=protected-access
         dialog._path.set('cfg.json')
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.value == 'cfg.json'
     finally:
@@ -151,6 +160,7 @@ def test_fmt_infer(monkeypatch: pytest.MonkeyPatch) -> None:
     try:
         frame = tk.Frame(root)
         dialog = _FormatDialog(frame, [], False)
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.value is None
     finally:
@@ -165,8 +175,11 @@ def test_fmt_browse(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _FormatDialog(root, ['p1'], False)
+        # pylint: disable-next=protected-access
         dialog._browse()
+        # pylint: disable-next=protected-access
         assert dialog._path.get() == 'chosen.cfg'
+        # pylint: disable-next=protected-access
         assert dialog._mode.get() == MODE_FILE
     finally:
         root.destroy()
@@ -180,7 +193,9 @@ def test_fmt_browse_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _FormatDialog(root, ['p1'], False)
+        # pylint: disable-next=protected-access
         dialog._browse()
+        # pylint: disable-next=protected-access
         assert dialog._path.get() == ''
     finally:
         root.destroy()
@@ -232,7 +247,9 @@ def test_buffer_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _BufferDialog(root)
+        # pylint: disable-next=protected-access
         dialog._text.set('3')
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.days == 3
     finally:
@@ -248,7 +265,9 @@ def test_buffer_bad(monkeypatch: pytest.MonkeyPatch, text: str) -> None:
     root = _root_or_skip()
     try:
         dialog = _BufferDialog(root)
+        # pylint: disable-next=protected-access
         dialog._text.set(text)
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.days is None
         assert len(rec.calls) == 1
@@ -272,7 +291,9 @@ def test_date_order_est(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _DateOrderDialog(root)
+        # pylint: disable-next=protected-access
         dialog._estimated.set(True)
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.by_estimated is True
     finally:
@@ -285,6 +306,7 @@ def test_date_order_planned(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _DateOrderDialog(root)
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.by_estimated is False
     finally:
@@ -317,7 +339,9 @@ def test_release_order_honor(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _ReleaseOrderDialog(root)
+        # pylint: disable-next=protected-access
         dialog._honor.set(True)
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.honor_dependencies is True
     finally:
@@ -330,6 +354,7 @@ def test_release_order_plain(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _ReleaseOrderDialog(root)
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.honor_dependencies is False
     finally:
@@ -377,7 +402,9 @@ def test_keys_confirm(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _KeysDialog(root, NoTextIO())
+        # pylint: disable-next=protected-access
         dialog._text.insert('1.0', 'A B\nC')
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.keys == ['A', 'B', 'C']
     finally:
@@ -394,7 +421,9 @@ def test_keys_load_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _KeysDialog(root, NoTextIO())
+        # pylint: disable-next=protected-access
         dialog._load()
+        # pylint: disable-next=protected-access
         assert dialog._text.get('1.0', 'end').split() == ['X', 'Y']
     finally:
         root.destroy()
@@ -408,7 +437,9 @@ def test_keys_load_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _KeysDialog(root, NoTextIO())
+        # pylint: disable-next=protected-access
         dialog._load()
+        # pylint: disable-next=protected-access
         assert dialog._text.get('1.0', 'end').strip() == ''
     finally:
         root.destroy()
@@ -427,7 +458,9 @@ def test_keys_load_error(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _KeysDialog(root, NoTextIO())
+        # pylint: disable-next=protected-access
         dialog._load()
+        # pylint: disable-next=protected-access
         assert dialog._text.get('1.0', 'end').strip() == ''
         assert rec.calls == [('Could not read key list', 'bad list')]
     finally:
@@ -450,6 +483,7 @@ def test_dep_confirm(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _DepOptionsDialog(root)
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.options is not None
         assert dialog.options.space_around is None
@@ -464,9 +498,13 @@ def test_dep_space(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _DepOptionsDialog(root)
+        # pylint: disable-next=protected-access
         dialog._later.set(True)
+        # pylint: disable-next=protected-access
         dialog._mode.set(DependencyMode.EARLY.name)
+        # pylint: disable-next=protected-access
         dialog._space.set('A B')
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.options is not None
         assert dialog.options.later is True
@@ -492,7 +530,9 @@ def test_start_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _StartDateDialog(root)
+        # pylint: disable-next=protected-access
         dialog._date.set('')
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.choice is not None
         assert dialog.choice.start_date is None
@@ -506,7 +546,9 @@ def test_start_valid(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _StartDateDialog(root)
+        # pylint: disable-next=protected-access
         dialog._date.set('2026-06-15')
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.choice is not None
         assert dialog.choice.start_date == date(2026, 6, 15)
@@ -522,7 +564,9 @@ def test_start_bad(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _StartDateDialog(root)
+        # pylint: disable-next=protected-access
         dialog._date.set('nope')
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.choice is None
         assert len(rec.calls) == 1
@@ -546,8 +590,11 @@ def test_levels_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _LevelsDialog(root)
+        # pylint: disable-next=protected-access
         number = sorted(dialog._chosen)[0]
+        # pylint: disable-next=protected-access
         dialog._chosen[number].set(True)
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.levels == [number]
     finally:
@@ -562,6 +609,7 @@ def test_levels_none(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         dialog = _LevelsDialog(root)
+        # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.levels is None
         assert len(rec.calls) == 1
@@ -579,6 +627,7 @@ def test_ask_levels_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
         root.destroy()
 
 
+# pylint: disable-next=too-few-public-methods
 class _AutoBuffer(_BufferDialog):
     """Buffer dialog that confirms itself once shown, for show coverage."""
 
@@ -612,6 +661,7 @@ def test_no_config_choice(monkeypatch: pytest.MonkeyPatch,
     root = _root_or_skip()
     try:
         dialog = _NoConfigDialog(root)
+        # pylint: disable-next=protected-access
         dialog._choose(choice)
         assert dialog.choice is choice
     finally:
@@ -629,6 +679,7 @@ def test_no_config_frame(monkeypatch: pytest.MonkeyPatch) -> None:
         root.destroy()
 
 
+# pylint: disable-next=too-few-public-methods
 class _AutoNoConfig(_NoConfigDialog):
     """No-config dialog that picks the wizard once shown, for coverage."""
 

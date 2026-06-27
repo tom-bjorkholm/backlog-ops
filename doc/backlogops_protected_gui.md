@@ -74,9 +74,12 @@
     * [\_resolve\_missing\_config](#backlogops_gui.application.BacklogApp._resolve_missing_config)
     * [\_adopt\_startup\_wizard](#backlogops_gui.application.BacklogApp._adopt_startup_wizard)
     * [\_adopt\_loaded\_config](#backlogops_gui.application.BacklogApp._adopt_loaded_config)
+    * [\_run\_bridge\_wizard](#backlogops_gui.application.BacklogApp._run_bridge_wizard)
     * [run\_wizard](#backlogops_gui.application.BacklogApp.run_wizard)
     * [run\_config\_wizard](#backlogops_gui.application.BacklogApp.run_config_wizard)
+    * [create\_preset\_file](#backlogops_gui.application.BacklogApp.create_preset_file)
     * [write\_config](#backlogops_gui.application.BacklogApp.write_config)
+    * [\_write\_to\_chosen](#backlogops_gui.application.BacklogApp._write_to_chosen)
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
     * [open\_backlog](#backlogops_gui.application.BacklogApp.open_backlog)
@@ -910,8 +913,9 @@ Return the wizard window, creating it on first use.
 Tkinter application for backlog operations.
 
 The application opens a main window whose menu reads a backlog from a file,
-runs the teams configuration wizard, writes the running configuration to a
-file, and creates a demonstration backlog. Each backlog opens in its own
+runs the teams configuration wizard, creates a stand-alone input or output
+preset file, writes the running configuration to a file, and creates a
+demonstration backlog. Each backlog opens in its own
 window. On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
@@ -1111,6 +1115,21 @@ def _adopt_loaded_config() -> bool
 
 Load a chosen configuration file, adopting it on success.
 
+<a id="backlogops_gui.application.BacklogApp._run_bridge_wizard"></a>
+
+#### \_run\_bridge\_wizard
+
+```python
+def _run_bridge_wizard(wizard: Callable[[WizardUiBridge], _WizardConfig],
+                       error_title: str) -> Optional[_WizardConfig]
+```
+
+Run a wizard over a fresh Tk bridge, returning its config or None.
+
+An abandoned wizard ends in ``EOFError`` and yields None; any other
+wizard failure is reported under ``error_title`` and also yields
+None. The bridge window is always closed afterwards.
+
 <a id="backlogops_gui.application.BacklogApp.run_wizard"></a>
 
 #### run\_wizard
@@ -1131,6 +1150,16 @@ def run_config_wizard() -> None
 
 Run the wizard and make a new configuration active on success.
 
+<a id="backlogops_gui.application.BacklogApp.create_preset_file"></a>
+
+#### create\_preset\_file
+
+```python
+def create_preset_file() -> None
+```
+
+Run the IO preset wizard and write the preset to a chosen file.
+
 <a id="backlogops_gui.application.BacklogApp.write_config"></a>
 
 #### write\_config
@@ -1140,6 +1169,20 @@ def write_config() -> None
 ```
 
 Write the running configuration to a chosen file.
+
+<a id="backlogops_gui.application.BacklogApp._write_to_chosen"></a>
+
+#### \_write\_to\_chosen
+
+```python
+def _write_to_chosen(config: Config, fail_title: str, ok_title: str) -> None
+```
+
+Write a configuration to a user-chosen file and report the outcome.
+
+The chosen filename receives the ``.cfg`` extension when missing. A
+cancelled chooser writes nothing; a write failure is reported under
+``fail_title`` and a success under ``ok_title``.
 
 <a id="backlogops_gui.application.BacklogApp.read_backlog_file"></a>
 

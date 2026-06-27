@@ -18,8 +18,6 @@
   * [main](#backlogops_cli.demo_backlog.main)
 * [backlogops\_cli.config\_wizard](#backlogops_cli.config_wizard)
   * [build\_parser](#backlogops_cli.config_wizard.build_parser)
-  * [\_check\_overwrite](#backlogops_cli.config_wizard._check_overwrite)
-  * [\_make\_bridge](#backlogops_cli.config_wizard._make_bridge)
   * [main](#backlogops_cli.config_wizard.main)
 * [backlogops\_cli.\_command\_io](#backlogops_cli._command_io)
   * [overwrite\_callback](#backlogops_cli._command_io.overwrite_callback)
@@ -49,6 +47,11 @@
   * [\_level\_value](#backlogops_cli.extract_keys._level_value)
   * [\_emit](#backlogops_cli.extract_keys._emit)
   * [main](#backlogops_cli.extract_keys.main)
+* [backlogops\_cli.\_wizard\_io](#backlogops_cli._wizard_io)
+  * [build\_wizard\_parser](#backlogops_cli._wizard_io.build_wizard_parser)
+  * [\_check\_overwrite](#backlogops_cli._wizard_io._check_overwrite)
+  * [\_make\_bridge](#backlogops_cli._wizard_io._make_bridge)
+  * [run\_wizard\_to\_file](#backlogops_cli._wizard_io.run_wizard_to_file)
 * [backlogops\_cli.bloc\_version\_reporter](#backlogops_cli.bloc_version_reporter)
   * [BloCliVersionReporter](#backlogops_cli.bloc_version_reporter.BloCliVersionReporter)
     * [package\_names](#backlogops_cli.bloc_version_reporter.BloCliVersionReporter.package_names)
@@ -69,6 +72,9 @@
   * [build\_parser](#backlogops_cli.order_by_release.build_parser)
   * [\_ordered](#backlogops_cli.order_by_release._ordered)
   * [main](#backlogops_cli.order_by_release.main)
+* [backlogops\_cli.preset\_wizard](#backlogops_cli.preset_wizard)
+  * [build\_parser](#backlogops_cli.preset_wizard.build_parser)
+  * [main](#backlogops_cli.preset_wizard.main)
 * [backlogops\_cli.order\_by\_keys](#backlogops_cli.order_by_keys)
   * [build\_parser](#backlogops_cli.order_by_keys.build_parser)
   * [\_reordered](#backlogops_cli.order_by_keys._reordered)
@@ -273,34 +279,6 @@ def build_parser() -> argparse.ArgumentParser
 ```
 
 Build the command line parser for the config wizard command.
-
-<a id="backlogops_cli.config_wizard._check_overwrite"></a>
-
-#### \_check\_overwrite
-
-```python
-def _check_overwrite(output: str, force: bool) -> None
-```
-
-Ask before overwriting an existing configuration file.
-
-The wizard would otherwise silently overwrite the file. The check is
-done before the wizard runs, so the user is not asked to confirm an
-overwrite only after entering the whole configuration.
-
-<a id="backlogops_cli.config_wizard._make_bridge"></a>
-
-#### \_make\_bridge
-
-```python
-def _make_bridge(no_textual: bool) -> WizardUiBridge
-```
-
-Return the console bridge when forced, else the best text bridge.
-
-Without ``--no-textual`` the factory returns a Textual full-screen
-bridge in a real terminal and a console bridge otherwise, such as when
-input is redirected or under tests.
 
 <a id="backlogops_cli.config_wizard.main"></a>
 
@@ -724,6 +702,85 @@ Extract the backlog keys at the given levels and emit them.
   ``0`` on success, ``1`` when the backlog cannot be read or the
   keys cannot be written.
 
+<a id="backlogops_cli._wizard_io"></a>
+
+# backlogops\_cli.\_wizard\_io
+
+Shared helpers for the configuration and preset wizard commands.
+
+Both wizard commands write a JSON configuration file built interactively
+through a ``WizardUiBridge``. They share the same command line shape (an
+output file, a switch forcing the plain console interface, and a force
+flag), the same overwrite check, and the same run-write-report flow. That
+shared logic lives here; the leading underscore in the module name keeps
+it out of the command listing.
+
+<a id="backlogops_cli._wizard_io.build_wizard_parser"></a>
+
+#### build\_wizard\_parser
+
+```python
+def build_wizard_parser(description: str) -> argparse.ArgumentParser
+```
+
+Build a wizard parser with output, no-textual and force options.
+
+<a id="backlogops_cli._wizard_io._check_overwrite"></a>
+
+#### \_check\_overwrite
+
+```python
+def _check_overwrite(output: str, force: bool) -> None
+```
+
+Ask before overwriting an existing configuration file.
+
+The check runs before the wizard, so the user is not asked to confirm
+an overwrite only after entering the whole configuration.
+
+<a id="backlogops_cli._wizard_io._make_bridge"></a>
+
+#### \_make\_bridge
+
+```python
+def _make_bridge(no_textual: bool) -> WizardUiBridge
+```
+
+Return the console bridge when forced, else the best text bridge.
+
+Without ``--no-textual`` the factory returns a Textual full-screen
+bridge in a real terminal and a console bridge otherwise, such as when
+input is redirected or under tests.
+
+<a id="backlogops_cli._wizard_io.run_wizard_to_file"></a>
+
+#### run\_wizard\_to\_file
+
+```python
+def run_wizard_to_file(parsed: argparse.Namespace,
+                       wizard: Callable[[WizardUiBridge],
+                                        Config], label: str) -> int
+```
+
+Run a wizard, write its configuration to the output file, report.
+
+The output filename receives the ``.cfg`` extension when it is not
+already present.
+
+**Arguments**:
+
+- `parsed` - Parsed arguments holding ``output``, ``force`` and
+  ``no_textual``.
+- `wizard` - Wizard called with the chosen UI bridge; it returns a
+  configuration object that knows how to write itself.
+- `label` - Human-readable name of what was written, for the message.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the wizard is abandoned or the
+  configuration is rejected or cannot be written.
+
 <a id="backlogops_cli.bloc_version_reporter"></a>
 
 # backlogops\_cli.bloc\_version\_reporter
@@ -984,6 +1041,51 @@ Order the backlog by release order and write the output file.
 
   ``0`` on success, ``1`` when the data cannot be read, ordered or
   written.
+
+<a id="backlogops_cli.preset_wizard"></a>
+
+# backlogops\_cli.preset\_wizard
+
+Run the IO preset wizard and store the created preset file.
+
+The created file holds a single input or output TableIO preset (a format
+configuration with its column-name maps, and a level display for an output
+preset). Such a stand-alone file is used wherever an input or output
+configuration is taken, by giving its file name.
+
+<a id="backlogops_cli.preset_wizard.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the preset wizard command.
+
+<a id="backlogops_cli.preset_wizard.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Run the interactive IO preset wizard and write the preset file.
+
+The wizard asks whether to build an input or an output preset and then
+the settings for it. The output filename receives the ``.cfg``
+extension when it is not already present.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the wizard is abandoned or the preset
+  cannot be written.
 
 <a id="backlogops_cli.order_by_keys"></a>
 

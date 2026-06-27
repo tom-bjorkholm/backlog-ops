@@ -123,7 +123,7 @@ they are included as parts of README_pypi.md.
 
 ## Test summary
 
-- Test result: 1306 passed in 26s
+- Test result: 1330 passed in 28s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

@@ -189,6 +189,9 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.plan_release_dates
      Set planned release dates from the estimated release dates
 
+  python3 -m backlogops_cli.preset_wizard
+     Create an input or output preset config file via a wizard
+
   python3 -m backlogops_cli.version
      Print version information for the backlogops_cli package
 
@@ -196,7 +199,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 1306 passed in 26s
+- Test result: 1330 passed in 28s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

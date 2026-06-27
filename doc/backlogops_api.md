@@ -254,6 +254,8 @@
     * [get\_status\_format](#backlogops.format_rules.FormatRules.get_status_format)
     * [turn\_off\_cell\_format](#backlogops.format_rules.FormatRules.turn_off_cell_format)
     * [cell\_format\_used](#backlogops.format_rules.FormatRules.cell_format_used)
+* [backlogops.io\_preset\_wizard](#backlogops.io_preset_wizard)
+  * [preset\_wizard](#backlogops.io_preset_wizard.preset_wizard)
 
 <a id="backlogops.available_teams"></a>
 
@@ -4476,29 +4478,21 @@ omitted the default :class:`FormatRules` apply.
 
 # backlogops.backlog\_ops\_wizard
 
-Interactively build a backlog-ops configuration.
+Interactively build a workforce or a full backlog-ops configuration.
 
 The public helpers :func:`available_teams_wizard` and
 :func:`backlog_ops_wizard` ask the user for the company work hours, the
 persons and their personal work-hour exceptions, the teams with their
-members, and optional TableIO presets. They drive any ``WizardUiBridge``
+members, and, for the full configuration, the named TableIO presets, the
+backlog item levels and the GUI display. They drive any ``WizardUiBridge``
 of ``tableio_cfg_json``, so the same wizard logic runs on a console text
 interface, a Textual full-screen interface or a graphical user interface.
 
-Each repeated part is asked by first requesting a count and then
-collecting exactly that many items, so there are no open-ended "add
-another?" prompts. Each counted group is collected inside its own level
-whose opening question is the count, so a cancel-level request from any
-item returns to that count question and re-asks the group. The wizard is
-driven through a small navigator that records every answer and replays
-them when the body is re-run, which is how it honours the bridge's back,
-cancel-level and abort requests: going back drops the most recently asked
-question, even across levels.
-
-Individual field values are validated as they are entered, and date
-ranges are kept non-empty. Cross-item rules that span a whole workforce,
-such as non-overlapping exception periods and per-person capacity, are
-checked when the result is stored.
+Each repeated part is asked by first requesting a count and then collecting
+exactly that many items, so there are no open-ended "add another?" prompts.
+The navigation machinery and the per-field readers live in
+:mod:`backlogops.wizard_helpers`; the input and output preset questions live
+in :mod:`backlogops.io_preset_wizard`.
 
 <a id="backlogops.backlog_ops_wizard.available_teams_wizard"></a>
 
@@ -5145,4 +5139,56 @@ def cell_format_used() -> bool
 ```
 
 Return True if any cell formatting is used.
+
+<a id="backlogops.io_preset_wizard"></a>
+
+# backlogops.io\_preset\_wizard
+
+Interactively create a stand-alone TableIO input or output preset.
+
+The public :func:`preset_wizard` asks whether to build an input or an
+output preset and then the same questions the full configuration wizard
+asks for one preset of that direction: the TableIO endpoint format and
+options, how the backlog and releases file columns relate to the internal
+fields, and, for an output preset, how levels are written. A stand-alone
+preset has no name of its own; the file it is written to is the preset.
+
+The ``_build_input_presets`` and ``_build_output_presets`` collectors ask a
+counted list of *named* presets and are reused by the full configuration
+wizard, where each preset additionally has a name.
+
+<a id="backlogops.io_preset_wizard.preset_wizard"></a>
+
+#### preset\_wizard
+
+```python
+def preset_wizard(
+        ui_bridge: WizardUiBridge) -> InputFormatConfig | OutputFormatConfig
+```
+
+Interactively create a stand-alone input or output TableIO preset.
+
+The wizard first asks whether to build an input or an output preset,
+then asks exactly the questions the full configuration wizard asks for
+one preset of that direction: the TableIO endpoint format and options,
+how the backlog and releases file columns relate to the internal
+fields, and, for an output preset, how levels are written. A
+stand-alone preset has no name of its own; the file it is written to is
+the preset, referred to by its file name where an input or output
+configuration is taken.
+
+**Arguments**:
+
+- `ui_bridge` - Bridge between the wizard and the user interface.
+  
+
+**Returns**:
+
+  The input or output format configuration, ready to be written to a
+  stand-alone configuration file.
+  
+
+**Raises**:
+
+- `EOFError` - The input ended, or the user abandoned the wizard.
 

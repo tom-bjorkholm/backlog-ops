@@ -37,6 +37,9 @@
 * [backlogops\_cli.order\_by\_release](#backlogops_cli.order_by_release)
   * [build\_parser](#backlogops_cli.order_by_release.build_parser)
   * [main](#backlogops_cli.order_by_release.main)
+* [backlogops\_cli.preset\_wizard](#backlogops_cli.preset_wizard)
+  * [build\_parser](#backlogops_cli.preset_wizard.build_parser)
+  * [main](#backlogops_cli.preset_wizard.main)
 * [backlogops\_cli.order\_by\_keys](#backlogops_cli.order_by_keys)
   * [build\_parser](#backlogops_cli.order_by_keys.build_parser)
   * [main](#backlogops_cli.order_by_keys.main)
@@ -521,6 +524,51 @@ Order the backlog by release order and write the output file.
 
   ``0`` on success, ``1`` when the data cannot be read, ordered or
   written.
+
+<a id="backlogops_cli.preset_wizard"></a>
+
+# backlogops\_cli.preset\_wizard
+
+Run the IO preset wizard and store the created preset file.
+
+The created file holds a single input or output TableIO preset (a format
+configuration with its column-name maps, and a level display for an output
+preset). Such a stand-alone file is used wherever an input or output
+configuration is taken, by giving its file name.
+
+<a id="backlogops_cli.preset_wizard.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the preset wizard command.
+
+<a id="backlogops_cli.preset_wizard.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Run the interactive IO preset wizard and write the preset file.
+
+The wizard asks whether to build an input or an output preset and then
+the settings for it. The output filename receives the ``.cfg``
+extension when it is not already present.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the wizard is abandoned or the preset
+  cannot be written.
 
 <a id="backlogops_cli.order_by_keys"></a>
 

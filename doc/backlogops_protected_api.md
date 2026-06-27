@@ -364,71 +364,8 @@
   * [\_ordered\_sections](#backlogops.backlog_releases_io._ordered_sections)
   * [write\_backlog\_releases](#backlogops.backlog_releases_io.write_backlog_releases)
 * [backlogops.backlog\_ops\_wizard](#backlogops.backlog_ops_wizard)
-  * [\_Navigator](#backlogops.backlog_ops_wizard._Navigator)
-    * [\_\_init\_\_](#backlogops.backlog_ops_wizard._Navigator.__init__)
-    * [run](#backlogops.backlog_ops_wizard._Navigator.run)
-    * [level](#backlogops.backlog_ops_wizard._Navigator.level)
-    * [show](#backlogops.backlog_ops_wizard._Navigator.show)
-    * [error\_file](#backlogops.backlog_ops_wizard._Navigator.error_file)
-    * [ask\_text](#backlogops.backlog_ops_wizard._Navigator.ask_text)
-    * [ask\_number](#backlogops.backlog_ops_wizard._Navigator.ask_number)
-    * [ask\_int](#backlogops.backlog_ops_wizard._Navigator.ask_int)
-    * [ask\_count](#backlogops.backlog_ops_wizard._Navigator.ask_count)
-    * [ask\_yes\_no](#backlogops.backlog_ops_wizard._Navigator.ask_yes_no)
-    * [ask\_choice](#backlogops.backlog_ops_wizard._Navigator.ask_choice)
-    * [ask\_date](#backlogops.backlog_ops_wizard._Navigator.ask_date)
-    * [ask\_end\_date](#backlogops.backlog_ops_wizard._Navigator.ask_end_date)
-    * [ask\_opt\_date](#backlogops.backlog_ops_wizard._Navigator.ask_opt_date)
-    * [ask\_membership\_end](#backlogops.backlog_ops_wizard._Navigator.ask_membership_end)
-    * [ask\_person\_name](#backlogops.backlog_ops_wizard._Navigator.ask_person_name)
-    * [ask\_preset\_name](#backlogops.backlog_ops_wizard._Navigator.ask_preset_name)
-    * [ask\_tableio](#backlogops.backlog_ops_wizard._Navigator.ask_tableio)
-    * [ask\_schedule](#backlogops.backlog_ops_wizard._Navigator.ask_schedule)
-    * [ask\_levels](#backlogops.backlog_ops_wizard._Navigator.ask_levels)
-    * [ask\_renames](#backlogops.backlog_ops_wizard._Navigator.ask_renames)
-    * [\_ask](#backlogops.backlog_ops_wizard._Navigator._ask)
-    * [\_replaying](#backlogops.backlog_ops_wizard._Navigator._replaying)
-  * [\_parse\_date](#backlogops.backlog_ops_wizard._parse_date)
-  * [\_read\_text](#backlogops.backlog_ops_wizard._read_text)
-  * [\_read\_number](#backlogops.backlog_ops_wizard._read_number)
-  * [\_read\_int](#backlogops.backlog_ops_wizard._read_int)
-  * [\_read\_date](#backlogops.backlog_ops_wizard._read_date)
-  * [\_read\_end\_date](#backlogops.backlog_ops_wizard._read_end_date)
-  * [\_read\_opt\_date](#backlogops.backlog_ops_wizard._read_opt_date)
-  * [\_read\_unique\_name](#backlogops.backlog_ops_wizard._read_unique_name)
-  * [\_OUT\_LEVEL\_QUESTION](#backlogops.backlog_ops_wizard._OUT_LEVEL_QUESTION)
   * [\_GUI\_LEVEL\_QUESTION](#backlogops.backlog_ops_wizard._GUI_LEVEL_QUESTION)
-  * [\_OUT\_COLUMN\_HEADER](#backlogops.backlog_ops_wizard._OUT_COLUMN_HEADER)
   * [\_GUI\_COLUMN\_HEADER](#backlogops.backlog_ops_wizard._GUI_COLUMN_HEADER)
-  * [\_IN\_COLUMN\_HEADER](#backlogops.backlog_ops_wizard._IN_COLUMN_HEADER)
-  * [\_ask\_level\_display](#backlogops.backlog_ops_wizard._ask_level_display)
-  * [\_read\_preset\_name](#backlogops.backlog_ops_wizard._read_preset_name)
-  * [\_read\_tableio](#backlogops.backlog_ops_wizard._read_tableio)
-  * [\_num\_text](#backlogops.backlog_ops_wizard._num_text)
-  * [\_is\_nonneg](#backlogops.backlog_ops_wizard._is_nonneg)
-  * [\_sched\_check](#backlogops.backlog_ops_wizard._sched_check)
-  * [\_parse\_schedule](#backlogops.backlog_ops_wizard._parse_schedule)
-  * [\_read\_schedule](#backlogops.backlog_ops_wizard._read_schedule)
-  * [\_MAX\_EXTRA\_COLUMNS](#backlogops.backlog_ops_wizard._MAX_EXTRA_COLUMNS)
-  * [\_RENAME\_INSTRUCTION](#backlogops.backlog_ops_wizard._RENAME_INSTRUCTION)
-  * [\_RENAME\_REASON](#backlogops.backlog_ops_wizard._RENAME_REASON)
-  * [\_INPUT\_INSTRUCTION](#backlogops.backlog_ops_wizard._INPUT_INSTRUCTION)
-  * [\_INPUT\_REASON](#backlogops.backlog_ops_wizard._INPUT_REASON)
-  * [\_backlog\_map\_fields](#backlogops.backlog_ops_wizard._backlog_map_fields)
-  * [\_rename\_check](#backlogops.backlog_ops_wizard._rename_check)
-  * [\_parse\_column\_renames](#backlogops.backlog_ops_wizard._parse_column_renames)
-  * [\_parse\_input\_renames](#backlogops.backlog_ops_wizard._parse_input_renames)
-  * [\_rename\_cells](#backlogops.backlog_ops_wizard._rename_cells)
-  * [\_read\_renames](#backlogops.backlog_ops_wizard._read_renames)
-  * [\_MAX\_LEVELS](#backlogops.backlog_ops_wizard._MAX_LEVELS)
-  * [\_parse\_level\_int](#backlogops.backlog_ops_wizard._parse_level_int)
-  * [\_split\_aliases](#backlogops.backlog_ops_wizard._split_aliases)
-  * [\_levels\_check](#backlogops.backlog_ops_wizard._levels_check)
-  * [\_parse\_levels](#backlogops.backlog_ops_wizard._parse_levels)
-  * [\_default\_level\_cells](#backlogops.backlog_ops_wizard._default_level_cells)
-  * [\_levels\_problem](#backlogops.backlog_ops_wizard._levels_problem)
-  * [\_cells\_from\_table](#backlogops.backlog_ops_wizard._cells_from_table)
-  * [\_read\_levels](#backlogops.backlog_ops_wizard._read_levels)
   * [available\_teams\_wizard](#backlogops.backlog_ops_wizard.available_teams_wizard)
   * [backlog\_ops\_wizard](#backlogops.backlog_ops_wizard.backlog_ops_wizard)
   * [\_collect\_teams](#backlogops.backlog_ops_wizard._collect_teams)
@@ -447,10 +384,6 @@
   * [\_ask\_membership](#backlogops.backlog_ops_wizard._ask_membership)
   * [\_build\_fte\_exceptions](#backlogops.backlog_ops_wizard._build_fte_exceptions)
   * [\_ask\_fte\_exception](#backlogops.backlog_ops_wizard._ask_fte_exception)
-  * [\_build\_input\_presets](#backlogops.backlog_ops_wizard._build_input_presets)
-  * [\_build\_output\_presets](#backlogops.backlog_ops_wizard._build_output_presets)
-  * [\_ask\_input\_preset](#backlogops.backlog_ops_wizard._ask_input_preset)
-  * [\_ask\_output\_preset](#backlogops.backlog_ops_wizard._ask_output_preset)
 * [backlogops.order\_by\_dependencies](#backlogops.order_by_dependencies)
   * [DependencyMode](#backlogops.order_by_dependencies.DependencyMode)
   * [\_normalize\_space\_around](#backlogops.order_by_dependencies._normalize_space_around)
@@ -486,6 +419,67 @@
   * [\_level\_sequence](#backlogops.move_keys_first._level_sequence)
   * [\_level\_number](#backlogops.move_keys_first._level_number)
   * [get\_keys\_in\_order](#backlogops.move_keys_first.get_keys_in_order)
+* [backlogops.wizard\_helpers](#backlogops.wizard_helpers)
+  * [\_Navigator](#backlogops.wizard_helpers._Navigator)
+    * [\_\_init\_\_](#backlogops.wizard_helpers._Navigator.__init__)
+    * [run](#backlogops.wizard_helpers._Navigator.run)
+    * [level](#backlogops.wizard_helpers._Navigator.level)
+    * [show](#backlogops.wizard_helpers._Navigator.show)
+    * [error\_file](#backlogops.wizard_helpers._Navigator.error_file)
+    * [ask\_text](#backlogops.wizard_helpers._Navigator.ask_text)
+    * [ask\_number](#backlogops.wizard_helpers._Navigator.ask_number)
+    * [ask\_int](#backlogops.wizard_helpers._Navigator.ask_int)
+    * [ask\_count](#backlogops.wizard_helpers._Navigator.ask_count)
+    * [ask\_yes\_no](#backlogops.wizard_helpers._Navigator.ask_yes_no)
+    * [ask\_choice](#backlogops.wizard_helpers._Navigator.ask_choice)
+    * [ask\_date](#backlogops.wizard_helpers._Navigator.ask_date)
+    * [ask\_end\_date](#backlogops.wizard_helpers._Navigator.ask_end_date)
+    * [ask\_opt\_date](#backlogops.wizard_helpers._Navigator.ask_opt_date)
+    * [ask\_membership\_end](#backlogops.wizard_helpers._Navigator.ask_membership_end)
+    * [ask\_person\_name](#backlogops.wizard_helpers._Navigator.ask_person_name)
+    * [ask\_preset\_name](#backlogops.wizard_helpers._Navigator.ask_preset_name)
+    * [ask\_tableio](#backlogops.wizard_helpers._Navigator.ask_tableio)
+    * [ask\_schedule](#backlogops.wizard_helpers._Navigator.ask_schedule)
+    * [ask\_levels](#backlogops.wizard_helpers._Navigator.ask_levels)
+    * [ask\_renames](#backlogops.wizard_helpers._Navigator.ask_renames)
+    * [\_ask](#backlogops.wizard_helpers._Navigator._ask)
+    * [\_replaying](#backlogops.wizard_helpers._Navigator._replaying)
+  * [\_parse\_date](#backlogops.wizard_helpers._parse_date)
+  * [\_read\_text](#backlogops.wizard_helpers._read_text)
+  * [\_read\_number](#backlogops.wizard_helpers._read_number)
+  * [\_read\_int](#backlogops.wizard_helpers._read_int)
+  * [\_read\_date](#backlogops.wizard_helpers._read_date)
+  * [\_read\_end\_date](#backlogops.wizard_helpers._read_end_date)
+  * [\_read\_opt\_date](#backlogops.wizard_helpers._read_opt_date)
+  * [\_read\_unique\_name](#backlogops.wizard_helpers._read_unique_name)
+  * [\_ask\_level\_display](#backlogops.wizard_helpers._ask_level_display)
+  * [\_read\_preset\_name](#backlogops.wizard_helpers._read_preset_name)
+  * [\_read\_tableio](#backlogops.wizard_helpers._read_tableio)
+  * [\_num\_text](#backlogops.wizard_helpers._num_text)
+  * [\_is\_nonneg](#backlogops.wizard_helpers._is_nonneg)
+  * [\_sched\_check](#backlogops.wizard_helpers._sched_check)
+  * [\_parse\_schedule](#backlogops.wizard_helpers._parse_schedule)
+  * [\_read\_schedule](#backlogops.wizard_helpers._read_schedule)
+  * [\_MAX\_EXTRA\_COLUMNS](#backlogops.wizard_helpers._MAX_EXTRA_COLUMNS)
+  * [\_RENAME\_INSTRUCTION](#backlogops.wizard_helpers._RENAME_INSTRUCTION)
+  * [\_RENAME\_REASON](#backlogops.wizard_helpers._RENAME_REASON)
+  * [\_INPUT\_INSTRUCTION](#backlogops.wizard_helpers._INPUT_INSTRUCTION)
+  * [\_INPUT\_REASON](#backlogops.wizard_helpers._INPUT_REASON)
+  * [\_backlog\_map\_fields](#backlogops.wizard_helpers._backlog_map_fields)
+  * [\_rename\_check](#backlogops.wizard_helpers._rename_check)
+  * [\_parse\_column\_renames](#backlogops.wizard_helpers._parse_column_renames)
+  * [\_parse\_input\_renames](#backlogops.wizard_helpers._parse_input_renames)
+  * [\_rename\_cells](#backlogops.wizard_helpers._rename_cells)
+  * [\_read\_renames](#backlogops.wizard_helpers._read_renames)
+  * [\_MAX\_LEVELS](#backlogops.wizard_helpers._MAX_LEVELS)
+  * [\_parse\_level\_int](#backlogops.wizard_helpers._parse_level_int)
+  * [\_split\_aliases](#backlogops.wizard_helpers._split_aliases)
+  * [\_levels\_check](#backlogops.wizard_helpers._levels_check)
+  * [\_parse\_levels](#backlogops.wizard_helpers._parse_levels)
+  * [\_default\_level\_cells](#backlogops.wizard_helpers._default_level_cells)
+  * [\_levels\_problem](#backlogops.wizard_helpers._levels_problem)
+  * [\_cells\_from\_table](#backlogops.wizard_helpers._cells_from_table)
+  * [\_read\_levels](#backlogops.wizard_helpers._read_levels)
 * [backlogops.estimate\_ready\_date](#backlogops.estimate_ready_date)
   * [\_ONE\_DAY](#backlogops.estimate_ready_date._ONE_DAY)
   * [\_HORIZON](#backlogops.estimate_ready_date._HORIZON)
@@ -534,6 +528,19 @@
     * [get\_status\_format](#backlogops.format_rules.FormatRules.get_status_format)
     * [turn\_off\_cell\_format](#backlogops.format_rules.FormatRules.turn_off_cell_format)
     * [cell\_format\_used](#backlogops.format_rules.FormatRules.cell_format_used)
+* [backlogops.io\_preset\_wizard](#backlogops.io_preset_wizard)
+  * [\_OUT\_LEVEL\_QUESTION](#backlogops.io_preset_wizard._OUT_LEVEL_QUESTION)
+  * [\_OUT\_COLUMN\_HEADER](#backlogops.io_preset_wizard._OUT_COLUMN_HEADER)
+  * [\_IN\_COLUMN\_HEADER](#backlogops.io_preset_wizard._IN_COLUMN_HEADER)
+  * [preset\_wizard](#backlogops.io_preset_wizard.preset_wizard)
+  * [\_DIRECTION\_QUESTION](#backlogops.io_preset_wizard._DIRECTION_QUESTION)
+  * [\_collect\_preset](#backlogops.io_preset_wizard._collect_preset)
+  * [\_build\_input\_presets](#backlogops.io_preset_wizard._build_input_presets)
+  * [\_build\_output\_presets](#backlogops.io_preset_wizard._build_output_presets)
+  * [\_ask\_input\_config](#backlogops.io_preset_wizard._ask_input_config)
+  * [\_ask\_output\_config](#backlogops.io_preset_wizard._ask_output_config)
+  * [\_ask\_input\_preset](#backlogops.io_preset_wizard._ask_input_preset)
+  * [\_ask\_output\_preset](#backlogops.io_preset_wizard._ask_output_preset)
 
 <a id="backlogops.available_teams"></a>
 
@@ -6369,397 +6376,21 @@ omitted the default :class:`FormatRules` apply.
 
 # backlogops.backlog\_ops\_wizard
 
-Interactively build a backlog-ops configuration.
+Interactively build a workforce or a full backlog-ops configuration.
 
 The public helpers :func:`available_teams_wizard` and
 :func:`backlog_ops_wizard` ask the user for the company work hours, the
 persons and their personal work-hour exceptions, the teams with their
-members, and optional TableIO presets. They drive any ``WizardUiBridge``
+members, and, for the full configuration, the named TableIO presets, the
+backlog item levels and the GUI display. They drive any ``WizardUiBridge``
 of ``tableio_cfg_json``, so the same wizard logic runs on a console text
 interface, a Textual full-screen interface or a graphical user interface.
 
-Each repeated part is asked by first requesting a count and then
-collecting exactly that many items, so there are no open-ended "add
-another?" prompts. Each counted group is collected inside its own level
-whose opening question is the count, so a cancel-level request from any
-item returns to that count question and re-asks the group. The wizard is
-driven through a small navigator that records every answer and replays
-them when the body is re-run, which is how it honours the bridge's back,
-cancel-level and abort requests: going back drops the most recently asked
-question, even across levels.
-
-Individual field values are validated as they are entered, and date
-ranges are kept non-empty. Cross-item rules that span a whole workforce,
-such as non-overlapping exception periods and per-person capacity, are
-checked when the result is stored.
-
-<a id="backlogops.backlog_ops_wizard._Navigator"></a>
-
-## \_Navigator Objects
-
-```python
-class _Navigator()
-```
-
-Drive a re-runnable wizard body with back, cancel and abort.
-
-The wizard body is an ordinary function that asks questions through
-this navigator. Every answered question is recorded, so the body can
-be replayed from the start to implement navigation: going back drops
-the most recently asked question and replays the rest, which re-asks
-the previous question even when it lives in an outer level.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(ui_bridge: WizardUiBridge) -> None
-```
-
-Store the bridge and start with no recorded answers.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.run"></a>
-
-#### run
-
-```python
-def run(body: Callable[['_Navigator'], _T]) -> _T
-```
-
-Run the body, restarting it to honour back and cancel requests.
-
-A back request drops the most recent answer and replays the rest,
-re-asking the previous question. A cancel request that reaches the
-outermost body has no outer level to return to, so the question is
-asked again. An abort request propagates to the caller.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.level"></a>
-
-#### level
-
-```python
-def level(body_fn: Callable[[], _T]) -> _T
-```
-
-Run a sub-level, restarting it when the user cancels the level.
-
-A cancel-level request discards the answers collected inside this
-level and asks its first question again. A cancel raised at the
-level's first question has no answer to discard here, so it
-propagates to the enclosing level.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.show"></a>
-
-#### show
-
-```python
-def show(message: str) -> None
-```
-
-Show a message, unless recorded answers are being replayed.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.error_file"></a>
-
-#### error\_file
-
-```python
-def error_file() -> TextIO
-```
-
-Return the bridge's diagnostics stream.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_text"></a>
-
-#### ask\_text
-
-```python
-def ask_text(question: str,
-             *,
-             default: Optional[str] = None,
-             allow_empty: bool = False) -> str
-```
-
-Ask for text with an optional default and re-ask on empty.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_number"></a>
-
-#### ask\_number
-
-```python
-def ask_number(question: str, default: float, minimum: Optional[float],
-               maximum: Optional[float]) -> float
-```
-
-Ask for a floating point value within optional bounds.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_int"></a>
-
-#### ask\_int
-
-```python
-def ask_int(question: str,
-            default: int,
-            minimum: int,
-            maximum: Optional[int] = None) -> int
-```
-
-Ask for a whole number within the given bounds.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_count"></a>
-
-#### ask\_count
-
-```python
-def ask_count(question: str, maximum: Optional[int] = None) -> int
-```
-
-Ask how many items to collect, defaulting to none.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_yes_no"></a>
-
-#### ask\_yes\_no
-
-```python
-def ask_yes_no(question: str, default: bool) -> bool
-```
-
-Ask a yes/no question through the bridge's dedicated control.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_choice"></a>
-
-#### ask\_choice
-
-```python
-def ask_choice(question: str,
-               choices: Sequence[str],
-               default: Optional[str] = None) -> str
-```
-
-Ask the user to pick one of choices through the bridge.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_date"></a>
-
-#### ask\_date
-
-```python
-def ask_date(question: str) -> date
-```
-
-Ask for a required ISO 8601 date such as ``2026-06-13``.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_end_date"></a>
-
-#### ask\_end\_date
-
-```python
-def ask_end_date(question: str, start_date: date) -> date
-```
-
-Ask for an end date that is not before ``start_date``.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_opt_date"></a>
-
-#### ask\_opt\_date
-
-```python
-def ask_opt_date(question: str) -> Optional[date]
-```
-
-Ask for an optional ISO date; an empty answer returns ``None``.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_membership_end"></a>
-
-#### ask\_membership\_end
-
-```python
-def ask_membership_end(question: str,
-                       start_date: Optional[date]) -> Optional[date]
-```
-
-Ask for an optional end date not before the start date.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_person_name"></a>
-
-#### ask\_person\_name
-
-```python
-def ask_person_name(question: str, persons: dict[str, Person]) -> str
-```
-
-Ask for a person name that is not already used.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_preset_name"></a>
-
-#### ask\_preset\_name
-
-```python
-def ask_preset_name(question: str, used: set[str]) -> str
-```
-
-Ask for a preset name of letters and digits that is unused.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_tableio"></a>
-
-#### ask\_tableio
-
-```python
-def ask_tableio(file_access: FileAccess) -> TioJsonConfig
-```
-
-Ask for one TableIO endpoint configuration as one step.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_schedule"></a>
-
-#### ask\_schedule
-
-```python
-def ask_schedule() -> ScheduleWorkHours
-```
-
-Ask the weekly work-hours schedule as one table question.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_levels"></a>
-
-#### ask\_levels
-
-```python
-def ask_levels() -> list[Level]
-```
-
-Ask the backlog item levels as one variable-row table.
-
-<a id="backlogops.backlog_ops_wizard._Navigator.ask_renames"></a>
-
-#### ask\_renames
-
-```python
-def ask_renames(fields: list[str],
-                allow_extra: bool,
-                target_header: str,
-                is_input: bool = False) -> dict[str, Optional[str]]
-```
-
-Ask one column-rename map as one variable-row table.
-
-With ``is_input`` false the table stores an internal-to-external
-output map; with it true the table stores an external-to-internal
-input map. Either way the internal field names are pre-filled.
-
-<a id="backlogops.backlog_ops_wizard._Navigator._ask"></a>
-
-#### \_ask
-
-```python
-def _ask(ask_fn: Callable[[], object]) -> object
-```
-
-Return the recorded answer when replaying, else ask live.
-
-<a id="backlogops.backlog_ops_wizard._Navigator._replaying"></a>
-
-#### \_replaying
-
-```python
-def _replaying() -> bool
-```
-
-Return whether recorded answers are being replayed.
-
-<a id="backlogops.backlog_ops_wizard._parse_date"></a>
-
-#### \_parse\_date
-
-```python
-def _parse_date(answer: str) -> Optional[date]
-```
-
-Return the ISO date in ``answer``, or ``None`` when it is invalid.
-
-<a id="backlogops.backlog_ops_wizard._read_text"></a>
-
-#### \_read\_text
-
-```python
-def _read_text(ui: WizardUiBridge, question: str, default: Optional[str],
-               allow_empty: bool) -> str
-```
-
-Ask for a text value with an optional default and re-ask on empty.
-
-<a id="backlogops.backlog_ops_wizard._read_number"></a>
-
-#### \_read\_number
-
-```python
-def _read_number(ui: WizardUiBridge, question: str, default: float,
-                 minimum: Optional[float], maximum: Optional[float]) -> float
-```
-
-Ask for a floating point value within optional bounds.
-
-<a id="backlogops.backlog_ops_wizard._read_int"></a>
-
-#### \_read\_int
-
-```python
-def _read_int(ui: WizardUiBridge, question: str, default: int, minimum: int,
-              maximum: Optional[int]) -> int
-```
-
-Ask for a whole number within the given bounds.
-
-The bridge's typed ask_int re-asks invalid or out-of-range answers,
-and an empty answer keeps the default.
-
-<a id="backlogops.backlog_ops_wizard._read_date"></a>
-
-#### \_read\_date
-
-```python
-def _read_date(ui: WizardUiBridge, question: str) -> date
-```
-
-Ask for a required ISO 8601 date such as ``2026-06-13``.
-
-<a id="backlogops.backlog_ops_wizard._read_end_date"></a>
-
-#### \_read\_end\_date
-
-```python
-def _read_end_date(ui: WizardUiBridge, question: str,
-                   start_date: date) -> date
-```
-
-Ask for an end date that is not before ``start_date``.
-
-<a id="backlogops.backlog_ops_wizard._read_opt_date"></a>
-
-#### \_read\_opt\_date
-
-```python
-def _read_opt_date(ui: WizardUiBridge, question: str,
-                   start_date: Optional[date]) -> Optional[date]
-```
-
-Ask for an optional ISO date not before an optional start date.
-
-<a id="backlogops.backlog_ops_wizard._read_unique_name"></a>
-
-#### \_read\_unique\_name
-
-```python
-def _read_unique_name(ui: WizardUiBridge, question: str,
-                      persons: dict[str, Person]) -> str
-```
-
-Ask for a person name that is not already a key in ``persons``.
-
-<a id="backlogops.backlog_ops_wizard._OUT_LEVEL_QUESTION"></a>
-
-#### \_OUT\_LEVEL\_QUESTION
-
-Wizard prompt for how an output preset writes levels.
+Each repeated part is asked by first requesting a count and then collecting
+exactly that many items, so there are no open-ended "add another?" prompts.
+The navigation machinery and the per-field readers live in
+:mod:`backlogops.wizard_helpers`; the input and output preset questions live
+in :mod:`backlogops.io_preset_wizard`.
 
 <a id="backlogops.backlog_ops_wizard._GUI_LEVEL_QUESTION"></a>
 
@@ -6767,325 +6398,11 @@ Wizard prompt for how an output preset writes levels.
 
 Wizard prompt for how the GUI shows levels.
 
-<a id="backlogops.backlog_ops_wizard._OUT_COLUMN_HEADER"></a>
-
-#### \_OUT\_COLUMN\_HEADER
-
-Header of the renamed-column column in an output rename table.
-
 <a id="backlogops.backlog_ops_wizard._GUI_COLUMN_HEADER"></a>
 
 #### \_GUI\_COLUMN\_HEADER
 
 Header of the renamed-column column in a GUI rename table.
-
-<a id="backlogops.backlog_ops_wizard._IN_COLUMN_HEADER"></a>
-
-#### \_IN\_COLUMN\_HEADER
-
-Header of the file-column column in an input rename table.
-
-<a id="backlogops.backlog_ops_wizard._ask_level_display"></a>
-
-#### \_ask\_level\_display
-
-```python
-def _ask_level_display(nav: _Navigator, question: str) -> LevelDisplay
-```
-
-Ask how to show levels, defaulting to both number and name.
-
-<a id="backlogops.backlog_ops_wizard._read_preset_name"></a>
-
-#### \_read\_preset\_name
-
-```python
-def _read_preset_name(ui: WizardUiBridge, question: str,
-                      used: set[str]) -> str
-```
-
-Ask for a preset name of letters and digits that is unused.
-
-<a id="backlogops.backlog_ops_wizard._read_tableio"></a>
-
-#### \_read\_tableio
-
-```python
-def _read_tableio(ui: WizardUiBridge,
-                  file_access: FileAccess) -> TioJsonConfig
-```
-
-Ask for one TableIO endpoint configuration through the wizard.
-
-<a id="backlogops.backlog_ops_wizard._num_text"></a>
-
-#### \_num\_text
-
-```python
-def _num_text(value: float) -> str
-```
-
-Return a compact decimal text for a default numeric value.
-
-<a id="backlogops.backlog_ops_wizard._is_nonneg"></a>
-
-#### \_is\_nonneg
-
-```python
-def _is_nonneg(text: Optional[str]) -> bool
-```
-
-Return whether ``text`` parses as a number that is at least zero.
-
-<a id="backlogops.backlog_ops_wizard._sched_check"></a>
-
-#### \_sched\_check
-
-```python
-def _sched_check(table: list[list[Optional[str]]],
-                 position: tuple[int, int]) -> tuple[bool, str]
-```
-
-Give early feedback that an edited work-hours cell is a number.
-
-<a id="backlogops.backlog_ops_wizard._parse_schedule"></a>
-
-#### \_parse\_schedule
-
-```python
-def _parse_schedule(
-        days: Sequence[WeekDay], table: Sequence[Sequence[Optional[str]]]
-) -> Optional[ScheduleWorkHours]
-```
-
-Return the weekly schedule from a table, or None when invalid.
-
-<a id="backlogops.backlog_ops_wizard._read_schedule"></a>
-
-#### \_read\_schedule
-
-```python
-def _read_schedule(ui: WizardUiBridge) -> ScheduleWorkHours
-```
-
-Ask the weekly work-hours schedule as one table question.
-
-<a id="backlogops.backlog_ops_wizard._MAX_EXTRA_COLUMNS"></a>
-
-#### \_MAX\_EXTRA\_COLUMNS
-
-How many extra-field rows the user may add to a backlog rename table.
-
-<a id="backlogops.backlog_ops_wizard._RENAME_INSTRUCTION"></a>
-
-#### \_RENAME\_INSTRUCTION
-
-Instruction shown above an output column-rename table.
-
-<a id="backlogops.backlog_ops_wizard._RENAME_REASON"></a>
-
-#### \_RENAME\_REASON
-
-Re-ask reason for an inconsistent output rename table.
-
-<a id="backlogops.backlog_ops_wizard._INPUT_INSTRUCTION"></a>
-
-#### \_INPUT\_INSTRUCTION
-
-Instruction shown above an input column-rename table.
-
-<a id="backlogops.backlog_ops_wizard._INPUT_REASON"></a>
-
-#### \_INPUT\_REASON
-
-Re-ask reason for an inconsistent input rename table.
-
-<a id="backlogops.backlog_ops_wizard._backlog_map_fields"></a>
-
-#### \_backlog\_map\_fields
-
-```python
-def _backlog_map_fields() -> list[str]
-```
-
-Return the backlog internal field names offered for renaming.
-
-The numeric ``level`` and the named ``level name`` columns are offered
-as two independent entries, so each can be renamed or dropped on its
-own when the level display writes both columns.
-
-<a id="backlogops.backlog_ops_wizard._rename_check"></a>
-
-#### \_rename\_check
-
-```python
-def _rename_check(table: list[list[Optional[str]]],
-                  position: tuple[int, int]) -> tuple[bool, str]
-```
-
-Advise when an output column lacks its internal field name.
-
-<a id="backlogops.backlog_ops_wizard._parse_column_renames"></a>
-
-#### \_parse\_column\_renames
-
-```python
-def _parse_column_renames(
-    table: Sequence[Sequence[Optional[str]]]
-) -> Optional[dict[str, Optional[str]]]
-```
-
-Return the rename map from a table, or None when it is invalid.
-
-A row with a blank internal field is ignored. A blank output column
-drops that field (maps to None). An output column equal to the
-internal field is no rename and is omitted. The table is rejected when
-an internal field repeats or when two columns would share a name.
-
-<a id="backlogops.backlog_ops_wizard._parse_input_renames"></a>
-
-#### \_parse\_input\_renames
-
-```python
-def _parse_input_renames(
-    table: Sequence[Sequence[Optional[str]]]
-) -> Optional[dict[str, Optional[str]]]
-```
-
-Return the file-to-internal map from a table, or None if invalid.
-
-Each row pairs an internal field (column 0) with the input file column
-read into it (column 1). A blank file column leaves that field
-unmapped. A file column equal to the internal field is no rename and is
-omitted. A row with a file column but a blank internal field drops that
-file column (maps it to None). The table is rejected when one file
-column appears more than once.
-
-<a id="backlogops.backlog_ops_wizard._rename_cells"></a>
-
-#### \_rename\_cells
-
-```python
-def _rename_cells(fields: list[str]) -> list[list[TableCell]]
-```
-
-Return seed rows with each editable column pre-filled to its field.
-
-<a id="backlogops.backlog_ops_wizard._read_renames"></a>
-
-#### \_read\_renames
-
-```python
-def _read_renames(ui: WizardUiBridge, fields: list[str], allow_extra: bool,
-                  target_header: str,
-                  is_input: bool) -> dict[str, Optional[str]]
-```
-
-Ask one column-rename map as one variable-row table.
-
-Each known internal field is shown as a read-only row pre-filled with
-the same column name, so leaving the table unchanged renames nothing
-and the known fields cannot be deleted. A backlog table also accepts
-added rows for extra fields; an added row is fully editable, so its
-internal name can be typed. A releases table is locked to its own
-fields. The variable-row editor accepts the table on a blank answer.
-With ``is_input`` true the table is parsed as an external-to-internal
-input map, otherwise as an internal-to-external output map.
-
-<a id="backlogops.backlog_ops_wizard._MAX_LEVELS"></a>
-
-#### \_MAX\_LEVELS
-
-Upper bound on the number of backlog item levels the wizard accepts.
-
-<a id="backlogops.backlog_ops_wizard._parse_level_int"></a>
-
-#### \_parse\_level\_int
-
-```python
-def _parse_level_int(text: Optional[str]) -> Optional[int]
-```
-
-Return ``text`` as an int (sign allowed), or None when invalid.
-
-<a id="backlogops.backlog_ops_wizard._split_aliases"></a>
-
-#### \_split\_aliases
-
-```python
-def _split_aliases(text: Optional[str]) -> list[str]
-```
-
-Return the trimmed, non-empty comma separated aliases in ``text``.
-
-<a id="backlogops.backlog_ops_wizard._levels_check"></a>
-
-#### \_levels\_check
-
-```python
-def _levels_check(table: list[list[Optional[str]]],
-                  position: tuple[int, int]) -> tuple[bool, str]
-```
-
-Give early feedback that a level number or name cell is valid.
-
-<a id="backlogops.backlog_ops_wizard._parse_levels"></a>
-
-#### \_parse\_levels
-
-```python
-def _parse_levels(table: list[list[Optional[str]]]) -> Optional[list[Level]]
-```
-
-Return the levels from a table, or None when a cell is invalid.
-
-<a id="backlogops.backlog_ops_wizard._default_level_cells"></a>
-
-#### \_default\_level\_cells
-
-```python
-def _default_level_cells() -> list[list[TableCell]]
-```
-
-Return the table rows pre-filled with the default levels.
-
-<a id="backlogops.backlog_ops_wizard._levels_problem"></a>
-
-#### \_levels\_problem
-
-```python
-def _levels_problem(levels: list[Level], error_file: TextIO) -> Optional[str]
-```
-
-Return a re-ask reason when the levels are inconsistent, else None.
-
-The whole-table rule reuses :func:`levels_from_list`, which rejects a
-repeated level number and any duplicate or malformed name or alias.
-
-<a id="backlogops.backlog_ops_wizard._cells_from_table"></a>
-
-#### \_cells\_from\_table
-
-```python
-def _cells_from_table(
-        table: list[list[Optional[str]]]) -> list[list[TableCell]]
-```
-
-Return the user's table rows as seed cells for a re-ask.
-
-<a id="backlogops.backlog_ops_wizard._read_levels"></a>
-
-#### \_read\_levels
-
-```python
-def _read_levels(ui: WizardUiBridge) -> list[Level]
-```
-
-Ask the backlog item levels as one variable-row table question.
-
-Each cell is checked as it is entered, and the whole table is then
-checked for consistency. An inconsistent table is re-asked with the
-user's own rows kept, so the reported duplicate can be corrected.
 
 <a id="backlogops.backlog_ops_wizard.available_teams_wizard"></a>
 
@@ -7318,48 +6635,6 @@ def _ask_fte_exception(nav: _Navigator) -> FteException
 ```
 
 Ask for one full-time-equivalent exception period.
-
-<a id="backlogops.backlog_ops_wizard._build_input_presets"></a>
-
-#### \_build\_input\_presets
-
-```python
-def _build_input_presets(nav: _Navigator) -> dict[str, InputFormatConfig]
-```
-
-Ask for a counted list of named input presets.
-
-<a id="backlogops.backlog_ops_wizard._build_output_presets"></a>
-
-#### \_build\_output\_presets
-
-```python
-def _build_output_presets(nav: _Navigator) -> dict[str, OutputFormatConfig]
-```
-
-Ask for a counted list of named output presets.
-
-<a id="backlogops.backlog_ops_wizard._ask_input_preset"></a>
-
-#### \_ask\_input\_preset
-
-```python
-def _ask_input_preset(nav: _Navigator,
-                      used: set[str]) -> tuple[str, InputFormatConfig]
-```
-
-Ask one named input preset: format and both rename maps.
-
-<a id="backlogops.backlog_ops_wizard._ask_output_preset"></a>
-
-#### \_ask\_output\_preset
-
-```python
-def _ask_output_preset(nav: _Navigator,
-                       used: set[str]) -> tuple[str, OutputFormatConfig]
-```
-
-Ask one named output preset: format, both maps and level display.
 
 <a id="backlogops.order_by_dependencies"></a>
 
@@ -7987,6 +7262,691 @@ None). A level number is used as is and need not be one of ``levels``.
   of ints and strs.
 - `ValueError` - If a level name or alias matches no level.
 
+<a id="backlogops.wizard_helpers"></a>
+
+# backlogops.wizard\_helpers
+
+Reusable navigation and field-input helpers for the wizards.
+
+The :class:`_Navigator` drives a re-runnable wizard body, recording every
+answer so the body can be replayed to honour the bridge's back,
+cancel-level and abort requests: going back drops the most recently asked
+question, even across levels. The ``_read_*`` and ``_parse_*`` helpers ask
+and validate one wizard field each through any ``WizardUiBridge`` of
+``tableio_cfg_json``: scalar fields such as text, numbers and dates, and
+whole-table fields such as the weekly work-hours schedule, the column
+rename maps and the backlog item levels. The small domain helpers
+:func:`_ask_level_display` and :func:`_backlog_map_fields` are shared by
+the configuration and the preset wizards.
+
+Individual field values are validated as they are entered, and date ranges
+are kept non-empty. Cross-item rules that span a whole result are checked
+by the caller when the result is stored.
+
+<a id="backlogops.wizard_helpers._Navigator"></a>
+
+## \_Navigator Objects
+
+```python
+class _Navigator()
+```
+
+Drive a re-runnable wizard body with back, cancel and abort.
+
+The wizard body is an ordinary function that asks questions through
+this navigator. Every answered question is recorded, so the body can
+be replayed from the start to implement navigation: going back drops
+the most recently asked question and replays the rest, which re-asks
+the previous question even when it lives in an outer level.
+
+<a id="backlogops.wizard_helpers._Navigator.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(ui_bridge: WizardUiBridge) -> None
+```
+
+Store the bridge and start with no recorded answers.
+
+<a id="backlogops.wizard_helpers._Navigator.run"></a>
+
+#### run
+
+```python
+def run(body: Callable[['_Navigator'], _T]) -> _T
+```
+
+Run the body, restarting it to honour back and cancel requests.
+
+A back request drops the most recent answer and replays the rest,
+re-asking the previous question. A cancel request that reaches the
+outermost body has no outer level to return to, so the question is
+asked again. An abort request propagates to the caller.
+
+<a id="backlogops.wizard_helpers._Navigator.level"></a>
+
+#### level
+
+```python
+def level(body_fn: Callable[[], _T]) -> _T
+```
+
+Run a sub-level, restarting it when the user cancels the level.
+
+A cancel-level request discards the answers collected inside this
+level and asks its first question again. A cancel raised at the
+level's first question has no answer to discard here, so it
+propagates to the enclosing level.
+
+<a id="backlogops.wizard_helpers._Navigator.show"></a>
+
+#### show
+
+```python
+def show(message: str) -> None
+```
+
+Show a message, unless recorded answers are being replayed.
+
+<a id="backlogops.wizard_helpers._Navigator.error_file"></a>
+
+#### error\_file
+
+```python
+def error_file() -> TextIO
+```
+
+Return the bridge's diagnostics stream.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_text"></a>
+
+#### ask\_text
+
+```python
+def ask_text(question: str,
+             *,
+             default: Optional[str] = None,
+             allow_empty: bool = False) -> str
+```
+
+Ask for text with an optional default and re-ask on empty.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_number"></a>
+
+#### ask\_number
+
+```python
+def ask_number(question: str, default: float, minimum: Optional[float],
+               maximum: Optional[float]) -> float
+```
+
+Ask for a floating point value within optional bounds.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_int"></a>
+
+#### ask\_int
+
+```python
+def ask_int(question: str,
+            default: int,
+            minimum: int,
+            maximum: Optional[int] = None) -> int
+```
+
+Ask for a whole number within the given bounds.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_count"></a>
+
+#### ask\_count
+
+```python
+def ask_count(question: str, maximum: Optional[int] = None) -> int
+```
+
+Ask how many items to collect, defaulting to none.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_yes_no"></a>
+
+#### ask\_yes\_no
+
+```python
+def ask_yes_no(question: str, default: bool) -> bool
+```
+
+Ask a yes/no question through the bridge's dedicated control.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_choice"></a>
+
+#### ask\_choice
+
+```python
+def ask_choice(question: str,
+               choices: Sequence[str],
+               default: Optional[str] = None) -> str
+```
+
+Ask the user to pick one of choices through the bridge.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_date"></a>
+
+#### ask\_date
+
+```python
+def ask_date(question: str) -> date
+```
+
+Ask for a required ISO 8601 date such as ``2026-06-13``.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_end_date"></a>
+
+#### ask\_end\_date
+
+```python
+def ask_end_date(question: str, start_date: date) -> date
+```
+
+Ask for an end date that is not before ``start_date``.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_opt_date"></a>
+
+#### ask\_opt\_date
+
+```python
+def ask_opt_date(question: str) -> Optional[date]
+```
+
+Ask for an optional ISO date; an empty answer returns ``None``.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_membership_end"></a>
+
+#### ask\_membership\_end
+
+```python
+def ask_membership_end(question: str,
+                       start_date: Optional[date]) -> Optional[date]
+```
+
+Ask for an optional end date not before the start date.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_person_name"></a>
+
+#### ask\_person\_name
+
+```python
+def ask_person_name(question: str, persons: dict[str, Person]) -> str
+```
+
+Ask for a person name that is not already used.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_preset_name"></a>
+
+#### ask\_preset\_name
+
+```python
+def ask_preset_name(question: str, used: set[str]) -> str
+```
+
+Ask for a preset name of letters and digits that is unused.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_tableio"></a>
+
+#### ask\_tableio
+
+```python
+def ask_tableio(file_access: FileAccess) -> TioJsonConfig
+```
+
+Ask for one TableIO endpoint configuration as one step.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_schedule"></a>
+
+#### ask\_schedule
+
+```python
+def ask_schedule() -> ScheduleWorkHours
+```
+
+Ask the weekly work-hours schedule as one table question.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_levels"></a>
+
+#### ask\_levels
+
+```python
+def ask_levels() -> list[Level]
+```
+
+Ask the backlog item levels as one variable-row table.
+
+<a id="backlogops.wizard_helpers._Navigator.ask_renames"></a>
+
+#### ask\_renames
+
+```python
+def ask_renames(fields: list[str],
+                allow_extra: bool,
+                target_header: str,
+                is_input: bool = False) -> dict[str, Optional[str]]
+```
+
+Ask one column-rename map as one variable-row table.
+
+With ``is_input`` false the table stores an internal-to-external
+output map; with it true the table stores an external-to-internal
+input map. Either way the internal field names are pre-filled.
+
+<a id="backlogops.wizard_helpers._Navigator._ask"></a>
+
+#### \_ask
+
+```python
+def _ask(ask_fn: Callable[[], object]) -> object
+```
+
+Return the recorded answer when replaying, else ask live.
+
+<a id="backlogops.wizard_helpers._Navigator._replaying"></a>
+
+#### \_replaying
+
+```python
+def _replaying() -> bool
+```
+
+Return whether recorded answers are being replayed.
+
+<a id="backlogops.wizard_helpers._parse_date"></a>
+
+#### \_parse\_date
+
+```python
+def _parse_date(answer: str) -> Optional[date]
+```
+
+Return the ISO date in ``answer``, or ``None`` when it is invalid.
+
+<a id="backlogops.wizard_helpers._read_text"></a>
+
+#### \_read\_text
+
+```python
+def _read_text(ui: WizardUiBridge, question: str, default: Optional[str],
+               allow_empty: bool) -> str
+```
+
+Ask for a text value with an optional default and re-ask on empty.
+
+<a id="backlogops.wizard_helpers._read_number"></a>
+
+#### \_read\_number
+
+```python
+def _read_number(ui: WizardUiBridge, question: str, default: float,
+                 minimum: Optional[float], maximum: Optional[float]) -> float
+```
+
+Ask for a floating point value within optional bounds.
+
+<a id="backlogops.wizard_helpers._read_int"></a>
+
+#### \_read\_int
+
+```python
+def _read_int(ui: WizardUiBridge, question: str, default: int, minimum: int,
+              maximum: Optional[int]) -> int
+```
+
+Ask for a whole number within the given bounds.
+
+The bridge's typed ask_int re-asks invalid or out-of-range answers,
+and an empty answer keeps the default.
+
+<a id="backlogops.wizard_helpers._read_date"></a>
+
+#### \_read\_date
+
+```python
+def _read_date(ui: WizardUiBridge, question: str) -> date
+```
+
+Ask for a required ISO 8601 date such as ``2026-06-13``.
+
+<a id="backlogops.wizard_helpers._read_end_date"></a>
+
+#### \_read\_end\_date
+
+```python
+def _read_end_date(ui: WizardUiBridge, question: str,
+                   start_date: date) -> date
+```
+
+Ask for an end date that is not before ``start_date``.
+
+<a id="backlogops.wizard_helpers._read_opt_date"></a>
+
+#### \_read\_opt\_date
+
+```python
+def _read_opt_date(ui: WizardUiBridge, question: str,
+                   start_date: Optional[date]) -> Optional[date]
+```
+
+Ask for an optional ISO date not before an optional start date.
+
+<a id="backlogops.wizard_helpers._read_unique_name"></a>
+
+#### \_read\_unique\_name
+
+```python
+def _read_unique_name(ui: WizardUiBridge, question: str,
+                      persons: dict[str, Person]) -> str
+```
+
+Ask for a person name that is not already a key in ``persons``.
+
+<a id="backlogops.wizard_helpers._ask_level_display"></a>
+
+#### \_ask\_level\_display
+
+```python
+def _ask_level_display(nav: _Navigator, question: str) -> LevelDisplay
+```
+
+Ask how to show levels, defaulting to both number and name.
+
+<a id="backlogops.wizard_helpers._read_preset_name"></a>
+
+#### \_read\_preset\_name
+
+```python
+def _read_preset_name(ui: WizardUiBridge, question: str,
+                      used: set[str]) -> str
+```
+
+Ask for a preset name of letters and digits that is unused.
+
+<a id="backlogops.wizard_helpers._read_tableio"></a>
+
+#### \_read\_tableio
+
+```python
+def _read_tableio(ui: WizardUiBridge,
+                  file_access: FileAccess) -> TioJsonConfig
+```
+
+Ask for one TableIO endpoint configuration through the wizard.
+
+<a id="backlogops.wizard_helpers._num_text"></a>
+
+#### \_num\_text
+
+```python
+def _num_text(value: float) -> str
+```
+
+Return a compact decimal text for a default numeric value.
+
+<a id="backlogops.wizard_helpers._is_nonneg"></a>
+
+#### \_is\_nonneg
+
+```python
+def _is_nonneg(text: Optional[str]) -> bool
+```
+
+Return whether ``text`` parses as a number that is at least zero.
+
+<a id="backlogops.wizard_helpers._sched_check"></a>
+
+#### \_sched\_check
+
+```python
+def _sched_check(table: list[list[Optional[str]]],
+                 position: tuple[int, int]) -> tuple[bool, str]
+```
+
+Give early feedback that an edited work-hours cell is a number.
+
+<a id="backlogops.wizard_helpers._parse_schedule"></a>
+
+#### \_parse\_schedule
+
+```python
+def _parse_schedule(
+        days: Sequence[WeekDay], table: Sequence[Sequence[Optional[str]]]
+) -> Optional[ScheduleWorkHours]
+```
+
+Return the weekly schedule from a table, or None when invalid.
+
+<a id="backlogops.wizard_helpers._read_schedule"></a>
+
+#### \_read\_schedule
+
+```python
+def _read_schedule(ui: WizardUiBridge) -> ScheduleWorkHours
+```
+
+Ask the weekly work-hours schedule as one table question.
+
+<a id="backlogops.wizard_helpers._MAX_EXTRA_COLUMNS"></a>
+
+#### \_MAX\_EXTRA\_COLUMNS
+
+How many extra-field rows the user may add to a backlog rename table.
+
+<a id="backlogops.wizard_helpers._RENAME_INSTRUCTION"></a>
+
+#### \_RENAME\_INSTRUCTION
+
+Instruction shown above an output column-rename table.
+
+<a id="backlogops.wizard_helpers._RENAME_REASON"></a>
+
+#### \_RENAME\_REASON
+
+Re-ask reason for an inconsistent output rename table.
+
+<a id="backlogops.wizard_helpers._INPUT_INSTRUCTION"></a>
+
+#### \_INPUT\_INSTRUCTION
+
+Instruction shown above an input column-rename table.
+
+<a id="backlogops.wizard_helpers._INPUT_REASON"></a>
+
+#### \_INPUT\_REASON
+
+Re-ask reason for an inconsistent input rename table.
+
+<a id="backlogops.wizard_helpers._backlog_map_fields"></a>
+
+#### \_backlog\_map\_fields
+
+```python
+def _backlog_map_fields() -> list[str]
+```
+
+Return the backlog internal field names offered for renaming.
+
+The numeric ``level`` and the named ``level name`` columns are offered
+as two independent entries, so each can be renamed or dropped on its
+own when the level display writes both columns.
+
+<a id="backlogops.wizard_helpers._rename_check"></a>
+
+#### \_rename\_check
+
+```python
+def _rename_check(table: list[list[Optional[str]]],
+                  position: tuple[int, int]) -> tuple[bool, str]
+```
+
+Advise when an output column lacks its internal field name.
+
+<a id="backlogops.wizard_helpers._parse_column_renames"></a>
+
+#### \_parse\_column\_renames
+
+```python
+def _parse_column_renames(
+    table: Sequence[Sequence[Optional[str]]]
+) -> Optional[dict[str, Optional[str]]]
+```
+
+Return the rename map from a table, or None when it is invalid.
+
+A row with a blank internal field is ignored. A blank output column
+drops that field (maps to None). An output column equal to the
+internal field is no rename and is omitted. The table is rejected when
+an internal field repeats or when two columns would share a name.
+
+<a id="backlogops.wizard_helpers._parse_input_renames"></a>
+
+#### \_parse\_input\_renames
+
+```python
+def _parse_input_renames(
+    table: Sequence[Sequence[Optional[str]]]
+) -> Optional[dict[str, Optional[str]]]
+```
+
+Return the file-to-internal map from a table, or None if invalid.
+
+Each row pairs an internal field (column 0) with the input file column
+read into it (column 1). A blank file column leaves that field
+unmapped. A file column equal to the internal field is no rename and is
+omitted. A row with a file column but a blank internal field drops that
+file column (maps it to None). The table is rejected when one file
+column appears more than once.
+
+<a id="backlogops.wizard_helpers._rename_cells"></a>
+
+#### \_rename\_cells
+
+```python
+def _rename_cells(fields: list[str]) -> list[list[TableCell]]
+```
+
+Return seed rows with each editable column pre-filled to its field.
+
+<a id="backlogops.wizard_helpers._read_renames"></a>
+
+#### \_read\_renames
+
+```python
+def _read_renames(ui: WizardUiBridge, fields: list[str], allow_extra: bool,
+                  target_header: str,
+                  is_input: bool) -> dict[str, Optional[str]]
+```
+
+Ask one column-rename map as one variable-row table.
+
+Each known internal field is shown as a read-only row pre-filled with
+the same column name, so leaving the table unchanged renames nothing
+and the known fields cannot be deleted. A backlog table also accepts
+added rows for extra fields; an added row is fully editable, so its
+internal name can be typed. A releases table is locked to its own
+fields. The variable-row editor accepts the table on a blank answer.
+With ``is_input`` true the table is parsed as an external-to-internal
+input map, otherwise as an internal-to-external output map.
+
+<a id="backlogops.wizard_helpers._MAX_LEVELS"></a>
+
+#### \_MAX\_LEVELS
+
+Upper bound on the number of backlog item levels the wizard accepts.
+
+<a id="backlogops.wizard_helpers._parse_level_int"></a>
+
+#### \_parse\_level\_int
+
+```python
+def _parse_level_int(text: Optional[str]) -> Optional[int]
+```
+
+Return ``text`` as an int (sign allowed), or None when invalid.
+
+<a id="backlogops.wizard_helpers._split_aliases"></a>
+
+#### \_split\_aliases
+
+```python
+def _split_aliases(text: Optional[str]) -> list[str]
+```
+
+Return the trimmed, non-empty comma separated aliases in ``text``.
+
+<a id="backlogops.wizard_helpers._levels_check"></a>
+
+#### \_levels\_check
+
+```python
+def _levels_check(table: list[list[Optional[str]]],
+                  position: tuple[int, int]) -> tuple[bool, str]
+```
+
+Give early feedback that a level number or name cell is valid.
+
+<a id="backlogops.wizard_helpers._parse_levels"></a>
+
+#### \_parse\_levels
+
+```python
+def _parse_levels(table: list[list[Optional[str]]]) -> Optional[list[Level]]
+```
+
+Return the levels from a table, or None when a cell is invalid.
+
+<a id="backlogops.wizard_helpers._default_level_cells"></a>
+
+#### \_default\_level\_cells
+
+```python
+def _default_level_cells() -> list[list[TableCell]]
+```
+
+Return the table rows pre-filled with the default levels.
+
+<a id="backlogops.wizard_helpers._levels_problem"></a>
+
+#### \_levels\_problem
+
+```python
+def _levels_problem(levels: list[Level], error_file: TextIO) -> Optional[str]
+```
+
+Return a re-ask reason when the levels are inconsistent, else None.
+
+The whole-table rule reuses :func:`levels_from_list`, which rejects a
+repeated level number and any duplicate or malformed name or alias.
+
+<a id="backlogops.wizard_helpers._cells_from_table"></a>
+
+#### \_cells\_from\_table
+
+```python
+def _cells_from_table(
+        table: list[list[Optional[str]]]) -> list[list[TableCell]]
+```
+
+Return the user's table rows as seed cells for a re-ask.
+
+<a id="backlogops.wizard_helpers._read_levels"></a>
+
+#### \_read\_levels
+
+```python
+def _read_levels(ui: WizardUiBridge) -> list[Level]
+```
+
+Ask the backlog item levels as one variable-row table question.
+
+Each cell is checked as it is entered, and the whole table is then
+checked for consistency. An inconsistent table is re-asked with the
+user's own rows kept, so the reported duplicate can be corrected.
+
 <a id="backlogops.estimate_ready_date"></a>
 
 # backlogops.estimate\_ready\_date
@@ -8611,4 +8571,152 @@ def cell_format_used() -> bool
 ```
 
 Return True if any cell formatting is used.
+
+<a id="backlogops.io_preset_wizard"></a>
+
+# backlogops.io\_preset\_wizard
+
+Interactively create a stand-alone TableIO input or output preset.
+
+The public :func:`preset_wizard` asks whether to build an input or an
+output preset and then the same questions the full configuration wizard
+asks for one preset of that direction: the TableIO endpoint format and
+options, how the backlog and releases file columns relate to the internal
+fields, and, for an output preset, how levels are written. A stand-alone
+preset has no name of its own; the file it is written to is the preset.
+
+The ``_build_input_presets`` and ``_build_output_presets`` collectors ask a
+counted list of *named* presets and are reused by the full configuration
+wizard, where each preset additionally has a name.
+
+<a id="backlogops.io_preset_wizard._OUT_LEVEL_QUESTION"></a>
+
+#### \_OUT\_LEVEL\_QUESTION
+
+Wizard prompt for how an output preset writes levels.
+
+<a id="backlogops.io_preset_wizard._OUT_COLUMN_HEADER"></a>
+
+#### \_OUT\_COLUMN\_HEADER
+
+Header of the renamed-column column in an output rename table.
+
+<a id="backlogops.io_preset_wizard._IN_COLUMN_HEADER"></a>
+
+#### \_IN\_COLUMN\_HEADER
+
+Header of the file-column column in an input rename table.
+
+<a id="backlogops.io_preset_wizard.preset_wizard"></a>
+
+#### preset\_wizard
+
+```python
+def preset_wizard(
+        ui_bridge: WizardUiBridge) -> InputFormatConfig | OutputFormatConfig
+```
+
+Interactively create a stand-alone input or output TableIO preset.
+
+The wizard first asks whether to build an input or an output preset,
+then asks exactly the questions the full configuration wizard asks for
+one preset of that direction: the TableIO endpoint format and options,
+how the backlog and releases file columns relate to the internal
+fields, and, for an output preset, how levels are written. A
+stand-alone preset has no name of its own; the file it is written to is
+the preset, referred to by its file name where an input or output
+configuration is taken.
+
+**Arguments**:
+
+- `ui_bridge` - Bridge between the wizard and the user interface.
+  
+
+**Returns**:
+
+  The input or output format configuration, ready to be written to a
+  stand-alone configuration file.
+  
+
+**Raises**:
+
+- `EOFError` - The input ended, or the user abandoned the wizard.
+
+<a id="backlogops.io_preset_wizard._DIRECTION_QUESTION"></a>
+
+#### \_DIRECTION\_QUESTION
+
+Wizard prompt choosing the direction of a stand-alone preset.
+
+<a id="backlogops.io_preset_wizard._collect_preset"></a>
+
+#### \_collect\_preset
+
+```python
+def _collect_preset(nav: _Navigator) -> InputFormatConfig | OutputFormatConfig
+```
+
+Ask the preset direction, then collect that preset's settings.
+
+<a id="backlogops.io_preset_wizard._build_input_presets"></a>
+
+#### \_build\_input\_presets
+
+```python
+def _build_input_presets(nav: _Navigator) -> dict[str, InputFormatConfig]
+```
+
+Ask for a counted list of named input presets.
+
+<a id="backlogops.io_preset_wizard._build_output_presets"></a>
+
+#### \_build\_output\_presets
+
+```python
+def _build_output_presets(nav: _Navigator) -> dict[str, OutputFormatConfig]
+```
+
+Ask for a counted list of named output presets.
+
+<a id="backlogops.io_preset_wizard._ask_input_config"></a>
+
+#### \_ask\_input\_config
+
+```python
+def _ask_input_config(nav: _Navigator) -> InputFormatConfig
+```
+
+Ask one input preset's format and both file-to-internal maps.
+
+<a id="backlogops.io_preset_wizard._ask_output_config"></a>
+
+#### \_ask\_output\_config
+
+```python
+def _ask_output_config(nav: _Navigator) -> OutputFormatConfig
+```
+
+Ask one output preset's format, both maps and level display.
+
+<a id="backlogops.io_preset_wizard._ask_input_preset"></a>
+
+#### \_ask\_input\_preset
+
+```python
+def _ask_input_preset(nav: _Navigator,
+                      used: set[str]) -> tuple[str, InputFormatConfig]
+```
+
+Ask one named input preset: name, format and both rename maps.
+
+<a id="backlogops.io_preset_wizard._ask_output_preset"></a>
+
+#### \_ask\_output\_preset
+
+```python
+def _ask_output_preset(nav: _Navigator,
+                       used: set[str]) -> tuple[str, OutputFormatConfig]
+```
+
+Ask one named output preset: name, format, maps and level display.
 

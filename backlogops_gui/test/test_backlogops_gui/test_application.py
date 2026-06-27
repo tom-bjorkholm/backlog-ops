@@ -7,7 +7,7 @@
 import tkinter as tk
 from typing import Callable, Optional, TextIO, cast
 import pytest
-from backlogops import BacklogOpsConfig, BacklogReleases
+from backlogops import BacklogOpsConfig, BacklogReleases, OutputFormatConfig
 from backlogops_gui import application
 from backlogops_gui.application import APP_TITLE, BacklogApp
 from backlogops_gui.io_dialogs import ConfigChoice, ReadOptions
@@ -43,6 +43,7 @@ class _Recorder:
         self.calls.append((title, message))
 
 
+# pylint: disable-next=too-few-public-methods
 class _FakeBridge:
     """Stand-in wizard bridge that records being closed."""
 
@@ -168,6 +169,20 @@ def _pick_none(_parent: object) -> Optional[str]:
 def _pick_teams(_parent: object) -> str:
     """Return a configuration file name without an extension."""
     return 'teams'
+
+
+def _command_labels(menu: tk.Menu) -> list[str]:
+    """Return the command labels in a menu and all of its submenus."""
+    end = menu.index('end')
+    labels: list[str] = []
+    for index in range(0 if end is None else end + 1):
+        if menu.type(index) == 'command':
+            labels.append(str(menu.entrycget(index, 'label')))
+        elif menu.type(index) == 'cascade':
+            child = menu.nametowidget(menu.entrycget(index, 'menu'))
+            assert isinstance(child, tk.Menu)
+            labels.extend(_command_labels(child))
+    return labels
 
 
 def test_initial_config_ok(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -464,6 +479,71 @@ def test_run_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
     assert errors == [('Wizard error', 'bad')]
 
 
+def test_preset_writes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test creating a preset writes the wizard result to a chosen file."""
+    config = FakeConfig()
+    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'preset_wizard', lambda bridge: config)
+    monkeypatch.setattr(application, 'choose_config_file', _pick_teams)
+    app = _app()
+    infos: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_info', _record(infos))
+    app.create_preset_file()
+    assert config.written == 'teams.cfg'
+    assert infos == [('Wrote preset', 'Wrote teams.cfg')]
+
+
+def test_preset_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an abandoned preset wizard asks for no file and writes nothing."""
+    def cancel(_bridge: object) -> OutputFormatConfig:
+        raise EOFError()
+    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'preset_wizard', cancel)
+    picked: list[object] = []
+    monkeypatch.setattr(application, 'choose_config_file', picked.append)
+    _app().create_preset_file()
+    assert not picked
+
+
+def test_preset_save_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the save chooser writes no preset file."""
+    config = FakeConfig()
+    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'preset_wizard', lambda bridge: config)
+    monkeypatch.setattr(application, 'choose_config_file', _pick_none)
+    _app().create_preset_file()
+    assert config.written is None
+
+
+def test_preset_write_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a preset write failure is reported to the user."""
+    class _Failing(FakeConfig):
+        def write(self, to_json_filename: str, stderr_file: object) -> None:
+            raise OSError('disk full')
+    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'preset_wizard',
+                        lambda bridge: _Failing())
+    monkeypatch.setattr(application, 'choose_config_file', _pick_teams)
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    app.create_preset_file()
+    assert errors == [('Could not write preset', 'disk full')]
+
+
+def test_preset_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a preset wizard failure is reported and writes nothing."""
+    def boom(_bridge: object) -> OutputFormatConfig:
+        raise ValueError('bad')
+    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'preset_wizard', boom)
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    app.create_preset_file()
+    assert errors == [('Preset wizard error', 'bad')]
+
+
 def test_config_wizard_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled wizard leaves the configuration unchanged."""
     app = _app()
@@ -520,6 +600,7 @@ def test_open_backlog(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_build_parser() -> None:
     """Test the launcher parser reads the configuration option."""
+    # pylint: disable-next=protected-access
     parsed = application._build_parser().parse_args(['-c', 'x.cfg'])
     assert parsed.config == 'x.cfg'
 
@@ -534,9 +615,27 @@ def test_build_menu_and_body(monkeypatch: pytest.MonkeyPatch) -> None:
         app.build_menu()
         app.build_body()
         app.log.write('a log line\n')
+        # pylint: disable-next=protected-access
         app._refresh_log()
+        # pylint: disable-next=protected-access
         app._update_status()
+        # pylint: disable-next=protected-access
         assert 'No configuration' in app._status_text()
+    finally:
+        root.destroy()
+
+
+def test_menu_has_preset_item(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the Configuration menu offers the IO preset file action."""
+    monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
+    monkeypatch.setattr(application, 'check_python_version', lambda: None)
+    root = _root_or_skip()
+    try:
+        app = BacklogApp(root)
+        app.build_menu()
+        menubar = root.nametowidget(root.cget('menu'))
+        assert isinstance(menubar, tk.Menu)
+        assert 'Create IO preset file…' in _command_labels(menubar)
     finally:
         root.destroy()
 
@@ -551,6 +650,7 @@ def test_body_config_warn(monkeypatch: pytest.MonkeyPatch) -> None:
         app = BacklogApp(root, cast(BacklogOpsConfig, FakeConfig()))
         app.config_source = 'a file'
         app.build_body()
+        # pylint: disable-next=protected-access
         assert app._status_text() == 'Configuration loaded from a file.'
     finally:
         root.destroy()
@@ -560,6 +660,7 @@ def test_refresh_no_view() -> None:
     """Test the log refresh returns at once before the view exists."""
     root = _root_or_skip()
     try:
+        # pylint: disable-next=protected-access
         BacklogApp(root)._refresh_log()
     finally:
         root.destroy()
@@ -571,6 +672,7 @@ def test_sched_destroyed() -> None:
     app = BacklogApp(root)
     app.build_body()
     root.destroy()
+    # pylint: disable-next=protected-access
     app._schedule_refresh()
 
 
@@ -664,6 +766,7 @@ def test_write_report_log(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the worker writes the version report to the log."""
     monkeypatch.setattr(application, 'BloGuiVersionReporter', _FakeReporter)
     app = _app()
+    # pylint: disable-next=protected-access
     app._write_version_report()
     assert 'backlogops-gui report' in app.log.text()
 
@@ -672,6 +775,7 @@ def test_write_report_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a failing report is logged rather than raised."""
     monkeypatch.setattr(application, 'BloGuiVersionReporter', _FailReporter)
     app = _app()
+    # pylint: disable-next=protected-access
     app._write_version_report()
     assert 'Could not report versions: no network' in app.log.text()
 

@@ -95,7 +95,7 @@ def test_skips_non_command(monkeypatch: pytest.MonkeyPatch) -> None:
                         lambda path: [info])
     monkeypatch.setattr('backlogops_cli.list.importlib.import_module',
                         lambda name: ModuleType('fake'))
-    assert command_modules() == []
+    assert not command_modules()
 
 
 def test_modules_have_desc() -> None:
