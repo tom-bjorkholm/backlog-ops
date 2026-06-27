@@ -29,7 +29,7 @@ from config_as_json.file_extension import fix_file_extension
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, BacklogReleases, GuiDisplayConfig,
     InputFormatConfig, Levels, OutputFormatConfig, get_demo_backlog,
-    get_backlog_ops_config, teams_config_wizard)
+    get_backlog_ops_config, backlog_ops_wizard)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
@@ -204,10 +204,10 @@ class BacklogApp:
         return True
 
     def run_wizard(self) -> Optional[BacklogOpsConfig]:
-        """Run the teams wizard and return its configuration, or None."""
+        """Run the config wizard and return its configuration, or None."""
         bridge = TkWizardBridge(self.root, self.log)
         try:
-            return teams_config_wizard(bridge)
+            return backlog_ops_wizard(bridge)
         except EOFError:
             return None
         except IO_ERRORS as error:
@@ -216,7 +216,7 @@ class BacklogApp:
         finally:
             bridge.close()
 
-    def run_teams_wizard(self) -> None:
+    def run_config_wizard(self) -> None:
         """Run the wizard and make a new configuration active on success."""
         config = self.run_wizard()
         if config is not None:
@@ -315,8 +315,8 @@ class BacklogApp:
     def _add_config_menu(self, menubar: tk.Menu) -> None:
         """Add the configuration menu with the wizard and write actions."""
         menu = tk.Menu(menubar, tearoff=False)
-        menu.add_command(label='Run teams wizard…',
-                         command=self.run_teams_wizard)
+        menu.add_command(label='Run configuration wizard…',
+                         command=self.run_config_wizard)
         menu.add_command(label='Write configuration…',
                          command=self.write_config)
         menubar.add_cascade(label='Configuration', menu=menu)

@@ -1,8 +1,8 @@
 #! /usr/local/bin/python3
-"""Interactively build an AvailableTeams workforce configuration.
+"""Interactively build a backlog-ops configuration.
 
 The public helpers :func:`available_teams_wizard` and
-:func:`teams_config_wizard` ask the user for the company work hours, the
+:func:`backlog_ops_wizard` ask the user for the company work hours, the
 persons and their personal work-hour exceptions, the teams with their
 members, and optional TableIO presets. They drive any ``WizardUiBridge``
 of ``tableio_cfg_json``, so the same wizard logic runs on a console text
@@ -723,7 +723,7 @@ def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams:
         raise EOFError('Configuration abandoned by the user.') from abort
 
 
-def teams_config_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig:
+def backlog_ops_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig:
     """Interactively create a backlog-ops configuration.
 
     The workforce is entered as by :func:`available_teams_wizard`, the

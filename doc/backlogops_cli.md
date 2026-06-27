@@ -12,9 +12,9 @@
 * [backlogops\_cli.demo\_backlog](#backlogops_cli.demo_backlog)
   * [build\_parser](#backlogops_cli.demo_backlog.build_parser)
   * [main](#backlogops_cli.demo_backlog.main)
-* [backlogops\_cli.teams\_wizard](#backlogops_cli.teams_wizard)
-  * [build\_parser](#backlogops_cli.teams_wizard.build_parser)
-  * [main](#backlogops_cli.teams_wizard.main)
+* [backlogops\_cli.config\_wizard](#backlogops_cli.config_wizard)
+  * [build\_parser](#backlogops_cli.config_wizard.build_parser)
+  * [main](#backlogops_cli.config_wizard.main)
 * [backlogops\_cli.convert](#backlogops_cli.convert)
   * [build\_parser](#backlogops_cli.convert.build_parser)
   * [main](#backlogops_cli.convert.main)
@@ -180,13 +180,13 @@ Write the demonstration backlog and releases to the output file.
 
   ``0`` on success, ``1`` when the data cannot be written.
 
-<a id="backlogops_cli.teams_wizard"></a>
+<a id="backlogops_cli.config_wizard"></a>
 
-# backlogops\_cli.teams\_wizard
+# backlogops\_cli.config\_wizard
 
-Run the available-teams wizard and store the result to a file.
+Run the backlog-ops configuration wizard and store the result.
 
-<a id="backlogops_cli.teams_wizard.build_parser"></a>
+<a id="backlogops_cli.config_wizard.build_parser"></a>
 
 #### build\_parser
 
@@ -194,9 +194,9 @@ Run the available-teams wizard and store the result to a file.
 def build_parser() -> argparse.ArgumentParser
 ```
 
-Build the command line parser for the teams wizard command.
+Build the command line parser for the config wizard command.
 
-<a id="backlogops_cli.teams_wizard.main"></a>
+<a id="backlogops_cli.config_wizard.main"></a>
 
 #### main
 

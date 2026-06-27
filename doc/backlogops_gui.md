@@ -24,7 +24,7 @@
     * [show\_info](#backlogops_gui.application.BacklogApp.show_info)
     * [start](#backlogops_gui.application.BacklogApp.start)
     * [run\_wizard](#backlogops_gui.application.BacklogApp.run_wizard)
-    * [run\_teams\_wizard](#backlogops_gui.application.BacklogApp.run_teams_wizard)
+    * [run\_config\_wizard](#backlogops_gui.application.BacklogApp.run_config_wizard)
     * [write\_config](#backlogops_gui.application.BacklogApp.write_config)
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
@@ -99,9 +99,9 @@
 
 # backlogops\_gui.gui\_wizard
 
-Graphical bridge that drives the synchronous teams wizard.
+Graphical bridge that drives the synchronous config wizard.
 
-The teams configuration wizard asks its questions through a
+The backlog-ops configuration wizard asks its questions through a
 :class:`WizardUiBridge`. This module provides :class:`TkWizardBridge`, a
 concrete bridge that overrides every typed ask method of that base class
 with a real Tkinter control: a text entry, a yes/no button pair, a
@@ -419,14 +419,14 @@ the application is ready only once a configuration is in place.
 def run_wizard() -> Optional[BacklogOpsConfig]
 ```
 
-Run the teams wizard and return its configuration, or None.
+Run the config wizard and return its configuration, or None.
 
-<a id="backlogops_gui.application.BacklogApp.run_teams_wizard"></a>
+<a id="backlogops_gui.application.BacklogApp.run_config_wizard"></a>
 
-#### run\_teams\_wizard
+#### run\_config\_wizard
 
 ```python
-def run_teams_wizard() -> None
+def run_config_wizard() -> None
 ```
 
 Run the wizard and make a new configuration active on success.

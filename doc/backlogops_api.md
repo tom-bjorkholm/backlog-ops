@@ -43,9 +43,6 @@
   * [Person](#backlogops.person.Person)
     * [name](#backlogops.person.Person.name)
     * [exceptions](#backlogops.person.Person.exceptions)
-* [backlogops.available\_teams\_wizard](#backlogops.available_teams_wizard)
-  * [available\_teams\_wizard](#backlogops.available_teams_wizard.available_teams_wizard)
-  * [teams\_config\_wizard](#backlogops.available_teams_wizard.teams_config_wizard)
 * [backlogops.backlog\_releases](#backlogops.backlog_releases)
   * [BacklogReleases](#backlogops.backlog_releases.BacklogReleases)
     * [add\_to\_releases](#backlogops.backlog_releases.BacklogReleases.add_to_releases)
@@ -222,6 +219,9 @@
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
   * [read\_backlog\_releases](#backlogops.backlog_releases_io.read_backlog_releases)
   * [write\_backlog\_releases](#backlogops.backlog_releases_io.write_backlog_releases)
+* [backlogops.backlog\_ops\_wizard](#backlogops.backlog_ops_wizard)
+  * [available\_teams\_wizard](#backlogops.backlog_ops_wizard.available_teams_wizard)
+  * [backlog\_ops\_wizard](#backlogops.backlog_ops_wizard.backlog_ops_wizard)
 * [backlogops.order\_by\_dependencies](#backlogops.order_by_dependencies)
   * [DependencyMode](#backlogops.order_by_dependencies.DependencyMode)
   * [order\_by\_dependencies](#backlogops.order_by_dependencies.order_by_dependencies)
@@ -1243,96 +1243,6 @@ These exceptions are used to mark personal vacation days,
 and other planned days off. They can also mark any period
 of time the person has other work hours, for instance periods
 of part-time work or ordered over-time work.
-
-<a id="backlogops.available_teams_wizard"></a>
-
-# backlogops.available\_teams\_wizard
-
-Interactively build an AvailableTeams workforce configuration.
-
-The public helpers :func:`available_teams_wizard` and
-:func:`teams_config_wizard` ask the user for the company work hours, the
-persons and their personal work-hour exceptions, the teams with their
-members, and optional TableIO presets. They drive any ``WizardUiBridge``
-of ``tableio_cfg_json``, so the same wizard logic runs on a console text
-interface, a Textual full-screen interface or a graphical user interface.
-
-Each repeated part is asked by first requesting a count and then
-collecting exactly that many items, so there are no open-ended "add
-another?" prompts. Each counted group is collected inside its own level
-whose opening question is the count, so a cancel-level request from any
-item returns to that count question and re-asks the group. The wizard is
-driven through a small navigator that records every answer and replays
-them when the body is re-run, which is how it honours the bridge's back,
-cancel-level and abort requests: going back drops the most recently asked
-question, even across levels.
-
-Individual field values are validated as they are entered, and date
-ranges are kept non-empty. Cross-item rules that span a whole workforce,
-such as non-overlapping exception periods and per-person capacity, are
-checked when the result is stored.
-
-<a id="backlogops.available_teams_wizard.available_teams_wizard"></a>
-
-#### available\_teams\_wizard
-
-```python
-def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams
-```
-
-Interactively create an available workforce configuration.
-
-**Arguments**:
-
-- `ui_bridge` - Bridge between the wizard and the user interface.
-  
-
-**Returns**:
-
-  The workforce entered by the user. Field values are individually
-  valid, but whole-workforce consistency is only enforced when the
-  result is stored.
-  
-
-**Raises**:
-
-- `EOFError` - The input ended, or the user abandoned the wizard.
-
-<a id="backlogops.available_teams_wizard.teams_config_wizard"></a>
-
-#### teams\_config\_wizard
-
-```python
-def teams_config_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig
-```
-
-Interactively create a backlog-ops configuration.
-
-The workforce is entered as by :func:`available_teams_wizard`, the
-user may then add any number of named input and output TableIO
-configuration presets, edit the backlog item levels, and finally
-choose how the GUI renames columns and shows levels. Each input preset
-asks how it reads the backlog and releases file columns into the
-internal fields, and each output preset asks how it renames those
-columns and how levels are written; the column tables start pre-filled
-with the internal field names so leaving them unchanged renames
-nothing. The levels start filled in with the default levels; when the
-user leaves them at the defaults they are stored as "use the defaults"
-rather than written out.
-
-**Arguments**:
-
-- `ui_bridge` - Bridge between the wizard and the user interface.
-  
-
-**Returns**:
-
-  The backlog-ops configuration, ready to be written to a file.
-  
-
-**Raises**:
-
-- `EOFError` - The input ended, or the user abandoned the wizard.
 
 <a id="backlogops.backlog_releases"></a>
 
@@ -4561,6 +4471,96 @@ omitted the default :class:`FormatRules` apply.
 - `file_exists_callback` - Called when the file already exists, as
   documented for :mod:`backlogops.table_create`.
   None refuses an existing file.
+
+<a id="backlogops.backlog_ops_wizard"></a>
+
+# backlogops.backlog\_ops\_wizard
+
+Interactively build a backlog-ops configuration.
+
+The public helpers :func:`available_teams_wizard` and
+:func:`backlog_ops_wizard` ask the user for the company work hours, the
+persons and their personal work-hour exceptions, the teams with their
+members, and optional TableIO presets. They drive any ``WizardUiBridge``
+of ``tableio_cfg_json``, so the same wizard logic runs on a console text
+interface, a Textual full-screen interface or a graphical user interface.
+
+Each repeated part is asked by first requesting a count and then
+collecting exactly that many items, so there are no open-ended "add
+another?" prompts. Each counted group is collected inside its own level
+whose opening question is the count, so a cancel-level request from any
+item returns to that count question and re-asks the group. The wizard is
+driven through a small navigator that records every answer and replays
+them when the body is re-run, which is how it honours the bridge's back,
+cancel-level and abort requests: going back drops the most recently asked
+question, even across levels.
+
+Individual field values are validated as they are entered, and date
+ranges are kept non-empty. Cross-item rules that span a whole workforce,
+such as non-overlapping exception periods and per-person capacity, are
+checked when the result is stored.
+
+<a id="backlogops.backlog_ops_wizard.available_teams_wizard"></a>
+
+#### available\_teams\_wizard
+
+```python
+def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams
+```
+
+Interactively create an available workforce configuration.
+
+**Arguments**:
+
+- `ui_bridge` - Bridge between the wizard and the user interface.
+  
+
+**Returns**:
+
+  The workforce entered by the user. Field values are individually
+  valid, but whole-workforce consistency is only enforced when the
+  result is stored.
+  
+
+**Raises**:
+
+- `EOFError` - The input ended, or the user abandoned the wizard.
+
+<a id="backlogops.backlog_ops_wizard.backlog_ops_wizard"></a>
+
+#### backlog\_ops\_wizard
+
+```python
+def backlog_ops_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig
+```
+
+Interactively create a backlog-ops configuration.
+
+The workforce is entered as by :func:`available_teams_wizard`, the
+user may then add any number of named input and output TableIO
+configuration presets, edit the backlog item levels, and finally
+choose how the GUI renames columns and shows levels. Each input preset
+asks how it reads the backlog and releases file columns into the
+internal fields, and each output preset asks how it renames those
+columns and how levels are written; the column tables start pre-filled
+with the internal field names so leaving them unchanged renames
+nothing. The levels start filled in with the default levels; when the
+user leaves them at the defaults they are stored as "use the defaults"
+rather than written out.
+
+**Arguments**:
+
+- `ui_bridge` - Bridge between the wizard and the user interface.
+  
+
+**Returns**:
+
+  The backlog-ops configuration, ready to be written to a file.
+  
+
+**Raises**:
+
+- `EOFError` - The input ended, or the user abandoned the wizard.
 
 <a id="backlogops.order_by_dependencies"></a>
 

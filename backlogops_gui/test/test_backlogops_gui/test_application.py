@@ -382,14 +382,14 @@ def test_write_config_none(monkeypatch: pytest.MonkeyPatch) -> None:
                        'There is no configuration to write.')]
 
 
-def test_teams_wizard_active(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_config_wizard_active(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a wizard result becomes the active configuration."""
     config = cast(BacklogOpsConfig, FakeConfig())
     app = _app()
     monkeypatch.setattr(app, 'run_wizard', lambda: config)
     infos: list[tuple[str, str]] = []
     monkeypatch.setattr(app, 'show_info', _record(infos))
-    app.run_teams_wizard()
+    app.run_config_wizard()
     assert app.config is config
     assert len(infos) == 1
 
@@ -437,7 +437,7 @@ def test_run_wizard_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a successful wizard run returns the configuration."""
     config = cast(BacklogOpsConfig, FakeConfig())
     monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
-    monkeypatch.setattr(application, 'teams_config_wizard',
+    monkeypatch.setattr(application, 'backlog_ops_wizard',
                         lambda bridge: config)
     assert _app().run_wizard() is config
 
@@ -447,7 +447,7 @@ def test_run_wizard_eof(monkeypatch: pytest.MonkeyPatch) -> None:
     def cancel(bridge: object) -> BacklogOpsConfig:
         raise EOFError()
     monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
-    monkeypatch.setattr(application, 'teams_config_wizard', cancel)
+    monkeypatch.setattr(application, 'backlog_ops_wizard', cancel)
     assert _app().run_wizard() is None
 
 
@@ -456,7 +456,7 @@ def test_run_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(bridge: object) -> BacklogOpsConfig:
         raise ValueError('bad')
     monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
-    monkeypatch.setattr(application, 'teams_config_wizard', boom)
+    monkeypatch.setattr(application, 'backlog_ops_wizard', boom)
     app = _app()
     errors: list[tuple[str, str]] = []
     monkeypatch.setattr(app, 'show_error', _record(errors))
@@ -464,13 +464,13 @@ def test_run_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
     assert errors == [('Wizard error', 'bad')]
 
 
-def test_teams_wizard_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_config_wizard_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled wizard leaves the configuration unchanged."""
     app = _app()
     monkeypatch.setattr(app, 'run_wizard', lambda: None)
     infos: list[tuple[str, str]] = []
     monkeypatch.setattr(app, 'show_info', _record(infos))
-    app.run_teams_wizard()
+    app.run_config_wizard()
     assert app.config is None
     assert not infos
 

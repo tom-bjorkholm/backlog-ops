@@ -43,7 +43,7 @@ is in the menus.
 
 - Configuration
 
-    - Run teams wizard...: this lets you configure the teams that work on
+    - Run configuration wizard...: this lets you configure the teams that work on
       the backlog and also other aspects like the dates the company is
       closed for vacation, and preset configuration for the inputs or
       outputs you want to use.

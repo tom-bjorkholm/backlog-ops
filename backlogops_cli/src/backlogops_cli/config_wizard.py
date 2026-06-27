@@ -1,5 +1,5 @@
 #! /usr/local/bin/python3
-"""Run the available-teams wizard and store the result to a file."""
+"""Run the backlog-ops configuration wizard and store the result."""
 
 # PYTHON_ARGCOMPLETE_OK
 # Copyright (c) 2026, Tom Björkholm
@@ -12,7 +12,7 @@ from typing import Optional
 from config_as_json.file_extension import fix_file_extension
 from tableio_cfg_json import WizardUiBridge, WizardUiBridgeConsole, \
     make_text_ui_bridge
-from backlogops import teams_config_wizard
+from backlogops import backlog_ops_wizard
 from backlogops_cli._command_io import (
     add_force_arg, overwrite_callback, parsed_args)
 
@@ -21,7 +21,7 @@ CONFIG_EXTENSION = '.cfg'
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the command line parser for the teams wizard command."""
+    """Build the command line parser for the config wizard command."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument('-o', '--output', dest='output', required=True,
                         help='Configuration file to write; the '
@@ -74,7 +74,7 @@ def main(args: Optional[list[str]] = None) -> int:
     try:
         _check_overwrite(output, parsed.force)
         bridge = _make_bridge(parsed.no_textual)
-        config = teams_config_wizard(bridge)
+        config = backlog_ops_wizard(bridge)
         config.write(to_json_filename=output, stderr_file=sys.stderr)
     except (ValueError, TypeError, KeyError, EOFError, OSError) as error:
         print(f'Could not create the configuration: {error}', file=sys.stderr)

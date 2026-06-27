@@ -186,7 +186,7 @@ is in the menus.
 
 - Configuration
 
-    - Run teams wizard...: this lets you configure the teams that work on
+    - Run configuration wizard...: this lets you configure the teams that work on
       the backlog and also other aspects like the dates the company is
       closed for vacation, and preset configuration for the inputs or
       outputs you want to use.
@@ -223,7 +223,7 @@ one with the list of releases. You will want to use the menus.
 
 ## Test summary
 
-- Test result: 1304 passed in 26s
+- Test result: 1306 passed in 26s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

@@ -156,6 +156,9 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.adjust_release_content
      Adjust release content to fit the planned release dates
 
+  python3 -m backlogops_cli.config_wizard
+     Create a backlog-ops configuration file via a wizard
+
   python3 -m backlogops_cli.convert
      Convert a backlog and releases between table file formats
 
@@ -186,9 +189,6 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.plan_release_dates
      Set planned release dates from the estimated release dates
 
-  python3 -m backlogops_cli.teams_wizard
-     Create a backlog-ops configuration file via a wizard
-
   python3 -m backlogops_cli.version
      Print version information for the backlogops_cli package
 
@@ -196,7 +196,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 1304 passed in 26s
+- Test result: 1306 passed in 26s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

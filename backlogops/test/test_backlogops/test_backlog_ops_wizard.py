@@ -1,19 +1,21 @@
 #! /usr/local/bin/python3
-"""Tests for the interactive AvailableTeams wizard."""
+"""Tests for the interactive backlog-ops configuration wizard."""
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import importlib
 import io
 from datetime import date
 from typing import Optional
 import pytest
 from tableio_cfg_json import WizardUiBridgeConsole
+import backlogops
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog_ops_config import BacklogOpsConfig
-from backlogops.available_teams_wizard import (
-    available_teams_wizard, teams_config_wizard)
-from backlogops.available_teams_wizard import (
+from backlogops.backlog_ops_wizard import (
+    available_teams_wizard, backlog_ops_wizard)
+from backlogops.backlog_ops_wizard import (
     _backlog_map_fields, _parse_column_renames, _parse_input_renames,
     _read_int, _read_number, _read_opt_date, _read_text)
 from backlogops.levels import DEFAULT_LEVELS, LevelDisplay
@@ -54,7 +56,7 @@ def _run_config(answers: list[str]) -> tuple[BacklogOpsConfig, str]:
     stderr = io.StringIO()
     stdin = io.StringIO('\n'.join(answers) + '\n')
     bridge = WizardUiBridgeConsole(io.StringIO(), stdin, stderr)
-    return teams_config_wizard(bridge), stderr.getvalue()
+    return backlog_ops_wizard(bridge), stderr.getvalue()
 
 
 def test_minimal_workforce() -> None:
@@ -290,7 +292,7 @@ def test_preset_wizard() -> None:
                + MAPS_KEEP + ['numeric']
                + LEVELS_KEEP
                + MAPS_KEEP + ['name'])
-    config = teams_config_wizard(_bridge(answers))
+    config = backlog_ops_wizard(_bridge(answers))
     assert isinstance(config, BacklogOpsConfig)
     assert sorted(config.input_configs) == ['in1']
     assert list(config.output_configs) == ['out1']
@@ -318,7 +320,7 @@ def test_output_rename_wizard() -> None:
                + ['out1'] + ['1'] + CSV_OPTS
                + edit_backlog + [''] + ['both']
                + LEVELS_KEEP + GUI_MAPS_KEEP)
-    config = teams_config_wizard(_bridge(answers))
+    config = backlog_ops_wizard(_bridge(answers))
     output = config.output_configs['out1']
     assert output.backlog_to_external == {'key': 'Id', 'story_points': None,
                                           'note': 'Notes'}
@@ -335,7 +337,7 @@ def test_gui_rename_wizard() -> None:
     answers = (SCHED + ['0', '0', '0', '0', '0']
                + LEVELS_KEEP
                + edit_backlog + [''] + ['both'])
-    config = teams_config_wizard(_bridge(answers))
+    config = backlog_ops_wizard(_bridge(answers))
     gui = config.gui_display
     assert gui.backlog_to_external == {'key': 'Id', 'team': None}
     assert gui.release_to_external == {}
@@ -345,7 +347,7 @@ def test_levels_default() -> None:
     """Test accepting the pre-filled default levels stores None."""
     answers = (SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP
                + GUI_MAPS_KEEP)
-    config = teams_config_wizard(_bridge(answers))
+    config = backlog_ops_wizard(_bridge(answers))
     assert config.levels is None
     assert config.get_levels() == DEFAULT_LEVELS
     assert config.gui_display.level_display == LevelDisplay.BOTH
@@ -363,7 +365,7 @@ def test_levels_edited_stored() -> None:
     edit_first = ['1', '', 'Chore', '']
     answers = (SCHED + ['0', '0', '0', '0', '0'] + edit_first + ['']
                + GUI_MAPS_KEEP)
-    config = teams_config_wizard(_bridge(answers))
+    config = backlog_ops_wizard(_bridge(answers))
     assert config.levels is not None
     levels = config.get_levels()
     assert levels[0].name == 'Chore'
@@ -381,7 +383,7 @@ def test_levels_added() -> None:
     add_row = [':+', '-1', 'Spike', 'Research, Investigation']
     answers = (SCHED + ['0', '0', '0', '0', '0'] + add_row + ['']
                + GUI_MAPS_KEEP)
-    config = teams_config_wizard(_bridge(answers))
+    config = backlog_ops_wizard(_bridge(answers))
     assert config.levels is not None
     levels = config.get_levels()
     assert levels[-1].name == 'Spike'
@@ -500,8 +502,27 @@ def test_input_rename_wizard() -> None:
                + edit_backlog + [''] + ['']
                + ['0']
                + LEVELS_KEEP + GUI_MAPS_KEEP)
-    config = teams_config_wizard(_bridge(answers))
+    config = backlog_ops_wizard(_bridge(answers))
     in_config = config.input_configs['in1']
     assert in_config.backlog_to_internal == {'Issue ID': 'key', 'Junk': None,
                                              'My Note': 'note'}
     assert in_config.release_to_internal == {}
+
+
+def test_wizard_reexport() -> None:
+    """Test the package re-exports the wizard under its new name only.
+
+    The full-config wizard is reachable from the top-level package and is
+    the very function defined in the renamed module, while the old
+    ``teams_config_wizard`` name is no longer exported.
+    """
+    assert backlogops.backlog_ops_wizard is backlog_ops_wizard
+    assert 'backlog_ops_wizard' in backlogops.__all__
+    assert not hasattr(backlogops, 'teams_config_wizard')
+    assert 'teams_config_wizard' not in backlogops.__all__
+
+
+def test_old_module_gone() -> None:
+    """Test the misleadingly named old wizard module no longer exists."""
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module('backlogops.available_teams_wizard')

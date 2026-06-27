@@ -1,7 +1,7 @@
 #! /usr/local/bin/python3
-"""Graphical bridge that drives the synchronous teams wizard.
+"""Graphical bridge that drives the synchronous config wizard.
 
-The teams configuration wizard asks its questions through a
+The backlog-ops configuration wizard asks its questions through a
 :class:`WizardUiBridge`. This module provides :class:`TkWizardBridge`, a
 concrete bridge that overrides every typed ask method of that base class
 with a real Tkinter control: a text entry, a yes/no button pair, a
