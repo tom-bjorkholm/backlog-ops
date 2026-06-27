@@ -37,6 +37,10 @@ _IN_COLUMN_HEADER = 'Input file column (blank field drops it)'
 """Header of the file-column column in an input rename table."""
 
 
+_IN_STATUS_QUESTION = 'Extra status name mapping for this input preset:'
+"""Wizard prompt for an input preset's status-name override map."""
+
+
 def preset_wizard(ui_bridge: WizardUiBridge
                   ) -> InputFormatConfig | OutputFormatConfig:
     """Interactively create a stand-alone input or output TableIO preset.
@@ -105,7 +109,7 @@ def _build_output_presets(nav: _Navigator) -> dict[str, OutputFormatConfig]:
 
 
 def _ask_input_config(nav: _Navigator) -> InputFormatConfig:
-    """Ask one input preset's format and both file-to-internal maps."""
+    """Ask one input preset's format, file-to-internal maps and status map."""
     tableio = nav.ask_tableio(FileAccess.READ)
     backlog_map = nav.level(
         lambda: nav.ask_renames(_backlog_map_fields(), True, _IN_COLUMN_HEADER,
@@ -113,7 +117,8 @@ def _ask_input_config(nav: _Navigator) -> InputFormatConfig:
     release_map = nav.level(
         lambda: nav.ask_renames(list(RELEASE_FIELDS), False, _IN_COLUMN_HEADER,
                                 is_input=True))
-    return make_input_config(tableio, backlog_map, release_map)
+    status_map = nav.level(lambda: nav.ask_status_map(_IN_STATUS_QUESTION))
+    return make_input_config(tableio, backlog_map, release_map, status_map)
 
 
 def _ask_output_config(nav: _Navigator) -> OutputFormatConfig:

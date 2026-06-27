@@ -6,12 +6,15 @@
 
 from datetime import date, datetime
 from io import StringIO
+from typing import Optional
 
 import pytest
 
 from backlogops.backlog import BacklogItem, Status, get_backlog
 from backlogops.backlog import get_backlog_item, check_backlog_consistency
 from backlogops.no_text_io import NoTextIO
+
+NO_OUTPUT = NoTextIO()
 
 
 def _valid_data(status: object = Status.TODO) -> dict[str, object]:
@@ -400,3 +403,70 @@ def test_implicit_cycle() -> None:
                            status=Status.TODO, parent_key='E')]
     with pytest.raises(ValueError):
         check_backlog_consistency(backlog, NoTextIO())
+
+
+@pytest.mark.parametrize('text', ['Testing', 'testing', 'TESTING', 'TeStInG'])
+def test_status_map_case(text: str) -> None:
+    """Test an extra status name maps to a Status regardless of case."""
+    item = get_backlog_item(_valid_data(text),
+                            status_map={'testing': Status.IN_PROGRESS},
+                            stderr_file=NO_OUTPUT)
+    assert item.status is Status.IN_PROGRESS
+
+
+def test_status_map_first() -> None:
+    """Test an explicit mapping overrides the built-in status matching.
+
+    The name ``done`` would normally match :data:`Status.DONE`, but the
+    map sends it to :data:`Status.TODO`, so the explicit mapping wins.
+    """
+    item = get_backlog_item(_valid_data('done'),
+                            status_map={'Done': Status.TODO},
+                            stderr_file=NO_OUTPUT)
+    assert item.status is Status.TODO
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('TODO', Status.TODO), ('in', Status.IN_PROGRESS), ('Done', Status.DONE)])
+def test_status_map_fallback(text: str, expected: Status) -> None:
+    """Test an unmapped status falls back to the built-in matching."""
+    item = get_backlog_item(_valid_data(text),
+                            status_map={'Testing': Status.IN_PROGRESS},
+                            stderr_file=NO_OUTPUT)
+    assert item.status is expected
+
+
+@pytest.mark.parametrize('status_map', [None, {}])
+def test_status_map_absent(status_map: Optional[dict[str, Status]]) -> None:
+    """Test no map (or an empty map) keeps the built-in matching."""
+    item = get_backlog_item(_valid_data('DONE'), status_map=status_map,
+                            stderr_file=NO_OUTPUT)
+    assert item.status is Status.DONE
+
+
+def test_status_member_value() -> None:
+    """Test a status already given as a Status member is left unchanged."""
+    item = get_backlog_item(_valid_data(Status.DONE),
+                            status_map={'done': Status.TODO},
+                            stderr_file=NO_OUTPUT)
+    assert item.status is Status.DONE
+
+
+def test_status_unmapped() -> None:
+    """Test an extra status name that is not mapped is still rejected."""
+    with pytest.raises(TypeError):
+        get_backlog_item(_valid_data('Testing'),
+                         status_map={'Spike': Status.TODO},
+                         stderr_file=NO_OUTPUT)
+
+
+def test_status_get_backlog() -> None:
+    """Test get_backlog applies the status map to every item."""
+    data = [_valid_data('Testing'),
+            {'key': 'BI-2', 'level': 1, 'title': 'B', 'story_points': 1,
+             'status': 'Verifying'}]
+    backlog = get_backlog(data, status_map={'testing': Status.IN_PROGRESS,
+                                            'verifying': Status.DONE},
+                          stderr_file=NO_OUTPUT)
+    assert [item.status for item in backlog] == [Status.IN_PROGRESS,
+                                                 Status.DONE]

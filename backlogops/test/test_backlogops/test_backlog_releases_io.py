@@ -15,6 +15,7 @@ from backlogops import (
     make_input_config, make_output_config, read_backlog_releases,
     release_to_row, resolve_input_config, resolve_output_config, row_to_item,
     row_to_release, write_backlog_releases)
+from backlogops.backlog_releases_io import _merge_status_maps
 from backlogops.no_text_io import NoTextIO
 
 NO_OUTPUT = NoTextIO()
@@ -195,7 +196,7 @@ def test_in_drop_column(tmp_path: Path) -> None:
     config = make_input_config(base.tableio, {'junk': None}, {},
                                stderr_file=NO_OUTPUT)
     item = read_backlog_releases(path, config, DEFAULT_LEVELS,
-                                 NO_OUTPUT).backlog[0]
+                                 stderr_file=NO_OUTPUT).backlog[0]
     assert 'junk' not in item.extra_fields
 
 
@@ -214,7 +215,8 @@ def test_in_map_independent(tmp_path: Path) -> None:
     base = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
     config = make_input_config(base.tableio, {'Extra': 'team'},
                                {'Extra': None}, stderr_file=NO_OUTPUT)
-    back = read_backlog_releases(path, config, DEFAULT_LEVELS, NO_OUTPUT)
+    back = read_backlog_releases(path, config, DEFAULT_LEVELS,
+                                 stderr_file=NO_OUTPUT)
     assert back.backlog[0].team == 'Blue'
     assert [release.name for release in back.releases] == ['R1']
 
@@ -324,7 +326,8 @@ def _csv_text(data: BacklogReleases, path: Path, display: LevelDisplay) -> str:
 def _read_back(path: Path) -> BacklogReleases:
     """Read a backlog file with the default input configuration."""
     config = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    return read_backlog_releases(path, config, DEFAULT_LEVELS, NO_OUTPUT)
+    return read_backlog_releases(path, config, DEFAULT_LEVELS,
+                                 stderr_file=NO_OUTPUT)
 
 
 def test_display_both(tmp_path: Path) -> None:
@@ -384,7 +387,8 @@ def test_read_both_columns(tmp_path: Path) -> None:
                         'key,level,level name,title,story_points,status',
                         'A1,2,Story,T,3,TODO')
     config = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    back = read_backlog_releases(path, config, DEFAULT_LEVELS, errors)
+    back = read_backlog_releases(path, config, DEFAULT_LEVELS,
+                                 stderr_file=errors)
     assert back.backlog[0].level == 2
     assert 'level name column' in errors.getvalue()
 
@@ -396,3 +400,78 @@ def test_display_round_trip(tmp_path: Path) -> None:
             path = tmp_path / f'{display.name}{suffix}'
             _write_display(_one_item(level=2), path, display)
             assert _read_back(path).backlog[0].level == 2
+
+
+def _status_csv(path: Path, status: str) -> Path:
+    """Write a one-row backlog CSV using the given status text."""
+    text = ('key,level,title,story_points,status\n'
+            f'A1,1,First,5,{status}\n')
+    path.write_text(text, encoding='utf-8')
+    return path
+
+
+def _read_status(path: Path, global_map: Optional[dict[str, Status]] = None,
+                 preset_map: Optional[dict[str, Status]] = None) -> Status:
+    """Read the one backlog item's status with the given status maps."""
+    config = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    if preset_map is not None:
+        config.status_input_map = preset_map
+    back = read_backlog_releases(path, config, DEFAULT_LEVELS, global_map,
+                                 NO_OUTPUT)
+    return back.backlog[0].status
+
+
+@pytest.mark.parametrize('text', ['Testing', 'TESTING'])
+def test_read_global_status(text: str, tmp_path: Path) -> None:
+    """Test a global status map resolves an extra status name on read."""
+    path = _status_csv(tmp_path / 'b.csv', text)
+    assert _read_status(path, {'testing': Status.IN_PROGRESS}) \
+        is Status.IN_PROGRESS
+
+
+def test_read_preset_wins(tmp_path: Path) -> None:
+    """Test a preset status map overrides the global one for a name."""
+    path = _status_csv(tmp_path / 'b.csv', 'Testing')
+    status = _read_status(path, {'Testing': Status.IN_PROGRESS},
+                          {'testing': Status.DONE})
+    assert status is Status.DONE
+
+
+def test_read_preset_inherits(tmp_path: Path) -> None:
+    """Test a preset status map inherits global names it does not override."""
+    path = _status_csv(tmp_path / 'b.csv', 'Spike')
+    status = _read_status(path, {'Spike': Status.TODO},
+                          {'Testing': Status.DONE})
+    assert status is Status.TODO
+
+
+def test_read_builtin_no_map(tmp_path: Path) -> None:
+    """Test a built-in status name still reads without any status map."""
+    path = _status_csv(tmp_path / 'b.csv', 'DONE')
+    assert _read_status(path) is Status.DONE
+
+
+def test_read_extra_no_map(tmp_path: Path) -> None:
+    """Test an extra status name with no map is rejected."""
+    path = _status_csv(tmp_path / 'b.csv', 'Testing')
+    with pytest.raises(TypeError):
+        _read_status(path)
+
+
+def test_merge_preset_wins() -> None:
+    """Test the merge lowercases keys and lets the preset entry win."""
+    merged = _merge_status_maps({'Testing': Status.IN_PROGRESS,
+                                 'Spike': Status.TODO},
+                                {'TESTING': Status.DONE})
+    assert merged == {'testing': Status.DONE, 'spike': Status.TODO}
+
+
+@pytest.mark.parametrize('global_map,preset_map,expected', [
+    (None, None, {}),
+    ({'A': Status.TODO}, None, {'a': Status.TODO}),
+    (None, {'A': Status.DONE}, {'a': Status.DONE})])
+def test_merge_optional(global_map: Optional[dict[str, Status]],
+                        preset_map: Optional[dict[str, Status]],
+                        expected: dict[str, Status]) -> None:
+    """Test the merge tolerates absent maps and lowercases the keys."""
+    assert _merge_status_maps(global_map, preset_map) == expected

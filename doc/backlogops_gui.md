@@ -19,6 +19,7 @@
     * [out\_presets](#backlogops_gui.application.BacklogApp.out_presets)
     * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
     * [levels](#backlogops_gui.application.BacklogApp.levels)
+    * [status\_map](#backlogops_gui.application.BacklogApp.status_map)
     * [gui\_display](#backlogops_gui.application.BacklogApp.gui_display)
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
     * [show\_info](#backlogops_gui.application.BacklogApp.show_info)
@@ -358,6 +359,16 @@ def levels() -> Optional[Levels]
 ```
 
 Return the configured backlog item levels, or None when absent.
+
+<a id="backlogops_gui.application.BacklogApp.status_map"></a>
+
+#### status\_map
+
+```python
+def status_map() -> Optional[dict[str, Status]]
+```
+
+Return the library-wide status input map, or None when absent.
 
 <a id="backlogops_gui.application.BacklogApp.gui_display"></a>
 
@@ -1192,11 +1203,13 @@ view rather than on a console.
 #### read\_backlog
 
 ```python
-def read_backlog(path: str,
-                 value: Optional[str],
-                 presets: Optional[dict[str, InputFormatConfig]],
-                 sink: Optional[TextIO] = None,
-                 levels: Optional[Levels] = None) -> BacklogReleases
+def read_backlog(
+        path: str,
+        value: Optional[str],
+        presets: Optional[dict[str, InputFormatConfig]],
+        sink: Optional[TextIO] = None,
+        levels: Optional[Levels] = None,
+        status_map: Optional[dict[str, Status]] = None) -> BacklogReleases
 ```
 
 Read and validate a backlog and releases from one file.
@@ -1209,6 +1222,9 @@ Read and validate a backlog and releases from one file.
 - `sink` - Stream for diagnostics, or None to discard them.
 - `levels` - The backlog item levels to honour, or None for the
   default levels.
+- `status_map` - The library-wide status input map, or None when absent.
+  The resolved input configuration's own status map overrides it
+  per name.
   
 
 **Returns**:

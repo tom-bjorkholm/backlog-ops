@@ -42,7 +42,7 @@ def test_writes_input_preset(tmp_path: Path,
     The ``.cfg`` extension is added, and the file reads back as an input
     config whose backlog map reads file column ``Type`` into ``level``.
     """
-    answers = ['input', '1'] + CSV_OPTS + ['2', 'Type', ''] + ['']
+    answers = ['input', '1'] + CSV_OPTS + ['2', 'Type', ''] + ['', '']
     monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
     assert preset_wizard.main(
         ['-o', str(tmp_path / 'in'), '--no-textual']) == 0
@@ -94,7 +94,7 @@ def test_overwrite_force(tmp_path: Path,
     """Test the force flag overwrites the existing file without asking."""
     target = tmp_path / 'in.cfg'
     target.write_text('OLD', encoding='utf-8')
-    answers = ['input', '1'] + CSV_OPTS + ['', '']
+    answers = ['input', '1'] + CSV_OPTS + ['', '', '']
     monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
     assert preset_wizard.main(
         ['-o', str(tmp_path / 'in'), '--no-textual', '-f']) == 0

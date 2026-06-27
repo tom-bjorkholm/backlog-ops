@@ -152,8 +152,14 @@ def _present_cells(row: Mapping[str, object]) -> dict[str, object]:
 
 
 def row_to_item(row: Mapping[str, object], levels: Optional[Levels] = None,
+                status_map: Optional[dict[str, Status]] = None,
                 stderr_file: TextIO = sys.stderr) -> BacklogItem:
-    """Return a backlog item from a row keyed by internal field name."""
+    """Return a backlog item from a row keyed by internal field name.
+
+    A string status is matched case-insensitively against ``status_map``
+    before the built-in status-name matching, as documented for
+    :func:`backlogops.backlog.get_backlog_item`.
+    """
     prepared = _present_cells(row)
     for name in DEPENDENCY_FIELDS:
         if name in prepared:
@@ -161,7 +167,7 @@ def row_to_item(row: Mapping[str, object], levels: Optional[Levels] = None,
     for name in ('story_points', 'level'):
         if name in prepared:
             prepared[name] = _maybe_int(row[name])
-    return get_backlog_item(prepared, levels, stderr_file)
+    return get_backlog_item(prepared, levels, status_map, stderr_file)
 
 
 def row_to_release(row: Mapping[str, object],

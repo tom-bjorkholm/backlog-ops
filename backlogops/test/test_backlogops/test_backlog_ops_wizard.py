@@ -11,7 +11,7 @@ from typing import Optional
 import pytest
 from tableio_cfg_json import WizardUiBridgeConsole
 import backlogops
-from backlogops import InputFormatConfig, OutputFormatConfig
+from backlogops import InputFormatConfig, OutputFormatConfig, Status
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.backlog_ops_wizard import (
@@ -19,7 +19,8 @@ from backlogops.backlog_ops_wizard import (
 from backlogops.io_preset_wizard import preset_wizard
 from backlogops.wizard_helpers import (
     _backlog_map_fields, _parse_column_renames, _parse_input_renames,
-    _read_int, _read_number, _read_opt_date, _read_text)
+    _parse_status_map, _read_int, _read_number, _read_opt_date, _read_text,
+    _status_target)
 from backlogops.levels import DEFAULT_LEVELS, LevelDisplay
 from backlogops.work_hours import DEFAULT_WORK_WEEK, WeekDay
 
@@ -34,6 +35,9 @@ GUI_MAPS_KEEP = MAPS_KEEP + GUI_KEEP
 
 LEVELS_KEEP = ['']
 """A blank answer that accepts the pre-filled default levels table."""
+
+STATUS_KEEP = ['']
+"""A blank answer that accepts an empty (no extra names) status map."""
 
 SCHED = [''] * 7
 """Blank answers that keep the seven default daily work hours."""
@@ -288,11 +292,11 @@ def test_preset_wizard() -> None:
     answers = (SCHED + ['0', '0', '0']
                + ['1']
                + ['in name', 'in1'] + ['1'] + CSV_OPTS
-               + ['2', 'Type', ''] + ['']
+               + ['2', 'Type', ''] + [''] + STATUS_KEEP
                + ['1']
                + ['out1'] + ['1'] + CSV_OPTS
                + MAPS_KEEP + ['numeric']
-               + LEVELS_KEEP
+               + LEVELS_KEEP + STATUS_KEEP
                + MAPS_KEEP + ['name'])
     config = backlog_ops_wizard(_bridge(answers))
     assert isinstance(config, BacklogOpsConfig)
@@ -321,7 +325,7 @@ def test_output_rename_wizard() -> None:
                + ['1']
                + ['out1'] + ['1'] + CSV_OPTS
                + edit_backlog + [''] + ['both']
-               + LEVELS_KEEP + GUI_MAPS_KEEP)
+               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP)
     config = backlog_ops_wizard(_bridge(answers))
     output = config.output_configs['out1']
     assert output.backlog_to_external == {'key': 'Id', 'story_points': None,
@@ -337,7 +341,7 @@ def test_gui_rename_wizard() -> None:
     """
     edit_backlog = ['1', 'Id', '9', ':e', '']
     answers = (SCHED + ['0', '0', '0', '0', '0']
-               + LEVELS_KEEP
+               + LEVELS_KEEP + STATUS_KEEP
                + edit_backlog + [''] + ['both'])
     config = backlog_ops_wizard(_bridge(answers))
     gui = config.gui_display
@@ -348,7 +352,7 @@ def test_gui_rename_wizard() -> None:
 def test_levels_default() -> None:
     """Test accepting the pre-filled default levels stores None."""
     answers = (SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP
-               + GUI_MAPS_KEEP)
+               + STATUS_KEEP + GUI_MAPS_KEEP)
     config = backlog_ops_wizard(_bridge(answers))
     assert config.levels is None
     assert config.get_levels() == DEFAULT_LEVELS
@@ -366,7 +370,7 @@ def test_levels_edited_stored() -> None:
     """
     edit_first = ['1', '', 'Chore', '']
     answers = (SCHED + ['0', '0', '0', '0', '0'] + edit_first + ['']
-               + GUI_MAPS_KEEP)
+               + STATUS_KEEP + GUI_MAPS_KEEP)
     config = backlog_ops_wizard(_bridge(answers))
     assert config.levels is not None
     levels = config.get_levels()
@@ -384,7 +388,7 @@ def test_levels_added() -> None:
     """
     add_row = [':+', '-1', 'Spike', 'Research, Investigation']
     answers = (SCHED + ['0', '0', '0', '0', '0'] + add_row + ['']
-               + GUI_MAPS_KEEP)
+               + STATUS_KEEP + GUI_MAPS_KEEP)
     config = backlog_ops_wizard(_bridge(answers))
     assert config.levels is not None
     levels = config.get_levels()
@@ -399,7 +403,8 @@ def test_levels_dup_number() -> None:
     rejects, then re-edited to a free number, so the table is accepted.
     """
     fix = ['2', '0', '', '', '', '2', '7', '', '', '']
-    answers = SCHED + ['0', '0', '0', '0', '0'] + fix + GUI_MAPS_KEEP
+    answers = (SCHED + ['0', '0', '0', '0', '0'] + fix
+               + STATUS_KEEP + GUI_MAPS_KEEP)
     config, errors = _run_config(answers)
     assert 'more than once' in errors
     levels = config.get_levels()
@@ -414,7 +419,8 @@ def test_levels_dup_name() -> None:
     check rejects, then renamed to a unique name, so it is accepted.
     """
     fix = ['1', '', 'Story', '', '', '1', '', 'Chore', '', '']
-    answers = SCHED + ['0', '0', '0', '0', '0'] + fix + GUI_MAPS_KEEP
+    answers = (SCHED + ['0', '0', '0', '0', '0'] + fix
+               + STATUS_KEEP + GUI_MAPS_KEEP)
     config, errors = _run_config(answers)
     assert 'duplicates' in errors
     assert config.get_levels()[0].name == 'Chore'
@@ -501,9 +507,9 @@ def test_input_rename_wizard() -> None:
                     'My Note']
     answers = (SCHED + ['0', '0', '0']
                + ['1'] + ['in1'] + ['1'] + CSV_OPTS
-               + edit_backlog + [''] + ['']
+               + edit_backlog + [''] + [''] + STATUS_KEEP
                + ['0']
-               + LEVELS_KEEP + GUI_MAPS_KEEP)
+               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP)
     config = backlog_ops_wizard(_bridge(answers))
     in_config = config.input_configs['in1']
     assert in_config.backlog_to_internal == {'Issue ID': 'key', 'Junk': None,
@@ -537,7 +543,8 @@ def test_preset_input() -> None:
     reads file column ``Type`` into ``level`` and the releases table is
     kept unchanged.
     """
-    answers = ['input', '1'] + CSV_OPTS + ['2', 'Type', ''] + ['']
+    answers = ['input', '1'] + CSV_OPTS + ['2', 'Type', ''] + [''] \
+        + STATUS_KEEP
     config = preset_wizard(_bridge(answers))
     assert isinstance(config, InputFormatConfig)
     assert config.backlog_to_internal == {'Type': 'level'}
@@ -560,7 +567,7 @@ def test_preset_output() -> None:
 
 def test_preset_default_input() -> None:
     """Test a blank direction answer defaults to an empty input preset."""
-    answers = [''] + ['1'] + CSV_OPTS + MAPS_KEEP
+    answers = [''] + ['1'] + CSV_OPTS + MAPS_KEEP + STATUS_KEEP
     config = preset_wizard(_bridge(answers))
     assert isinstance(config, InputFormatConfig)
     assert not config.backlog_to_internal
@@ -577,3 +584,73 @@ def test_preset_reexport() -> None:
     """Test the package re-exports the preset wizard."""
     assert backlogops.preset_wizard is preset_wizard
     assert 'preset_wizard' in backlogops.__all__
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('TODO', 'TODO'), ('todo', 'TODO'), (' In_Progress ', 'IN_PROGRESS'),
+    ('done', 'DONE'), ('bogus', None), (None, None)])
+def test_status_target(text: Optional[str], expected: Optional[str]) -> None:
+    """Test the internal status name is matched, trimmed and case-folded."""
+    assert _status_target(text) == expected
+
+
+def test_parse_status_ok() -> None:
+    """Test a status table maps names to Status, accepting any case."""
+    table: list[list[Optional[str]]] = [['Testing', 'IN_PROGRESS'],
+                                        ['Spike', 'todo']]
+    assert _parse_status_map(table) == {'Testing': Status.IN_PROGRESS,
+                                        'Spike': Status.TODO}
+
+
+def test_parse_status_blank() -> None:
+    """Test a row with a blank file status name is ignored."""
+    table: list[list[Optional[str]]] = [[None, 'TODO'], ['Testing', 'DONE']]
+    assert _parse_status_map(table) == {'Testing': Status.DONE}
+
+
+def test_parse_status_empty() -> None:
+    """Test an empty status table yields an empty map."""
+    assert _parse_status_map([]) == {}
+
+
+def test_parse_status_bad() -> None:
+    """Test an unknown internal status rejects the whole table."""
+    assert _parse_status_map([['Testing', 'Nonsense']]) is None
+
+
+def test_parse_status_dup() -> None:
+    """Test a case-insensitive duplicate file status name is rejected."""
+    table: list[list[Optional[str]]] = [['Testing', 'DONE'],
+                                        ['TESTING', 'TODO']]
+    assert _parse_status_map(table) is None
+
+
+def test_global_status_wizard() -> None:
+    """Test the wizard captures the global status map from a added row."""
+    add = [':+', 'Testing', 'IN_PROGRESS', '']
+    answers = (SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP
+               + add + GUI_MAPS_KEEP)
+    config = backlog_ops_wizard(_bridge(answers))
+    assert config.status_input_map == {'Testing': Status.IN_PROGRESS}
+
+
+def test_in_preset_status() -> None:
+    """Test an input preset captures its own status override map."""
+    add = [':+', 'Spike', 'TODO', '']
+    answers = (SCHED + ['0', '0', '0']
+               + ['1'] + ['in1'] + ['1'] + CSV_OPTS
+               + MAPS_KEEP + add
+               + ['0']
+               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP)
+    config = backlog_ops_wizard(_bridge(answers))
+    assert config.input_configs['in1'].status_input_map == {
+        'Spike': Status.TODO}
+
+
+def test_preset_input_status() -> None:
+    """Test the stand-alone input preset wizard captures a status map."""
+    add = [':+', 'Testing', 'DONE', '']
+    answers = ['input', '1'] + CSV_OPTS + MAPS_KEEP + add
+    config = preset_wizard(_bridge(answers))
+    assert isinstance(config, InputFormatConfig)
+    assert config.status_input_map == {'Testing': Status.DONE}

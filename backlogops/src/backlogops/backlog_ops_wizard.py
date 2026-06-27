@@ -44,6 +44,10 @@ _GUI_COLUMN_HEADER = 'Shown column (blank hides it)'
 """Header of the renamed-column column in a GUI rename table."""
 
 
+_GLOBAL_STATUS_QUESTION = 'Global extra status name mapping (all inputs):'
+"""Wizard prompt for the library-wide status-name map."""
+
+
 def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams:
     """Interactively create an available workforce configuration.
 
@@ -114,6 +118,7 @@ def _collect_config(nav: _Navigator) -> BacklogOpsConfig:
     config.input_configs = nav.level(lambda: _build_input_presets(nav))
     config.output_configs = nav.level(lambda: _build_output_presets(nav))
     config.levels = _levels_or_none(nav.ask_levels())
+    config.status_input_map = nav.ask_status_map(_GLOBAL_STATUS_QUESTION)
     config.gui_display = _build_gui_display(nav)
     return config
 

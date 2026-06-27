@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, DEFAULT_LEVELS, Level, LevelDisplay,
-    make_input_config, make_output_config, read_backlog_ops_config,
+    Status, make_input_config, make_output_config, read_backlog_ops_config,
     resolve_input_config, resolve_output_config, write_backlog_ops_config)
 from backlogops.no_text_io import NoTextIO
 from backlogops.work_hours import WeekDay
@@ -243,4 +243,46 @@ def test_levels_not_a_list() -> None:
     """Test a scalar levels member is rejected as a TypeError."""
     with pytest.raises(TypeError):
         BacklogOpsConfig(from_json_data_text=_ops_text('oops'),
+                         stderr_file=NO_OUTPUT)
+
+
+def test_status_map_default() -> None:
+    """Test the global status input map defaults to empty."""
+    assert _empty().get_status_input_map() == {}
+
+
+def test_status_map_roundtrip(tmp_path: Path) -> None:
+    """Test the global status input map survives a write-and-read.
+
+    The map is written with Status member names and read back as Status
+    members, reachable through ``get_status_input_map``.
+    """
+    config = _empty()
+    config.status_input_map = {'Implementing': Status.IN_PROGRESS,
+                               'Verifying': Status.DONE}
+    target = tmp_path / 'cfg.cfg'
+    write_backlog_ops_config(config, target, NO_OUTPUT)
+    stored = json.loads(target.read_text(encoding='utf-8'))
+    assert stored['status_input_map'] == {'Implementing': 'IN_PROGRESS',
+                                          'Verifying': 'DONE'}
+    loaded = read_backlog_ops_config(target, NO_OUTPUT)
+    assert loaded.get_status_input_map() == {
+        'Implementing': Status.IN_PROGRESS, 'Verifying': Status.DONE}
+
+
+def test_status_map_old_file() -> None:
+    """Test an older file without a status map defaults to empty."""
+    data = json.loads(_empty().as_json_string(NO_OUTPUT))
+    del data['status_input_map']
+    config = BacklogOpsConfig(from_json_data_text=json.dumps(data),
+                              stderr_file=NO_OUTPUT)
+    assert config.get_status_input_map() == {}
+
+
+def test_status_map_bad_value() -> None:
+    """Test reading a global status map with a bad value is rejected."""
+    data = json.loads(_empty().as_json_string(NO_OUTPUT))
+    data['status_input_map'] = {'Testing': 'Nonsense'}
+    with pytest.raises(TypeError):
+        BacklogOpsConfig(from_json_data_text=json.dumps(data),
                          stderr_file=NO_OUTPUT)

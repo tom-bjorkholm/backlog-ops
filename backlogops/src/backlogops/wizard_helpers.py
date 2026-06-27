@@ -25,6 +25,7 @@ from typing import Callable, Optional, Sequence, TextIO, TypeVar
 from tableio import FileAccess, access_capabilities
 from tableio_cfg_json import TableCell, TableColumn, TioJsonConfig, \
     WizardBack, WizardCancelLevel, WizardUiBridge, tio_json_config_wizard
+from backlogops.backlog import Status
 from backlogops.io_config import PRESET_NAME_RE
 from backlogops.levels import DEFAULT_LEVELS, Level, LevelDisplay, \
     levels_from_list
@@ -217,6 +218,12 @@ class _Navigator:
             return _read_renames(self._ui, fields, allow_extra, target_header,
                                  is_input)
         result = self._ask(read)
+        assert isinstance(result, dict)
+        return result
+
+    def ask_status_map(self, question: str) -> dict[str, Status]:
+        """Ask the input status-name map as one variable-row table."""
+        result = self._ask(lambda: _read_status_map(self._ui, question))
         assert isinstance(result, dict)
         return result
 
@@ -671,4 +678,83 @@ def _read_levels(ui: WizardUiBridge) -> list[Level]:
         else:
             reason = ('Enter a whole-number level and a non-empty name in '
                       'every row.')
+        cells = _cells_from_table(table)
+
+
+_STATUS_NAMES = [status.name for status in Status]
+"""Internal status names offered as status-map targets."""
+
+_MAX_STATUS_MAP = 50
+"""Upper bound on the number of status-name mappings the wizard accepts."""
+
+_STATUS_TARGETS_HINT = ('Internal status is one of '
+                        + ', '.join(_STATUS_NAMES) + '.')
+"""Hint listing the valid internal status names."""
+
+
+def _status_target(text: Optional[str]) -> Optional[str]:
+    """Return the internal status name in ``text`` (case-insensitive)."""
+    if text is None:
+        return None
+    upper = text.strip().upper()
+    return upper if upper in _STATUS_NAMES else None
+
+
+def _status_check(table: list[list[Optional[str]]],
+                  position: tuple[int, int]) -> tuple[bool, str]:
+    """Give early feedback that a status-map row is complete and valid."""
+    row = position[0]
+    name, target = table[row][0], table[row][1]
+    if target and _status_target(target) is None:
+        return (False, _STATUS_TARGETS_HINT)
+    if target and not name:
+        return (False, 'Enter the file status name for this row.')
+    return (True, '')
+
+
+def _parse_status_map(table: list[list[Optional[str]]]
+                      ) -> Optional[dict[str, Status]]:
+    """Return the status map from a table, or None when a row is invalid.
+
+    A row with a blank file status name is ignored. A non-blank file
+    status name needs a valid internal status. A file status name that
+    repeats (case-insensitively) makes the table invalid.
+    """
+    mapping: dict[str, Status] = {}
+    seen: set[str] = set()
+    for name, target in ((row[0], row[1]) for row in table):
+        if not name:
+            continue
+        status_name = _status_target(target)
+        if status_name is None:
+            return None
+        lowered = name.lower()
+        if lowered in seen:
+            return None
+        seen.add(lowered)
+        mapping[name] = Status[status_name]
+    return mapping
+
+
+def _read_status_map(ui: WizardUiBridge, question: str) -> dict[str, Status]:
+    """Ask the input status-name map as one variable-row table.
+
+    Each row maps an extra file status name to an internal status. The
+    table starts empty and may be left empty for no extra names. An
+    invalid table is re-asked with the user's own rows kept.
+    """
+    columns = [TableColumn(header='File status name'),
+               TableColumn(header='Internal status')]
+    cells: list[list[TableCell]] = []
+    instruction = f'{question} {_STATUS_TARGETS_HINT}'
+    reason: Optional[str] = None
+    while True:
+        table = ui.ask_table(columns, cells, instruction, re_ask_reason=reason,
+                             partial_check=_status_check, min_rows=0,
+                             max_rows=_MAX_STATUS_MAP)
+        mapping = _parse_status_map(table)
+        if mapping is not None:
+            return mapping
+        reason = ('Map each file status name once to '
+                  + ', '.join(_STATUS_NAMES) + '.')
         cells = _cells_from_table(table)

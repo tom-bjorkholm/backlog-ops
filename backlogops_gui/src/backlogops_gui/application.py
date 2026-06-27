@@ -31,7 +31,7 @@ from config_as_json.file_extension import fix_file_extension
 from tableio_cfg_json import WizardUiBridge
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, BacklogReleases, GuiDisplayConfig,
-    InputFormatConfig, Levels, OutputFormatConfig, get_demo_backlog,
+    InputFormatConfig, Levels, OutputFormatConfig, Status, get_demo_backlog,
     get_backlog_ops_config, backlog_ops_wizard, preset_wizard)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
@@ -129,6 +129,10 @@ class BacklogApp:
     def levels(self) -> Optional[Levels]:
         """Return the configured backlog item levels, or None when absent."""
         return self.config.get_levels() if self.config else None
+
+    def status_map(self) -> Optional[dict[str, Status]]:
+        """Return the library-wide status input map, or None when absent."""
+        return self.config.get_status_input_map() if self.config else None
 
     def gui_display(self) -> GuiDisplayConfig:
         """Return the GUI display configuration (level display and maps)."""
@@ -288,7 +292,7 @@ class BacklogApp:
             return
         try:
             data = read_backlog(path, options.config_value, presets, self.log,
-                                self.levels())
+                                self.levels(), self.status_map())
         except IO_ERRORS as error:
             self.show_error('Could not read file', str(error))
             return

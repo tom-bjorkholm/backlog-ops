@@ -72,6 +72,10 @@ class FakeConfig:
         """Return an empty levels mapping, as the real config would."""
         return {}
 
+    def get_status_input_map(self) -> dict[str, object]:
+        """Return an empty status map, as the real config would."""
+        return {}
+
     def write(self, to_json_filename: str, stderr_file: object) -> None:
         """Record the destination the configuration was written to."""
         assert stderr_file is not None
@@ -138,13 +142,15 @@ def _read_opts(_parent: object, _presets: object) -> ReadOptions:
 
 
 def _read_data(_path: object, _value: object, _presets: object, _sink: object,
-               _levels: object = None) -> BacklogReleases:
+               _levels: object = None,
+               _status_map: object = None) -> BacklogReleases:
     """Return fixed data as if a backlog file was read."""
     return DATA
 
 
 def _read_fail(_path: object, _value: object, _presets: object, _sink: object,
-               _levels: object = None) -> BacklogReleases:
+               _levels: object = None,
+               _status_map: object = None) -> BacklogReleases:
     """Raise as if reading a backlog file failed."""
     raise ValueError('bad file')
 

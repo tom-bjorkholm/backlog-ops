@@ -8,8 +8,9 @@ from pathlib import Path
 import pytest
 from backlogops import (
     AvailableTeams, BacklogItem, BacklogOpsConfig, BacklogReleases,
-    Release, Status, make_output_config, read_backlog_releases,
-    resolve_input_config, resolve_output_config, write_backlog_releases)
+    Release, Status, make_input_config, make_output_config,
+    read_backlog_releases, resolve_input_config, resolve_output_config,
+    write_backlog_releases)
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import convert
@@ -76,3 +77,57 @@ def test_missing_input(tmp_path: Path) -> None:
     """Test a missing input file makes the command return 1."""
     assert convert.main(['-i', str(tmp_path / 'no.csv'),
                          '-o', str(tmp_path / 'out.csv')]) == 1
+
+
+def _empty_config() -> BacklogOpsConfig:
+    """Return a configuration for an empty workforce and no presets."""
+    return BacklogOpsConfig(
+        available_teams=AvailableTeams(persons={}, teams=[]),
+        stderr_file=NO_OUTPUT)
+
+
+def _write_status_source(path: Path, status: str) -> None:
+    """Write a one-row backlog CSV using the given status text."""
+    path.write_text('key,level,title,story_points,status\n'
+                    f'A1,1,First,5,{status}\n', encoding='utf-8')
+
+
+def _converted_status(target: Path) -> Status:
+    """Return the status of the one item read back from a written file."""
+    config = resolve_input_config(None, data_file=target,
+                                  stderr_file=NO_OUTPUT)
+    back = read_backlog_releases(target, config, stderr_file=NO_OUTPUT)
+    return back.backlog[0].status
+
+
+def test_global_status_map(tmp_path: Path) -> None:
+    """Test the --io-config global status map resolves an extra name."""
+    teams_file = tmp_path / 'teams.cfg'
+    config = _empty_config()
+    config.status_input_map = {'Implementing': Status.IN_PROGRESS}
+    config.write(to_json_filename=teams_file, stderr_file=NO_OUTPUT)
+    source = tmp_path / 'in.csv'
+    target = tmp_path / 'out.csv'
+    _write_status_source(source, 'Implementing')
+    assert convert.main(['-i', str(source), '-o', str(target),
+                         '--io-config', str(teams_file)]) == 0
+    assert _converted_status(target) is Status.IN_PROGRESS
+
+
+def test_preset_status_wins(tmp_path: Path) -> None:
+    """Test an input preset's status map overrides the global one."""
+    teams_file = tmp_path / 'teams.cfg'
+    config = _empty_config()
+    config.status_input_map = {'Reviewing': Status.IN_PROGRESS}
+    preset = make_input_config(
+        resolve_input_config(None, data_file='x.csv',
+                             stderr_file=NO_OUTPUT).tableio,
+        {}, {}, {'Reviewing': Status.DONE}, stderr_file=NO_OUTPUT)
+    config.input_configs = {'jira': preset}
+    config.write(to_json_filename=teams_file, stderr_file=NO_OUTPUT)
+    source = tmp_path / 'in.csv'
+    target = tmp_path / 'out.csv'
+    _write_status_source(source, 'Reviewing')
+    assert convert.main(['-i', str(source), '-o', str(target), '-I', 'jira',
+                         '--io-config', str(teams_file)]) == 0
+    assert _converted_status(target) is Status.DONE

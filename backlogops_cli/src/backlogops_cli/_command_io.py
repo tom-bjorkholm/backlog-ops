@@ -102,8 +102,9 @@ def read_input(parsed: argparse.Namespace) -> BacklogReleases:
     The input format is resolved from the ``--input-config`` value, which
     may be empty (inferred from the file name), a preset name looked up in
     the presets file given by ``--io-config``, or a config file path. When
-    a ``--io-config`` is given its configured levels are honoured while
-    reading the items.
+    a ``--io-config`` is given its configured levels and its library-wide
+    status input map are honoured while reading the items; the input
+    configuration's own status map overrides the global one per name.
 
     Args:
         parsed: Parsed command line arguments holding the input options
@@ -116,9 +117,11 @@ def read_input(parsed: argparse.Namespace) -> BacklogReleases:
     config = _ops_config(getattr(parsed, 'io_config', None))
     presets = config.input_configs if config is not None else None
     levels = config.get_levels() if config is not None else None
+    status_map = (config.get_status_input_map() if config is not None
+                  else None)
     in_config = resolve_input_config(parsed.input_config,
                                      data_file=parsed.input, presets=presets)
-    data = read_backlog_releases(parsed.input, in_config, levels)
+    data = read_backlog_releases(parsed.input, in_config, levels, status_map)
     data.check_consistency(sys.stderr)
     return data
 

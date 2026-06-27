@@ -217,7 +217,39 @@ def prepare_item_data(data: dict[str, object], levels: Levels,
     return {**data, 'level': number}
 
 
+def _resolve_status(data: dict[str, object],
+                    status_map: Optional[dict[str, Status]]
+                    ) -> dict[str, object]:
+    """Return item data with a mapped status name replaced by its Status.
+
+    A string status is matched case-insensitively against ``status_map``;
+    a match replaces it with the mapped Status, so an explicit mapping
+    takes precedence over the built-in status-name matching. A status not
+    in the map, an empty map, or a non-string status is left unchanged for
+    the normal conversion to handle.
+
+    Args:
+        data: The raw input data for one backlog item.
+        status_map: The extra status names mapped to Status members, or
+                    None when no extra names are configured.
+
+    Returns:
+        The input data, with a mapped string status replaced by its Status.
+    """
+    if not status_map:
+        return data
+    value = data.get('status')
+    if not isinstance(value, str):
+        return data
+    lookup = {name.lower(): status for name, status in status_map.items()}
+    mapped = lookup.get(value.lower())
+    if mapped is None:
+        return data
+    return {**data, 'status': mapped}
+
+
 def get_backlog_item(data: dict[str, object], levels: Optional[Levels] = None,
+                     status_map: Optional[dict[str, Status]] = None,
                      stderr_file: TextIO = sys.stderr) -> BacklogItem:
     """Get a backlog item from a dictionary.
 
@@ -226,13 +258,18 @@ def get_backlog_item(data: dict[str, object], levels: Optional[Levels] = None,
     are converted to their declared types (for example ISO date strings
     to ``date`` and status names to ``Status``) and checked. A ``level``
     given as a string is resolved to its level number using ``levels``.
-    When ``levels`` is None the default levels are used. Errors are
-    reported to the given file object.
+    When ``levels`` is None the default levels are used. A string status
+    is first matched case-insensitively against ``status_map`` (an
+    explicit match takes precedence); an unmapped status falls back to the
+    built-in status-name matching. Errors are reported to the given file
+    object.
 
     Args:
         data: The dictionary to get the backlog item from.
         levels: The levels used to resolve a string level, or None to
                 use :data:`DEFAULT_LEVELS`.
+        status_map: Extra status names mapped to Status members, matched
+                    case-insensitively, or None for no extra names.
         stderr_file: The file to report errors to.
 
     Raises:
@@ -246,6 +283,7 @@ def get_backlog_item(data: dict[str, object], levels: Optional[Levels] = None,
     chosen_levels = DEFAULT_LEVELS if levels is None else levels
     field_types = field_type_hints(BacklogItem)
     prepared = prepare_item_data(data, chosen_levels, stderr_file)
+    prepared = _resolve_status(prepared, status_map)
     item_kwargs = build_item_kwargs(fields(BacklogItem), field_types, prepared,
                                     stderr_file)
     return construct(BacklogItem, item_kwargs)
@@ -253,6 +291,7 @@ def get_backlog_item(data: dict[str, object], levels: Optional[Levels] = None,
 
 def get_backlog(datalist: list[dict[str, object]],
                 levels: Optional[Levels] = None,
+                status_map: Optional[dict[str, Status]] = None,
                 stderr_file: TextIO = sys.stderr) -> Backlog:
     """Get a backlog from a list of dictionaries.
 
@@ -263,6 +302,8 @@ def get_backlog(datalist: list[dict[str, object]],
         datalist: The list of dictionaries to get the backlog from.
         levels: The levels used to convert level names to level numbers,
                 or None to use :data:`DEFAULT_LEVELS`.
+        status_map: Extra status names mapped to Status members, matched
+                    case-insensitively, or None for no extra names.
         stderr_file: The file to report errors to.
 
     Raises:
@@ -273,7 +314,8 @@ def get_backlog(datalist: list[dict[str, object]],
     Returns:
         The backlog.
     """
-    return [get_backlog_item(data, levels, stderr_file) for data in datalist]
+    return [get_backlog_item(data, levels, status_map, stderr_file)
+            for data in datalist]
 
 
 def check_unique_keys(backlog: Backlog,

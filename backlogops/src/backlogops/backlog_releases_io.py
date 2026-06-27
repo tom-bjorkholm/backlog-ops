@@ -37,7 +37,7 @@ from typing import Optional, TextIO
 from config_as_json import PathOrStr
 from tableio import CAP_IGNORABLE, Capabilities, DictData, FileAccess, \
     TableIO, Value, ValueFmt, access_capabilities, tio_config_create
-from backlogops.backlog import Backlog
+from backlogops.backlog import Backlog, Status
 from backlogops.backlog_releases import BacklogReleases
 from backlogops.io_config import InputFormatConfig, OutputFormatConfig
 from backlogops.table_create import FileExistsCb
@@ -117,8 +117,32 @@ def _collect_tables(config: InputFormatConfig, data_file: PathOrStr,
     return backlog_rows, release_rows
 
 
+def _merge_status_maps(global_map: Optional[dict[str, Status]],
+                       preset_map: Optional[dict[str, Status]]
+                       ) -> dict[str, Status]:
+    """Return the effective status name map, preset entries winning.
+
+    The keys are lowercased so a status name matches regardless of case
+    and a preset entry overrides a global entry that differs only in case.
+
+    Args:
+        global_map: The library-wide status map, or None when absent.
+        preset_map: The per-input override status map, or None when absent.
+
+    Returns:
+        The merged status map keyed by lowercased status name.
+    """
+    result: dict[str, Status] = {}
+    for source in (global_map, preset_map):
+        if source:
+            for name, status in source.items():
+                result[name.lower()] = status
+    return result
+
+
 def read_backlog_releases(data_file: PathOrStr, config: InputFormatConfig,
                           levels: Optional[Levels] = None,
+                          status_map: Optional[dict[str, Status]] = None,
                           stderr_file: TextIO = sys.stderr) -> BacklogReleases:
     """Read a backlog, releases, or both from one file.
 
@@ -127,14 +151,20 @@ def read_backlog_releases(data_file: PathOrStr, config: InputFormatConfig,
     configuration before classification and conversion. A ``level`` and a
     ``level name`` column are both recognised; when both are present the
     numeric ``level`` column is used and the ``level name`` column is
-    ignored. Field values are converted to their internal types;
-    consistency across items is not checked here.
+    ignored. A string status is matched case-insensitively against the
+    effective status map, which merges the given library-wide ``status_map``
+    with the input configuration's own ``status_input_map`` (the latter
+    overriding per name). Field values are converted to their internal
+    types; consistency across items is not checked here.
 
     Args:
         data_file: The data file to read.
-        config: The input configuration (format and column-name map).
+        config: The input configuration (format, column-name maps and
+                per-input status map).
         levels: The levels used to resolve a string level, or None for
                 the default levels.
+        status_map: The library-wide status map, or None when absent. It
+                is merged with the input configuration's own status map.
         stderr_file: Stream used for user-facing diagnostics.
 
     Returns:
@@ -148,7 +178,8 @@ def read_backlog_releases(data_file: PathOrStr, config: InputFormatConfig,
     backlog_rows, release_rows = _collect_tables(config, data_file,
                                                  stderr_file)
     fold_level_name(backlog_rows, stderr_file)
-    backlog: Backlog = [row_to_item(row, levels, stderr_file)
+    effective = _merge_status_maps(status_map, config.status_input_map)
+    backlog: Backlog = [row_to_item(row, levels, effective, stderr_file)
                         for row in backlog_rows]
     releases: Releases = [row_to_release(row, stderr_file)
                           for row in release_rows]

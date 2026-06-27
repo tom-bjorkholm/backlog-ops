@@ -4,13 +4,15 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import json
 from pathlib import Path
 import pytest
 from config_as_json import InvalidConfiguration
 from backlogops import (
     GuiDisplayConfig, InputFormatConfig, LevelDisplay, OutputFormatConfig,
-    make_input_config, make_output_config, resolve_input_config,
+    Status, make_input_config, make_output_config, resolve_input_config,
     resolve_output_config)
+from backlogops.io_config import parse_status_input_map
 from backlogops.no_text_io import NoTextIO
 
 NO_OUTPUT = NoTextIO()
@@ -252,3 +254,90 @@ def test_gui_old_default() -> None:
     assert config.level_display is LevelDisplay.BOTH
     assert not config.backlog_to_external
     assert not config.release_to_external
+
+
+def test_make_in_status() -> None:
+    """Test make_input_config copies the given status input map."""
+    base = resolve_input_config(None, data_file='d.csv', stderr_file=NO_OUTPUT)
+    config = make_input_config(base.tableio, {}, {},
+                               {'Testing': Status.IN_PROGRESS},
+                               stderr_file=NO_OUTPUT)
+    assert config.status_input_map == {'Testing': Status.IN_PROGRESS}
+
+
+def test_make_in_status_def() -> None:
+    """Test make_input_config defaults the status input map to empty."""
+    base = resolve_input_config(None, data_file='d.csv', stderr_file=NO_OUTPUT)
+    config = make_input_config(base.tableio, {}, {}, stderr_file=NO_OUTPUT)
+    assert config.status_input_map == {}
+
+
+def test_in_status_rt() -> None:
+    """Test the status input map survives a JSON write-and-read.
+
+    The map is written with the Status member names and read back as
+    Status members.
+    """
+    base = resolve_input_config(None, data_file='d.csv', stderr_file=NO_OUTPUT)
+    config = make_input_config(base.tableio, {}, {},
+                               {'Testing': Status.IN_PROGRESS,
+                                'Implementing': Status.IN_PROGRESS},
+                               stderr_file=NO_OUTPUT)
+    text = config.as_json_string(NO_OUTPUT)
+    assert json.loads(text)['status_input_map'] == {
+        'Testing': 'IN_PROGRESS', 'Implementing': 'IN_PROGRESS'}
+    back = InputFormatConfig(from_json_data_text=text, stderr_file=NO_OUTPUT)
+    assert back.status_input_map == {'Testing': Status.IN_PROGRESS,
+                                     'Implementing': Status.IN_PROGRESS}
+
+
+def test_in_status_old() -> None:
+    """Test an older input file without a status map defaults to empty."""
+    base = resolve_input_config(None, data_file='d.csv', stderr_file=NO_OUTPUT)
+    data = json.loads(base.as_json_string(NO_OUTPUT))
+    del data['status_input_map']
+    config = InputFormatConfig(from_json_data_text=json.dumps(data),
+                               stderr_file=NO_OUTPUT)
+    assert config.status_input_map == {}
+
+
+def test_parse_status_map_ok() -> None:
+    """Test parsing accepts member names and Status members as values."""
+    result = parse_status_input_map(
+        'm', {'Testing': 'IN_PROGRESS', 'Spike': Status.TODO}, NO_OUTPUT)
+    assert result == {'Testing': Status.IN_PROGRESS, 'Spike': Status.TODO}
+
+
+def test_parse_dup_case() -> None:
+    """Test a case-insensitive duplicate status name is rejected."""
+    with pytest.raises(ValueError):
+        parse_status_input_map('m', {'Testing': 'DONE', 'TESTING': 'TODO'},
+                               NO_OUTPUT)
+
+
+def test_parse_empty_key() -> None:
+    """Test an empty status name is rejected."""
+    with pytest.raises(ValueError):
+        parse_status_input_map('m', {'': 'DONE'}, NO_OUTPUT)
+
+
+def test_parse_bad_value() -> None:
+    """Test a value that is not a Status name is rejected."""
+    with pytest.raises(TypeError):
+        parse_status_input_map('m', {'Testing': 'Nonsense'}, NO_OUTPUT)
+
+
+def test_parse_not_dict() -> None:
+    """Test a non-dict status map value is rejected."""
+    with pytest.raises(TypeError):
+        parse_status_input_map('m', ['Testing'], NO_OUTPUT)
+
+
+def test_in_status_bad_read() -> None:
+    """Test reading a file with an invalid status value is rejected."""
+    base = resolve_input_config(None, data_file='d.csv', stderr_file=NO_OUTPUT)
+    data = json.loads(base.as_json_string(NO_OUTPUT))
+    data['status_input_map'] = {'Testing': 'Nonsense'}
+    with pytest.raises(TypeError):
+        InputFormatConfig(from_json_data_text=json.dumps(data),
+                          stderr_file=NO_OUTPUT)

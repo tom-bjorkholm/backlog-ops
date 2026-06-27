@@ -50,6 +50,9 @@ from config_as_json import Config, ConfigNesting, ConfigNestingKind, \
     RocfKeyMove, RocfValueMigration, RocfValueWrite, ValidationPlan
 from tableio import Capabilities, FileAccess, access_capabilities
 from tableio_cfg_json import TioJsonConfig, tio_json_config_default
+from backlogops.backlog import Status
+from backlogops.backlog_helpers import convert_to_enum, report_bad_value, \
+    report_wrong_type
 from backlogops.levels import LevelDisplay
 from backlogops.table_rows import RELEASE_FIELDS
 
@@ -121,6 +124,69 @@ class _ColumnMapValidator(MemberValidator):
         raise InvalidConfiguration(message)
 
 
+def parse_status_input_map(member_name: str, raw: object,
+                           stderr_file: TextIO = sys.stderr
+                           ) -> dict[str, Status]:
+    """Return a validated status-name map from raw configuration data.
+
+    Each key is an external status name and each value is a Status (or a
+    Status member name such as ``'IN_PROGRESS'``). Keys must be non-empty
+    strings and must be unique case-insensitively, because a status name
+    is matched without regard to case when reading a backlog. Each value
+    is converted to a Status member.
+
+    Args:
+        member_name: The member name used in any error message.
+        raw: The raw configuration value to validate and convert.
+        stderr_file: The file to report errors to.
+
+    Returns:
+        The status names mapped to their Status members.
+
+    Raises:
+        TypeError: If ``raw`` is not a dict or a value is not a Status.
+        ValueError: If a key is empty or duplicates another (case-insensitive).
+    """
+    if not isinstance(raw, dict):
+        report_wrong_type(member_name, raw, dict, stderr_file, 'Status map')
+    result: dict[str, Status] = {}
+    seen: dict[str, str] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str) or key == '':
+            report_bad_value(member_name, key,
+                             'status name must be a non-empty string',
+                             stderr_file, 'Status map')
+        lowered = key.lower()
+        if lowered in seen:
+            report_bad_value(member_name, key,
+                             f'duplicates {seen[lowered]!r} '
+                             '(case-insensitive)', stderr_file, 'Status map')
+        seen[lowered] = key
+        status = convert_to_enum(f'{member_name}[{key}]', value, Status,
+                                 stderr_file)
+        assert isinstance(status, Status)
+        result[key] = status
+    return result
+
+
+# pylint: disable-next=too-few-public-methods
+class _StatusMapValidator(MemberValidator):
+    """Convert and validate a status-name-to-Status map member.
+
+    The member maps each external status name to a Status member. It is
+    used for the global map on the top-level configuration and for the
+    per-input-preset override map.
+    """
+
+    @override
+    def validate_member(self, config: Config, member_name: str,
+                        member_value: object,
+                        stderr_file: TextIO = sys.stderr) -> object:
+        """Return the member as a validated ``dict[str, Status]``."""
+        _ = config
+        return parse_status_input_map(member_name, member_value, stderr_file)
+
+
 def _capabilities(file_access: FileAccess, stderr_file: TextIO
                   ) -> Capabilities:
     """Return the TableIO capabilities implied by a file access mode."""
@@ -158,6 +224,7 @@ class _FormatConfig(Config):
 
     _FILE_ACCESS: ClassVar[FileAccess]
     _MAP_NAMES: ClassVar[tuple[str, ...]]
+    _UNCHECKED_EXTRA: ClassVar[tuple[str, ...]] = ()
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
@@ -165,7 +232,8 @@ class _FormatConfig(Config):
         """Create default settings or read them from a JSON source."""
         self.tableio: TioJsonConfig = _tio_default(self._FILE_ACCESS,
                                                    stderr_file=stderr_file)
-        self._unchecked_dicts = list(self._MAP_NAMES)
+        self._unchecked_dicts = list(self._MAP_NAMES) + \
+            list(self._UNCHECKED_EXTRA)
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
                         stderr_file=stderr_file)
@@ -230,8 +298,9 @@ class _InputMapReadOldConfig(ReadOldConfiguration):
                                    transform_value=_release_only_map)])]
 
     def get_missing_path_values(self) -> dict[ConfigPath, object]:
-        """Supply empty input maps when the old single map is absent."""
-        return {('backlog_to_internal',): {}, ('release_to_internal',): {}}
+        """Supply empty input and status maps when an old file omits them."""
+        return {('backlog_to_internal',): {}, ('release_to_internal',): {},
+                ('status_input_map',): {}}
 
 
 class InputFormatConfig(_FormatConfig):
@@ -246,12 +315,19 @@ class InputFormatConfig(_FormatConfig):
     file columns may map to the same internal field. The maps default to
     empty; an older file storing a single ``to_internal`` map has it copied
     into both maps, keeping only release-field targets in the releases map.
+
+    The ``status_input_map`` maps extra external status names to Status
+    members (matched case-insensitively when reading), overriding the
+    global map of the top-level configuration for this preset. It defaults
+    to empty and is absent from an older file.
     """
 
     _FILE_ACCESS = FileAccess.READ
     _MAP_NAMES = ('backlog_to_internal', 'release_to_internal')
+    _UNCHECKED_EXTRA = ('status_input_map',)
     backlog_to_internal: dict[str, Optional[str]]
     release_to_internal: dict[str, Optional[str]]
+    status_input_map: dict[str, Status]
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
@@ -259,6 +335,7 @@ class InputFormatConfig(_FormatConfig):
         """Create the input map defaults, then run the shared constructor."""
         self.backlog_to_internal = {}
         self.release_to_internal = {}
+        self.status_input_map = {}
         _FormatConfig.__init__(self, from_json_data_text=from_json_data_text,
                                from_json_filename=from_json_filename,
                                stderr_file=stderr_file)
@@ -267,6 +344,15 @@ class InputFormatConfig(_FormatConfig):
     def _get_read_old_config(self) -> ReadOldConfiguration:
         """Return the migration that splits an older single input map."""
         return _InputMapReadOldConfig()
+
+    @override
+    def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
+        """Check the column maps, then convert the status input map."""
+        plan = _FormatConfig.get_validation_plan(self, stderr_file)
+        validator = _StatusMapValidator()
+        step = MemberValidationStep(member_names=['status_input_map'],
+                                    validator=validator)
+        return plan + [step]
 
 
 class OutputFormatConfig(_FormatConfig):
@@ -313,12 +399,15 @@ class OutputFormatConfig(_FormatConfig):
 def make_input_config(tableio: TioJsonConfig,
                       backlog_to_internal: dict[str, Optional[str]],
                       release_to_internal: dict[str, Optional[str]],
+                      status_input_map: Optional[dict[str, Status]] = None,
                       stderr_file: TextIO = sys.stderr) -> InputFormatConfig:
-    """Return an input config from a TableIO config and per-table maps."""
+    """Return an input config from a TableIO config, maps and status map."""
     config = InputFormatConfig(stderr_file=stderr_file)
     config.tableio = tableio
     config.backlog_to_internal = dict(backlog_to_internal)
     config.release_to_internal = dict(release_to_internal)
+    config.status_input_map = dict(status_input_map) if status_input_map \
+        else {}
     return config
 
 

@@ -144,6 +144,7 @@
     * [serialize\_converters](#backlogops.backlog_ops_config.BacklogOpsConfig.serialize_converters)
     * [check\_consistency](#backlogops.backlog_ops_config.BacklogOpsConfig.check_consistency)
     * [get\_levels](#backlogops.backlog_ops_config.BacklogOpsConfig.get_levels)
+    * [get\_status\_input\_map](#backlogops.backlog_ops_config.BacklogOpsConfig.get_status_input_map)
     * [get\_gui\_level\_display](#backlogops.backlog_ops_config.BacklogOpsConfig.get_gui_level_display)
   * [write\_backlog\_ops\_config](#backlogops.backlog_ops_config.write_backlog_ops_config)
   * [read\_backlog\_ops\_config](#backlogops.backlog_ops_config.read_backlog_ops_config)
@@ -179,6 +180,7 @@
     * [\_check\_no\_field\_shadow](#backlogops.backlog.BacklogItem._check_no_field_shadow)
     * [check\_consistency](#backlogops.backlog.BacklogItem.check_consistency)
   * [prepare\_item\_data](#backlogops.backlog.prepare_item_data)
+  * [\_resolve\_status](#backlogops.backlog._resolve_status)
   * [get\_backlog\_item](#backlogops.backlog.get_backlog_item)
   * [get\_backlog](#backlogops.backlog.get_backlog)
   * [check\_unique\_keys](#backlogops.backlog.check_unique_keys)
@@ -294,6 +296,9 @@
   * [\_ColumnMapValidator](#backlogops.io_config._ColumnMapValidator)
     * [validate\_member](#backlogops.io_config._ColumnMapValidator.validate_member)
     * [\_reject](#backlogops.io_config._ColumnMapValidator._reject)
+  * [parse\_status\_input\_map](#backlogops.io_config.parse_status_input_map)
+  * [\_StatusMapValidator](#backlogops.io_config._StatusMapValidator)
+    * [validate\_member](#backlogops.io_config._StatusMapValidator.validate_member)
   * [\_capabilities](#backlogops.io_config._capabilities)
   * [\_tio\_default](#backlogops.io_config._tio_default)
   * [\_tio\_from\_json](#backlogops.io_config._tio_from_json)
@@ -310,6 +315,7 @@
   * [InputFormatConfig](#backlogops.io_config.InputFormatConfig)
     * [\_\_init\_\_](#backlogops.io_config.InputFormatConfig.__init__)
     * [\_get\_read\_old\_config](#backlogops.io_config.InputFormatConfig._get_read_old_config)
+    * [get\_validation\_plan](#backlogops.io_config.InputFormatConfig.get_validation_plan)
   * [OutputFormatConfig](#backlogops.io_config.OutputFormatConfig)
     * [\_\_init\_\_](#backlogops.io_config.OutputFormatConfig.__init__)
     * [parse\_converters](#backlogops.io_config.OutputFormatConfig.parse_converters)
@@ -356,6 +362,7 @@
   * [\_is\_release\_table](#backlogops.backlog_releases_io._is_release_table)
   * [\_classify\_rows](#backlogops.backlog_releases_io._classify_rows)
   * [\_collect\_tables](#backlogops.backlog_releases_io._collect_tables)
+  * [\_merge\_status\_maps](#backlogops.backlog_releases_io._merge_status_maps)
   * [read\_backlog\_releases](#backlogops.backlog_releases_io.read_backlog_releases)
   * [\_write\_capabilities](#backlogops.backlog_releases_io._write_capabilities)
   * [\_backlog\_order](#backlogops.backlog_releases_io._backlog_order)
@@ -366,6 +373,7 @@
 * [backlogops.backlog\_ops\_wizard](#backlogops.backlog_ops_wizard)
   * [\_GUI\_LEVEL\_QUESTION](#backlogops.backlog_ops_wizard._GUI_LEVEL_QUESTION)
   * [\_GUI\_COLUMN\_HEADER](#backlogops.backlog_ops_wizard._GUI_COLUMN_HEADER)
+  * [\_GLOBAL\_STATUS\_QUESTION](#backlogops.backlog_ops_wizard._GLOBAL_STATUS_QUESTION)
   * [available\_teams\_wizard](#backlogops.backlog_ops_wizard.available_teams_wizard)
   * [backlog\_ops\_wizard](#backlogops.backlog_ops_wizard.backlog_ops_wizard)
   * [\_collect\_teams](#backlogops.backlog_ops_wizard._collect_teams)
@@ -442,6 +450,7 @@
     * [ask\_schedule](#backlogops.wizard_helpers._Navigator.ask_schedule)
     * [ask\_levels](#backlogops.wizard_helpers._Navigator.ask_levels)
     * [ask\_renames](#backlogops.wizard_helpers._Navigator.ask_renames)
+    * [ask\_status\_map](#backlogops.wizard_helpers._Navigator.ask_status_map)
     * [\_ask](#backlogops.wizard_helpers._Navigator._ask)
     * [\_replaying](#backlogops.wizard_helpers._Navigator._replaying)
   * [\_parse\_date](#backlogops.wizard_helpers._parse_date)
@@ -480,6 +489,13 @@
   * [\_levels\_problem](#backlogops.wizard_helpers._levels_problem)
   * [\_cells\_from\_table](#backlogops.wizard_helpers._cells_from_table)
   * [\_read\_levels](#backlogops.wizard_helpers._read_levels)
+  * [\_STATUS\_NAMES](#backlogops.wizard_helpers._STATUS_NAMES)
+  * [\_MAX\_STATUS\_MAP](#backlogops.wizard_helpers._MAX_STATUS_MAP)
+  * [\_STATUS\_TARGETS\_HINT](#backlogops.wizard_helpers._STATUS_TARGETS_HINT)
+  * [\_status\_target](#backlogops.wizard_helpers._status_target)
+  * [\_status\_check](#backlogops.wizard_helpers._status_check)
+  * [\_parse\_status\_map](#backlogops.wizard_helpers._parse_status_map)
+  * [\_read\_status\_map](#backlogops.wizard_helpers._read_status_map)
 * [backlogops.estimate\_ready\_date](#backlogops.estimate_ready_date)
   * [\_ONE\_DAY](#backlogops.estimate_ready_date._ONE_DAY)
   * [\_HORIZON](#backlogops.estimate_ready_date._HORIZON)
@@ -532,6 +548,7 @@
   * [\_OUT\_LEVEL\_QUESTION](#backlogops.io_preset_wizard._OUT_LEVEL_QUESTION)
   * [\_OUT\_COLUMN\_HEADER](#backlogops.io_preset_wizard._OUT_COLUMN_HEADER)
   * [\_IN\_COLUMN\_HEADER](#backlogops.io_preset_wizard._IN_COLUMN_HEADER)
+  * [\_IN\_STATUS\_QUESTION](#backlogops.io_preset_wizard._IN_STATUS_QUESTION)
   * [preset\_wizard](#backlogops.io_preset_wizard.preset_wizard)
   * [\_DIRECTION\_QUESTION](#backlogops.io_preset_wizard._DIRECTION_QUESTION)
   * [\_collect\_preset](#backlogops.io_preset_wizard._collect_preset)
@@ -2900,7 +2917,7 @@ Omit the levels member from the file while it is ``None``.
 def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
 ```
 
-Convert the levels member, then check whole-config consistency.
+Convert the levels and status map, then check consistency.
 
 <a id="backlogops.backlog_ops_config.BacklogOpsConfig.serialize_converters"></a>
 
@@ -2954,6 +2971,21 @@ Return the configured levels, or the default levels.
   The levels keyed by level number, taken from the
   configuration, or :data:`DEFAULT_LEVELS` when no levels are
   configured.
+
+<a id="backlogops.backlog_ops_config.BacklogOpsConfig.get_status_input_map"></a>
+
+#### get\_status\_input\_map
+
+```python
+def get_status_input_map() -> dict[str, Status]
+```
+
+Return the library-wide status input map.
+
+**Returns**:
+
+  The extra status names mapped to Status members, as configured
+  at the top level. Empty when no extra names are configured.
 
 <a id="backlogops.backlog_ops_config.BacklogOpsConfig.get_gui_level_display"></a>
 
@@ -3593,6 +3625,35 @@ missing-field checks happen as usual when the data is converted.
 
 - `ValueError` - If a string level matches no level name or alias.
 
+<a id="backlogops.backlog._resolve_status"></a>
+
+#### \_resolve\_status
+
+```python
+def _resolve_status(
+        data: dict[str, object],
+        status_map: Optional[dict[str, Status]]) -> dict[str, object]
+```
+
+Return item data with a mapped status name replaced by its Status.
+
+A string status is matched case-insensitively against ``status_map``;
+a match replaces it with the mapped Status, so an explicit mapping
+takes precedence over the built-in status-name matching. A status not
+in the map, an empty map, or a non-string status is left unchanged for
+the normal conversion to handle.
+
+**Arguments**:
+
+- `data` - The raw input data for one backlog item.
+- `status_map` - The extra status names mapped to Status members, or
+  None when no extra names are configured.
+  
+
+**Returns**:
+
+  The input data, with a mapped string status replaced by its Status.
+
 <a id="backlogops.backlog.get_backlog_item"></a>
 
 #### get\_backlog\_item
@@ -3600,6 +3661,7 @@ missing-field checks happen as usual when the data is converted.
 ```python
 def get_backlog_item(data: dict[str, object],
                      levels: Optional[Levels] = None,
+                     status_map: Optional[dict[str, Status]] = None,
                      stderr_file: TextIO = sys.stderr) -> BacklogItem
 ```
 
@@ -3610,14 +3672,19 @@ BacklogItem dataclass and any number of extra fields. Field values
 are converted to their declared types (for example ISO date strings
 to ``date`` and status names to ``Status``) and checked. A ``level``
 given as a string is resolved to its level number using ``levels``.
-When ``levels`` is None the default levels are used. Errors are
-reported to the given file object.
+When ``levels`` is None the default levels are used. A string status
+is first matched case-insensitively against ``status_map`` (an
+explicit match takes precedence); an unmapped status falls back to the
+built-in status-name matching. Errors are reported to the given file
+object.
 
 **Arguments**:
 
 - `data` - The dictionary to get the backlog item from.
 - `levels` - The levels used to resolve a string level, or None to
   use :data:`DEFAULT_LEVELS`.
+- `status_map` - Extra status names mapped to Status members, matched
+  case-insensitively, or None for no extra names.
 - `stderr_file` - The file to report errors to.
   
 
@@ -3639,6 +3706,7 @@ reported to the given file object.
 ```python
 def get_backlog(datalist: list[dict[str, object]],
                 levels: Optional[Levels] = None,
+                status_map: Optional[dict[str, Status]] = None,
                 stderr_file: TextIO = sys.stderr) -> Backlog
 ```
 
@@ -3652,6 +3720,8 @@ Each dictionary is converted to a backlog item as documented for
 - `datalist` - The list of dictionaries to get the backlog from.
 - `levels` - The levels used to convert level names to level numbers,
   or None to use :data:`DEFAULT_LEVELS`.
+- `status_map` - Extra status names mapped to Status members, matched
+  case-insensitively, or None for no extra names.
 - `stderr_file` - The file to report errors to.
   
 
@@ -5056,10 +5126,15 @@ Return the row without cells that are absent (None or empty).
 ```python
 def row_to_item(row: Mapping[str, object],
                 levels: Optional[Levels] = None,
+                status_map: Optional[dict[str, Status]] = None,
                 stderr_file: TextIO = sys.stderr) -> BacklogItem
 ```
 
 Return a backlog item from a row keyed by internal field name.
+
+A string status is matched case-insensitively against ``status_map``
+before the built-in status-name matching, as documented for
+:func:`backlogops.backlog.get_backlog_item`.
 
 <a id="backlogops.table_rows.row_to_release"></a>
 
@@ -5298,6 +5373,70 @@ def _reject(detail: str, stderr_file: TextIO) -> NoReturn
 
 Report an invalid column-name map and raise.
 
+<a id="backlogops.io_config.parse_status_input_map"></a>
+
+#### parse\_status\_input\_map
+
+```python
+def parse_status_input_map(
+        member_name: str,
+        raw: object,
+        stderr_file: TextIO = sys.stderr) -> dict[str, Status]
+```
+
+Return a validated status-name map from raw configuration data.
+
+Each key is an external status name and each value is a Status (or a
+Status member name such as ``'IN_PROGRESS'``). Keys must be non-empty
+strings and must be unique case-insensitively, because a status name
+is matched without regard to case when reading a backlog. Each value
+is converted to a Status member.
+
+**Arguments**:
+
+- `member_name` - The member name used in any error message.
+- `raw` - The raw configuration value to validate and convert.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  The status names mapped to their Status members.
+  
+
+**Raises**:
+
+- `TypeError` - If ``raw`` is not a dict or a value is not a Status.
+- `ValueError` - If a key is empty or duplicates another (case-insensitive).
+
+<a id="backlogops.io_config._StatusMapValidator"></a>
+
+## \_StatusMapValidator Objects
+
+```python
+class _StatusMapValidator(MemberValidator)
+```
+
+Convert and validate a status-name-to-Status map member.
+
+The member maps each external status name to a Status member. It is
+used for the global map on the top-level configuration and for the
+per-input-preset override map.
+
+<a id="backlogops.io_config._StatusMapValidator.validate_member"></a>
+
+#### validate\_member
+
+```python
+@override
+def validate_member(config: Config,
+                    member_name: str,
+                    member_value: object,
+                    stderr_file: TextIO = sys.stderr) -> object
+```
+
+Return the member as a validated ``dict[str, Status]``.
+
 <a id="backlogops.io_config._capabilities"></a>
 
 #### \_capabilities
@@ -5453,7 +5592,7 @@ Copy the old single input map into the two per-table maps.
 def get_missing_path_values() -> dict[ConfigPath, object]
 ```
 
-Supply empty input maps when the old single map is absent.
+Supply empty input and status maps when an old file omits them.
 
 <a id="backlogops.io_config.InputFormatConfig"></a>
 
@@ -5474,6 +5613,11 @@ internal field, and a file column mapped to None is discarded. Several
 file columns may map to the same internal field. The maps default to
 empty; an older file storing a single ``to_internal`` map has it copied
 into both maps, keeping only release-field targets in the releases map.
+
+The ``status_input_map`` maps extra external status names to Status
+members (matched case-insensitively when reading), overriding the
+global map of the top-level configuration for this preset. It defaults
+to empty and is absent from an older file.
 
 <a id="backlogops.io_config.InputFormatConfig.__init__"></a>
 
@@ -5497,6 +5641,17 @@ def _get_read_old_config() -> ReadOldConfiguration
 ```
 
 Return the migration that splits an older single input map.
+
+<a id="backlogops.io_config.InputFormatConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check the column maps, then convert the status input map.
 
 <a id="backlogops.io_config.OutputFormatConfig"></a>
 
@@ -5559,10 +5714,11 @@ Return the migration that splits the map and defaults display.
 def make_input_config(tableio: TioJsonConfig,
                       backlog_to_internal: dict[str, Optional[str]],
                       release_to_internal: dict[str, Optional[str]],
+                      status_input_map: Optional[dict[str, Status]] = None,
                       stderr_file: TextIO = sys.stderr) -> InputFormatConfig
 ```
 
-Return an input config from a TableIO config and per-table maps.
+Return an input config from a TableIO config, maps and status map.
 
 <a id="backlogops.io_config.make_output_config"></a>
 
@@ -6227,6 +6383,31 @@ def _collect_tables(
 
 Read every table and split it into backlog and release rows.
 
+<a id="backlogops.backlog_releases_io._merge_status_maps"></a>
+
+#### \_merge\_status\_maps
+
+```python
+def _merge_status_maps(
+        global_map: Optional[dict[str, Status]],
+        preset_map: Optional[dict[str, Status]]) -> dict[str, Status]
+```
+
+Return the effective status name map, preset entries winning.
+
+The keys are lowercased so a status name matches regardless of case
+and a preset entry overrides a global entry that differs only in case.
+
+**Arguments**:
+
+- `global_map` - The library-wide status map, or None when absent.
+- `preset_map` - The per-input override status map, or None when absent.
+  
+
+**Returns**:
+
+  The merged status map keyed by lowercased status name.
+
 <a id="backlogops.backlog_releases_io.read_backlog_releases"></a>
 
 #### read\_backlog\_releases
@@ -6235,6 +6416,7 @@ Read every table and split it into backlog and release rows.
 def read_backlog_releases(data_file: PathOrStr,
                           config: InputFormatConfig,
                           levels: Optional[Levels] = None,
+                          status_map: Optional[dict[str, Status]] = None,
                           stderr_file: TextIO = sys.stderr) -> BacklogReleases
 ```
 
@@ -6245,15 +6427,21 @@ column names are translated to internal field names through the input
 configuration before classification and conversion. A ``level`` and a
 ``level name`` column are both recognised; when both are present the
 numeric ``level`` column is used and the ``level name`` column is
-ignored. Field values are converted to their internal types;
-consistency across items is not checked here.
+ignored. A string status is matched case-insensitively against the
+effective status map, which merges the given library-wide ``status_map``
+with the input configuration's own ``status_input_map`` (the latter
+overriding per name). Field values are converted to their internal
+types; consistency across items is not checked here.
 
 **Arguments**:
 
 - `data_file` - The data file to read.
-- `config` - The input configuration (format and column-name map).
+- `config` - The input configuration (format, column-name maps and
+  per-input status map).
 - `levels` - The levels used to resolve a string level, or None for
   the default levels.
+- `status_map` - The library-wide status map, or None when absent. It
+  is merged with the input configuration's own status map.
 - `stderr_file` - Stream used for user-facing diagnostics.
   
 
@@ -6403,6 +6591,12 @@ Wizard prompt for how the GUI shows levels.
 #### \_GUI\_COLUMN\_HEADER
 
 Header of the renamed-column column in a GUI rename table.
+
+<a id="backlogops.backlog_ops_wizard._GLOBAL_STATUS_QUESTION"></a>
+
+#### \_GLOBAL\_STATUS\_QUESTION
+
+Wizard prompt for the library-wide status-name map.
 
 <a id="backlogops.backlog_ops_wizard.available_teams_wizard"></a>
 
@@ -7536,6 +7730,16 @@ With ``is_input`` false the table stores an internal-to-external
 output map; with it true the table stores an external-to-internal
 input map. Either way the internal field names are pre-filled.
 
+<a id="backlogops.wizard_helpers._Navigator.ask_status_map"></a>
+
+#### ask\_status\_map
+
+```python
+def ask_status_map(question: str) -> dict[str, Status]
+```
+
+Ask the input status-name map as one variable-row table.
+
 <a id="backlogops.wizard_helpers._Navigator._ask"></a>
 
 #### \_ask
@@ -7946,6 +8150,74 @@ Ask the backlog item levels as one variable-row table question.
 Each cell is checked as it is entered, and the whole table is then
 checked for consistency. An inconsistent table is re-asked with the
 user's own rows kept, so the reported duplicate can be corrected.
+
+<a id="backlogops.wizard_helpers._STATUS_NAMES"></a>
+
+#### \_STATUS\_NAMES
+
+Internal status names offered as status-map targets.
+
+<a id="backlogops.wizard_helpers._MAX_STATUS_MAP"></a>
+
+#### \_MAX\_STATUS\_MAP
+
+Upper bound on the number of status-name mappings the wizard accepts.
+
+<a id="backlogops.wizard_helpers._STATUS_TARGETS_HINT"></a>
+
+#### \_STATUS\_TARGETS\_HINT
+
+Hint listing the valid internal status names.
+
+<a id="backlogops.wizard_helpers._status_target"></a>
+
+#### \_status\_target
+
+```python
+def _status_target(text: Optional[str]) -> Optional[str]
+```
+
+Return the internal status name in ``text`` (case-insensitive).
+
+<a id="backlogops.wizard_helpers._status_check"></a>
+
+#### \_status\_check
+
+```python
+def _status_check(table: list[list[Optional[str]]],
+                  position: tuple[int, int]) -> tuple[bool, str]
+```
+
+Give early feedback that a status-map row is complete and valid.
+
+<a id="backlogops.wizard_helpers._parse_status_map"></a>
+
+#### \_parse\_status\_map
+
+```python
+def _parse_status_map(
+        table: list[list[Optional[str]]]) -> Optional[dict[str, Status]]
+```
+
+Return the status map from a table, or None when a row is invalid.
+
+A row with a blank file status name is ignored. A non-blank file
+status name needs a valid internal status. A file status name that
+repeats (case-insensitively) makes the table invalid.
+
+<a id="backlogops.wizard_helpers._read_status_map"></a>
+
+#### \_read\_status\_map
+
+```python
+def _read_status_map(ui: WizardUiBridge, question: str) -> dict[str, Status]
+```
+
+Ask the input status-name map as one variable-row table.
+
+Each row maps an extra file status name to an internal status. The
+table starts empty and may be left empty for no extra names. An
+invalid table is re-asked with the user's own rows kept.
 
 <a id="backlogops.estimate_ready_date"></a>
 
@@ -8607,6 +8879,12 @@ Header of the renamed-column column in an output rename table.
 
 Header of the file-column column in an input rename table.
 
+<a id="backlogops.io_preset_wizard._IN_STATUS_QUESTION"></a>
+
+#### \_IN\_STATUS\_QUESTION
+
+Wizard prompt for an input preset's status-name override map.
+
 <a id="backlogops.io_preset_wizard.preset_wizard"></a>
 
 #### preset\_wizard
@@ -8686,7 +8964,7 @@ Ask for a counted list of named output presets.
 def _ask_input_config(nav: _Navigator) -> InputFormatConfig
 ```
 
-Ask one input preset's format and both file-to-internal maps.
+Ask one input preset's format, file-to-internal maps and status map.
 
 <a id="backlogops.io_preset_wizard._ask_output_config"></a>
 

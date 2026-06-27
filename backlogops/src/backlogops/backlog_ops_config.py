@@ -33,9 +33,10 @@ from config_as_json import CallingWholeConfigValidator, Config, \
     SerializeConverters, ValidationPlan, WholeConfigValidationStep
 from backlogops.available_teams import AvailableTeams
 from backlogops.available_teams_config import AvailableTeamsConfig
+from backlogops.backlog import Status
 from backlogops.backlog_helpers import report_bad_value, report_wrong_type
 from backlogops.io_config import GuiDisplayConfig, InputFormatConfig, \
-    OutputFormatConfig
+    OutputFormatConfig, _StatusMapValidator
 from backlogops.levels import DEFAULT_LEVELS, Level, Levels, LevelDisplay, \
     levels_from_list
 
@@ -144,7 +145,7 @@ class _BacklogOpsReadOldConfig(ReadOldConfiguration):
     def get_missing_path_values(self) -> dict[ConfigPath, object]:
         """Return defaults for the members old files may omit."""
         return {('input_configs',): {}, ('output_configs',): {},
-                ('gui_display',): {}}
+                ('gui_display',): {}, ('status_input_map',): {}}
 
 
 class BacklogOpsConfig(Config):
@@ -168,7 +169,9 @@ class BacklogOpsConfig(Config):
         self.output_configs: dict[str, OutputFormatConfig] = {}
         self.gui_display: GuiDisplayConfig = GuiDisplayConfig(
             stderr_file=stderr_file)
+        self.status_input_map: dict[str, Status] = {}
         self.levels: Optional[list[Level]] = None
+        self._unchecked_dicts = ['status_input_map']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
                         stderr_file=stderr_file)
@@ -199,11 +202,13 @@ class BacklogOpsConfig(Config):
 
     @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
-        """Convert the levels member, then check whole-config consistency."""
+        """Convert the levels and status map, then check consistency."""
         _ = stderr_file
         consistency = CallingWholeConfigValidator('check_consistency')
         return [MemberValidationStep(member_names=['levels'],
                                      validator=_LevelsMember()),
+                MemberValidationStep(member_names=['status_input_map'],
+                                     validator=_StatusMapValidator()),
                 WholeConfigValidationStep(validator=consistency)]
 
     @override
@@ -242,6 +247,15 @@ class BacklogOpsConfig(Config):
         if self.levels is None:
             return DEFAULT_LEVELS
         return levels_from_list(self.levels)
+
+    def get_status_input_map(self) -> dict[str, Status]:
+        """Return the library-wide status input map.
+
+        Returns:
+            The extra status names mapped to Status members, as configured
+            at the top level. Empty when no extra names are configured.
+        """
+        return self.status_input_map
 
     def get_gui_level_display(self) -> LevelDisplay:
         """Return how levels should be shown in the GUI.

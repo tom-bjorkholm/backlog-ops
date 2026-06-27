@@ -407,8 +407,9 @@ Read and validate the backlog and releases from the input file.
 The input format is resolved from the ``--input-config`` value, which
 may be empty (inferred from the file name), a preset name looked up in
 the presets file given by ``--io-config``, or a config file path. When
-a ``--io-config`` is given its configured levels are honoured while
-reading the items.
+a ``--io-config`` is given its configured levels and its library-wide
+status input map are honoured while reading the items; the input
+configuration's own status map overrides the global one per name.
 
 **Arguments**:
 

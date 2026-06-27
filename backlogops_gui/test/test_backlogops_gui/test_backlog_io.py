@@ -5,7 +5,10 @@
 # MIT License
 
 from pathlib import Path
-from backlogops import BacklogItem, BacklogReleases, Release, Status
+from backlogops import (
+    BacklogItem, BacklogReleases, Release, Status, make_input_config,
+    resolve_input_config)
+from backlogops.no_text_io import NoTextIO
 from backlogops_gui.backlog_io import read_backlog, write_backlog
 
 
@@ -36,3 +39,31 @@ def test_overwrite(tmp_path: Path) -> None:
     write_backlog(_data(), path, None, None, False)
     write_backlog(_data(), path, None, None, False)
     assert read_backlog(path, None, None).backlog[0].key == 'A1'
+
+
+def _status_csv(path: Path, status: str) -> None:
+    """Write a one-row backlog CSV using the given status text."""
+    path.write_text('key,level,title,story_points,status\n'
+                    f'A1,1,First,5,{status}\n', encoding='utf-8')
+
+
+def test_global_status_map(tmp_path: Path) -> None:
+    """Test read_backlog applies the global status map to an extra name."""
+    path = tmp_path / 'in.csv'
+    _status_csv(path, 'Implementing')
+    data = read_backlog(str(path), None, None,
+                        status_map={'implementing': Status.IN_PROGRESS})
+    assert data.backlog[0].status is Status.IN_PROGRESS
+
+
+def test_preset_status_wins(tmp_path: Path) -> None:
+    """Test a named input preset's status map overrides the global one."""
+    path = tmp_path / 'in.csv'
+    _status_csv(path, 'Reviewing')
+    preset = make_input_config(
+        resolve_input_config(None, data_file='x.csv',
+                             stderr_file=NoTextIO()).tableio,
+        {}, {}, {'Reviewing': Status.DONE}, stderr_file=NoTextIO())
+    data = read_backlog(str(path), 'jira', {'jira': preset},
+                        status_map={'Reviewing': Status.IN_PROGRESS})
+    assert data.backlog[0].status is Status.DONE
