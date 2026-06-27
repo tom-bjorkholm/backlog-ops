@@ -374,6 +374,12 @@
   * [\_GUI\_LEVEL\_QUESTION](#backlogops.backlog_ops_wizard._GUI_LEVEL_QUESTION)
   * [\_GUI\_COLUMN\_HEADER](#backlogops.backlog_ops_wizard._GUI_COLUMN_HEADER)
   * [\_GLOBAL\_STATUS\_QUESTION](#backlogops.backlog_ops_wizard._GLOBAL_STATUS_QUESTION)
+  * [\_WORKFORCE\_HEAD](#backlogops.backlog_ops_wizard._WORKFORCE_HEAD)
+  * [\_INPUT\_PRESETS\_HEAD](#backlogops.backlog_ops_wizard._INPUT_PRESETS_HEAD)
+  * [\_OUTPUT\_PRESETS\_HEAD](#backlogops.backlog_ops_wizard._OUTPUT_PRESETS_HEAD)
+  * [\_LEVELS\_HEAD](#backlogops.backlog_ops_wizard._LEVELS_HEAD)
+  * [\_STATUS\_MAP\_HEAD](#backlogops.backlog_ops_wizard._STATUS_MAP_HEAD)
+  * [\_GUI\_DISPLAY\_HEAD](#backlogops.backlog_ops_wizard._GUI_DISPLAY_HEAD)
   * [available\_teams\_wizard](#backlogops.backlog_ops_wizard.available_teams_wizard)
   * [backlog\_ops\_wizard](#backlogops.backlog_ops_wizard.backlog_ops_wizard)
   * [\_collect\_teams](#backlogops.backlog_ops_wizard._collect_teams)
@@ -6597,6 +6603,42 @@ Header of the renamed-column column in a GUI rename table.
 #### \_GLOBAL\_STATUS\_QUESTION
 
 Wizard prompt for the library-wide status-name map.
+
+<a id="backlogops.backlog_ops_wizard._WORKFORCE_HEAD"></a>
+
+#### \_WORKFORCE\_HEAD
+
+Stage heading shown while collecting the workforce.
+
+<a id="backlogops.backlog_ops_wizard._INPUT_PRESETS_HEAD"></a>
+
+#### \_INPUT\_PRESETS\_HEAD
+
+Stage heading shown while collecting the input presets.
+
+<a id="backlogops.backlog_ops_wizard._OUTPUT_PRESETS_HEAD"></a>
+
+#### \_OUTPUT\_PRESETS\_HEAD
+
+Stage heading shown while collecting the output presets.
+
+<a id="backlogops.backlog_ops_wizard._LEVELS_HEAD"></a>
+
+#### \_LEVELS\_HEAD
+
+Stage heading shown while collecting the backlog item levels.
+
+<a id="backlogops.backlog_ops_wizard._STATUS_MAP_HEAD"></a>
+
+#### \_STATUS\_MAP\_HEAD
+
+Stage heading shown while collecting the global status map.
+
+<a id="backlogops.backlog_ops_wizard._GUI_DISPLAY_HEAD"></a>
+
+#### \_GUI\_DISPLAY\_HEAD
+
+Stage heading shown while collecting the GUI display.
 
 <a id="backlogops.backlog_ops_wizard.available_teams_wizard"></a>
 

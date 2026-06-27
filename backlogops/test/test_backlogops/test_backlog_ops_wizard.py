@@ -15,7 +15,9 @@ from backlogops import InputFormatConfig, OutputFormatConfig, Status
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.backlog_ops_wizard import (
-    available_teams_wizard, backlog_ops_wizard)
+    available_teams_wizard, backlog_ops_wizard, _WORKFORCE_HEAD,
+    _INPUT_PRESETS_HEAD, _OUTPUT_PRESETS_HEAD, _LEVELS_HEAD, _STATUS_MAP_HEAD,
+    _GUI_DISPLAY_HEAD)
 from backlogops.io_preset_wizard import preset_wizard
 from backlogops.wizard_helpers import (
     _backlog_map_fields, _parse_column_renames, _parse_input_renames,
@@ -45,6 +47,11 @@ SCHED = [''] * 7
 CSV_OPTS = [''] * 7
 """Blank answers for the CSV format encoding and six option cells."""
 
+_CONFIG_HEADS = [
+    _WORKFORCE_HEAD, _INPUT_PRESETS_HEAD, _OUTPUT_PRESETS_HEAD,
+    _LEVELS_HEAD, _STATUS_MAP_HEAD, _GUI_DISPLAY_HEAD]
+"""The full-config wizard stage headings, in collection order."""
+
 
 def _bridge(answers: list[str]) -> WizardUiBridgeConsole:
     """Return a console bridge scripted with the given answers."""
@@ -63,6 +70,22 @@ def _run_config(answers: list[str]) -> tuple[BacklogOpsConfig, str]:
     stdin = io.StringIO('\n'.join(answers) + '\n')
     bridge = WizardUiBridgeConsole(io.StringIO(), stdin, stderr)
     return backlog_ops_wizard(bridge), stderr.getvalue()
+
+
+def _config_stdout(answers: list[str]) -> str:
+    """Run the config wizard and return what was shown on stdout."""
+    stdout = io.StringIO()
+    stdin = io.StringIO('\n'.join(answers) + '\n')
+    backlog_ops_wizard(WizardUiBridgeConsole(stdout, stdin, io.StringIO()))
+    return stdout.getvalue()
+
+
+def _teams_stdout(answers: list[str]) -> str:
+    """Run the workforce wizard and return what was shown on stdout."""
+    stdout = io.StringIO()
+    stdin = io.StringIO('\n'.join(answers) + '\n')
+    available_teams_wizard(WizardUiBridgeConsole(stdout, stdin, io.StringIO()))
+    return stdout.getvalue()
 
 
 def test_minimal_workforce() -> None:
@@ -515,6 +538,66 @@ def test_input_rename_wizard() -> None:
     assert in_config.backlog_to_internal == {'Issue ID': 'key', 'Junk': None,
                                              'My Note': 'note'}
     assert in_config.release_to_internal == {}
+
+
+def test_stage_heads_order() -> None:
+    """Test a default config run shows each stage heading once, in order.
+
+    A fully default run announces the workforce, the input and output
+    presets, the levels, the status map and the GUI display, each exactly
+    once and in the order the stages are collected.
+    """
+    answers = (SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP
+               + STATUS_KEEP + GUI_MAPS_KEEP)
+    out = _config_stdout(answers)
+    positions = [out.find(head) for head in _CONFIG_HEADS]
+    assert all(out.count(head) == 1 for head in _CONFIG_HEADS)
+    assert positions == sorted(positions)
+
+
+def test_stage_heads_presets() -> None:
+    """Test the stage headings still appear with input and output presets.
+
+    A run that adds one input and one output preset shows every stage
+    heading once and in the order the stages are collected.
+    """
+    answers = (SCHED + ['0', '0', '0']
+               + ['1'] + ['in name', 'in1'] + ['1'] + CSV_OPTS
+               + ['2', 'Type', ''] + [''] + STATUS_KEEP
+               + ['1'] + ['out1'] + ['1'] + CSV_OPTS
+               + MAPS_KEEP + ['numeric']
+               + LEVELS_KEEP + STATUS_KEEP + MAPS_KEEP + ['name'])
+    out = _config_stdout(answers)
+    positions = [out.find(head) for head in _CONFIG_HEADS]
+    assert all(out.count(head) == 1 for head in _CONFIG_HEADS)
+    assert positions == sorted(positions)
+
+
+def test_workforce_head_only() -> None:
+    """Test the workforce wizard shows only the workforce heading.
+
+    The workforce-only wizard collects just the workforce, so it announces
+    that one stage and none of the later full-config stage headings.
+    """
+    out = _teams_stdout(SCHED + ['', '', ''])
+    assert out.count(_WORKFORCE_HEAD) == 1
+    assert all(head not in out for head in _CONFIG_HEADS[1:])
+
+
+def test_head_repeats_on_back() -> None:
+    """Test a back step re-announces the stage it steps back into.
+
+    Going back from the output-preset count re-enters the input-preset
+    stage, so the trail shows the workforce heading once but the input and
+    output headings twice, and still reaches every stage.
+    """
+    answers = (SCHED + ['0', '0', '0', '0'] + [':b'] + ['0', '0']
+               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP)
+    out = _config_stdout(answers)
+    assert out.count(_WORKFORCE_HEAD) == 1
+    assert out.count(_INPUT_PRESETS_HEAD) == 2
+    assert out.count(_OUTPUT_PRESETS_HEAD) == 2
+    assert all(head in out for head in _CONFIG_HEADS)
 
 
 def test_wizard_reexport() -> None:

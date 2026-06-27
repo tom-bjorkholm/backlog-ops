@@ -48,6 +48,30 @@ _GLOBAL_STATUS_QUESTION = 'Global extra status name mapping (all inputs):'
 """Wizard prompt for the library-wide status-name map."""
 
 
+_WORKFORCE_HEAD = 'Configure the available workforce.'
+"""Stage heading shown while collecting the workforce."""
+
+
+_INPUT_PRESETS_HEAD = 'Configure the named input configurations.'
+"""Stage heading shown while collecting the input presets."""
+
+
+_OUTPUT_PRESETS_HEAD = 'Configure the named output configurations.'
+"""Stage heading shown while collecting the output presets."""
+
+
+_LEVELS_HEAD = 'Configure the backlog item levels.'
+"""Stage heading shown while collecting the backlog item levels."""
+
+
+_STATUS_MAP_HEAD = 'Configure the global status name mapping.'
+"""Stage heading shown while collecting the global status map."""
+
+
+_GUI_DISPLAY_HEAD = 'Configure the GUI display.'
+"""Stage heading shown while collecting the GUI display."""
+
+
 def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams:
     """Interactively create an available workforce configuration.
 
@@ -102,7 +126,7 @@ def backlog_ops_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig:
 
 def _collect_teams(nav: _Navigator) -> AvailableTeams:
     """Ask for the company, the persons and the teams of a workforce."""
-    nav.show('Configure the available workforce.')
+    nav.show(_WORKFORCE_HEAD)
     company = _build_company(nav)
     persons = nav.level(lambda: _build_persons(nav))
     names = [person.name for person in persons.values()]
@@ -115,10 +139,15 @@ def _collect_config(nav: _Navigator) -> BacklogOpsConfig:
     """Ask for workforce, TableIO presets, levels and GUI display."""
     teams = _collect_teams(nav)
     config = BacklogOpsConfig(available_teams=teams)
+    nav.show(_INPUT_PRESETS_HEAD)
     config.input_configs = nav.level(lambda: _build_input_presets(nav))
+    nav.show(_OUTPUT_PRESETS_HEAD)
     config.output_configs = nav.level(lambda: _build_output_presets(nav))
+    nav.show(_LEVELS_HEAD)
     config.levels = _levels_or_none(nav.ask_levels())
+    nav.show(_STATUS_MAP_HEAD)
     config.status_input_map = nav.ask_status_map(_GLOBAL_STATUS_QUESTION)
+    nav.show(_GUI_DISPLAY_HEAD)
     config.gui_display = _build_gui_display(nav)
     return config
 
