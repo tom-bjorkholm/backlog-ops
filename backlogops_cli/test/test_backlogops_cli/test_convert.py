@@ -61,7 +61,7 @@ def test_output_preset(tmp_path: Path) -> None:
     preset = make_output_config(
         resolve_output_config(None, data_file='x.csv',
                               stderr_file=NO_OUTPUT).tableio,
-        {'level': 'Type'}, stderr_file=NO_OUTPUT)
+        {'level': 'Type'}, {}, stderr_file=NO_OUTPUT)
     config.output_configs = {'rep': preset}
     config.write(to_json_filename=teams_file, stderr_file=NO_OUTPUT)
     source = tmp_path / 'in.ods'

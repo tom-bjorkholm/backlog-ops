@@ -159,7 +159,7 @@ def test_col_map_rt(tmp_path: Path) -> None:
                                         stderr_file=NO_OUTPUT)
     output = make_output_config(default_out.tableio,
                                 {'estimated_ready_date': 'Estimated ready',
-                                 'level': 'Type'}, stderr_file=NO_OUTPUT)
+                                 'level': 'Type'}, {}, stderr_file=NO_OUTPUT)
     write_backlog_releases(_sample(), path, output, stderr_file=NO_OUTPUT)
     text = path.read_text(encoding='UTF-8')
     assert 'Estimated ready' in text and 'Type' in text
@@ -172,6 +172,40 @@ def test_col_map_rt(tmp_path: Path) -> None:
     first = next(item for item in back.backlog if item.key == 'A1')
     assert first.estimated_ready_date == date(2026, 6, 1)
     assert first.level == 1
+
+
+def test_release_col_map(tmp_path: Path) -> None:
+    """Test the releases map renames the releases table columns only."""
+    path = tmp_path / 'data.csv'
+    base = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    output = make_output_config(base.tableio, {},
+                                {'name': 'Release', 'planned_date': 'Planned'},
+                                stderr_file=NO_OUTPUT)
+    write_backlog_releases(_sample(), path, output, stderr_file=NO_OUTPUT)
+    text = path.read_text(encoding='UTF-8')
+    assert 'Release' in text and 'Planned' in text
+    assert '"key"' in text
+
+
+def test_drop_column(tmp_path: Path) -> None:
+    """Test an output column mapped to None is dropped from the file."""
+    path = tmp_path / 'data.csv'
+    base = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    output = make_output_config(base.tableio, {'story_points': None}, {},
+                                stderr_file=NO_OUTPUT)
+    write_backlog_releases(_sample(), path, output, stderr_file=NO_OUTPUT)
+    assert 'story_points' not in path.read_text(encoding='UTF-8')
+
+
+def test_maps_independent(tmp_path: Path) -> None:
+    """Test the backlog map does not rename a releases column of same name."""
+    path = tmp_path / 'data.csv'
+    base = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    output = make_output_config(base.tableio, {'team': 'Squad'},
+                                {'name': 'Release'}, stderr_file=NO_OUTPUT)
+    write_backlog_releases(_sample(), path, output, stderr_file=NO_OUTPUT)
+    text = path.read_text(encoding='UTF-8')
+    assert 'Squad' in text and 'Release' in text
 
 
 def test_bad_table(tmp_path: Path) -> None:
@@ -231,7 +265,7 @@ def _write_display(data: BacklogReleases, path: Path,
                    display: LevelDisplay) -> None:
     """Write ``data`` with the given level display configuration."""
     base = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    config = make_output_config(base.tableio, {}, display)
+    config = make_output_config(base.tableio, {}, {}, display)
     write_backlog_releases(data, path, config, levels=DEFAULT_LEVELS,
                            stderr_file=NO_OUTPUT)
 
@@ -275,7 +309,7 @@ def test_unnamed_level_number(tmp_path: Path) -> None:
     errors = io.StringIO()
     base = resolve_output_config(None, data_file=tmp_path / 'u.csv',
                                  stderr_file=NO_OUTPUT)
-    config = make_output_config(base.tableio, {}, LevelDisplay.NAME)
+    config = make_output_config(base.tableio, {}, {}, LevelDisplay.NAME)
     write_backlog_releases(_one_item(level=9), tmp_path / 'u.csv', config,
                            levels=DEFAULT_LEVELS, stderr_file=errors)
     text = (tmp_path / 'u.csv').read_text(encoding='UTF-8')

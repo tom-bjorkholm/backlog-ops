@@ -34,7 +34,8 @@ def test_output_format(suffix: str, format_name: str) -> None:
     config = resolve_output_config(None, data_file='data' + suffix,
                                    stderr_file=NO_OUTPUT)
     assert config.tableio.format_name == format_name
-    assert config.to_external == {}
+    assert not config.backlog_to_external
+    assert not config.release_to_external
 
 
 def test_unknown_ext() -> None:
@@ -69,12 +70,13 @@ def test_config_path(tmp_path: Path) -> None:
     source = make_output_config(
         resolve_output_config(None, data_file='x.csv',
                               stderr_file=NO_OUTPUT).tableio,
-        {'level': 'Type'}, stderr_file=NO_OUTPUT)
+        {'level': 'Type'}, {'name': 'Release'}, stderr_file=NO_OUTPUT)
     config_file = tmp_path / 'out.cfg'
     source.write(to_json_filename=config_file, stderr_file=NO_OUTPUT)
     resolved = resolve_output_config(str(config_file), data_file='x.csv',
                                      stderr_file=NO_OUTPUT)
-    assert resolved.to_external == {'level': 'Type'}
+    assert resolved.backlog_to_external == {'level': 'Type'}
+    assert resolved.release_to_external == {'name': 'Release'}
     assert resolved.tableio.format_name == 'CSV'
 
 
@@ -106,12 +108,39 @@ def test_in_cfg_roundtrip(tmp_path: Path) -> None:
     assert loaded.tableio.format_name == 'ODS'
 
 
-def test_map_types() -> None:
+@pytest.mark.parametrize('member', [
+    'backlog_to_external', 'release_to_external'])
+def test_map_types(member: str) -> None:
     """Test a column-name map of the wrong value type is rejected."""
     with pytest.raises(InvalidConfiguration):
         OutputFormatConfig(
             from_json_data_text='{"tableio": {"format_name": "CSV"}, '
-            '"to_external": {"level": 5}}', stderr_file=NO_OUTPUT)
+            f'"{member}": {{"level": 5}}}}', stderr_file=NO_OUTPUT)
+
+
+def test_out_maps_rt(tmp_path: Path) -> None:
+    """Test both output maps, including a dropped column, survive a file."""
+    tableio = resolve_output_config(None, data_file='x.csv',
+                                    stderr_file=NO_OUTPUT).tableio
+    source = make_output_config(tableio, {'level': 'Size',
+                                          'story_points': None},
+                                {'name': 'Release'}, stderr_file=NO_OUTPUT)
+    config_file = tmp_path / 'out.cfg'
+    source.write(to_json_filename=config_file, stderr_file=NO_OUTPUT)
+    loaded = OutputFormatConfig(from_json_filename=config_file,
+                                stderr_file=NO_OUTPUT)
+    assert loaded.backlog_to_external == {'level': 'Size',
+                                          'story_points': None}
+    assert loaded.release_to_external == {'name': 'Release'}
+
+
+def test_out_old_single_map() -> None:
+    """Test an older single output map becomes the backlog map."""
+    config = OutputFormatConfig(
+        from_json_data_text='{"tableio": {"format_name": "CSV"}, '
+        '"to_external": {"level": "Type"}}', stderr_file=NO_OUTPUT)
+    assert config.backlog_to_external == {'level': 'Type'}
+    assert not config.release_to_external
 
 
 def test_out_display_default() -> None:
@@ -125,7 +154,7 @@ def test_make_output_display() -> None:
     """Test the level display passed to make_output_config is kept."""
     tableio = resolve_output_config(None, data_file='x.csv',
                                     stderr_file=NO_OUTPUT).tableio
-    config = make_output_config(tableio, {}, LevelDisplay.NAME,
+    config = make_output_config(tableio, {}, {}, LevelDisplay.NAME,
                                 stderr_file=NO_OUTPUT)
     assert config.level_display is LevelDisplay.NAME
 
@@ -134,7 +163,7 @@ def test_out_display_rt(tmp_path: Path) -> None:
     """Test the level display survives a write and read of the config."""
     tableio = resolve_output_config(None, data_file='x.csv',
                                     stderr_file=NO_OUTPUT).tableio
-    source = make_output_config(tableio, {}, LevelDisplay.NUMERIC,
+    source = make_output_config(tableio, {}, {}, LevelDisplay.NUMERIC,
                                 stderr_file=NO_OUTPUT)
     config_file = tmp_path / 'out.cfg'
     source.write(to_json_filename=config_file, stderr_file=NO_OUTPUT)
@@ -152,23 +181,39 @@ def test_out_old_no_display() -> None:
 
 
 def test_gui_display_default() -> None:
-    """Test a default GUI display config shows both number and name."""
-    assert GuiDisplayConfig(stderr_file=NO_OUTPUT).level_display is \
-        LevelDisplay.BOTH
+    """Test a default GUI display config shows both and renames nothing."""
+    config = GuiDisplayConfig(stderr_file=NO_OUTPUT)
+    assert config.level_display is LevelDisplay.BOTH
+    assert not config.backlog_to_external
+    assert not config.release_to_external
 
 
 def test_gui_display_rt(tmp_path: Path) -> None:
-    """Test the GUI display survives a write and read of the config."""
+    """Test the GUI display, maps and a dropped column survive a file."""
     source = GuiDisplayConfig(stderr_file=NO_OUTPUT)
     source.level_display = LevelDisplay.NAME
+    source.backlog_to_external = {'key': 'Id', 'team': None}
+    source.release_to_external = {'name': 'Release'}
     config_file = tmp_path / 'gui.cfg'
     source.write(to_json_filename=config_file, stderr_file=NO_OUTPUT)
     loaded = GuiDisplayConfig(from_json_filename=config_file,
                               stderr_file=NO_OUTPUT)
     assert loaded.level_display is LevelDisplay.NAME
+    assert loaded.backlog_to_external == {'key': 'Id', 'team': None}
+    assert loaded.release_to_external == {'name': 'Release'}
+
+
+def test_gui_bad_map() -> None:
+    """Test a GUI column-name map of the wrong value type is rejected."""
+    with pytest.raises(InvalidConfiguration):
+        GuiDisplayConfig(
+            from_json_data_text='{"backlog_to_external": {"key": 5}}',
+            stderr_file=NO_OUTPUT)
 
 
 def test_gui_old_default() -> None:
-    """Test a GUI display config without a member defaults to both."""
+    """Test a GUI display config without members defaults to empty maps."""
     config = GuiDisplayConfig(from_json_data_text='{}', stderr_file=NO_OUTPUT)
     assert config.level_display is LevelDisplay.BOTH
+    assert not config.backlog_to_external
+    assert not config.release_to_external

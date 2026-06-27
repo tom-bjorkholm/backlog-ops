@@ -49,8 +49,9 @@ from backlogops.table_create import FileExistsCb, allow_overwrite
 from backlogops.backlog_releases_io import (
     read_backlog_releases, write_backlog_releases)
 from backlogops.table_rows import (
-    LEVEL_COLUMN, LEVEL_NAME_COLUMN, display_level_order, display_level_rows,
-    fold_level_name, item_to_row, row_to_item, release_to_row, row_to_release)
+    LEVEL_COLUMN, LEVEL_NAME_COLUMN, apply_column_map, display_level_order,
+    display_level_rows, fold_level_name, item_to_row, map_column_order,
+    row_to_item, release_to_row, row_to_release)
 from backlogops.format_rules import FormatRules
 from backlogops.apply_format_rules import format_backlog, format_releases
 from backlogops.move_keys_first import move_keys_first, get_keys_in_order
@@ -81,7 +82,8 @@ __all__ = [
     'OutputFormatConfig', 'resolve_input_config', 'resolve_output_config',
     'make_input_config', 'make_output_config', 'FileExistsCb',
     'allow_overwrite', 'read_backlog_releases', 'write_backlog_releases',
-    'LEVEL_COLUMN', 'LEVEL_NAME_COLUMN', 'display_level_order',
+    'LEVEL_COLUMN', 'LEVEL_NAME_COLUMN', 'apply_column_map',
+    'map_column_order', 'display_level_order',
     'display_level_rows', 'fold_level_name',
     'item_to_row', 'row_to_item', 'release_to_row', 'row_to_release',
     'FormatRules', 'format_backlog', 'format_releases',

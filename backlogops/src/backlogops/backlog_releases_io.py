@@ -11,10 +11,14 @@ releases.
 The internal field names of the data model can differ from the column
 names in the file. An :class:`InputFormatConfig` carries a map from
 external column name to internal field name, and an
-:class:`OutputFormatConfig` carries a map from internal field name to
-external column name. The dependency lists of a backlog item are stored
-as one space separated string per dependency kind, and the extra fields
-of a backlog item become extra columns.
+:class:`OutputFormatConfig` carries one internal-to-external map per
+table, ``backlog_to_external`` and ``release_to_external``. Each output
+map honours the three cases of
+:func:`backlogops.table_rows.apply_column_map`: an absent name is written
+unchanged, a mapped name is renamed, and a name mapped to None drops that
+column. The dependency lists of a backlog item are stored as one space
+separated string per dependency kind, and the extra fields of a backlog
+item become extra columns.
 
 The level of a backlog item is written as a numeric ``level`` column, a
 named ``level name`` column, or both, as the output configuration's
@@ -27,7 +31,9 @@ column is ignored.
 # MIT License
 
 import sys
-from typing import Optional, TextIO, TypeVar
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Optional, TextIO
 from config_as_json import PathOrStr
 from tableio import CAP_IGNORABLE, Capabilities, DictData, FileAccess, \
     TableIO, Value, ValueFmt, access_capabilities, tio_config_create
@@ -35,13 +41,13 @@ from backlogops.backlog import Backlog
 from backlogops.backlog_releases import BacklogReleases
 from backlogops.io_config import InputFormatConfig, OutputFormatConfig
 from backlogops.table_create import FileExistsCb
-from backlogops.levels import DEFAULT_LEVELS, LevelDisplay, Levels
+from backlogops.levels import DEFAULT_LEVELS, Levels
 from backlogops.releases import Releases
 from backlogops.format_rules import FormatRules
 from backlogops.apply_format_rules import format_backlog, format_releases
 from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS, \
-    display_level_order, display_level_rows, fold_level_name, row_to_item, \
-    row_to_release
+    apply_column_map, display_level_order, display_level_rows, \
+    fold_level_name, map_column_order, row_to_item, row_to_release
 
 BACKLOG_HEADING = 'Backlog'
 """Heading written before the backlog table."""
@@ -49,13 +55,15 @@ BACKLOG_HEADING = 'Backlog'
 RELEASE_HEADING = 'Releases'
 """Heading written before the releases table."""
 
-_RenameCell = TypeVar('_RenameCell', Value, ValueFmt)
 
+@dataclass
+class _Section:
+    """One table to write: heading, formatted rows, order and name map."""
 
-def _rename(row: dict[str, _RenameCell],
-            names: dict[str, str]) -> dict[str, _RenameCell]:
-    """Return the row with its keys translated through a name map."""
-    return {names.get(key, key): value for key, value in row.items()}
+    heading: str
+    rows: DictData[ValueFmt]
+    order: list[str]
+    names: Mapping[str, Optional[str]]
 
 
 def _is_backlog_table(rows: DictData[Value]) -> bool:
@@ -82,7 +90,8 @@ def _collect_tables(config: InputFormatConfig, data_file: PathOrStr,
             result = tableio.read_table_dictdata()
             if not result.data:
                 break
-            rows = [_rename(row, config.to_internal) for row in result.data]
+            rows = [apply_column_map(row, config.to_internal)
+                    for row in result.data]
             if _is_backlog_table(rows):
                 backlog_rows.extend(rows)
             elif _is_release_table(rows):
@@ -154,14 +163,13 @@ def _backlog_order(backlog: Backlog) -> list[str]:
     return BACKLOG_FIELDS + extra
 
 
-def _write_table(tableio: TableIO,
-                 section: tuple[str, DictData[ValueFmt], list[str]],
-                 names: dict[str, str], rules: FormatRules) -> None:
+def _write_table(tableio: TableIO, section: _Section,
+                 rules: FormatRules) -> None:
     """Write one heading and one formatted, bordered table."""
-    heading, rows, column_order = section
-    tableio.write_heading(heading)
-    external_rows = [_rename(row, names) for row in rows]
-    external_order = [names.get(name, name) for name in column_order]
+    tableio.write_heading(section.heading)
+    external_rows = [apply_column_map(row, section.names)
+                     for row in section.rows]
+    external_order = map_column_order(section.order, section.names)
     tableio.write_table_dictdata(external_rows, column_order=external_order,
                                  missing_ok=True,
                                  first_row_format=rules.first_row_format,
@@ -170,27 +178,27 @@ def _write_table(tableio: TableIO,
 
 
 def _backlog_section(data: BacklogReleases, rules: FormatRules, levels: Levels,
-                     display: LevelDisplay, stderr_file: TextIO
-                     ) -> tuple[str, DictData[ValueFmt], list[str]]:
+                     config: OutputFormatConfig,
+                     stderr_file: TextIO) -> _Section:
     """Return the backlog heading, rows and order with levels expanded."""
+    display = config.level_display
     rows = display_level_rows(format_backlog(data.backlog, rules), levels,
                               display, stderr_file)
     order = display_level_order(_backlog_order(data.backlog), display)
-    return (BACKLOG_HEADING, rows, order)
+    return _Section(BACKLOG_HEADING, rows, order, config.backlog_to_external)
 
 
-# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def _ordered_sections(data: BacklogReleases, rules: FormatRules,
-                      levels: Levels, display: LevelDisplay,
-                      stderr_file: TextIO
-                      ) -> list[tuple[str, DictData[ValueFmt], list[str]]]:
+                      levels: Levels, config: OutputFormatConfig,
+                      stderr_file: TextIO) -> list[_Section]:
     """Return the non-empty tables to write, in the requested order."""
-    backlog = _backlog_section(data, rules, levels, display, stderr_file)
+    backlog = _backlog_section(data, rules, levels, config, stderr_file)
     release_rows = format_releases(data.releases, rules)
-    releases = (RELEASE_HEADING, release_rows, RELEASE_FIELDS)
+    releases = _Section(RELEASE_HEADING, release_rows, list(RELEASE_FIELDS),
+                        config.release_to_external)
     sections = [backlog, releases] if rules.backlog_first else \
         [releases, backlog]
-    return [section for section in sections if section[1]]
+    return [section for section in sections if section.rows]
 
 
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
@@ -205,7 +213,9 @@ def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
 
     Each non-empty table is written with a heading before it, so several
     tables can share one file. Internal field names are translated to
-    external column names through the output configuration. The level of
+    external column names through the output configuration, using its
+    backlog map for the backlog table and its releases map for the
+    releases table; a name mapped to None drops that column. The level of
     a backlog item is written as its number, its name, or both, as the
     output configuration's :class:`LevelDisplay` decides, using ``levels``
     to translate a number to a name. The format rules decide the table
@@ -215,8 +225,8 @@ def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
     Args:
         data: The backlog and releases to write.
         data_file: The data file to create.
-        config: The output configuration (format, column-name map and
-                level display).
+        config: The output configuration (format, per-table column-name
+                maps and level display).
         format_rules: How to format the written data, or None for the
                       default format rules.
         levels: The levels used to translate a level number to a name, or
@@ -229,12 +239,12 @@ def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
     rules = FormatRules() if format_rules is None else format_rules
     chosen_levels = DEFAULT_LEVELS if levels is None else levels
     capabilities = _write_capabilities(stderr_file)
-    sections = _ordered_sections(data, rules, chosen_levels,
-                                 config.level_display, stderr_file)
+    sections = _ordered_sections(data, rules, chosen_levels, config,
+                                 stderr_file)
     with tio_config_create(config=config.tableio, file_name=data_file,
                            file_access=FileAccess.CREATE,
                            capabilities=capabilities,
                            file_exists_callback=file_exists_callback
                            ) as tableio:
         for section in sections:
-            _write_table(tableio, section, config.to_external, rules)
+            _write_table(tableio, section, rules)

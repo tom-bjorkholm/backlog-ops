@@ -18,8 +18,8 @@ from tkinter import messagebox, ttk
 from typing import Callable, Optional, TextIO
 from tableio import ValueFmt
 from backlogops import (
-    AvailableTeams, BacklogReleases, LevelDisplay, Levels, OutputFormatConfig,
-    ReleaseChanges, ReleaseDateChanges, allow_overwrite,
+    AvailableTeams, BacklogReleases, GuiDisplayConfig, Levels,
+    OutputFormatConfig, ReleaseChanges, ReleaseDateChanges, allow_overwrite,
     format_content_changes, format_date_changes, get_keys_in_order,
     write_content_changes, write_date_changes, write_key_list)
 from backlogops_gui.backlog_io import write_backlog
@@ -351,7 +351,7 @@ class BacklogWindow:
                  teams: Callable[[], Optional[AvailableTeams]], sink: TextIO,
                  levels: Callable[[], Optional[Levels]] = lambda: None,
                  gui_display: Callable[
-                     [], LevelDisplay] = lambda: LevelDisplay.BOTH) -> None:
+                     [], GuiDisplayConfig] = GuiDisplayConfig) -> None:
         """Build the window, its menu and the two tables.
 
         Args:
@@ -363,7 +363,9 @@ class BacklogWindow:
             sink: Stream that receives low-level write diagnostics.
             levels: Callable returning the configured levels, or None for
                 the default levels.
-            gui_display: Callable returning how levels are shown in tables.
+            gui_display: Callable returning the GUI display configuration,
+                which decides the level display and the per-table column
+                renaming for the tables.
         """
         self._data = data
         self._presets = presets
@@ -387,13 +389,15 @@ class BacklogWindow:
 
     def _build_tables(self) -> None:
         """Build the backlog and releases tables from the current data."""
+        display = self._gui_display()
         backlog = backlog_table(self._data, self._levels(),
-                                self._gui_display(), self._sink)
+                                display.level_display,
+                                display.backlog_to_external, self._sink)
         table = self._add_table('Backlog', *backlog, narrow=False)
         self._tables.append(table)
+        releases = release_table(self._data, display.release_to_external)
         self._tables.append(
-            self._add_table('Releases', *release_table(self._data),
-                            narrow=True))
+            self._add_table('Releases', *releases, narrow=True))
 
     def _refresh_tables(self) -> None:
         """Rebuild the tables after the backlog data has changed."""

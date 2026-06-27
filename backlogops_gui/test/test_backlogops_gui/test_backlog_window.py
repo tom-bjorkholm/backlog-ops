@@ -9,8 +9,8 @@ from datetime import date, timedelta
 from typing import Callable, Optional, Sequence, TextIO, cast
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogItem, BacklogReleases, DependencyMode, NoTextIO,
-    Release, Status, get_demo_backlog)
+    AvailableTeams, BacklogItem, BacklogReleases, DependencyMode,
+    GuiDisplayConfig, NoTextIO, Release, Status, get_demo_backlog)
 from backlogops_gui import backlog_window
 from backlogops_gui.backlog_window import (
     BacklogWindow, adjust_content, estimate_date, extract_keys, order_by_deps,
@@ -691,6 +691,35 @@ _DELEGATES = [
     'estimate_date', 'set_plan', 'adjust_content', 'plan_dates',
     'order_dates', 'extract_keys']
 """The module helpers each action method delegates to, in the same order."""
+
+
+def test_window_uses_gui_maps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the window passes the GUI column maps to both tables."""
+    root = _root()
+    try:
+        captured: dict[str, object] = {}
+
+        def fake_backlog(_data: object, _levels: object, _display: object,
+                         names: object, _sink: object
+                         ) -> tuple[list[str], list[object]]:
+            captured['backlog'] = names
+            return ([], [])
+
+        def fake_release(_data: object, names: object
+                         ) -> tuple[list[str], list[object]]:
+            captured['release'] = names
+            return ([], [])
+        monkeypatch.setattr(backlog_window, 'backlog_table', fake_backlog)
+        monkeypatch.setattr(backlog_window, 'release_table', fake_release)
+        gui = GuiDisplayConfig()
+        gui.backlog_to_external = {'key': 'Id'}
+        gui.release_to_external = {'name': 'Release'}
+        BacklogWindow(root, DATA, 'T', _none, _none, SINK,
+                      gui_display=lambda: gui)
+        assert captured['backlog'] == {'key': 'Id'}
+        assert captured['release'] == {'name': 'Release'}
+    finally:
+        root.destroy()
 
 
 def test_window_acts(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -10,13 +10,21 @@ names of the data model.
 
 An input endpoint is described by an :class:`InputFormatConfig` and an
 output endpoint by an :class:`OutputFormatConfig`. Both wrap one
-``TioJsonConfig`` and one direction-specific name map:
+``TioJsonConfig`` and the direction-specific column-name maps:
 
 * an input map (``to_internal``) translates an external column name to
   an internal field name, and several external names may map to the same
   internal field;
-* an output map (``to_external``) translates an internal field name to
+* an output endpoint carries one map per table, ``backlog_to_external``
+  and ``release_to_external``, each translating an internal field name to
   the external column name to write.
+
+Every output and GUI map honours three cases for a column name: a name
+absent from the map is written or shown unchanged, a name mapped to
+another string is renamed, and a name mapped to None drops that column.
+The :class:`GuiDisplayConfig` carries the same per-table maps and level
+display, but no TableIO endpoint, deciding how a backlog and its releases
+are shown on screen.
 
 :func:`resolve_input_config` and :func:`resolve_output_config` turn a
 command-line value into such a configuration. The value may be empty
@@ -33,11 +41,11 @@ import re
 import sys
 from collections.abc import Mapping
 from pathlib import Path
-from typing import ClassVar, Optional, TextIO, override
+from typing import ClassVar, NoReturn, Optional, TextIO, override
 from config_as_json import Config, ConfigNesting, ConfigNestingKind, \
-    ConfigPath, DictKeyValueTypesValidator, MemberValidationStep, \
-    NestedConfigs, ParseConverter, PathOrStr, ReadOldConfiguration, \
-    ValidationPlan
+    ConfigPath, DictKeyValueTypesValidator, InvalidConfiguration, \
+    MemberValidationStep, MemberValidator, NestedConfigs, ParseConverter, \
+    PathOrStr, ReadOldConfiguration, RocfKeyMove, ValidationPlan
 from tableio import Capabilities, FileAccess, access_capabilities
 from tableio_cfg_json import TioJsonConfig, tio_json_config_default
 from backlogops.levels import LevelDisplay
@@ -53,17 +61,61 @@ PRESET_NAME_RE = re.compile(r'^[A-Za-z0-9]+$')
 """A configuration value made only of letters and digits is a preset."""
 
 
-class _DisplayReadOldConfig(ReadOldConfiguration):
-    """Default the level display when an older file omits it.
+class _DisplayMapReadOldConfig(ReadOldConfiguration):
+    """Migrate older output or GUI display files to the split maps.
 
-    The enum member itself is supplied, not its name, because the missing
-    value is inserted after the read-side scalar converters have run and
-    so would otherwise stay an unconverted string.
+    The single ``to_external`` map of an older output file is moved to the
+    backlog map; this move is a no-op for a GUI file or a file that never
+    had a map. Any absent backlog or release map then defaults to empty,
+    and a missing level display defaults to BOTH. The enum member itself
+    is supplied, not its name, because the missing value is inserted after
+    the read-side scalar converters have run and so would otherwise stay
+    an unconverted string.
     """
 
+    def get_json_key_moves(self) -> list[RocfKeyMove]:
+        """Move an older single output map into the backlog map."""
+        return [RocfKeyMove(old_path=('to_external',),
+                            new_path=('backlog_to_external',))]
+
     def get_missing_path_values(self) -> dict[ConfigPath, object]:
-        """Supply the default level display for an older file."""
-        return {('level_display',): LevelDisplay.BOTH}
+        """Supply default maps and level display for an older file."""
+        return {('backlog_to_external',): {}, ('release_to_external',): {},
+                ('level_display',): LevelDisplay.BOTH}
+
+
+# pylint: disable-next=too-few-public-methods
+class _ColumnMapValidator(MemberValidator):
+    """Validate a column-name map of string keys to string-or-None values.
+
+    Each key is an internal field name and each value is either the
+    external column name to use or None to drop the column. The member
+    must be a dict; every key must be a string and every value must be a
+    string or None.
+    """
+
+    @override
+    def validate_member(self, config: Config, member_name: str,
+                        member_value: object,
+                        stderr_file: TextIO = sys.stderr) -> object:
+        """Check the map is a dict of string keys to string-or-None values."""
+        _ = config
+        if not isinstance(member_value, dict):
+            self._reject(f'{member_name} must be a mapping', stderr_file)
+        for key, value in member_value.items():
+            if not isinstance(key, str) or not (value is None
+                                                or isinstance(value, str)):
+                self._reject(f'{member_name} maps {key!r} to {value!r}; keys '
+                             'must be strings and values a string or null',
+                             stderr_file)
+        return member_value
+
+    @staticmethod
+    def _reject(detail: str, stderr_file: TextIO) -> NoReturn:
+        """Report an invalid column-name map and raise."""
+        message = f'Invalid configuration: {detail}.'
+        print(message, file=stderr_file)
+        raise InvalidConfiguration(message)
 
 
 def _capabilities(file_access: FileAccess, stderr_file: TextIO
@@ -95,14 +147,14 @@ def _tio_from_json(file_access: FileAccess, from_json_data_text: Optional[str],
 class _FormatConfig(Config):
     """Shared behavior for one input or output TableIO endpoint config.
 
-    A concrete subclass fixes the file access mode and the name of its
-    column-name map member, and declares that map member before calling
+    A concrete subclass fixes the file access mode and the names of its
+    column-name map members, and declares those map members before calling
     the constructor. The wrapped ``TioJsonConfig`` is created here and
     declared as a nested configuration so it reads and writes itself.
     """
 
     _FILE_ACCESS: ClassVar[FileAccess]
-    _MAP_NAME: ClassVar[str]
+    _MAP_NAMES: ClassVar[tuple[str, ...]]
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
@@ -110,7 +162,7 @@ class _FormatConfig(Config):
         """Create default settings or read them from a JSON source."""
         self.tableio: TioJsonConfig = _tio_default(self._FILE_ACCESS,
                                                    stderr_file=stderr_file)
-        self._unchecked_dicts = [self._MAP_NAME]
+        self._unchecked_dicts = list(self._MAP_NAMES)
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
                         stderr_file=stderr_file)
@@ -122,6 +174,10 @@ class _FormatConfig(Config):
         return _tio_from_json(self._FILE_ACCESS, from_json_data_text,
                               from_json_filename, stderr_file)
 
+    def _map_validator(self) -> MemberValidator:
+        """Return the validator applied to each column-name map member."""
+        return DictKeyValueTypesValidator(str, str)
+
     @override
     def nested_configs(self) -> NestedConfigs:
         """Declare the wrapped TableIO config as a nested configuration."""
@@ -131,18 +187,17 @@ class _FormatConfig(Config):
 
     @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
-        """Check that the column-name map is a mapping of string to string."""
+        """Check each column-name map with this endpoint's validator."""
         _ = stderr_file
-        return [MemberValidationStep(
-            member_names=[self._MAP_NAME],
-            validator=DictKeyValueTypesValidator(str, str))]
+        return [MemberValidationStep(member_names=list(self._MAP_NAMES),
+                                     validator=self._map_validator())]
 
 
 class InputFormatConfig(_FormatConfig):
     """TableIO input endpoint with an external-to-internal column map."""
 
     _FILE_ACCESS = FileAccess.READ
-    _MAP_NAME = 'to_internal'
+    _MAP_NAMES = ('to_internal',)
     to_internal: dict[str, str]
 
     def __init__(self, from_json_data_text: Optional[str] = None,
@@ -156,29 +211,39 @@ class InputFormatConfig(_FormatConfig):
 
 
 class OutputFormatConfig(_FormatConfig):
-    """TableIO output endpoint with an internal-to-external column map.
+    """TableIO output endpoint with per-table internal-to-external maps.
 
-    In addition to the column-name map the output endpoint carries a
-    :class:`LevelDisplay`, deciding whether a backlog item level is
-    written as its number, its name, or both. The member defaults to
-    :data:`LevelDisplay.BOTH`; it may be absent from an older file, in
-    which case the default applies.
+    The backlog table and the releases table each have their own
+    internal-to-external column-name map (``backlog_to_external`` and
+    ``release_to_external``); each honours the three cases of
+    :func:`backlogops.table_rows.apply_column_map`. The endpoint also
+    carries a :class:`LevelDisplay`, deciding whether a backlog item level
+    is written as its number, its name, or both. The maps default to empty
+    and the display defaults to :data:`LevelDisplay.BOTH`; any of them may
+    be absent from an older file, in which case the default applies.
     """
 
     _FILE_ACCESS = FileAccess.CREATE
-    _MAP_NAME = 'to_external'
-    to_external: dict[str, str]
+    _MAP_NAMES = ('backlog_to_external', 'release_to_external')
+    backlog_to_external: dict[str, Optional[str]]
+    release_to_external: dict[str, Optional[str]]
     level_display: LevelDisplay
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr) -> None:
         """Create the output defaults, then run the shared constructor."""
-        self.to_external = {}
+        self.backlog_to_external = {}
+        self.release_to_external = {}
         self.level_display = LevelDisplay.BOTH
         _FormatConfig.__init__(self, from_json_data_text=from_json_data_text,
                                from_json_filename=from_json_filename,
                                stderr_file=stderr_file)
+
+    @override
+    def _map_validator(self) -> MemberValidator:
+        """Allow a string or None as each output column-name map value."""
+        return _ColumnMapValidator()
 
     @override
     def parse_converters(self) -> dict[str, ParseConverter]:
@@ -187,8 +252,8 @@ class OutputFormatConfig(_FormatConfig):
 
     @override
     def _get_read_old_config(self) -> ReadOldConfiguration:
-        """Return the migration that defaults a missing level display."""
-        return _DisplayReadOldConfig()
+        """Return the migration that splits the map and defaults display."""
+        return _DisplayMapReadOldConfig()
 
 
 def make_input_config(tableio: TioJsonConfig, to_internal: dict[str, str],
@@ -200,13 +265,16 @@ def make_input_config(tableio: TioJsonConfig, to_internal: dict[str, str],
     return config
 
 
-def make_output_config(tableio: TioJsonConfig, to_external: dict[str, str],
+def make_output_config(tableio: TioJsonConfig,
+                       backlog_to_external: dict[str, Optional[str]],
+                       release_to_external: dict[str, Optional[str]],
                        level_display: LevelDisplay = LevelDisplay.BOTH,
                        stderr_file: TextIO = sys.stderr) -> OutputFormatConfig:
-    """Return an output config from a TableIO config, map and level display."""
+    """Return an output config from a TableIO config, maps and display."""
     config = OutputFormatConfig(stderr_file=stderr_file)
     config.tableio = tableio
-    config.to_external = dict(to_external)
+    config.backlog_to_external = dict(backlog_to_external)
+    config.release_to_external = dict(release_to_external)
     config.level_display = level_display
     return config
 
@@ -215,19 +283,27 @@ class GuiDisplayConfig(Config):
     """How a backlog and its releases are shown in the GUI.
 
     This mirrors the display part of an :class:`OutputFormatConfig`,
-    without the TableIO endpoint configuration. For now it only carries a
-    :class:`LevelDisplay`; per-table column-name maps are added later. The
-    member defaults to :data:`LevelDisplay.BOTH` and may be absent from an
-    older file, in which case the default applies.
+    without the TableIO endpoint configuration. It carries the per-table
+    column-name maps ``backlog_to_external`` and ``release_to_external``
+    (each honouring the three cases of
+    :func:`backlogops.table_rows.apply_column_map`) and a
+    :class:`LevelDisplay`. The maps default to empty and the display
+    defaults to :data:`LevelDisplay.BOTH`; any of them may be absent from
+    an older file, in which case the default applies.
     """
 
+    backlog_to_external: dict[str, Optional[str]]
+    release_to_external: dict[str, Optional[str]]
     level_display: LevelDisplay
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr) -> None:
         """Create the display defaults, then read them from JSON."""
+        self.backlog_to_external = {}
+        self.release_to_external = {}
         self.level_display = LevelDisplay.BOTH
+        self._unchecked_dicts = ['backlog_to_external', 'release_to_external']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
                         stderr_file=stderr_file)
@@ -239,14 +315,16 @@ class GuiDisplayConfig(Config):
 
     @override
     def _get_read_old_config(self) -> ReadOldConfiguration:
-        """Return the migration that defaults a missing level display."""
-        return _DisplayReadOldConfig()
+        """Return the migration that defaults the maps and the display."""
+        return _DisplayMapReadOldConfig()
 
     @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
-        """Return an empty plan; the level display needs no checks."""
+        """Check each column-name map allows a string or None value."""
         _ = stderr_file
-        return []
+        return [MemberValidationStep(
+            member_names=['backlog_to_external', 'release_to_external'],
+            validator=_ColumnMapValidator())]
 
 
 def _format_from_suffix(data_file: PathOrStr) -> str:

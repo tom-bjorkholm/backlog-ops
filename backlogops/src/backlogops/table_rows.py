@@ -14,7 +14,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import fields
 from datetime import date
-from typing import Optional, TextIO
+from typing import Optional, TextIO, TypeVar
 from tableio import DictData, Value, ValueFmt
 from backlogops.backlog import BacklogItem, DEPENDENCY_FIELDS, Status, \
     get_backlog_item
@@ -33,6 +33,45 @@ LEVEL_COLUMN = 'level'
 
 LEVEL_NAME_COLUMN = 'level name'
 """Default column name carrying the named backlog item level."""
+
+_Cell = TypeVar('_Cell')
+
+
+def apply_column_map(row: Mapping[str, _Cell],
+                     names: Mapping[str, Optional[str]]) -> dict[str, _Cell]:
+    """Return one row with its columns renamed or dropped by a name map.
+
+    Three cases are honoured for each column name: a name absent from the
+    map is kept unchanged, a name mapped to another string is renamed, and
+    a name mapped to None drops that column from the row.
+    """
+    result: dict[str, _Cell] = {}
+    for name, value in row.items():
+        if name not in names:
+            result[name] = value
+            continue
+        new_name = names[name]
+        if new_name is not None:
+            result[new_name] = value
+    return result
+
+
+def map_column_order(order: list[str],
+                     names: Mapping[str, Optional[str]]) -> list[str]:
+    """Return a column order with names renamed or dropped by a name map.
+
+    The same three cases as :func:`apply_column_map` are honoured, so the
+    order stays consistent with rows passed through that function.
+    """
+    result: list[str] = []
+    for name in order:
+        if name not in names:
+            result.append(name)
+            continue
+        new_name = names[name]
+        if new_name is not None:
+            result.append(new_name)
+    return result
 
 
 def _is_empty(value: object) -> bool:

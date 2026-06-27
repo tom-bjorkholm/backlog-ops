@@ -173,6 +173,8 @@
   * [RELEASE\_FIELDS](#backlogops.table_rows.RELEASE_FIELDS)
   * [LEVEL\_COLUMN](#backlogops.table_rows.LEVEL_COLUMN)
   * [LEVEL\_NAME\_COLUMN](#backlogops.table_rows.LEVEL_NAME_COLUMN)
+  * [apply\_column\_map](#backlogops.table_rows.apply_column_map)
+  * [map\_column\_order](#backlogops.table_rows.map_column_order)
   * [item\_to\_row](#backlogops.table_rows.item_to_row)
   * [release\_to\_row](#backlogops.table_rows.release_to_row)
   * [row\_to\_item](#backlogops.table_rows.row_to_item)
@@ -1309,10 +1311,13 @@ Interactively create a backlog-ops configuration.
 The workforce is entered as by :func:`available_teams_wizard`, the
 user may then add any number of named input and output TableIO
 configuration presets, edit the backlog item levels, and finally
-choose how levels are shown in the GUI. Each output preset also asks
-how levels are written. The levels start filled in with the default
-levels; when the user leaves them at the defaults they are stored as
-"use the defaults" rather than written out.
+choose how the GUI renames columns and shows levels. Each output
+preset also asks how it renames the backlog and releases columns and
+how levels are written; the column tables start pre-filled with the
+internal field names so leaving them unchanged renames nothing. The
+levels start filled in with the default levels; when the user leaves
+them at the defaults they are stored as "use the defaults" rather than
+written out.
 
 **Arguments**:
 
@@ -3682,6 +3687,35 @@ Default column name carrying the numeric backlog item level.
 
 Default column name carrying the named backlog item level.
 
+<a id="backlogops.table_rows.apply_column_map"></a>
+
+#### apply\_column\_map
+
+```python
+def apply_column_map(row: Mapping[str, _Cell],
+                     names: Mapping[str, Optional[str]]) -> dict[str, _Cell]
+```
+
+Return one row with its columns renamed or dropped by a name map.
+
+Three cases are honoured for each column name: a name absent from the
+map is kept unchanged, a name mapped to another string is renamed, and
+a name mapped to None drops that column from the row.
+
+<a id="backlogops.table_rows.map_column_order"></a>
+
+#### map\_column\_order
+
+```python
+def map_column_order(order: list[str],
+                     names: Mapping[str, Optional[str]]) -> list[str]
+```
+
+Return a column order with names renamed or dropped by a name map.
+
+The same three cases as :func:`apply_column_map` are honoured, so the
+order stays consistent with rows passed through that function.
+
 <a id="backlogops.table_rows.item_to_row"></a>
 
 #### item\_to\_row
@@ -3790,13 +3824,21 @@ names of the data model.
 
 An input endpoint is described by an :class:`InputFormatConfig` and an
 output endpoint by an :class:`OutputFormatConfig`. Both wrap one
-``TioJsonConfig`` and one direction-specific name map:
+``TioJsonConfig`` and the direction-specific column-name maps:
 
 * an input map (``to_internal``) translates an external column name to
   an internal field name, and several external names may map to the same
   internal field;
-* an output map (``to_external``) translates an internal field name to
+* an output endpoint carries one map per table, ``backlog_to_external``
+  and ``release_to_external``, each translating an internal field name to
   the external column name to write.
+
+Every output and GUI map honours three cases for a column name: a name
+absent from the map is written or shown unchanged, a name mapped to
+another string is renamed, and a name mapped to None drops that column.
+The :class:`GuiDisplayConfig` carries the same per-table maps and level
+display, but no TableIO endpoint, deciding how a backlog and its releases
+are shown on screen.
 
 :func:`resolve_input_config` and :func:`resolve_output_config` turn a
 command-line value into such a configuration. The value may be empty
@@ -3847,13 +3889,16 @@ Create the input map default, then run the shared constructor.
 class OutputFormatConfig(_FormatConfig)
 ```
 
-TableIO output endpoint with an internal-to-external column map.
+TableIO output endpoint with per-table internal-to-external maps.
 
-In addition to the column-name map the output endpoint carries a
-:class:`LevelDisplay`, deciding whether a backlog item level is
-written as its number, its name, or both. The member defaults to
-:data:`LevelDisplay.BOTH`; it may be absent from an older file, in
-which case the default applies.
+The backlog table and the releases table each have their own
+internal-to-external column-name map (``backlog_to_external`` and
+``release_to_external``); each honours the three cases of
+:func:`backlogops.table_rows.apply_column_map`. The endpoint also
+carries a :class:`LevelDisplay`, deciding whether a backlog item level
+is written as its number, its name, or both. The maps default to empty
+and the display defaults to :data:`LevelDisplay.BOTH`; any of them may
+be absent from an older file, in which case the default applies.
 
 <a id="backlogops.io_config.OutputFormatConfig.__init__"></a>
 
@@ -3896,12 +3941,13 @@ Return an input config from a TableIO config and a column map.
 
 ```python
 def make_output_config(tableio: TioJsonConfig,
-                       to_external: dict[str, str],
+                       backlog_to_external: dict[str, Optional[str]],
+                       release_to_external: dict[str, Optional[str]],
                        level_display: LevelDisplay = LevelDisplay.BOTH,
                        stderr_file: TextIO = sys.stderr) -> OutputFormatConfig
 ```
 
-Return an output config from a TableIO config, map and level display.
+Return an output config from a TableIO config, maps and display.
 
 <a id="backlogops.io_config.GuiDisplayConfig"></a>
 
@@ -3914,10 +3960,13 @@ class GuiDisplayConfig(Config)
 How a backlog and its releases are shown in the GUI.
 
 This mirrors the display part of an :class:`OutputFormatConfig`,
-without the TableIO endpoint configuration. For now it only carries a
-:class:`LevelDisplay`; per-table column-name maps are added later. The
-member defaults to :data:`LevelDisplay.BOTH` and may be absent from an
-older file, in which case the default applies.
+without the TableIO endpoint configuration. It carries the per-table
+column-name maps ``backlog_to_external`` and ``release_to_external``
+(each honouring the three cases of
+:func:`backlogops.table_rows.apply_column_map`) and a
+:class:`LevelDisplay`. The maps default to empty and the display
+defaults to :data:`LevelDisplay.BOTH`; any of them may be absent from
+an older file, in which case the default applies.
 
 <a id="backlogops.io_config.GuiDisplayConfig.__init__"></a>
 
@@ -3951,7 +4000,7 @@ Parse the level display member from its enum member name.
 def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
 ```
 
-Return an empty plan; the level display needs no checks.
+Check each column-name map allows a string or None value.
 
 <a id="backlogops.io_config.resolve_input_config"></a>
 
@@ -4388,10 +4437,14 @@ releases.
 The internal field names of the data model can differ from the column
 names in the file. An :class:`InputFormatConfig` carries a map from
 external column name to internal field name, and an
-:class:`OutputFormatConfig` carries a map from internal field name to
-external column name. The dependency lists of a backlog item are stored
-as one space separated string per dependency kind, and the extra fields
-of a backlog item become extra columns.
+:class:`OutputFormatConfig` carries one internal-to-external map per
+table, ``backlog_to_external`` and ``release_to_external``. Each output
+map honours the three cases of
+:func:`backlogops.table_rows.apply_column_map`: an absent name is written
+unchanged, a mapped name is renamed, and a name mapped to None drops that
+column. The dependency lists of a backlog item are stored as one space
+separated string per dependency kind, and the extra fields of a backlog
+item become extra columns.
 
 The level of a backlog item is written as a numeric ``level`` column, a
 named ``level name`` column, or both, as the output configuration's
@@ -4471,7 +4524,9 @@ Write a backlog, releases, or both to one file.
 
 Each non-empty table is written with a heading before it, so several
 tables can share one file. Internal field names are translated to
-external column names through the output configuration. The level of
+external column names through the output configuration, using its
+backlog map for the backlog table and its releases map for the
+releases table; a name mapped to None drops that column. The level of
 a backlog item is written as its number, its name, or both, as the
 output configuration's :class:`LevelDisplay` decides, using ``levels``
 to translate a number to a name. The format rules decide the table
@@ -4482,8 +4537,8 @@ omitted the default :class:`FormatRules` apply.
 
 - `data` - The backlog and releases to write.
 - `data_file` - The data file to create.
-- `config` - The output configuration (format, column-name map and
-  level display).
+- `config` - The output configuration (format, per-table column-name
+  maps and level display).
 - `format_rules` - How to format the written data, or None for the
   default format rules.
 - `levels` - The levels used to translate a level number to a name, or

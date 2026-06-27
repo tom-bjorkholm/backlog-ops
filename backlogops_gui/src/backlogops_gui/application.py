@@ -27,8 +27,8 @@ from typing import Optional, TextIO
 import argcomplete
 from config_as_json.file_extension import fix_file_extension
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, BacklogReleases, InputFormatConfig,
-    LevelDisplay, Levels, OutputFormatConfig, get_demo_backlog,
+    AvailableTeams, BacklogOpsConfig, BacklogReleases, GuiDisplayConfig,
+    InputFormatConfig, Levels, OutputFormatConfig, get_demo_backlog,
     get_backlog_ops_config, teams_config_wizard)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
@@ -125,11 +125,11 @@ class BacklogApp:
         """Return the configured backlog item levels, or None when absent."""
         return self.config.get_levels() if self.config else None
 
-    def gui_display(self) -> LevelDisplay:
-        """Return how levels are shown in the GUI tables."""
+    def gui_display(self) -> GuiDisplayConfig:
+        """Return the GUI display configuration (level display and maps)."""
         if self.config is None:
-            return LevelDisplay.BOTH
-        return self.config.get_gui_level_display()
+            return GuiDisplayConfig()
+        return self.config.gui_display
 
     def show_error(self, title: str, message: str) -> None:
         """Show an error message to the user."""

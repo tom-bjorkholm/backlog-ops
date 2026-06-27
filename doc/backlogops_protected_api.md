@@ -92,6 +92,7 @@
     * [ask\_schedule](#backlogops.available_teams_wizard._Navigator.ask_schedule)
     * [ask\_levels](#backlogops.available_teams_wizard._Navigator.ask_levels)
     * [ask\_column\_map](#backlogops.available_teams_wizard._Navigator.ask_column_map)
+    * [ask\_column\_renames](#backlogops.available_teams_wizard._Navigator.ask_column_renames)
     * [\_ask](#backlogops.available_teams_wizard._Navigator._ask)
     * [\_replaying](#backlogops.available_teams_wizard._Navigator._replaying)
   * [\_parse\_date](#backlogops.available_teams_wizard._parse_date)
@@ -104,6 +105,8 @@
   * [\_read\_unique\_name](#backlogops.available_teams_wizard._read_unique_name)
   * [\_OUT\_LEVEL\_QUESTION](#backlogops.available_teams_wizard._OUT_LEVEL_QUESTION)
   * [\_GUI\_LEVEL\_QUESTION](#backlogops.available_teams_wizard._GUI_LEVEL_QUESTION)
+  * [\_OUT\_COLUMN\_HEADER](#backlogops.available_teams_wizard._OUT_COLUMN_HEADER)
+  * [\_GUI\_COLUMN\_HEADER](#backlogops.available_teams_wizard._GUI_COLUMN_HEADER)
   * [\_ask\_level\_display](#backlogops.available_teams_wizard._ask_level_display)
   * [\_read\_preset\_name](#backlogops.available_teams_wizard._read_preset_name)
   * [\_read\_tableio](#backlogops.available_teams_wizard._read_tableio)
@@ -115,6 +118,13 @@
   * [\_parse\_column\_map](#backlogops.available_teams_wizard._parse_column_map)
   * [\_read\_schedule](#backlogops.available_teams_wizard._read_schedule)
   * [\_read\_column\_map](#backlogops.available_teams_wizard._read_column_map)
+  * [\_MAX\_EXTRA\_COLUMNS](#backlogops.available_teams_wizard._MAX_EXTRA_COLUMNS)
+  * [\_RENAME\_INSTRUCTION](#backlogops.available_teams_wizard._RENAME_INSTRUCTION)
+  * [\_backlog\_map\_fields](#backlogops.available_teams_wizard._backlog_map_fields)
+  * [\_rename\_check](#backlogops.available_teams_wizard._rename_check)
+  * [\_parse\_column\_renames](#backlogops.available_teams_wizard._parse_column_renames)
+  * [\_rename\_cells](#backlogops.available_teams_wizard._rename_cells)
+  * [\_read\_column\_renames](#backlogops.available_teams_wizard._read_column_renames)
   * [\_MAX\_LEVELS](#backlogops.available_teams_wizard._MAX_LEVELS)
   * [\_parse\_level\_int](#backlogops.available_teams_wizard._parse_level_int)
   * [\_split\_aliases](#backlogops.available_teams_wizard._split_aliases)
@@ -342,6 +352,8 @@
   * [RELEASE\_FIELDS](#backlogops.table_rows.RELEASE_FIELDS)
   * [LEVEL\_COLUMN](#backlogops.table_rows.LEVEL_COLUMN)
   * [LEVEL\_NAME\_COLUMN](#backlogops.table_rows.LEVEL_NAME_COLUMN)
+  * [apply\_column\_map](#backlogops.table_rows.apply_column_map)
+  * [map\_column\_order](#backlogops.table_rows.map_column_order)
   * [\_is\_empty](#backlogops.table_rows._is_empty)
   * [\_date\_cell](#backlogops.table_rows._date_cell)
   * [\_cell\_from\_field](#backlogops.table_rows._cell_from_field)
@@ -363,20 +375,26 @@
 * [backlogops.io\_config](#backlogops.io_config)
   * [EXTENSION\_FORMATS](#backlogops.io_config.EXTENSION_FORMATS)
   * [PRESET\_NAME\_RE](#backlogops.io_config.PRESET_NAME_RE)
-  * [\_DisplayReadOldConfig](#backlogops.io_config._DisplayReadOldConfig)
-    * [get\_missing\_path\_values](#backlogops.io_config._DisplayReadOldConfig.get_missing_path_values)
+  * [\_DisplayMapReadOldConfig](#backlogops.io_config._DisplayMapReadOldConfig)
+    * [get\_json\_key\_moves](#backlogops.io_config._DisplayMapReadOldConfig.get_json_key_moves)
+    * [get\_missing\_path\_values](#backlogops.io_config._DisplayMapReadOldConfig.get_missing_path_values)
+  * [\_ColumnMapValidator](#backlogops.io_config._ColumnMapValidator)
+    * [validate\_member](#backlogops.io_config._ColumnMapValidator.validate_member)
+    * [\_reject](#backlogops.io_config._ColumnMapValidator._reject)
   * [\_capabilities](#backlogops.io_config._capabilities)
   * [\_tio\_default](#backlogops.io_config._tio_default)
   * [\_tio\_from\_json](#backlogops.io_config._tio_from_json)
   * [\_FormatConfig](#backlogops.io_config._FormatConfig)
     * [\_\_init\_\_](#backlogops.io_config._FormatConfig.__init__)
     * [\_tio\_factory](#backlogops.io_config._FormatConfig._tio_factory)
+    * [\_map\_validator](#backlogops.io_config._FormatConfig._map_validator)
     * [nested\_configs](#backlogops.io_config._FormatConfig.nested_configs)
     * [get\_validation\_plan](#backlogops.io_config._FormatConfig.get_validation_plan)
   * [InputFormatConfig](#backlogops.io_config.InputFormatConfig)
     * [\_\_init\_\_](#backlogops.io_config.InputFormatConfig.__init__)
   * [OutputFormatConfig](#backlogops.io_config.OutputFormatConfig)
     * [\_\_init\_\_](#backlogops.io_config.OutputFormatConfig.__init__)
+    * [\_map\_validator](#backlogops.io_config.OutputFormatConfig._map_validator)
     * [parse\_converters](#backlogops.io_config.OutputFormatConfig.parse_converters)
     * [\_get\_read\_old\_config](#backlogops.io_config.OutputFormatConfig._get_read_old_config)
   * [make\_input\_config](#backlogops.io_config.make_input_config)
@@ -416,7 +434,7 @@
 * [backlogops.backlog\_releases\_io](#backlogops.backlog_releases_io)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
-  * [\_rename](#backlogops.backlog_releases_io._rename)
+  * [\_Section](#backlogops.backlog_releases_io._Section)
   * [\_is\_backlog\_table](#backlogops.backlog_releases_io._is_backlog_table)
   * [\_is\_release\_table](#backlogops.backlog_releases_io._is_release_table)
   * [\_collect\_tables](#backlogops.backlog_releases_io._collect_tables)
@@ -2061,6 +2079,17 @@ def ask_column_map(from_label: str, to_label: str) -> dict[str, str]
 
 Ask for column-name mappings as a count and one table.
 
+<a id="backlogops.available_teams_wizard._Navigator.ask_column_renames"></a>
+
+#### ask\_column\_renames
+
+```python
+def ask_column_renames(fields: list[str], allow_extra: bool,
+                       target_header: str) -> dict[str, Optional[str]]
+```
+
+Ask one internal-to-external column-rename map as one table.
+
 <a id="backlogops.available_teams_wizard._Navigator._ask"></a>
 
 #### \_ask
@@ -2182,6 +2211,18 @@ Wizard prompt for how an output preset writes levels.
 
 Wizard prompt for how the GUI shows levels.
 
+<a id="backlogops.available_teams_wizard._OUT_COLUMN_HEADER"></a>
+
+#### \_OUT\_COLUMN\_HEADER
+
+Header of the renamed-column column in an output rename table.
+
+<a id="backlogops.available_teams_wizard._GUI_COLUMN_HEADER"></a>
+
+#### \_GUI\_COLUMN\_HEADER
+
+Header of the renamed-column column in a GUI rename table.
+
 <a id="backlogops.available_teams_wizard._ask_level_display"></a>
 
 #### \_ask\_level\_display
@@ -2299,6 +2340,90 @@ def _read_column_map(ui: WizardUiBridge, count: int, from_label: str,
 ```
 
 Ask the given number of column-name mappings as one table.
+
+<a id="backlogops.available_teams_wizard._MAX_EXTRA_COLUMNS"></a>
+
+#### \_MAX\_EXTRA\_COLUMNS
+
+How many extra-field rows the user may add to a backlog rename table.
+
+<a id="backlogops.available_teams_wizard._RENAME_INSTRUCTION"></a>
+
+#### \_RENAME\_INSTRUCTION
+
+Instruction shown above a column-rename table.
+
+<a id="backlogops.available_teams_wizard._backlog_map_fields"></a>
+
+#### \_backlog\_map\_fields
+
+```python
+def _backlog_map_fields() -> list[str]
+```
+
+Return the backlog internal field names offered for renaming.
+
+The numeric ``level`` and the named ``level name`` columns are offered
+as two independent entries, so each can be renamed or dropped on its
+own when the level display writes both columns.
+
+<a id="backlogops.available_teams_wizard._rename_check"></a>
+
+#### \_rename\_check
+
+```python
+def _rename_check(table: list[list[Optional[str]]],
+                  position: tuple[int, int]) -> tuple[bool, str]
+```
+
+Advise when an output column lacks its internal field name.
+
+<a id="backlogops.available_teams_wizard._parse_column_renames"></a>
+
+#### \_parse\_column\_renames
+
+```python
+def _parse_column_renames(
+    table: Sequence[Sequence[Optional[str]]]
+) -> Optional[dict[str, Optional[str]]]
+```
+
+Return the rename map from a table, or None when it is invalid.
+
+A row with a blank internal field is ignored. A blank output column
+drops that field (maps to None). An output column equal to the
+internal field is no rename and is omitted. The table is rejected when
+an internal field repeats or when two columns would share a name.
+
+<a id="backlogops.available_teams_wizard._rename_cells"></a>
+
+#### \_rename\_cells
+
+```python
+def _rename_cells(fields: list[str]) -> list[list[TableCell]]
+```
+
+Return seed rows with each output column pre-filled to its field.
+
+<a id="backlogops.available_teams_wizard._read_column_renames"></a>
+
+#### \_read\_column\_renames
+
+```python
+def _read_column_renames(ui: WizardUiBridge, fields: list[str],
+                         allow_extra: bool,
+                         target_header: str) -> dict[str, Optional[str]]
+```
+
+Ask one internal-to-external column-rename map as one table.
+
+Each known internal field is shown as a read-only row pre-filled with
+the same output column name, so leaving the table unchanged renames
+nothing and the known fields cannot be deleted. A backlog table also
+accepts added rows for fields stored as extra fields; an added row is
+fully editable, so its internal name can be typed. A releases table is
+locked to its own fields. The variable-row editor accepts the table on
+a blank answer.
 
 <a id="backlogops.available_teams_wizard._MAX_LEVELS"></a>
 
@@ -2434,10 +2559,13 @@ Interactively create a backlog-ops configuration.
 The workforce is entered as by :func:`available_teams_wizard`, the
 user may then add any number of named input and output TableIO
 configuration presets, edit the backlog item levels, and finally
-choose how levels are shown in the GUI. Each output preset also asks
-how levels are written. The levels start filled in with the default
-levels; when the user leaves them at the defaults they are stored as
-"use the defaults" rather than written out.
+choose how the GUI renames columns and shows levels. Each output
+preset also asks how it renames the backlog and releases columns and
+how levels are written; the column tables start pre-filled with the
+internal field names so leaving them unchanged renames nothing. The
+levels start filled in with the default levels; when the user leaves
+them at the defaults they are stored as "use the defaults" rather than
+written out.
 
 **Arguments**:
 
@@ -2481,7 +2609,7 @@ Ask for workforce, TableIO presets, levels and GUI display.
 def _build_gui_display(nav: _Navigator) -> GuiDisplayConfig
 ```
 
-Ask how the GUI should show levels and return the display config.
+Ask the GUI column renaming and level display, and return it.
 
 <a id="backlogops.available_teams_wizard._levels_or_none"></a>
 
@@ -2663,7 +2791,7 @@ def _ask_output_preset(nav: _Navigator,
                        used: set[str]) -> tuple[str, OutputFormatConfig]
 ```
 
-Ask for one named output preset, its column map and level display.
+Ask one named output preset: format, both maps and level display.
 
 <a id="backlogops.backlog_releases"></a>
 
@@ -5777,6 +5905,35 @@ Default column name carrying the numeric backlog item level.
 
 Default column name carrying the named backlog item level.
 
+<a id="backlogops.table_rows.apply_column_map"></a>
+
+#### apply\_column\_map
+
+```python
+def apply_column_map(row: Mapping[str, _Cell],
+                     names: Mapping[str, Optional[str]]) -> dict[str, _Cell]
+```
+
+Return one row with its columns renamed or dropped by a name map.
+
+Three cases are honoured for each column name: a name absent from the
+map is kept unchanged, a name mapped to another string is renamed, and
+a name mapped to None drops that column from the row.
+
+<a id="backlogops.table_rows.map_column_order"></a>
+
+#### map\_column\_order
+
+```python
+def map_column_order(order: list[str],
+                     names: Mapping[str, Optional[str]]) -> list[str]
+```
+
+Return a column order with names renamed or dropped by a name map.
+
+The same three cases as :func:`apply_column_map` are honoured, so the
+order stays consistent with rows passed through that function.
+
 <a id="backlogops.table_rows._is_empty"></a>
 
 #### \_is\_empty
@@ -6001,13 +6158,21 @@ names of the data model.
 
 An input endpoint is described by an :class:`InputFormatConfig` and an
 output endpoint by an :class:`OutputFormatConfig`. Both wrap one
-``TioJsonConfig`` and one direction-specific name map:
+``TioJsonConfig`` and the direction-specific column-name maps:
 
 * an input map (``to_internal``) translates an external column name to
   an internal field name, and several external names may map to the same
   internal field;
-* an output map (``to_external``) translates an internal field name to
+* an output endpoint carries one map per table, ``backlog_to_external``
+  and ``release_to_external``, each translating an internal field name to
   the external column name to write.
+
+Every output and GUI map honours three cases for a column name: a name
+absent from the map is written or shown unchanged, a name mapped to
+another string is renamed, and a name mapped to None drops that column.
+The :class:`GuiDisplayConfig` carries the same per-table maps and level
+display, but no TableIO endpoint, deciding how a backlog and its releases
+are shown on screen.
 
 :func:`resolve_input_config` and :func:`resolve_output_config` turn a
 command-line value into such a configuration. The value may be empty
@@ -6028,21 +6193,35 @@ Map a data file name extension to a TableIO format name.
 
 A configuration value made only of letters and digits is a preset.
 
-<a id="backlogops.io_config._DisplayReadOldConfig"></a>
+<a id="backlogops.io_config._DisplayMapReadOldConfig"></a>
 
-## \_DisplayReadOldConfig Objects
+## \_DisplayMapReadOldConfig Objects
 
 ```python
-class _DisplayReadOldConfig(ReadOldConfiguration)
+class _DisplayMapReadOldConfig(ReadOldConfiguration)
 ```
 
-Default the level display when an older file omits it.
+Migrate older output or GUI display files to the split maps.
 
-The enum member itself is supplied, not its name, because the missing
-value is inserted after the read-side scalar converters have run and
-so would otherwise stay an unconverted string.
+The single ``to_external`` map of an older output file is moved to the
+backlog map; this move is a no-op for a GUI file or a file that never
+had a map. Any absent backlog or release map then defaults to empty,
+and a missing level display defaults to BOTH. The enum member itself
+is supplied, not its name, because the missing value is inserted after
+the read-side scalar converters have run and so would otherwise stay
+an unconverted string.
 
-<a id="backlogops.io_config._DisplayReadOldConfig.get_missing_path_values"></a>
+<a id="backlogops.io_config._DisplayMapReadOldConfig.get_json_key_moves"></a>
+
+#### get\_json\_key\_moves
+
+```python
+def get_json_key_moves() -> list[RocfKeyMove]
+```
+
+Move an older single output map into the backlog map.
+
+<a id="backlogops.io_config._DisplayMapReadOldConfig.get_missing_path_values"></a>
 
 #### get\_missing\_path\_values
 
@@ -6050,7 +6229,47 @@ so would otherwise stay an unconverted string.
 def get_missing_path_values() -> dict[ConfigPath, object]
 ```
 
-Supply the default level display for an older file.
+Supply default maps and level display for an older file.
+
+<a id="backlogops.io_config._ColumnMapValidator"></a>
+
+## \_ColumnMapValidator Objects
+
+```python
+class _ColumnMapValidator(MemberValidator)
+```
+
+Validate a column-name map of string keys to string-or-None values.
+
+Each key is an internal field name and each value is either the
+external column name to use or None to drop the column. The member
+must be a dict; every key must be a string and every value must be a
+string or None.
+
+<a id="backlogops.io_config._ColumnMapValidator.validate_member"></a>
+
+#### validate\_member
+
+```python
+@override
+def validate_member(config: Config,
+                    member_name: str,
+                    member_value: object,
+                    stderr_file: TextIO = sys.stderr) -> object
+```
+
+Check the map is a dict of string keys to string-or-None values.
+
+<a id="backlogops.io_config._ColumnMapValidator._reject"></a>
+
+#### \_reject
+
+```python
+@staticmethod
+def _reject(detail: str, stderr_file: TextIO) -> NoReturn
+```
+
+Report an invalid column-name map and raise.
 
 <a id="backlogops.io_config._capabilities"></a>
 
@@ -6097,8 +6316,8 @@ class _FormatConfig(Config)
 
 Shared behavior for one input or output TableIO endpoint config.
 
-A concrete subclass fixes the file access mode and the name of its
-column-name map member, and declares that map member before calling
+A concrete subclass fixes the file access mode and the names of its
+column-name map members, and declares those map members before calling
 the constructor. The wrapped ``TioJsonConfig`` is created here and
 declared as a nested configuration so it reads and writes itself.
 
@@ -6127,6 +6346,16 @@ def _tio_factory(*,
 
 Construct the nested TableIO config from JSON when reading.
 
+<a id="backlogops.io_config._FormatConfig._map_validator"></a>
+
+#### \_map\_validator
+
+```python
+def _map_validator() -> MemberValidator
+```
+
+Return the validator applied to each column-name map member.
+
 <a id="backlogops.io_config._FormatConfig.nested_configs"></a>
 
 #### nested\_configs
@@ -6147,7 +6376,7 @@ Declare the wrapped TableIO config as a nested configuration.
 def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
 ```
 
-Check that the column-name map is a mapping of string to string.
+Check each column-name map with this endpoint's validator.
 
 <a id="backlogops.io_config.InputFormatConfig"></a>
 
@@ -6179,13 +6408,16 @@ Create the input map default, then run the shared constructor.
 class OutputFormatConfig(_FormatConfig)
 ```
 
-TableIO output endpoint with an internal-to-external column map.
+TableIO output endpoint with per-table internal-to-external maps.
 
-In addition to the column-name map the output endpoint carries a
-:class:`LevelDisplay`, deciding whether a backlog item level is
-written as its number, its name, or both. The member defaults to
-:data:`LevelDisplay.BOTH`; it may be absent from an older file, in
-which case the default applies.
+The backlog table and the releases table each have their own
+internal-to-external column-name map (``backlog_to_external`` and
+``release_to_external``); each honours the three cases of
+:func:`backlogops.table_rows.apply_column_map`. The endpoint also
+carries a :class:`LevelDisplay`, deciding whether a backlog item level
+is written as its number, its name, or both. The maps default to empty
+and the display defaults to :data:`LevelDisplay.BOTH`; any of them may
+be absent from an older file, in which case the default applies.
 
 <a id="backlogops.io_config.OutputFormatConfig.__init__"></a>
 
@@ -6198,6 +6430,17 @@ def __init__(from_json_data_text: Optional[str] = None,
 ```
 
 Create the output defaults, then run the shared constructor.
+
+<a id="backlogops.io_config.OutputFormatConfig._map_validator"></a>
+
+#### \_map\_validator
+
+```python
+@override
+def _map_validator() -> MemberValidator
+```
+
+Allow a string or None as each output column-name map value.
 
 <a id="backlogops.io_config.OutputFormatConfig.parse_converters"></a>
 
@@ -6219,7 +6462,7 @@ Parse the level display member from its enum member name.
 def _get_read_old_config() -> ReadOldConfiguration
 ```
 
-Return the migration that defaults a missing level display.
+Return the migration that splits the map and defaults display.
 
 <a id="backlogops.io_config.make_input_config"></a>
 
@@ -6239,12 +6482,13 @@ Return an input config from a TableIO config and a column map.
 
 ```python
 def make_output_config(tableio: TioJsonConfig,
-                       to_external: dict[str, str],
+                       backlog_to_external: dict[str, Optional[str]],
+                       release_to_external: dict[str, Optional[str]],
                        level_display: LevelDisplay = LevelDisplay.BOTH,
                        stderr_file: TextIO = sys.stderr) -> OutputFormatConfig
 ```
 
-Return an output config from a TableIO config, map and level display.
+Return an output config from a TableIO config, maps and display.
 
 <a id="backlogops.io_config.GuiDisplayConfig"></a>
 
@@ -6257,10 +6501,13 @@ class GuiDisplayConfig(Config)
 How a backlog and its releases are shown in the GUI.
 
 This mirrors the display part of an :class:`OutputFormatConfig`,
-without the TableIO endpoint configuration. For now it only carries a
-:class:`LevelDisplay`; per-table column-name maps are added later. The
-member defaults to :data:`LevelDisplay.BOTH` and may be absent from an
-older file, in which case the default applies.
+without the TableIO endpoint configuration. It carries the per-table
+column-name maps ``backlog_to_external`` and ``release_to_external``
+(each honouring the three cases of
+:func:`backlogops.table_rows.apply_column_map`) and a
+:class:`LevelDisplay`. The maps default to empty and the display
+defaults to :data:`LevelDisplay.BOTH`; any of them may be absent from
+an older file, in which case the default applies.
 
 <a id="backlogops.io_config.GuiDisplayConfig.__init__"></a>
 
@@ -6294,7 +6541,7 @@ Parse the level display member from its enum member name.
 def _get_read_old_config() -> ReadOldConfiguration
 ```
 
-Return the migration that defaults a missing level display.
+Return the migration that defaults the maps and the display.
 
 <a id="backlogops.io_config.GuiDisplayConfig.get_validation_plan"></a>
 
@@ -6305,7 +6552,7 @@ Return the migration that defaults a missing level display.
 def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
 ```
 
-Return an empty plan; the level display needs no checks.
+Check each column-name map allows a string or None value.
 
 <a id="backlogops.io_config._format_from_suffix"></a>
 
@@ -6805,10 +7052,14 @@ releases.
 The internal field names of the data model can differ from the column
 names in the file. An :class:`InputFormatConfig` carries a map from
 external column name to internal field name, and an
-:class:`OutputFormatConfig` carries a map from internal field name to
-external column name. The dependency lists of a backlog item are stored
-as one space separated string per dependency kind, and the extra fields
-of a backlog item become extra columns.
+:class:`OutputFormatConfig` carries one internal-to-external map per
+table, ``backlog_to_external`` and ``release_to_external``. Each output
+map honours the three cases of
+:func:`backlogops.table_rows.apply_column_map`: an absent name is written
+unchanged, a mapped name is renamed, and a name mapped to None drops that
+column. The dependency lists of a backlog item are stored as one space
+separated string per dependency kind, and the extra fields of a backlog
+item become extra columns.
 
 The level of a backlog item is written as a numeric ``level`` column, a
 named ``level name`` column, or both, as the output configuration's
@@ -6828,16 +7079,16 @@ Heading written before the backlog table.
 
 Heading written before the releases table.
 
-<a id="backlogops.backlog_releases_io._rename"></a>
+<a id="backlogops.backlog_releases_io._Section"></a>
 
-#### \_rename
+## \_Section Objects
 
 ```python
-def _rename(row: dict[str, _RenameCell],
-            names: dict[str, str]) -> dict[str, _RenameCell]
+@dataclass
+class _Section()
 ```
 
-Return the row with its keys translated through a name map.
+One table to write: heading, formatted rows, order and name map.
 
 <a id="backlogops.backlog_releases_io._is_backlog_table"></a>
 
@@ -6943,9 +7194,8 @@ Return the backlog column order, with extra fields appended.
 #### \_write\_table
 
 ```python
-def _write_table(tableio: TableIO, section: tuple[str, DictData[ValueFmt],
-                                                  list[str]],
-                 names: dict[str, str], rules: FormatRules) -> None
+def _write_table(tableio: TableIO, section: _Section,
+                 rules: FormatRules) -> None
 ```
 
 Write one heading and one formatted, bordered table.
@@ -6955,10 +7205,9 @@ Write one heading and one formatted, bordered table.
 #### \_backlog\_section
 
 ```python
-def _backlog_section(
-        data: BacklogReleases, rules: FormatRules, levels: Levels,
-        display: LevelDisplay,
-        stderr_file: TextIO) -> tuple[str, DictData[ValueFmt], list[str]]
+def _backlog_section(data: BacklogReleases, rules: FormatRules, levels: Levels,
+                     config: OutputFormatConfig,
+                     stderr_file: TextIO) -> _Section
 ```
 
 Return the backlog heading, rows and order with levels expanded.
@@ -6968,10 +7217,9 @@ Return the backlog heading, rows and order with levels expanded.
 #### \_ordered\_sections
 
 ```python
-def _ordered_sections(
-        data: BacklogReleases, rules: FormatRules, levels: Levels,
-        display: LevelDisplay, stderr_file: TextIO
-) -> list[tuple[str, DictData[ValueFmt], list[str]]]
+def _ordered_sections(data: BacklogReleases, rules: FormatRules,
+                      levels: Levels, config: OutputFormatConfig,
+                      stderr_file: TextIO) -> list[_Section]
 ```
 
 Return the non-empty tables to write, in the requested order.
@@ -6995,7 +7243,9 @@ Write a backlog, releases, or both to one file.
 
 Each non-empty table is written with a heading before it, so several
 tables can share one file. Internal field names are translated to
-external column names through the output configuration. The level of
+external column names through the output configuration, using its
+backlog map for the backlog table and its releases map for the
+releases table; a name mapped to None drops that column. The level of
 a backlog item is written as its number, its name, or both, as the
 output configuration's :class:`LevelDisplay` decides, using ``levels``
 to translate a number to a name. The format rules decide the table
@@ -7006,8 +7256,8 @@ omitted the default :class:`FormatRules` apply.
 
 - `data` - The backlog and releases to write.
 - `data_file` - The data file to create.
-- `config` - The output configuration (format, column-name map and
-  level display).
+- `config` - The output configuration (format, per-table column-name
+  maps and level display).
 - `format_rules` - How to format the written data, or None for the
   default format rules.
 - `levels` - The levels used to translate a level number to a name, or

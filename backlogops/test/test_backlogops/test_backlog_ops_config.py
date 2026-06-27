@@ -59,12 +59,15 @@ def test_presets_round_trip(tmp_path: Path) -> None:
     config.output_configs = {'report': make_output_config(
         resolve_output_config(None, data_file='x.xlsx',
                               stderr_file=NO_OUTPUT).tableio,
-        {'level': 'Type'}, stderr_file=NO_OUTPUT)}
+        {'level': 'Type'}, {'name': 'Release'}, stderr_file=NO_OUTPUT)}
     config_file = tmp_path / 'ops.cfg'
     write_backlog_ops_config(config, config_file, NO_OUTPUT)
     loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
     assert loaded.input_configs['sheet'].to_internal == {'Type': 'level'}
-    assert loaded.output_configs['report'].tableio.format_name == 'Excel'
+    report = loaded.output_configs['report']
+    assert report.tableio.format_name == 'Excel'
+    assert report.backlog_to_external == {'level': 'Type'}
+    assert report.release_to_external == {'name': 'Release'}
 
 
 def test_levels_omitted() -> None:
@@ -153,6 +156,18 @@ def test_gui_display_rt(tmp_path: Path) -> None:
     write_backlog_ops_config(config, config_file, NO_OUTPUT)
     loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
     assert loaded.get_gui_level_display() is LevelDisplay.NUMERIC
+
+
+def test_gui_maps_rt(tmp_path: Path) -> None:
+    """Test the GUI column maps survive a write and read of the config."""
+    config = _empty()
+    config.gui_display.backlog_to_external = {'key': 'Id', 'team': None}
+    config.gui_display.release_to_external = {'name': 'Release'}
+    config_file = tmp_path / 'ops.cfg'
+    write_backlog_ops_config(config, config_file, NO_OUTPUT)
+    loaded = read_backlog_ops_config(config_file, NO_OUTPUT).gui_display
+    assert loaded.backlog_to_external == {'key': 'Id', 'team': None}
+    assert loaded.release_to_external == {'name': 'Release'}
 
 
 def test_old_no_gui_display(tmp_path: Path) -> None:

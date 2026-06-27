@@ -64,6 +64,21 @@ def test_level_display_name() -> None:
     assert rows[0][columns.index('level name')].value == 'Story'
 
 
+def test_backlog_rename() -> None:
+    """Test the backlog map renames one column and drops another."""
+    columns, _rows = backlog_table(_one_item_data(),
+                                   names={'key': 'Id', 'story_points': None})
+    assert 'Id' in columns and 'key' not in columns
+    assert 'story_points' not in columns
+
+
+def test_release_rename() -> None:
+    """Test the releases map renames the name column shown in the GUI."""
+    data = BacklogReleases(backlog=[], releases=[Release(name='R1')])
+    columns, _rows = release_table(data, names={'name': 'Release'})
+    assert columns[0] == 'Release'
+
+
 def test_empty_tables() -> None:
     """Test empty data yields empty columns and rows."""
     data = BacklogReleases(backlog=[], releases=[])

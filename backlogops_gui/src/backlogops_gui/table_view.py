@@ -7,20 +7,23 @@ so the on-screen colors match a written spreadsheet: the status cell and the
 estimated-ready-date cell are highlighted by the format rules, and the other
 cells are left plain. The columns are the union of the field names met in the
 rows, kept in first-seen order, and every cell is rendered as text so the
-table can show any value type.
+table can show any value type. A per-table column-name map can rename a
+column or drop it from the display, as the GUI display configuration decides.
 """
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
 import tkinter as tk
+from collections.abc import Mapping
 from tkinter import font as tkfont
 from tkinter import ttk
 from typing import Optional, Sequence, TextIO
 from tableio import Color, Fmt, Value, ValueFmt
 from backlogops import (
     BacklogReleases, DEFAULT_LEVELS, FormatRules, LevelDisplay, Levels,
-    NoTextIO, display_level_rows, format_backlog, format_releases)
+    NoTextIO, apply_column_map, display_level_rows, format_backlog,
+    format_releases)
 
 COLUMN_WIDTH = 120
 BLANK_CELL = ValueFmt(value=None, fmt=Fmt())
@@ -55,26 +58,36 @@ def _table(rows: Sequence[dict[str, ValueFmt]]
     return columns, cells
 
 
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def backlog_table(data: BacklogReleases, levels: Optional[Levels] = None,
                   display: LevelDisplay = LevelDisplay.BOTH,
+                  names: Optional[Mapping[str, Optional[str]]] = None,
                   sink: Optional[TextIO] = None
                   ) -> tuple[list[str], list[list[ValueFmt]]]:
     """Return the columns and formatted rows for the backlog table.
 
     The level of each item is shown as its number, its name, or both, as
     ``display`` decides, using ``levels`` to translate a number to a name.
+    The ``names`` map then renames or drops columns, as documented for
+    :func:`backlogops.apply_column_map`.
     """
     out = sink if sink is not None else NoTextIO()
     chosen = DEFAULT_LEVELS if levels is None else levels
     rows = display_level_rows(format_backlog(data.backlog, FormatRules()),
                               chosen, display, out)
-    return _table(rows)
+    return _table([apply_column_map(row, names or {}) for row in rows])
 
 
-def release_table(data: BacklogReleases
+def release_table(data: BacklogReleases,
+                  names: Optional[Mapping[str, Optional[str]]] = None
                   ) -> tuple[list[str], list[list[ValueFmt]]]:
-    """Return the columns and formatted rows for the releases table."""
-    return _table(format_releases(data.releases, FormatRules()))
+    """Return the columns and formatted rows for the releases table.
+
+    The ``names`` map renames or drops columns, as documented for
+    :func:`backlogops.apply_column_map`.
+    """
+    rows = format_releases(data.releases, FormatRules())
+    return _table([apply_column_map(row, names or {}) for row in rows])
 
 
 def _tag_name(fmt: Fmt) -> str:
