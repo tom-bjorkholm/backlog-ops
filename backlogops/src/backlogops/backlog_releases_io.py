@@ -9,16 +9,16 @@ backlog table from a releases table by their columns: a table with a
 releases.
 
 The internal field names of the data model can differ from the column
-names in the file. An :class:`InputFormatConfig` carries a map from
-external column name to internal field name, and an
-:class:`OutputFormatConfig` carries one internal-to-external map per
-table, ``backlog_to_external`` and ``release_to_external``. Each output
-map honours the three cases of
-:func:`backlogops.table_rows.apply_column_map`: an absent name is written
-unchanged, a mapped name is renamed, and a name mapped to None drops that
-column. The dependency lists of a backlog item are stored as one space
-separated string per dependency kind, and the extra fields of a backlog
-item become extra columns.
+names in the file. An :class:`InputFormatConfig` carries one
+external-to-internal map per table (``backlog_to_internal`` and
+``release_to_internal``), and an :class:`OutputFormatConfig` carries one
+internal-to-external map per table (``backlog_to_external`` and
+``release_to_external``). Each map honours the three cases of
+:func:`backlogops.table_rows.apply_column_map`: an absent name is read or
+written unchanged, a mapped name is renamed, and a name mapped to None
+drops that column. The dependency lists of a backlog item are stored as
+one space separated string per dependency kind, and the extra fields of a
+backlog item become extra columns.
 
 The level of a backlog item is written as a numeric ``level`` column, a
 named ``level name`` column, or both, as the output configuration's
@@ -76,6 +76,27 @@ def _is_release_table(rows: DictData[Value]) -> bool:
     return 'name' in rows[0]
 
 
+def _classify_rows(config: InputFormatConfig, rows: DictData[Value]
+                   ) -> tuple[DictData[Value], DictData[Value]]:
+    """Map one input table and return it as backlog or release rows.
+
+    The backlog input map is applied first; a resulting ``key`` column
+    marks the backlog. Otherwise the release input map is applied and a
+    resulting ``name`` column marks the releases. A table that matches
+    neither is rejected.
+    """
+    backlog = [apply_column_map(row, config.backlog_to_internal)
+               for row in rows]
+    if _is_backlog_table(backlog):
+        return backlog, []
+    release = [apply_column_map(row, config.release_to_internal)
+               for row in rows]
+    if _is_release_table(release):
+        return [], release
+    raise ValueError('A table has neither a key column (backlog) '
+                     'nor a name column (releases).')
+
+
 def _collect_tables(config: InputFormatConfig, data_file: PathOrStr,
                     stderr_file: TextIO
                     ) -> tuple[DictData[Value], DictData[Value]]:
@@ -90,15 +111,9 @@ def _collect_tables(config: InputFormatConfig, data_file: PathOrStr,
             result = tableio.read_table_dictdata()
             if not result.data:
                 break
-            rows = [apply_column_map(row, config.to_internal)
-                    for row in result.data]
-            if _is_backlog_table(rows):
-                backlog_rows.extend(rows)
-            elif _is_release_table(rows):
-                release_rows.extend(rows)
-            else:
-                raise ValueError('A table has neither a key column (backlog) '
-                                 'nor a name column (releases).')
+            backlog, release = _classify_rows(config, result.data)
+            backlog_rows.extend(backlog)
+            release_rows.extend(release)
     return backlog_rows, release_rows
 
 

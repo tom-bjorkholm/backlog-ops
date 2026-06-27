@@ -4,24 +4,26 @@
 A backlog and its releases are read from and written to tabular files
 (Excel, ODS, CSV, and more) using TableIO. The durable TableIO settings
 for one input or one output are stored as a :class:`TioJsonConfig`. On
-top of that this module adds a per-endpoint column-name map, so the
-columns shown to a user can have other names than the internal field
-names of the data model.
+top of that this module adds per-table column-name maps, so the columns
+in a user's file can have other names than the internal field names of
+the data model.
 
 An input endpoint is described by an :class:`InputFormatConfig` and an
 output endpoint by an :class:`OutputFormatConfig`. Both wrap one
 ``TioJsonConfig`` and the direction-specific column-name maps:
 
-* an input map (``to_internal``) translates an external column name to
-  an internal field name, and several external names may map to the same
-  internal field;
+* an input endpoint carries one map per table, ``backlog_to_internal``
+  and ``release_to_internal``, each translating an external file column
+  name to an internal field name; several external names may map to the
+  same internal field;
 * an output endpoint carries one map per table, ``backlog_to_external``
   and ``release_to_external``, each translating an internal field name to
   the external column name to write.
 
-Every output and GUI map honours three cases for a column name: a name
-absent from the map is written or shown unchanged, a name mapped to
-another string is renamed, and a name mapped to None drops that column.
+Every input, output and GUI map honours three cases for a column name: a
+name absent from the map is read, written or shown unchanged, a name
+mapped to another string is renamed, and a name mapped to None drops that
+column (for an input map the named file column is discarded).
 The :class:`GuiDisplayConfig` carries the same per-table maps and level
 display, but no TableIO endpoint, deciding how a backlog and its releases
 are shown on screen.
@@ -43,12 +45,13 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import ClassVar, NoReturn, Optional, TextIO, override
 from config_as_json import Config, ConfigNesting, ConfigNestingKind, \
-    ConfigPath, DictKeyValueTypesValidator, InvalidConfiguration, \
-    MemberValidationStep, MemberValidator, NestedConfigs, ParseConverter, \
-    PathOrStr, ReadOldConfiguration, RocfKeyMove, ValidationPlan
+    ConfigPath, InvalidConfiguration, MemberValidationStep, MemberValidator, \
+    NestedConfigs, ParseConverter, PathOrStr, ReadOldConfiguration, \
+    RocfKeyMove, RocfValueMigration, RocfValueWrite, ValidationPlan
 from tableio import Capabilities, FileAccess, access_capabilities
 from tableio_cfg_json import TioJsonConfig, tio_json_config_default
 from backlogops.levels import LevelDisplay
+from backlogops.table_rows import RELEASE_FIELDS
 
 EXTENSION_FORMATS: dict[str, str] = {
     '.csv': 'CSV', '.xlsx': 'Excel', '.xls': 'Excel', '.ods': 'ODS',
@@ -176,7 +179,7 @@ class _FormatConfig(Config):
 
     def _map_validator(self) -> MemberValidator:
         """Return the validator applied to each column-name map member."""
-        return DictKeyValueTypesValidator(str, str)
+        return _ColumnMapValidator()
 
     @override
     def nested_configs(self) -> NestedConfigs:
@@ -193,21 +196,77 @@ class _FormatConfig(Config):
                                      validator=self._map_validator())]
 
 
+def _release_only_map(value: object) -> object:
+    """Keep only old input mappings whose target is a release field.
+
+    A release table has no extra fields, so a mapping that targets a
+    backlog-only field is meaningless for the releases input map and is
+    dropped when an older single map is split.
+    """
+    assert isinstance(value, dict)
+    result: dict[object, object] = {}
+    for source, target in value.items():
+        if target in RELEASE_FIELDS:
+            result[source] = target
+    return result
+
+
+class _InputMapReadOldConfig(ReadOldConfiguration):
+    """Split an older single input map into the two per-table maps.
+
+    An older input file stored one ``to_internal`` map applied to every
+    table. That map is copied into ``backlog_to_internal`` unchanged and
+    into ``release_to_internal`` with only the entries that target a
+    release field kept. A file that lacks the old map gets both maps
+    defaulted to empty.
+    """
+
+    def get_value_migrations(self) -> list[RocfValueMigration]:
+        """Copy the old single input map into the two per-table maps."""
+        return [RocfValueMigration(
+            old_path=('to_internal',),
+            writes=[RocfValueWrite(new_path=('backlog_to_internal',)),
+                    RocfValueWrite(new_path=('release_to_internal',),
+                                   transform_value=_release_only_map)])]
+
+    def get_missing_path_values(self) -> dict[ConfigPath, object]:
+        """Supply empty input maps when the old single map is absent."""
+        return {('backlog_to_internal',): {}, ('release_to_internal',): {}}
+
+
 class InputFormatConfig(_FormatConfig):
-    """TableIO input endpoint with an external-to-internal column map."""
+    """TableIO input endpoint with per-table file-to-internal maps.
+
+    The backlog table and the releases table each have their own map from
+    a file column name to an internal field name (``backlog_to_internal``
+    and ``release_to_internal``); each honours the three cases of
+    :func:`backlogops.table_rows.apply_column_map`: a file column absent
+    from the map is read unchanged, a mapped file column is renamed to the
+    internal field, and a file column mapped to None is discarded. Several
+    file columns may map to the same internal field. The maps default to
+    empty; an older file storing a single ``to_internal`` map has it copied
+    into both maps, keeping only release-field targets in the releases map.
+    """
 
     _FILE_ACCESS = FileAccess.READ
-    _MAP_NAMES = ('to_internal',)
-    to_internal: dict[str, str]
+    _MAP_NAMES = ('backlog_to_internal', 'release_to_internal')
+    backlog_to_internal: dict[str, Optional[str]]
+    release_to_internal: dict[str, Optional[str]]
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr) -> None:
-        """Create the input map default, then run the shared constructor."""
-        self.to_internal = {}
+        """Create the input map defaults, then run the shared constructor."""
+        self.backlog_to_internal = {}
+        self.release_to_internal = {}
         _FormatConfig.__init__(self, from_json_data_text=from_json_data_text,
                                from_json_filename=from_json_filename,
                                stderr_file=stderr_file)
+
+    @override
+    def _get_read_old_config(self) -> ReadOldConfiguration:
+        """Return the migration that splits an older single input map."""
+        return _InputMapReadOldConfig()
 
 
 class OutputFormatConfig(_FormatConfig):
@@ -241,11 +300,6 @@ class OutputFormatConfig(_FormatConfig):
                                stderr_file=stderr_file)
 
     @override
-    def _map_validator(self) -> MemberValidator:
-        """Allow a string or None as each output column-name map value."""
-        return _ColumnMapValidator()
-
-    @override
     def parse_converters(self) -> dict[str, ParseConverter]:
         """Parse the level display member from its enum member name."""
         return {'level_display': self.get_converter_dict(LevelDisplay)}
@@ -256,12 +310,15 @@ class OutputFormatConfig(_FormatConfig):
         return _DisplayMapReadOldConfig()
 
 
-def make_input_config(tableio: TioJsonConfig, to_internal: dict[str, str],
+def make_input_config(tableio: TioJsonConfig,
+                      backlog_to_internal: dict[str, Optional[str]],
+                      release_to_internal: dict[str, Optional[str]],
                       stderr_file: TextIO = sys.stderr) -> InputFormatConfig:
-    """Return an input config from a TableIO config and a column map."""
+    """Return an input config from a TableIO config and per-table maps."""
     config = InputFormatConfig(stderr_file=stderr_file)
     config.tableio = tableio
-    config.to_internal = dict(to_internal)
+    config.backlog_to_internal = dict(backlog_to_internal)
+    config.release_to_internal = dict(release_to_internal)
     return config
 
 

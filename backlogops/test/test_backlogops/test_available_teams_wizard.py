@@ -14,8 +14,8 @@ from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.available_teams_wizard import (
     available_teams_wizard, teams_config_wizard)
 from backlogops.available_teams_wizard import (
-    _backlog_map_fields, _parse_column_renames, _read_int, _read_number,
-    _read_opt_date, _read_text)
+    _backlog_map_fields, _parse_column_renames, _parse_input_renames,
+    _read_int, _read_number, _read_opt_date, _read_text)
 from backlogops.levels import DEFAULT_LEVELS, LevelDisplay
 from backlogops.work_hours import DEFAULT_WORK_WEEK, WeekDay
 
@@ -274,8 +274,9 @@ def test_read_opt_date() -> None:
 def test_preset_wizard() -> None:
     """Test the config wizard collects input and output TableIO presets.
 
-    The run rejects an invalid preset name, adds one input preset with one
-    column-name mapping, adds one output preset that accepts both
+    The run rejects an invalid preset name, adds one input preset whose
+    backlog rename table reads file column ``Type`` into ``level`` while
+    its releases table is kept, adds one output preset that accepts both
     pre-filled rename tables and a numeric level display, accepts the
     default levels, accepts both GUI rename tables, and finally selects a
     name-only GUI level display.
@@ -283,7 +284,7 @@ def test_preset_wizard() -> None:
     answers = (SCHED + ['0', '0', '0']
                + ['1']
                + ['in name', 'in1'] + ['1'] + CSV_OPTS
-               + ['1', 'Type', 'level']
+               + ['2', 'Type', ''] + ['']
                + ['1']
                + ['out1'] + ['1'] + CSV_OPTS
                + MAPS_KEEP + ['numeric']
@@ -293,7 +294,9 @@ def test_preset_wizard() -> None:
     assert isinstance(config, BacklogOpsConfig)
     assert sorted(config.input_configs) == ['in1']
     assert list(config.output_configs) == ['out1']
-    assert config.input_configs['in1'].to_internal == {'Type': 'level'}
+    in_config = config.input_configs['in1']
+    assert in_config.backlog_to_internal == {'Type': 'level'}
+    assert in_config.release_to_internal == {}
     output = config.output_configs['out1']
     assert output.level_display == LevelDisplay.NUMERIC
     assert output.backlog_to_external == {}
@@ -450,3 +453,55 @@ def test_rename_dup_target() -> None:
     """Test two columns sharing a name rejects the whole table."""
     table: list[list[Optional[str]]] = [['key', 'X'], ['title', 'X']]
     assert _parse_column_renames(table) is None
+
+
+def test_in_rename_cases() -> None:
+    """Test equal omits, a change maps and a blank field drops a column."""
+    table: list[list[Optional[str]]] = [['key', 'key'], ['level', 'Type'],
+                                        ['', 'Junk']]
+    assert _parse_input_renames(table) == {'Type': 'level', 'Junk': None}
+
+
+def test_in_rename_extra() -> None:
+    """Test an added row reads a file column into an extra field."""
+    table: list[list[Optional[str]]] = [['note', 'My Note']]
+    assert _parse_input_renames(table) == {'My Note': 'note'}
+
+
+def test_in_rename_absent() -> None:
+    """Test a field with a blank file column is left unmapped."""
+    table: list[list[Optional[str]]] = [['key', ''], ['level', 'L']]
+    assert _parse_input_renames(table) == {'L': 'level'}
+
+
+def test_in_rename_shared() -> None:
+    """Test several file columns may map to the same internal field."""
+    table: list[list[Optional[str]]] = [['level', 'Size'], ['level', 'Type']]
+    assert _parse_input_renames(table) == {'Size': 'level', 'Type': 'level'}
+
+
+def test_in_rename_dup_src() -> None:
+    """Test a repeated file column rejects the whole table."""
+    table: list[list[Optional[str]]] = [['key', 'X'], ['level', 'X']]
+    assert _parse_input_renames(table) is None
+
+
+def test_input_rename_wizard() -> None:
+    """Test an input preset maps, drops and adds backlog file columns.
+
+    Row 1 (key) reads file column ``Issue ID``; an added blank-field row
+    drops file column ``Junk``; another added row reads ``My Note`` into
+    the extra field ``note``. The releases table is kept unchanged.
+    """
+    edit_backlog = ['1', 'Issue ID', ':+', '', 'Junk', ':+', 'note',
+                    'My Note']
+    answers = (SCHED + ['0', '0', '0']
+               + ['1'] + ['in1'] + ['1'] + CSV_OPTS
+               + edit_backlog + [''] + ['']
+               + ['0']
+               + LEVELS_KEEP + GUI_MAPS_KEEP)
+    config = teams_config_wizard(_bridge(answers))
+    in_config = config.input_configs['in1']
+    assert in_config.backlog_to_internal == {'Issue ID': 'key', 'Junk': None,
+                                             'My Note': 'note'}
+    assert in_config.release_to_internal == {}

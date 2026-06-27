@@ -152,37 +152,51 @@ backlogops_cli serves 2 purposes:
 ### Currently available commands
 
 ````text
+
   python3 -m backlogops_cli.adjust_release_content
      Adjust release content to fit the planned release dates
+
   python3 -m backlogops_cli.convert
      Convert a backlog and releases between table file formats
+
   python3 -m backlogops_cli.demo_backlog
      Write a demonstration backlog and releases to a file
+
   python3 -m backlogops_cli.estimate_ready_date
      Estimate ready dates for the backlog items
+
   python3 -m backlogops_cli.extract_keys
      Extract backlog keys at the given levels to a key list
+
   python3 -m backlogops_cli.list
      List all commands available in backlogops_cli
+
   python3 -m backlogops_cli.order_by_deps
      Reorder a backlog so that dependencies are fulfilled
+
   python3 -m backlogops_cli.order_by_keys
      Reorder a backlog so that key-list items come first
+
   python3 -m backlogops_cli.order_by_release
      Order the backlog to follow the release order
+
   python3 -m backlogops_cli.order_releases
      Order the releases by their planned or estimated date
+
   python3 -m backlogops_cli.plan_release_dates
      Set planned release dates from the estimated release dates
+
   python3 -m backlogops_cli.teams_wizard
      Create a backlog-ops configuration file via a wizard
+
   python3 -m backlogops_cli.version
      Print version information for the backlogops_cli package
+
 ````
 
 ## Test summary
 
-- Test result: 1292 passed in 25s
+- Test result: 1304 passed in 26s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

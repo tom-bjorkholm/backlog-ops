@@ -55,7 +55,7 @@ def test_presets_round_trip(tmp_path: Path) -> None:
     config.input_configs = {'sheet': make_input_config(
         resolve_input_config(None, data_file='x.csv',
                              stderr_file=NO_OUTPUT).tableio,
-        {'Type': 'level'}, stderr_file=NO_OUTPUT)}
+        {'Type': 'level'}, {'Rel': 'name'}, stderr_file=NO_OUTPUT)}
     config.output_configs = {'report': make_output_config(
         resolve_output_config(None, data_file='x.xlsx',
                               stderr_file=NO_OUTPUT).tableio,
@@ -63,7 +63,9 @@ def test_presets_round_trip(tmp_path: Path) -> None:
     config_file = tmp_path / 'ops.cfg'
     write_backlog_ops_config(config, config_file, NO_OUTPUT)
     loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
-    assert loaded.input_configs['sheet'].to_internal == {'Type': 'level'}
+    sheet = loaded.input_configs['sheet']
+    assert sheet.backlog_to_internal == {'Type': 'level'}
+    assert sheet.release_to_internal == {'Rel': 'name'}
     report = loaded.output_configs['report']
     assert report.tableio.format_name == 'Excel'
     assert report.backlog_to_external == {'level': 'Type'}

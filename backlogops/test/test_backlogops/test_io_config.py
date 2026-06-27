@@ -23,7 +23,8 @@ def test_input_format(suffix: str, format_name: str) -> None:
     config = resolve_input_config(None, data_file=Path('data' + suffix),
                                   stderr_file=NO_OUTPUT)
     assert config.tableio.format_name == format_name
-    assert config.to_internal == {}
+    assert not config.backlog_to_internal
+    assert not config.release_to_internal
 
 
 @pytest.mark.parametrize('suffix,format_name', [
@@ -50,7 +51,7 @@ def test_preset_name() -> None:
     preset = make_input_config(
         resolve_input_config(None, data_file='x.csv',
                              stderr_file=NO_OUTPUT).tableio,
-        {'Type': 'level'}, stderr_file=NO_OUTPUT)
+        {'Type': 'level'}, {}, stderr_file=NO_OUTPUT)
     resolved = resolve_input_config('excel', data_file='x.csv',
                                     presets={'excel': preset},
                                     stderr_file=NO_OUTPUT)
@@ -85,27 +86,61 @@ def test_in_config_path(tmp_path: Path) -> None:
     source = make_input_config(
         resolve_input_config(None, data_file='x.csv',
                              stderr_file=NO_OUTPUT).tableio,
-        {'Type': 'level'}, stderr_file=NO_OUTPUT)
+        {'Type': 'level'}, {'Rel': 'name'}, stderr_file=NO_OUTPUT)
     config_file = tmp_path / 'in.cfg'
     source.write(to_json_filename=config_file, stderr_file=NO_OUTPUT)
     resolved = resolve_input_config(str(config_file), data_file='x.csv',
                                     stderr_file=NO_OUTPUT)
-    assert resolved.to_internal == {'Type': 'level'}
+    assert resolved.backlog_to_internal == {'Type': 'level'}
+    assert resolved.release_to_internal == {'Rel': 'name'}
     assert resolved.tableio.format_name == 'CSV'
 
 
 def test_in_cfg_roundtrip(tmp_path: Path) -> None:
-    """Test an input config keeps its map and format across a file."""
+    """Test both input maps, including a dropped column, survive a file."""
     config = make_input_config(
         resolve_input_config(None, data_file='x.ods',
                              stderr_file=NO_OUTPUT).tableio,
-        {'Type': 'level', 'Item type': 'level'}, stderr_file=NO_OUTPUT)
+        {'Type': 'level', 'Junk': None}, {'Rel': 'name'},
+        stderr_file=NO_OUTPUT)
     config_file = tmp_path / 'in.cfg'
     config.write(to_json_filename=config_file, stderr_file=NO_OUTPUT)
     loaded = InputFormatConfig(from_json_filename=config_file,
                                stderr_file=NO_OUTPUT)
-    assert loaded.to_internal == {'Type': 'level', 'Item type': 'level'}
+    assert loaded.backlog_to_internal == {'Type': 'level', 'Junk': None}
+    assert loaded.release_to_internal == {'Rel': 'name'}
     assert loaded.tableio.format_name == 'ODS'
+
+
+def test_in_map_types() -> None:
+    """Test an input column-name map of the wrong value type is rejected."""
+    with pytest.raises(InvalidConfiguration):
+        InputFormatConfig(
+            from_json_data_text='{"tableio": {"format_name": "CSV"}, '
+            '"backlog_to_internal": {"Type": 5}}', stderr_file=NO_OUTPUT)
+
+
+def test_in_old_single_map() -> None:
+    """Test an older single input map splits into the two per-table maps.
+
+    The full map is copied into the backlog map, while the releases map
+    keeps only the entries whose target is a release field.
+    """
+    config = InputFormatConfig(
+        from_json_data_text='{"tableio": {"format_name": "CSV"}, '
+        '"to_internal": {"Type": "level", "Rel": "name"}}',
+        stderr_file=NO_OUTPUT)
+    assert config.backlog_to_internal == {'Type': 'level', 'Rel': 'name'}
+    assert config.release_to_internal == {'Rel': 'name'}
+
+
+def test_in_old_empty() -> None:
+    """Test an older input file without any map gets two empty maps."""
+    config = InputFormatConfig(
+        from_json_data_text='{"tableio": {"format_name": "CSV"}}',
+        stderr_file=NO_OUTPUT)
+    assert not config.backlog_to_internal
+    assert not config.release_to_internal
 
 
 @pytest.mark.parametrize('member', [

@@ -165,13 +165,58 @@ def test_col_map_rt(tmp_path: Path) -> None:
     assert 'Estimated ready' in text and 'Type' in text
     default_in = resolve_input_config(None, data_file=path,
                                       stderr_file=NO_OUTPUT)
-    input_map = {'Estimated ready': 'estimated_ready_date', 'Type': 'level'}
-    input_config = make_input_config(default_in.tableio, input_map,
+    input_map: dict[str, Optional[str]] = {
+        'Estimated ready': 'estimated_ready_date', 'Type': 'level'}
+    input_config = make_input_config(default_in.tableio, input_map, {},
                                      stderr_file=NO_OUTPUT)
     back = read_backlog_releases(path, input_config, stderr_file=NO_OUTPUT)
     first = next(item for item in back.backlog if item.key == 'A1')
     assert first.estimated_ready_date == date(2026, 6, 1)
     assert first.level == 1
+
+
+def test_in_release_map(tmp_path: Path) -> None:
+    """Test the releases input map renames a releases column on read."""
+    path = tmp_path / 'data.csv'
+    path.write_text('# Releases\n\n"Release","planned_date"\n'
+                    '"R1","2026-07-01"\n', encoding='UTF-8')
+    base = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    config = make_input_config(base.tableio, {}, {'Release': 'name'},
+                               stderr_file=NO_OUTPUT)
+    back = read_backlog_releases(path, config, stderr_file=NO_OUTPUT)
+    assert [release.name for release in back.releases] == ['R1']
+
+
+def test_in_drop_column(tmp_path: Path) -> None:
+    """Test a backlog input column mapped to None is discarded on read."""
+    path = _backlog_csv(tmp_path, 'key,level,title,story_points,status,junk',
+                        'A1,1,T,3,TODO,trash')
+    base = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    config = make_input_config(base.tableio, {'junk': None}, {},
+                               stderr_file=NO_OUTPUT)
+    item = read_backlog_releases(path, config, DEFAULT_LEVELS,
+                                 NO_OUTPUT).backlog[0]
+    assert 'junk' not in item.extra_fields
+
+
+def test_in_map_independent(tmp_path: Path) -> None:
+    """Test each table is read through its own input map.
+
+    Both tables carry an ``Extra`` column. The backlog map reads it into
+    the ``team`` field, while the releases map drops it, so the same
+    external name is handled differently per table.
+    """
+    path = tmp_path / 'data.csv'
+    path.write_text('# Backlog\n\n"key","level","title","story_points",'
+                    '"status","Extra"\n"A1","1","T","3","TODO","Blue"\n\n'
+                    '# Releases\n\n"name","planned_date","Extra"\n'
+                    '"R1","2026-07-01","junk"\n', encoding='UTF-8')
+    base = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
+    config = make_input_config(base.tableio, {'Extra': 'team'},
+                               {'Extra': None}, stderr_file=NO_OUTPUT)
+    back = read_backlog_releases(path, config, DEFAULT_LEVELS, NO_OUTPUT)
+    assert back.backlog[0].team == 'Blue'
+    assert [release.name for release in back.releases] == ['R1']
 
 
 def test_release_col_map(tmp_path: Path) -> None:

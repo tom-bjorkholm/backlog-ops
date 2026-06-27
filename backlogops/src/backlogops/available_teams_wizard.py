@@ -214,23 +214,19 @@ class _Navigator:
         assert isinstance(result, list)
         return result
 
-    def ask_column_map(self, from_label: str, to_label: str) -> dict[str, str]:
-        """Ask for column-name mappings as a count and one table."""
-        count = self.ask_count('Number of column-name mappings')
-        if count == 0:
-            return {}
-        result = self._ask(lambda: _read_column_map(self._ui, count,
-                                                    from_label, to_label))
-        assert isinstance(result, dict)
-        return result
+    def ask_renames(self, fields: list[str], allow_extra: bool,
+                    target_header: str, is_input: bool = False
+                    ) -> dict[str, Optional[str]]:
+        """Ask one column-rename map as one variable-row table.
 
-    def ask_column_renames(self, fields: list[str], allow_extra: bool,
-                           target_header: str) -> dict[str, Optional[str]]:
-        """Ask one internal-to-external column-rename map as one table."""
+        With ``is_input`` false the table stores an internal-to-external
+        output map; with it true the table stores an external-to-internal
+        input map. Either way the internal field names are pre-filled.
+        """
         def read() -> dict[str, Optional[str]]:
             """Ask one rename table through the bound user interface."""
-            return _read_column_renames(self._ui, fields, allow_extra,
-                                        target_header)
+            return _read_renames(self._ui, fields, allow_extra, target_header,
+                                 is_input)
         result = self._ask(read)
         assert isinstance(result, dict)
         return result
@@ -379,6 +375,9 @@ _OUT_COLUMN_HEADER = 'Output column (blank drops it)'
 _GUI_COLUMN_HEADER = 'Shown column (blank hides it)'
 """Header of the renamed-column column in a GUI rename table."""
 
+_IN_COLUMN_HEADER = 'Input file column (blank field drops it)'
+"""Header of the file-column column in an input rename table."""
+
 
 def _ask_level_display(nav: _Navigator, question: str) -> LevelDisplay:
     """Ask how to show levels, defaulting to both number and name."""
@@ -434,14 +433,6 @@ def _sched_check(table: list[list[Optional[str]]],
     return (ok, '' if ok else 'Enter work hours as a number that is >= 0.')
 
 
-def _map_check(table: list[list[Optional[str]]],
-               position: tuple[int, int]) -> tuple[bool, str]:
-    """Give early feedback that an edited mapping cell is not empty."""
-    row, col = position
-    ok = bool(table[row][col])
-    return (ok, '' if ok else 'Enter a non-empty name.')
-
-
 def _parse_schedule(days: Sequence[WeekDay],
                     table: Sequence[Sequence[Optional[str]]]
                     ) -> Optional[ScheduleWorkHours]:
@@ -454,18 +445,6 @@ def _parse_schedule(days: Sequence[WeekDay],
         assert hours is not None
         schedule[day] = float(hours)
     return schedule
-
-
-def _parse_column_map(table: Sequence[Sequence[Optional[str]]]
-                      ) -> Optional[dict[str, str]]:
-    """Return the column-name mapping from a table, or None when invalid."""
-    mapping: dict[str, str] = {}
-    for row in table:
-        source, target = row[0], row[1]
-        if not source or not target:
-            return None
-        mapping[source] = target
-    return mapping
 
 
 def _read_schedule(ui: WizardUiBridge) -> ScheduleWorkHours:
@@ -487,29 +466,26 @@ def _read_schedule(ui: WizardUiBridge) -> ScheduleWorkHours:
         reason = 'Enter work hours as a number that is at least zero.'
 
 
-def _read_column_map(ui: WizardUiBridge, count: int, from_label: str,
-                     to_label: str) -> dict[str, str]:
-    """Ask the given number of column-name mappings as one table."""
-    columns = [TableColumn(header=f'{from_label} name'),
-               TableColumn(header=f'{to_label} name')]
-    cells = [[TableCell(), TableCell()] for _ in range(count)]
-    reason: Optional[str] = None
-    while True:
-        table = ui.ask_table(columns, cells, 'Column-name mappings:',
-                             re_ask_reason=reason, partial_check=_map_check)
-        mapping = _parse_column_map(table)
-        if mapping is not None:
-            return mapping
-        reason = 'Enter a non-empty name in every cell.'
-
-
 _MAX_EXTRA_COLUMNS = 30
 """How many extra-field rows the user may add to a backlog rename table."""
 
 _RENAME_INSTRUCTION = ('Column renaming (same name keeps it, a blank '
                        'output column drops it; add a row for an extra '
                        'field):')
-"""Instruction shown above a column-rename table."""
+"""Instruction shown above an output column-rename table."""
+
+_RENAME_REASON = ('Each internal field may appear once and two columns may '
+                  'not share a name.')
+"""Re-ask reason for an inconsistent output rename table."""
+
+_INPUT_INSTRUCTION = ('Column reading (same name reads it as-is, a different '
+                      'name reads that file column into the field; add a row '
+                      'to read an extra field, or a blank-field row to drop a '
+                      'file column):')
+"""Instruction shown above an input column-rename table."""
+
+_INPUT_REASON = 'Each input file column may appear only once.'
+"""Re-ask reason for an inconsistent input rename table."""
 
 
 def _backlog_map_fields() -> list[str]:
@@ -560,39 +536,68 @@ def _parse_column_renames(table: Sequence[Sequence[Optional[str]]]
     return mapping
 
 
+def _parse_input_renames(table: Sequence[Sequence[Optional[str]]]
+                         ) -> Optional[dict[str, Optional[str]]]:
+    """Return the file-to-internal map from a table, or None if invalid.
+
+    Each row pairs an internal field (column 0) with the input file column
+    read into it (column 1). A blank file column leaves that field
+    unmapped. A file column equal to the internal field is no rename and is
+    omitted. A row with a file column but a blank internal field drops that
+    file column (maps it to None). The table is rejected when one file
+    column appears more than once.
+    """
+    mapping: dict[str, Optional[str]] = {}
+    seen: set[str] = set()
+    for internal, source in ((row[0], row[1]) for row in table):
+        if not source:
+            continue
+        if source in seen:
+            return None
+        seen.add(source)
+        if not internal:
+            mapping[source] = None
+        elif source != internal:
+            mapping[source] = internal
+    return mapping
+
+
 def _rename_cells(fields: list[str]) -> list[list[TableCell]]:
-    """Return seed rows with each output column pre-filled to its field."""
+    """Return seed rows with each editable column pre-filled to its field."""
     return [[TableCell(value=field), TableCell(value=field)]
             for field in fields]
 
 
-def _read_column_renames(ui: WizardUiBridge, fields: list[str],
-                         allow_extra: bool, target_header: str
-                         ) -> dict[str, Optional[str]]:
-    """Ask one internal-to-external column-rename map as one table.
+def _read_renames(ui: WizardUiBridge, fields: list[str], allow_extra: bool,
+                  target_header: str, is_input: bool
+                  ) -> dict[str, Optional[str]]:
+    """Ask one column-rename map as one variable-row table.
 
     Each known internal field is shown as a read-only row pre-filled with
-    the same output column name, so leaving the table unchanged renames
-    nothing and the known fields cannot be deleted. A backlog table also
-    accepts added rows for fields stored as extra fields; an added row is
-    fully editable, so its internal name can be typed. A releases table is
-    locked to its own fields. The variable-row editor accepts the table on
-    a blank answer.
+    the same column name, so leaving the table unchanged renames nothing
+    and the known fields cannot be deleted. A backlog table also accepts
+    added rows for extra fields; an added row is fully editable, so its
+    internal name can be typed. A releases table is locked to its own
+    fields. The variable-row editor accepts the table on a blank answer.
+    With ``is_input`` true the table is parsed as an external-to-internal
+    input map, otherwise as an internal-to-external output map.
     """
     columns = [TableColumn(header='Internal field', read_only=True),
                TableColumn(header=target_header)]
     cells = _rename_cells(fields)
     max_rows = len(fields) + _MAX_EXTRA_COLUMNS if allow_extra else len(fields)
+    instruction = _INPUT_INSTRUCTION if is_input else _RENAME_INSTRUCTION
+    check = None if is_input else _rename_check
+    parse = _parse_input_renames if is_input else _parse_column_renames
     reason: Optional[str] = None
     while True:
-        table = ui.ask_table(columns, cells, _RENAME_INSTRUCTION,
-                             re_ask_reason=reason, partial_check=_rename_check,
-                             min_rows=len(fields), max_rows=max_rows)
-        mapping = _parse_column_renames(table)
+        table = ui.ask_table(columns, cells, instruction, re_ask_reason=reason,
+                             partial_check=check, min_rows=len(fields),
+                             max_rows=max_rows)
+        mapping = parse(table)
         if mapping is not None:
             return mapping
-        reason = ('Each internal field may appear once and two columns may '
-                  'not share a name.')
+        reason = _INPUT_REASON if is_input else _RENAME_REASON
         cells = _cells_from_table(table)
 
 
@@ -724,13 +729,14 @@ def teams_config_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig:
     The workforce is entered as by :func:`available_teams_wizard`, the
     user may then add any number of named input and output TableIO
     configuration presets, edit the backlog item levels, and finally
-    choose how the GUI renames columns and shows levels. Each output
-    preset also asks how it renames the backlog and releases columns and
-    how levels are written; the column tables start pre-filled with the
-    internal field names so leaving them unchanged renames nothing. The
-    levels start filled in with the default levels; when the user leaves
-    them at the defaults they are stored as "use the defaults" rather than
-    written out.
+    choose how the GUI renames columns and shows levels. Each input preset
+    asks how it reads the backlog and releases file columns into the
+    internal fields, and each output preset asks how it renames those
+    columns and how levels are written; the column tables start pre-filled
+    with the internal field names so leaving them unchanged renames
+    nothing. The levels start filled in with the default levels; when the
+    user leaves them at the defaults they are stored as "use the defaults"
+    rather than written out.
 
     Args:
         ui_bridge: Bridge between the wizard and the user interface.
@@ -774,11 +780,11 @@ def _build_gui_display(nav: _Navigator) -> GuiDisplayConfig:
     """Ask the GUI column renaming and level display, and return it."""
     gui_display = GuiDisplayConfig()
     gui_display.backlog_to_external = nav.level(
-        lambda: nav.ask_column_renames(_backlog_map_fields(), True,
-                                       _GUI_COLUMN_HEADER))
+        lambda: nav.ask_renames(_backlog_map_fields(), True,
+                                _GUI_COLUMN_HEADER))
     gui_display.release_to_external = nav.level(
-        lambda: nav.ask_column_renames(list(RELEASE_FIELDS), False,
-                                       _GUI_COLUMN_HEADER))
+        lambda: nav.ask_renames(list(RELEASE_FIELDS), False,
+                                _GUI_COLUMN_HEADER))
     gui_display.level_display = _ask_level_display(nav, _GUI_LEVEL_QUESTION)
     return gui_display
 
@@ -939,12 +945,16 @@ def _build_output_presets(nav: _Navigator) -> dict[str, OutputFormatConfig]:
 
 def _ask_input_preset(nav: _Navigator,
                       used: set[str]) -> tuple[str, InputFormatConfig]:
-    """Ask for one named input preset and its column-name mapping."""
+    """Ask one named input preset: format and both rename maps."""
     name = nav.ask_preset_name('Preset name (letters and digits)', used)
     tableio = nav.ask_tableio(FileAccess.READ)
-    column_map = nav.level(
-        lambda: nav.ask_column_map('external column', 'internal field'))
-    return name, make_input_config(tableio, column_map)
+    backlog_map = nav.level(
+        lambda: nav.ask_renames(_backlog_map_fields(), True, _IN_COLUMN_HEADER,
+                                is_input=True))
+    release_map = nav.level(
+        lambda: nav.ask_renames(list(RELEASE_FIELDS), False, _IN_COLUMN_HEADER,
+                                is_input=True))
+    return name, make_input_config(tableio, backlog_map, release_map)
 
 
 def _ask_output_preset(nav: _Navigator,
@@ -953,10 +963,10 @@ def _ask_output_preset(nav: _Navigator,
     name = nav.ask_preset_name('Preset name (letters and digits)', used)
     tableio = nav.ask_tableio(FileAccess.CREATE)
     backlog_map = nav.level(
-        lambda: nav.ask_column_renames(_backlog_map_fields(), True,
-                                       _OUT_COLUMN_HEADER))
+        lambda: nav.ask_renames(_backlog_map_fields(), True,
+                                _OUT_COLUMN_HEADER))
     release_map = nav.level(
-        lambda: nav.ask_column_renames(list(RELEASE_FIELDS), False,
-                                       _OUT_COLUMN_HEADER))
+        lambda: nav.ask_renames(list(RELEASE_FIELDS), False,
+                                _OUT_COLUMN_HEADER))
     display = _ask_level_display(nav, _OUT_LEVEL_QUESTION)
     return name, make_output_config(tableio, backlog_map, release_map, display)
