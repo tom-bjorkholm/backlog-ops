@@ -48,10 +48,11 @@ def _description_lines(description: str) -> list[str]:
 def format_listing(commands: list[tuple[str, ModuleType]]) -> str:
     """Format the command listing for printing to the user."""
     prefix = _python_prefix()
-    lines: list[str] = []
+    lines: list[str] = ['']
     for name, module in commands:
         lines.append(f'  {prefix} backlogops_cli.{name}')
         lines.extend(_description_lines(module.DESCRIPTION))
+        lines.append('')
     return '\n'.join(lines)
 
 
