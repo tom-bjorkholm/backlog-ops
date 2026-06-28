@@ -6,7 +6,7 @@ estimates the ready date of each backlog item from the available teams,
 as documented for :func:`backlogops.estimate_ready_date`. The teams
 configuration (velocity, work hours, vacations and so on) is taken from
 the file given by ``--config`` or, when that is absent, from the
-configured teams file. The backlog with the estimated dates and the
+configured backlog-ops file. The backlog with the estimated dates and the
 releases are written to the output file. The input and output formats are
 inferred from the file name extensions, but can be overridden by a
 configuration file or by a named preset.

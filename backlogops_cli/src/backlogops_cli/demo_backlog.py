@@ -4,7 +4,7 @@
 The data comes from :func:`backlogops.get_demo_backlog`. The output
 format is inferred from the output file name extension, but can be
 overridden by a configuration file or by a named preset stored in the
-teams configuration file.
+backlog-ops configuration file.
 """
 
 # PYTHON_ARGCOMPLETE_OK

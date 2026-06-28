@@ -46,6 +46,9 @@ from backlogops import (
 - `move_keys_first`: reorder so that listed keys (and their children)
   come first.
 
+- `backlog_in_release_order`: reorder the backlog to follow the release
+  order, optionally honouring dependencies.
+
 - `estimate_ready_date`, `set_plan_from_estimate`: estimate ready dates
   and set planned dates from the estimate.
 

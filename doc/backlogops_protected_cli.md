@@ -246,7 +246,7 @@ Write a demonstration backlog and releases to a file.
 The data comes from :func:`backlogops.get_demo_backlog`. The output
 format is inferred from the output file name extension, but can be
 overridden by a configuration file or by a named preset stored in the
-teams configuration file.
+backlog-ops configuration file.
 
 <a id="backlogops_cli.demo_backlog.build_parser"></a>
 
@@ -367,7 +367,7 @@ Build the command line parser for the config wizard command.
 def main(args: Optional[list[str]] = None) -> int
 ```
 
-Run the interactive wizard and write the workforce configuration.
+Run the interactive wizard and write the backlog-ops configuration.
 
 The output filename receives the ``.cfg`` extension when it is not
 already present.
@@ -379,8 +379,8 @@ already present.
 
 **Returns**:
 
-  ``0`` on success, ``1`` when the entered workforce is rejected or
-  cannot be written.
+  ``0`` on success, ``1`` when the entered configuration is rejected
+  or cannot be written.
 
 <a id="backlogops_cli._command_io"></a>
 
@@ -776,7 +776,7 @@ The command reads a backlog, releases, or both from an input file and
 writes them to an output file, possibly in another format and with other
 column names. The input and output formats are inferred from the file
 name extensions, but can be overridden by a configuration file or by a
-named preset stored in the teams configuration file.
+named preset stored in the backlog-ops configuration file.
 
 <a id="backlogops_cli.convert.build_parser"></a>
 
@@ -1395,7 +1395,7 @@ estimates the ready date of each backlog item from the available teams,
 as documented for :func:`backlogops.estimate_ready_date`. The teams
 configuration (velocity, work hours, vacations and so on) is taken from
 the file given by ``--config`` or, when that is absent, from the
-configured teams file. The backlog with the estimated dates and the
+configured backlog-ops file. The backlog with the estimated dates and the
 releases are written to the output file. The input and output formats are
 inferred from the file name extensions, but can be overridden by a
 configuration file or by a named preset.

@@ -51,7 +51,23 @@ The following functionality is available in all 3 packages:
 
 - Validate the backlog and releases for consistency.
 
-- A wizard to create an available teams configuration.
+- Convert a backlog and releases between table file formats.
+
+- Order the releases by their planned or estimated date.
+
+- Rename columns when reading a file and when writing a file.
+
+- Map custom status names in input files to backlog item statuses.
+
+- Choose how backlog item levels are written: by number, by name, or both, and
+  configure custom level names.
+
+- Create stand-alone input or output preset configuration files.
+
+- Migrate an older configuration or preset file to the current file format.
+
+- A wizard to create a backlog-ops configuration file with the workforce, named
+  input and output presets, level names, and status name mapping.
 
 ## The operating model
 
@@ -192,6 +208,9 @@ from backlogops import (
 
 - `move_keys_first`: reorder so that listed keys (and their children)
   come first.
+
+- `backlog_in_release_order`: reorder the backlog to follow the release
+  order, optionally honouring dependencies.
 
 - `estimate_ready_date`, `set_plan_from_estimate`: estimate ready dates
   and set planned dates from the estimate.

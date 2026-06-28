@@ -7,20 +7,20 @@ This repo holds source code and build scripts for 3 Python packages:
 - backlogops: a collection of library functions to manipulate backlogs
   that are stored in different tools like spreadsheets (and hopefully
   soon Jira)
-  **MVP version exists.**
+  **An early version exists, with functionality expanding.**
 
 - backlogops-cli: Command line interface to use the functions in the
   library. This can also be used as an example to how the library
   can be used from scripts or applications written by the user.
-  **MVP version exists.**
+  **An early version exists, with functionality expanding.**
 
 - backlogops-gui: Graphical user interface to use the functions in the
   library. The GUI is based on in TkInter.
-  **MVP version exists.**
+  **An early version exists, with functionality expanding.**
 
 ## Using it
 
-**A Minimum Viable Product version with limited functionality exists.**
+**An early version exists; its functionality is limited but expanding.**
 
 Early adopters are welcome. If you want to use it, install it using pip from
 

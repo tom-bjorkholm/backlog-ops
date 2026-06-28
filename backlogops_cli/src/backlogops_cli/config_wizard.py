@@ -21,7 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(args: Optional[list[str]] = None) -> int:
-    """Run the interactive wizard and write the workforce configuration.
+    """Run the interactive wizard and write the backlog-ops configuration.
 
     The output filename receives the ``.cfg`` extension when it is not
     already present.
@@ -30,8 +30,8 @@ def main(args: Optional[list[str]] = None) -> int:
         args: Optional replacement for ``sys.argv[1:]``, mainly for tests.
 
     Returns:
-        ``0`` on success, ``1`` when the entered workforce is rejected or
-        cannot be written.
+        ``0`` on success, ``1`` when the entered configuration is rejected
+        or cannot be written.
     """
     parsed = parsed_args(build_parser(), args)
     return run_wizard_to_file(parsed, backlog_ops_wizard,

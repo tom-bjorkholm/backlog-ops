@@ -5,7 +5,7 @@ The command reads a backlog, releases, or both from an input file and
 writes them to an output file, possibly in another format and with other
 column names. The input and output formats are inferred from the file
 name extensions, but can be overridden by a configuration file or by a
-named preset stored in the teams configuration file.
+named preset stored in the backlog-ops configuration file.
 """
 
 # PYTHON_ARGCOMPLETE_OK

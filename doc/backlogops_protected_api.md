@@ -5308,7 +5308,7 @@ are shown on screen.
 command-line value into such a configuration. The value may be empty
 (then the format is inferred from the data file name extension), a preset
 name (looked up among named presets stored elsewhere, typically in the
-teams configuration file), or the name of a stand-alone configuration
+backlog-ops configuration file), or the name of a stand-alone configuration
 file.
 
 <a id="backlogops.io_config.EXTENSION_FORMATS"></a>
@@ -5896,7 +5896,7 @@ Any other value is the path of a stand-alone input config file.
 
 - `value` - The ``--input-config`` value, or None for inference.
 - `data_file` - The input data file, used for format inference.
-- `presets` - Named input presets, typically from the teams config.
+- `presets` - Named input presets, typically from the backlog-ops config.
 - `auto_ch_hook` - Hook notified when a stand-alone input config file
   needed backward-compatible normalization while reading.
 - `stderr_file` - Stream used for user-facing diagnostics.
@@ -5935,7 +5935,7 @@ Any other value is the path of a stand-alone output config file.
 
 - `value` - The ``--output-config`` value, or None for inference.
 - `data_file` - The output data file, used for format inference.
-- `presets` - Named output presets, typically from the teams config.
+- `presets` - Named output presets, typically from the backlog-ops config.
 - `auto_ch_hook` - Hook notified when a stand-alone output config file
   needed backward-compatible normalization while reading.
 - `stderr_file` - Stream used for user-facing diagnostics.

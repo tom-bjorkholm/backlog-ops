@@ -51,7 +51,23 @@ The following functionality is available in all 3 packages:
 
 - Validate the backlog and releases for consistency.
 
-- A wizard to create an available teams configuration.
+- Convert a backlog and releases between table file formats.
+
+- Order the releases by their planned or estimated date.
+
+- Rename columns when reading a file and when writing a file.
+
+- Map custom status names in input files to backlog item statuses.
+
+- Choose how backlog item levels are written: by number, by name, or both, and
+  configure custom level names.
+
+- Create stand-alone input or output preset configuration files.
+
+- Migrate an older configuration or preset file to the current file format.
+
+- A wizard to create a backlog-ops configuration file with the workforce, named
+  input and output presets, level names, and status name mapping.
 
 ## The operating model
 
@@ -188,6 +204,8 @@ is in the menus.
     - New demo backlog: Create a demo backlog with some backlog items and
       releases. A new backlog window will be opened with the demo backlog.
 
+    - Exit: Close the application.
+
 - Configuration
 
     - Run configuration wizard...: this lets you configure the teams that work on
@@ -195,8 +213,19 @@ is in the menus.
       closed for vacation, and preset configuration for the inputs or
       outputs you want to use.
 
+    - Create IO preset file...: Create a stand-alone input or output preset
+      configuration file via a wizard.
+
+    - Migrate IO preset file...: Migrate an older input or output preset
+      file to the current file format.
+
     - Write configuration...: This lets you write the configuration you
       have in application to a file.
+
+- Help
+
+    - Report version information: Show version information for the
+      application and its dependencies.
 
 ## Backlog window
 
@@ -215,9 +244,11 @@ one with the list of releases. You will want to use the menus.
 
     - Set planned date from estimated
 
-    - Adjust release content
+    - Adjust release content...
 
     - Adjust planned release dates...
+
+    - Order releases by date...
 
     - Extract keys...
 
