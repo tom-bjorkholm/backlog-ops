@@ -7,10 +7,11 @@
 import tkinter as tk
 from typing import Callable, Optional, TextIO, cast
 import pytest
-from backlogops import BacklogOpsConfig, BacklogReleases, OutputFormatConfig
+from backlogops import (
+    BacklogOpsConfig, BacklogReleases, InputFormatConfig, OutputFormatConfig)
 from backlogops_gui import application
 from backlogops_gui.application import APP_TITLE, BacklogApp
-from backlogops_gui.io_dialogs import ConfigChoice, ReadOptions
+from backlogops_gui.io_dialogs import ConfigChoice, PresetKind, ReadOptions
 from backlogops_gui._migrate_warn import GuiMigrateWarnHook
 
 DATA = BacklogReleases(backlog=[], releases=[])
@@ -569,6 +570,100 @@ def test_preset_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
     assert errors == [('Preset wizard error', 'bad')]
 
 
+def _mig_pickers(monkeypatch: pytest.MonkeyPatch, kind: Optional[PresetKind],
+                 in_name: Optional[str], out_name: Optional[str]) -> None:
+    """Patch the file and kind pickers used by migrate_preset_file."""
+    monkeypatch.setattr(application, 'choose_preset_to_migrate',
+                        lambda parent: in_name)
+    monkeypatch.setattr(application, 'ask_preset_kind', lambda parent: kind)
+    monkeypatch.setattr(application, 'choose_migrated_preset',
+                        lambda parent: out_name)
+
+
+def _record_migrate(store: list[tuple[str, str, object]]
+                    ) -> Callable[..., None]:
+    """Return a migrate_cfg stub recording its input, output and class."""
+    def fake(in_path: str, out_path: str, config_class: object,
+             captured: object) -> None:
+        assert captured is not None
+        store.append((in_path, out_path, config_class))
+    return fake
+
+
+def _run_migrate_err(monkeypatch: pytest.MonkeyPatch,
+                     fake_migrate: Callable[..., None]
+                     ) -> tuple[BacklogApp, list[tuple[str, str]]]:
+    """Run migrate_preset_file with a failing migrate_cfg, return errors."""
+    _mig_pickers(monkeypatch, PresetKind.INPUT, 'old', 'new')
+    monkeypatch.setattr(application, 'migrate_cfg', fake_migrate)
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    app.migrate_preset_file()
+    return app, errors
+
+
+@pytest.mark.parametrize('kind,config_class', [
+    (PresetKind.INPUT, InputFormatConfig),
+    (PresetKind.OUTPUT, OutputFormatConfig)])
+def test_migrate_preset_ok(monkeypatch: pytest.MonkeyPatch, kind: PresetKind,
+                           config_class: type) -> None:
+    """Test migrating a preset writes via the matching config class."""
+    _mig_pickers(monkeypatch, kind, 'old', 'new')
+    calls: list[tuple[str, str, object]] = []
+    monkeypatch.setattr(application, 'migrate_cfg', _record_migrate(calls))
+    app = _app()
+    infos: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_info', _record(infos))
+    app.migrate_preset_file()
+    assert calls == [('old', 'new.cfg', config_class)]
+    assert infos == [('Migrated preset', 'Wrote new.cfg')]
+
+
+@pytest.mark.parametrize('kind,in_name,out_name', [
+    (PresetKind.INPUT, None, 'new'),
+    (None, 'old', 'new'),
+    (PresetKind.INPUT, 'old', None)])
+def test_migrate_cancel(monkeypatch: pytest.MonkeyPatch,
+                        kind: Optional[PresetKind], in_name: Optional[str],
+                        out_name: Optional[str]) -> None:
+    """Test cancelling any migrate-preset step migrates nothing."""
+    _mig_pickers(monkeypatch, kind, in_name, out_name)
+    calls: list[tuple[str, str, object]] = []
+    monkeypatch.setattr(application, 'migrate_cfg', _record_migrate(calls))
+    _app().migrate_preset_file()
+    assert not calls
+
+
+def test_migrate_exists(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a refused overwrite reports the captured reason and logs it."""
+    def boom(in_path: str, out_path: str, config_class: object,
+             captured: TextIO) -> None:
+        captured.write('output file exists\n')
+        raise SystemExit(1)
+    app, errors = _run_migrate_err(monkeypatch, boom)
+    assert errors == [('Could not migrate preset', 'output file exists')]
+    assert 'output file exists' in app.log.text()
+
+
+def test_migrate_exit_plain(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a silent exit falls back to a generic migrate failure."""
+    def boom(in_path: str, out_path: str, config_class: object,
+             captured: TextIO) -> None:
+        raise SystemExit(1)
+    _, errors = _run_migrate_err(monkeypatch, boom)
+    assert errors == [('Could not migrate preset', 'Could not migrate old.')]
+
+
+def test_migrate_io_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a read or write failure is reported with its message."""
+    def boom(in_path: str, out_path: str, config_class: object,
+             captured: TextIO) -> None:
+        raise ValueError('bad preset')
+    _, errors = _run_migrate_err(monkeypatch, boom)
+    assert errors == [('Could not migrate preset', 'bad preset')]
+
+
 def test_config_wizard_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled wizard leaves the configuration unchanged."""
     app = _app()
@@ -651,7 +746,7 @@ def test_build_menu_and_body(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_menu_has_preset_item(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the Configuration menu offers the IO preset file action."""
+    """Test the Configuration menu offers the IO preset file actions."""
     monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
     monkeypatch.setattr(application, 'check_python_version', lambda: None)
     root = _root_or_skip()
@@ -660,7 +755,9 @@ def test_menu_has_preset_item(monkeypatch: pytest.MonkeyPatch) -> None:
         app.build_menu()
         menubar = root.nametowidget(root.cget('menu'))
         assert isinstance(menubar, tk.Menu)
-        assert 'Create IO preset file…' in _command_labels(menubar)
+        labels = _command_labels(menubar)
+        assert 'Create IO preset file…' in labels
+        assert 'Migrate IO preset file…' in labels
     finally:
         root.destroy()
 

@@ -11,18 +11,19 @@ import pytest
 from backlogops import DependencyMode
 from backlogops.no_text_io import NoTextIO
 from backlogops_gui.io_dialogs import (
-    MODE_FILE, MODE_INFER, MODE_PRESET, ConfigChoice, DepOptions, ReadOptions,
-    StartChoice, WriteOptions, format_value)
+    MODE_FILE, MODE_INFER, MODE_PRESET, ConfigChoice, DepOptions, PresetKind,
+    ReadOptions, StartChoice, WriteOptions, format_value)
 from backlogops_gui.io_dialogs import (
     _BufferDialog, _DateOrderDialog, _DepOptionsDialog, _FormatDialog,
     _KeysDialog, _LevelsDialog, _ModalDialog, _NoConfigDialog,
-    _ReleaseOrderDialog, _StartDateDialog)
+    _PresetKindDialog, _ReleaseOrderDialog, _StartDateDialog)
 from backlogops_gui.io_dialogs import (
     ask_buffer_days, ask_date_order, ask_dep_options, ask_keys, ask_levels,
-    ask_no_config_choice, ask_read_options, ask_release_order,
-    ask_start_date, ask_write_options, choose_changes_output,
-    choose_config_file, choose_existing_config, choose_input_file,
-    choose_key_list_output, choose_output_file, show_change_list)
+    ask_no_config_choice, ask_preset_kind, ask_read_options,
+    ask_release_order, ask_start_date, ask_write_options,
+    choose_changes_output, choose_config_file, choose_existing_config,
+    choose_input_file, choose_key_list_output, choose_migrated_preset,
+    choose_output_file, choose_preset_to_migrate, show_change_list)
 
 
 def _root_or_skip() -> tk.Tk:
@@ -96,7 +97,9 @@ CHOOSERS: list[tuple[Callable[[tk.Misc], Optional[str]], str]] = [
     (choose_config_file, 'asksaveasfilename'),
     (choose_existing_config, 'askopenfilename'),
     (choose_key_list_output, 'asksaveasfilename'),
-    (choose_changes_output, 'asksaveasfilename')]
+    (choose_changes_output, 'asksaveasfilename'),
+    (choose_preset_to_migrate, 'askopenfilename'),
+    (choose_migrated_preset, 'asksaveasfilename')]
 """Each file chooser paired with the file dialog it calls."""
 
 
@@ -704,6 +707,66 @@ def test_ask_no_config(monkeypatch: pytest.MonkeyPatch) -> None:
     root = _root_or_skip()
     try:
         assert ask_no_config_choice(root) is ConfigChoice.EXIT
+    finally:
+        root.destroy()
+
+
+def _kind_wait(self: _PresetKindDialog) -> None:
+    """Stand in for the preset-kind show without grabbing or waiting."""
+    assert self is not None
+
+
+@pytest.mark.parametrize('kind', [PresetKind.INPUT, PresetKind.OUTPUT])
+def test_preset_kind_choice(monkeypatch: pytest.MonkeyPatch,
+                            kind: PresetKind) -> None:
+    """Test each button records its kind in the preset-kind dialog."""
+    monkeypatch.setattr(_PresetKindDialog, '_show', _kind_wait)
+    root = _root_or_skip()
+    try:
+        dialog = _PresetKindDialog(root)
+        # pylint: disable-next=protected-access
+        dialog._choose(kind)
+        assert dialog.kind is kind
+    finally:
+        root.destroy()
+
+
+def test_preset_kind_frame(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a closed preset-kind dialog over a frame chooses nothing."""
+    monkeypatch.setattr(_PresetKindDialog, '_show', _kind_wait)
+    root = _root_or_skip()
+    try:
+        frame = tk.Frame(root)
+        assert _PresetKindDialog(frame).kind is None
+    finally:
+        root.destroy()
+
+
+# pylint: disable-next=too-few-public-methods
+class _AutoPresetKind(_PresetKindDialog):
+    """Preset-kind dialog that picks input once shown, for coverage."""
+
+    def _show(self) -> None:
+        """Schedule an input choice and run the real modal show."""
+        self._win.after(0, lambda: self._choose(PresetKind.INPUT))
+        super()._show()
+
+
+def test_kind_show_real() -> None:
+    """Test the real preset-kind show waits and returns the picked kind."""
+    root = _root_or_skip()
+    try:
+        assert _AutoPresetKind(root).kind is PresetKind.INPUT
+    finally:
+        root.destroy()
+
+
+def test_ask_preset_kind(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the ask wrapper returns the dialog's recorded kind."""
+    monkeypatch.setattr(_PresetKindDialog, '_show', _kind_wait)
+    root = _root_or_skip()
+    try:
+        assert ask_preset_kind(root) is None
     finally:
         root.destroy()
 

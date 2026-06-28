@@ -67,6 +67,8 @@
 * [backlogops\_gui.\_migrate\_warn](#backlogops_gui._migrate_warn)
   * [GuiMigrateWarnHook](#backlogops_gui._migrate_warn.GuiMigrateWarnHook)
     * [migrate\_instructions](#backlogops_gui._migrate_warn.GuiMigrateWarnHook.migrate_instructions)
+  * [GuiPresetMigrateWarnHook](#backlogops_gui._migrate_warn.GuiPresetMigrateWarnHook)
+    * [migrate\_instructions](#backlogops_gui._migrate_warn.GuiPresetMigrateWarnHook.migrate_instructions)
 * [backlogops\_gui.application](#backlogops_gui.application)
   * [initial\_config](#backlogops_gui.application.initial_config)
   * [\_config\_failure](#backlogops_gui.application._config_failure)
@@ -88,6 +90,9 @@
     * [run\_wizard](#backlogops_gui.application.BacklogApp.run_wizard)
     * [run\_config\_wizard](#backlogops_gui.application.BacklogApp.run_config_wizard)
     * [create\_preset\_file](#backlogops_gui.application.BacklogApp.create_preset_file)
+    * [migrate\_preset\_file](#backlogops_gui.application.BacklogApp.migrate_preset_file)
+    * [\_migrate\_preset](#backlogops_gui.application.BacklogApp._migrate_preset)
+    * [\_migrate\_failed](#backlogops_gui.application.BacklogApp._migrate_failed)
     * [write\_config](#backlogops_gui.application.BacklogApp.write_config)
     * [\_write\_to\_chosen](#backlogops_gui.application.BacklogApp._write_to_chosen)
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
@@ -153,6 +158,7 @@
     * [\_extract\_keys](#backlogops_gui.backlog_window.BacklogWindow._extract_keys)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
   * [ConfigChoice](#backlogops_gui.io_dialogs.ConfigChoice)
+  * [PresetKind](#backlogops_gui.io_dialogs.PresetKind)
   * [format\_value](#backlogops_gui.io_dialogs.format_value)
   * [ReadOptions](#backlogops_gui.io_dialogs.ReadOptions)
   * [WriteOptions](#backlogops_gui.io_dialogs.WriteOptions)
@@ -160,6 +166,8 @@
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
   * [choose\_existing\_config](#backlogops_gui.io_dialogs.choose_existing_config)
+  * [choose\_preset\_to\_migrate](#backlogops_gui.io_dialogs.choose_preset_to_migrate)
+  * [choose\_migrated\_preset](#backlogops_gui.io_dialogs.choose_migrated_preset)
   * [\_NoConfigDialog](#backlogops_gui.io_dialogs._NoConfigDialog)
     * [\_\_init\_\_](#backlogops_gui.io_dialogs._NoConfigDialog.__init__)
     * [\_build](#backlogops_gui.io_dialogs._NoConfigDialog._build)
@@ -167,6 +175,13 @@
     * [\_show](#backlogops_gui.io_dialogs._NoConfigDialog._show)
     * [\_choose](#backlogops_gui.io_dialogs._NoConfigDialog._choose)
   * [ask\_no\_config\_choice](#backlogops_gui.io_dialogs.ask_no_config_choice)
+  * [\_PresetKindDialog](#backlogops_gui.io_dialogs._PresetKindDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._PresetKindDialog.__init__)
+    * [\_build](#backlogops_gui.io_dialogs._PresetKindDialog._build)
+    * [\_add\_button](#backlogops_gui.io_dialogs._PresetKindDialog._add_button)
+    * [\_show](#backlogops_gui.io_dialogs._PresetKindDialog._show)
+    * [\_choose](#backlogops_gui.io_dialogs._PresetKindDialog._choose)
+  * [ask\_preset\_kind](#backlogops_gui.io_dialogs.ask_preset_kind)
   * [\_ModalDialog](#backlogops_gui.io_dialogs._ModalDialog)
     * [\_\_init\_\_](#backlogops_gui.io_dialogs._ModalDialog.__init__)
     * [\_show](#backlogops_gui.io_dialogs._ModalDialog._show)
@@ -989,15 +1004,20 @@ Return the wizard window, creating it on first use.
 
 # backlogops\_gui.\_migrate\_warn
 
-Backward-compatibility warning hook for the graphical interface.
+Backward-compatibility warning hooks for the graphical interface.
 
-When the application reads a configuration file that needed
-backward-compatible normalization (Reading an Old Configuration File),
-this hook prints the standard migration warning followed by instructions
-that point the user at the ``Write configuration…`` menu action. The
-warning is written to the diagnostics stream, which the application shows
-in its log view. The leading underscore in the module name marks it as an
-internal helper.
+When the application reads a file that needed backward-compatible
+normalization (Reading an Old Configuration File), one of these hooks
+prints the standard migration warning followed by menu-specific
+instructions. ``GuiMigrateWarnHook`` is used when the old file is the
+running backlog-ops configuration and points at the ``Write
+configuration…`` menu action. ``GuiPresetMigrateWarnHook`` is used when
+the old file is a stand-alone input or output preset file and points at
+the ``Migrate IO preset file…`` menu action, because rewriting the
+running configuration would not update that preset file. The warning is
+written to the diagnostics stream, which the application shows in its log
+view. The leading underscore in the module name marks it as an internal
+helper.
 
 <a id="backlogops_gui._migrate_warn.GuiMigrateWarnHook"></a>
 
@@ -1025,6 +1045,32 @@ Return the graphical interface migration instructions.
   Text that points the user at the ``Write configuration…`` menu
   action to rewrite the configuration in the current format.
 
+<a id="backlogops_gui._migrate_warn.GuiPresetMigrateWarnHook"></a>
+
+## GuiPresetMigrateWarnHook Objects
+
+```python
+class GuiPresetMigrateWarnHook(MigrateCfgWarnHook)
+```
+
+Tell the user to migrate an old preset file from the menu.
+
+<a id="backlogops_gui._migrate_warn.GuiPresetMigrateWarnHook.migrate_instructions"></a>
+
+#### migrate\_instructions
+
+```python
+@classmethod
+def migrate_instructions(cls) -> str
+```
+
+Return the graphical interface preset migration instructions.
+
+**Returns**:
+
+  Text that points the user at the ``Migrate IO preset file…``
+  menu action to rewrite the preset file in the current format.
+
 <a id="backlogops_gui.application"></a>
 
 # backlogops\_gui.application
@@ -1033,7 +1079,8 @@ Tkinter application for backlog operations.
 
 The application opens a main window whose menu reads a backlog from a file,
 runs the teams configuration wizard, creates a stand-alone input or output
-preset file, writes the running configuration to a file, and creates a
+preset file, migrates a stand-alone preset file to the current format,
+writes the running configuration to a file, and creates a
 demonstration backlog. Each backlog opens in its own
 window. On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
@@ -1288,6 +1335,46 @@ def create_preset_file() -> None
 ```
 
 Run the IO preset wizard and write the preset to a chosen file.
+
+<a id="backlogops_gui.application.BacklogApp.migrate_preset_file"></a>
+
+#### migrate\_preset\_file
+
+```python
+def migrate_preset_file() -> None
+```
+
+Migrate a stand-alone IO preset file to the current format.
+
+The user picks an existing preset file, says whether it is an
+input or output preset, and picks a destination. The destination
+receives the ``.cfg`` extension when missing and must not already
+exist. Cancelling any step does nothing; the outcome is reported.
+
+<a id="backlogops_gui.application.BacklogApp._migrate_preset"></a>
+
+#### \_migrate\_preset
+
+```python
+def _migrate_preset(in_path: str, out_path: str, kind: PresetKind) -> None
+```
+
+Migrate one preset file and report success or failure.
+
+``migrate_cfg`` raises ``SystemExit`` when the input is missing or
+the output already exists, and the configuration classes raise the
+``IO_ERRORS`` when the file cannot be read or written. Either way
+the captured diagnostics are logged and shown to the user.
+
+<a id="backlogops_gui.application.BacklogApp._migrate_failed"></a>
+
+#### \_migrate\_failed
+
+```python
+def _migrate_failed(captured: StringIO, fallback: str) -> None
+```
+
+Log captured diagnostics and report a preset migration failure.
 
 <a id="backlogops_gui.application.BacklogApp.write_config"></a>
 
@@ -2067,6 +2154,16 @@ class ConfigChoice(Enum)
 
 The action chosen in the no-configuration startup dialog.
 
+<a id="backlogops_gui.io_dialogs.PresetKind"></a>
+
+## PresetKind Objects
+
+```python
+class PresetKind(Enum)
+```
+
+Whether a stand-alone preset file is an input or output preset.
+
 <a id="backlogops_gui.io_dialogs.format_value"></a>
 
 #### format\_value
@@ -2142,6 +2239,26 @@ def choose_existing_config(parent: tk.Misc) -> Optional[str]
 
 Ask for an existing configuration file, or None when cancelled.
 
+<a id="backlogops_gui.io_dialogs.choose_preset_to_migrate"></a>
+
+#### choose\_preset\_to\_migrate
+
+```python
+def choose_preset_to_migrate(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for an existing preset file to migrate, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.choose_migrated_preset"></a>
+
+#### choose\_migrated\_preset
+
+```python
+def choose_migrated_preset(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for a migrated preset file to create, or None when cancelled.
+
 <a id="backlogops_gui.io_dialogs._NoConfigDialog"></a>
 
 ## \_NoConfigDialog Objects
@@ -2211,6 +2328,79 @@ def ask_no_config_choice(parent: tk.Misc) -> ConfigChoice
 ```
 
 Ask whether to run the wizard, load a file, or exit.
+
+<a id="backlogops_gui.io_dialogs._PresetKindDialog"></a>
+
+## \_PresetKindDialog Objects
+
+```python
+class _PresetKindDialog()
+```
+
+Modal dialog asking whether a preset is for input or output.
+
+<a id="backlogops_gui.io_dialogs._PresetKindDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the preset kind dialog.
+
+<a id="backlogops_gui.io_dialogs._PresetKindDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the explanation and the two kind buttons.
+
+<a id="backlogops_gui.io_dialogs._PresetKindDialog._add_button"></a>
+
+#### \_add\_button
+
+```python
+def _add_button(text: str, kind: PresetKind) -> None
+```
+
+Add one button that selects the given preset kind.
+
+<a id="backlogops_gui.io_dialogs._PresetKindDialog._show"></a>
+
+#### \_show
+
+```python
+def _show() -> None
+```
+
+Grab the focus and wait for the dialog to close.
+
+<a id="backlogops_gui.io_dialogs._PresetKindDialog._choose"></a>
+
+#### \_choose
+
+```python
+def _choose(kind: PresetKind) -> None
+```
+
+Record the chosen kind and close the dialog.
+
+<a id="backlogops_gui.io_dialogs.ask_preset_kind"></a>
+
+#### ask\_preset\_kind
+
+```python
+def ask_preset_kind(parent: tk.Misc) -> Optional[PresetKind]
+```
+
+Ask whether a preset file is an input or output preset.
+
+Returns the chosen kind, or None when the dialog is closed without a
+choice.
 
 <a id="backlogops_gui.io_dialogs._ModalDialog"></a>
 

@@ -3,7 +3,8 @@
 
 The application opens a main window whose menu reads a backlog from a file,
 runs the teams configuration wizard, creates a stand-alone input or output
-preset file, writes the running configuration to a file, and creates a
+preset file, migrates a stand-alone preset file to the current format,
+writes the running configuration to a file, and creates a
 demonstration backlog. Each backlog opens in its own
 window. On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
@@ -26,7 +27,7 @@ from io import StringIO
 from tkinter import messagebox, ttk
 from typing import Callable, Optional, TextIO, TypeVar
 import argcomplete
-from config_as_json import Config
+from config_as_json import Config, migrate_cfg
 from config_as_json.file_extension import fix_file_extension
 from tableio_cfg_json import WizardUiBridge
 from backlogops import (
@@ -38,8 +39,9 @@ from backlogops_gui.backlog_window import BacklogWindow
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 from backlogops_gui.gui_wizard import TkWizardBridge
 from backlogops_gui.io_dialogs import (
-    ConfigChoice, ask_no_config_choice, ask_read_options, choose_config_file,
-    choose_existing_config, choose_input_file)
+    ConfigChoice, PresetKind, ask_no_config_choice, ask_preset_kind,
+    ask_read_options, choose_config_file, choose_existing_config,
+    choose_input_file, choose_migrated_preset, choose_preset_to_migrate)
 from backlogops_gui.log_buffer import LogBuffer
 from backlogops_gui._migrate_warn import GuiMigrateWarnHook
 from backlogops_gui.python_version import check_python_version
@@ -52,15 +54,18 @@ LOG_REFRESH_MS = 800
 HEADING_FONT = ('TkDefaultFont', 14, 'bold')
 INSTRUCTIONS = (
     'Use the menus to read a backlog file, run the teams wizard, create a '
-    'stand-alone input or output preset file, write the current '
-    'configuration to a file, or create a demonstration backlog. Each '
-    'backlog opens in its own window. On macOS the menu bar is at the top '
-    'of the display.')
+    'stand-alone input or output preset file, migrate a preset file to the '
+    'current format, write the current configuration to a file, or create a '
+    'demonstration backlog. Each backlog opens in its own window. On macOS '
+    'the menu bar is at the top of the display.')
 DESCRIPTION = 'Graphical user interface for backlog operations'
 CONFIG_ERRORS = (FileNotFoundError, NotADirectoryError, RuntimeError,
                  ValueError, TypeError, KeyError, OSError)
 IO_ERRORS = (ValueError, TypeError, KeyError, OSError)
 VERSION_ERRORS = (OSError, RuntimeError, ValueError)
+PRESET_CLASSES: dict[PresetKind, type[Config]] = {
+    PresetKind.INPUT: InputFormatConfig,
+    PresetKind.OUTPUT: OutputFormatConfig}
 _WizardConfig = TypeVar('_WizardConfig', bound=Config)
 
 
@@ -254,6 +259,52 @@ class BacklogApp:
             self._write_to_chosen(config, 'Could not write preset',
                                   'Wrote preset')
 
+    def migrate_preset_file(self) -> None:
+        """Migrate a stand-alone IO preset file to the current format.
+
+        The user picks an existing preset file, says whether it is an
+        input or output preset, and picks a destination. The destination
+        receives the ``.cfg`` extension when missing and must not already
+        exist. Cancelling any step does nothing; the outcome is reported.
+        """
+        in_path = choose_preset_to_migrate(self.root)
+        if in_path is None:
+            return
+        kind = ask_preset_kind(self.root)
+        if kind is None:
+            return
+        out_path = choose_migrated_preset(self.root)
+        if out_path is None:
+            return
+        out_path = fix_file_extension(out_path, CONFIG_EXTENSION)
+        self._migrate_preset(in_path, out_path, kind)
+
+    def _migrate_preset(self, in_path: str, out_path: str,
+                        kind: PresetKind) -> None:
+        """Migrate one preset file and report success or failure.
+
+        ``migrate_cfg`` raises ``SystemExit`` when the input is missing or
+        the output already exists, and the configuration classes raise the
+        ``IO_ERRORS`` when the file cannot be read or written. Either way
+        the captured diagnostics are logged and shown to the user.
+        """
+        captured = StringIO()
+        try:
+            migrate_cfg(in_path, out_path, PRESET_CLASSES[kind], captured)
+        except SystemExit:
+            self._migrate_failed(captured, f'Could not migrate {in_path}.')
+            return
+        except IO_ERRORS as error:
+            self._migrate_failed(captured, str(error))
+            return
+        self.show_info('Migrated preset', f'Wrote {out_path}')
+
+    def _migrate_failed(self, captured: StringIO, fallback: str) -> None:
+        """Log captured diagnostics and report a preset migration failure."""
+        self.log.write(captured.getvalue())
+        self.show_error('Could not migrate preset',
+                        _config_failure(captured, fallback))
+
     def write_config(self) -> None:
         """Write the running configuration to a chosen file."""
         if self.config is None:
@@ -359,6 +410,8 @@ class BacklogApp:
                          command=self.run_config_wizard)
         menu.add_command(label='Create IO preset file…',
                          command=self.create_preset_file)
+        menu.add_command(label='Migrate IO preset file…',
+                         command=self.migrate_preset_file)
         menu.add_command(label='Write configuration…',
                          command=self.write_config)
         menubar.add_cascade(label='Configuration', menu=menu)

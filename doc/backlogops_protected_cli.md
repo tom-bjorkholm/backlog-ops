@@ -64,6 +64,8 @@
 * [backlogops\_cli.\_migrate\_warn](#backlogops_cli._migrate_warn)
   * [CliMigrateWarnHook](#backlogops_cli._migrate_warn.CliMigrateWarnHook)
     * [migrate\_instructions](#backlogops_cli._migrate_warn.CliMigrateWarnHook.migrate_instructions)
+  * [CliPresetMigrateWarnHook](#backlogops_cli._migrate_warn.CliPresetMigrateWarnHook)
+    * [migrate\_instructions](#backlogops_cli._migrate_warn.CliPresetMigrateWarnHook.migrate_instructions)
 * [backlogops\_cli.bloc\_version\_reporter](#backlogops_cli.bloc_version_reporter)
   * [BloCliVersionReporter](#backlogops_cli.bloc_version_reporter.BloCliVersionReporter)
     * [package\_names](#backlogops_cli.bloc_version_reporter.BloCliVersionReporter.package_names)
@@ -951,13 +953,18 @@ already present.
 
 # backlogops\_cli.\_migrate\_warn
 
-Backward-compatibility warning hook for the command line interface.
+Backward-compatibility warning hooks for the command line interface.
 
-When a command reads a configuration file that needed backward-compatible
-normalization (Reading an Old Configuration File), this hook prints the
-standard migration warning followed by command-specific instructions that
-point the user at the ``migrate_cfg`` command. The leading underscore in
-the module name keeps it out of the command listing.
+When a command reads a file that needed backward-compatible normalization
+(Reading an Old Configuration File), one of these hooks prints the
+standard migration warning followed by command-specific instructions.
+``CliMigrateWarnHook`` is used when the old file is the backlog-ops
+configuration file and shows the ``migrate_cfg`` command for the default
+config kind. ``CliPresetMigrateWarnHook`` is used when the old file is a
+stand-alone input or output preset file and shows the ``migrate_cfg``
+command with the ``--kind`` option, because that option selects how a
+preset file is migrated. The leading underscore in the module name keeps
+it out of the command listing.
 
 <a id="backlogops_cli._migrate_warn.CliMigrateWarnHook"></a>
 
@@ -984,6 +991,32 @@ Return the command line migration instructions.
 
   Text that points the user at the ``migrate_cfg`` command to
   rewrite the configuration file in the current format.
+
+<a id="backlogops_cli._migrate_warn.CliPresetMigrateWarnHook"></a>
+
+## CliPresetMigrateWarnHook Objects
+
+```python
+class CliPresetMigrateWarnHook(MigrateCfgWarnHook)
+```
+
+Tell the user to migrate an old preset file with ``migrate_cfg``.
+
+<a id="backlogops_cli._migrate_warn.CliPresetMigrateWarnHook.migrate_instructions"></a>
+
+#### migrate\_instructions
+
+```python
+@classmethod
+def migrate_instructions(cls) -> str
+```
+
+Return the command line preset migration instructions.
+
+**Returns**:
+
+  Text that points the user at the ``migrate_cfg`` command with
+  the ``--kind`` option for input or output preset files.
 
 <a id="backlogops_cli.bloc_version_reporter"></a>
 

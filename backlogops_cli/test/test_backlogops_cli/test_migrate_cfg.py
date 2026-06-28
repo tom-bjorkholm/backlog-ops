@@ -4,20 +4,36 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import argparse
 import io
 import json
 from pathlib import Path
+from typing import Callable
 import pytest
 from config_as_json import MigrateCfgWarnHook
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, InputFormatConfig, OutputFormatConfig,
-    read_backlog_ops_config)
+    AvailableTeams, BacklogOpsConfig, BacklogReleases, InputFormatConfig,
+    OutputFormatConfig, read_backlog_ops_config)
 from backlogops.no_text_io import NoTextIO
-from backlogops_cli import convert, migrate_cfg
+from backlogops_cli import _command_io, convert, migrate_cfg
 from backlogops_cli.list import command_modules
-from backlogops_cli._migrate_warn import CliMigrateWarnHook
+from backlogops_cli._migrate_warn import (
+    CliMigrateWarnHook, CliPresetMigrateWarnHook)
 
 NO_OUTPUT = NoTextIO()
+
+
+class _StopResolve(Exception):
+    """Raised by a resolver spy to stop before the real read or write."""
+
+
+def _hook_spy(store: list[object]) -> Callable[..., object]:
+    """Return a resolver spy that records the auto-change hook then stops."""
+    def spy(value: object, *, data_file: object, presets: object,
+            auto_ch_hook: object) -> object:
+        store.append(auto_ch_hook)
+        raise _StopResolve()
+    return spy
 
 
 def _write_old_config(path: Path) -> None:
@@ -117,6 +133,37 @@ def test_warn_hook_text() -> None:
     message = CliMigrateWarnHook.migrate_warn_msg()
     assert 'Backward compatibility' in message
     assert 'migrate_cfg' in message
+
+
+def test_preset_warn_text() -> None:
+    """Test the preset warning hook shows migrate_cfg with --kind."""
+    message = CliPresetMigrateWarnHook.migrate_warn_msg()
+    assert 'Backward compatibility' in message
+    assert 'migrate_cfg' in message
+    assert '-k input' in message
+    assert '-k output' in message
+
+
+def test_input_preset_hook(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test read_input resolves the input format with the preset hook."""
+    seen: list[object] = []
+    monkeypatch.setattr(_command_io, 'resolve_input_config', _hook_spy(seen))
+    parsed = argparse.Namespace(input='in.csv', input_config='preset.cfg')
+    with pytest.raises(_StopResolve):
+        _command_io.read_input(parsed, None)
+    assert isinstance(seen[0], CliPresetMigrateWarnHook)
+
+
+def test_output_preset_hook(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the output writer resolves the format with the preset hook."""
+    seen: list[object] = []
+    monkeypatch.setattr(_command_io, 'resolve_output_config', _hook_spy(seen))
+    parsed = argparse.Namespace(output='out.csv', output_config='preset.cfg')
+    data = BacklogReleases(backlog=[], releases=[])
+    with pytest.raises(_StopResolve):
+        # pylint: disable-next=protected-access
+        _command_io._write_output(parsed, None, data)
+    assert isinstance(seen[0], CliPresetMigrateWarnHook)
 
 
 def test_old_config_warns(tmp_path: Path,

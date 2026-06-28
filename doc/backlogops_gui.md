@@ -30,6 +30,7 @@
     * [run\_wizard](#backlogops_gui.application.BacklogApp.run_wizard)
     * [run\_config\_wizard](#backlogops_gui.application.BacklogApp.run_config_wizard)
     * [create\_preset\_file](#backlogops_gui.application.BacklogApp.create_preset_file)
+    * [migrate\_preset\_file](#backlogops_gui.application.BacklogApp.migrate_preset_file)
     * [write\_config](#backlogops_gui.application.BacklogApp.write_config)
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
@@ -58,6 +59,7 @@
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
   * [ConfigChoice](#backlogops_gui.io_dialogs.ConfigChoice)
+  * [PresetKind](#backlogops_gui.io_dialogs.PresetKind)
   * [format\_value](#backlogops_gui.io_dialogs.format_value)
   * [ReadOptions](#backlogops_gui.io_dialogs.ReadOptions)
   * [WriteOptions](#backlogops_gui.io_dialogs.WriteOptions)
@@ -65,7 +67,10 @@
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
   * [choose\_existing\_config](#backlogops_gui.io_dialogs.choose_existing_config)
+  * [choose\_preset\_to\_migrate](#backlogops_gui.io_dialogs.choose_preset_to_migrate)
+  * [choose\_migrated\_preset](#backlogops_gui.io_dialogs.choose_migrated_preset)
   * [ask\_no\_config\_choice](#backlogops_gui.io_dialogs.ask_no_config_choice)
+  * [ask\_preset\_kind](#backlogops_gui.io_dialogs.ask_preset_kind)
   * [ask\_read\_options](#backlogops_gui.io_dialogs.ask_read_options)
   * [ask\_write\_options](#backlogops_gui.io_dialogs.ask_write_options)
   * [choose\_key\_list\_output](#backlogops_gui.io_dialogs.choose_key_list_output)
@@ -300,7 +305,8 @@ Tkinter application for backlog operations.
 
 The application opens a main window whose menu reads a backlog from a file,
 runs the teams configuration wizard, creates a stand-alone input or output
-preset file, writes the running configuration to a file, and creates a
+preset file, migrates a stand-alone preset file to the current format,
+writes the running configuration to a file, and creates a
 demonstration backlog. Each backlog opens in its own
 window. On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
@@ -495,6 +501,21 @@ def create_preset_file() -> None
 ```
 
 Run the IO preset wizard and write the preset to a chosen file.
+
+<a id="backlogops_gui.application.BacklogApp.migrate_preset_file"></a>
+
+#### migrate\_preset\_file
+
+```python
+def migrate_preset_file() -> None
+```
+
+Migrate a stand-alone IO preset file to the current format.
+
+The user picks an existing preset file, says whether it is an
+input or output preset, and picks a destination. The destination
+receives the ``.cfg`` extension when missing and must not already
+exist. Cancelling any step does nothing; the outcome is reported.
 
 <a id="backlogops_gui.application.BacklogApp.write_config"></a>
 
@@ -862,6 +883,16 @@ class ConfigChoice(Enum)
 
 The action chosen in the no-configuration startup dialog.
 
+<a id="backlogops_gui.io_dialogs.PresetKind"></a>
+
+## PresetKind Objects
+
+```python
+class PresetKind(Enum)
+```
+
+Whether a stand-alone preset file is an input or output preset.
+
 <a id="backlogops_gui.io_dialogs.format_value"></a>
 
 #### format\_value
@@ -937,6 +968,26 @@ def choose_existing_config(parent: tk.Misc) -> Optional[str]
 
 Ask for an existing configuration file, or None when cancelled.
 
+<a id="backlogops_gui.io_dialogs.choose_preset_to_migrate"></a>
+
+#### choose\_preset\_to\_migrate
+
+```python
+def choose_preset_to_migrate(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for an existing preset file to migrate, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.choose_migrated_preset"></a>
+
+#### choose\_migrated\_preset
+
+```python
+def choose_migrated_preset(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for a migrated preset file to create, or None when cancelled.
+
 <a id="backlogops_gui.io_dialogs.ask_no_config_choice"></a>
 
 #### ask\_no\_config\_choice
@@ -946,6 +997,19 @@ def ask_no_config_choice(parent: tk.Misc) -> ConfigChoice
 ```
 
 Ask whether to run the wizard, load a file, or exit.
+
+<a id="backlogops_gui.io_dialogs.ask_preset_kind"></a>
+
+#### ask\_preset\_kind
+
+```python
+def ask_preset_kind(parent: tk.Misc) -> Optional[PresetKind]
+```
+
+Ask whether a preset file is an input or output preset.
+
+Returns the chosen kind, or None when the dialog is closed without a
+choice.
 
 <a id="backlogops_gui.io_dialogs.ask_read_options"></a>
 

@@ -19,7 +19,7 @@ from backlogops import (
     OutputFormatConfig, NoTextIO, Status, allow_overwrite,
     read_backlog_releases, write_backlog_releases, resolve_input_config,
     resolve_output_config)
-from backlogops_gui._migrate_warn import GuiMigrateWarnHook
+from backlogops_gui._migrate_warn import GuiPresetMigrateWarnHook
 
 
 def _sink(sink: Optional[TextIO]) -> TextIO:
@@ -51,7 +51,7 @@ def read_backlog(path: str, value: Optional[str],
     """
     out = _sink(sink)
     config = resolve_input_config(value, data_file=path, presets=presets,
-                                  auto_ch_hook=GuiMigrateWarnHook(),
+                                  auto_ch_hook=GuiPresetMigrateWarnHook(),
                                   stderr_file=out)
     data = read_backlog_releases(path, config, levels, status_map, out)
     data.check_consistency(out)
@@ -77,7 +77,7 @@ def write_backlog(data: BacklogReleases, path: str, value: Optional[str],
     """
     out = _sink(sink)
     config = resolve_output_config(value, data_file=path, presets=presets,
-                                   auto_ch_hook=GuiMigrateWarnHook(),
+                                   auto_ch_hook=GuiPresetMigrateWarnHook(),
                                    stderr_file=out)
     rules = FormatRules(backlog_first=not releases_first)
     write_backlog_releases(data, path, config, rules, levels=levels,

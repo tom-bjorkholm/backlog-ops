@@ -11,7 +11,8 @@ from backlogops import (
     resolve_input_config)
 from backlogops.no_text_io import NoTextIO
 from backlogops_gui.backlog_io import read_backlog, write_backlog
-from backlogops_gui._migrate_warn import GuiMigrateWarnHook
+from backlogops_gui._migrate_warn import (
+    GuiMigrateWarnHook, GuiPresetMigrateWarnHook)
 
 
 def _data() -> BacklogReleases:
@@ -80,7 +81,7 @@ def test_old_input_warns(tmp_path: Path) -> None:
     _status_csv(data_file, 'TODO')
     sink = io.StringIO()
     read_backlog(str(data_file), str(config_file), None, sink)
-    assert 'Write configuration' in sink.getvalue()
+    assert 'Migrate IO preset file' in sink.getvalue()
 
 
 def test_old_output_warns(tmp_path: Path) -> None:
@@ -91,11 +92,18 @@ def test_old_output_warns(tmp_path: Path) -> None:
     sink = io.StringIO()
     write_backlog(_data(), str(tmp_path / 'res.csv'), str(config_file), None,
                   False, sink)
-    assert 'Write configuration' in sink.getvalue()
+    assert 'Migrate IO preset file' in sink.getvalue()
 
 
 def test_warn_hook_text() -> None:
-    """Test the GUI warning hook points the user at the menu action."""
+    """Test the config warning hook points at the write-config action."""
     message = GuiMigrateWarnHook.migrate_warn_msg()
     assert 'Backward compatibility' in message
     assert 'Write configuration' in message
+
+
+def test_preset_warn_text() -> None:
+    """Test the preset warning hook points at the migrate-preset action."""
+    message = GuiPresetMigrateWarnHook.migrate_warn_msg()
+    assert 'Backward compatibility' in message
+    assert 'Migrate IO preset file' in message

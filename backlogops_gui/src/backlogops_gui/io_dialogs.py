@@ -41,6 +41,13 @@ class ConfigChoice(Enum):
     EXIT = 'exit'
 
 
+class PresetKind(Enum):
+    """Whether a stand-alone preset file is an input or output preset."""
+
+    INPUT = 'input'
+    OUTPUT = 'output'
+
+
 def format_value(mode: int, preset: str, path: str) -> Optional[str]:
     """Return the resolver value for a selected mode and inputs.
 
@@ -95,6 +102,20 @@ def choose_existing_config(parent: tk.Misc) -> Optional[str]:
     return name or None
 
 
+def choose_preset_to_migrate(parent: tk.Misc) -> Optional[str]:
+    """Ask for an existing preset file to migrate, or None when cancelled."""
+    name = filedialog.askopenfilename(parent=parent,
+                                      title='Migrate preset file')
+    return name or None
+
+
+def choose_migrated_preset(parent: tk.Misc) -> Optional[str]:
+    """Ask for a migrated preset file to create, or None when cancelled."""
+    name = filedialog.asksaveasfilename(parent=parent,
+                                        title='Save migrated preset')
+    return name or None
+
+
 # pylint: disable-next=too-few-public-methods
 class _NoConfigDialog:
     """Modal dialog offering to create, load, or exit without a config."""
@@ -139,6 +160,60 @@ class _NoConfigDialog:
 def ask_no_config_choice(parent: tk.Misc) -> ConfigChoice:
     """Ask whether to run the wizard, load a file, or exit."""
     return _NoConfigDialog(parent).choice
+
+
+PRESET_KIND_TEXT = (
+    'Is the preset file an input format preset or an output format '
+    'preset? The kind decides how the file is migrated.')
+
+
+# pylint: disable-next=too-few-public-methods
+class _PresetKindDialog:
+    """Modal dialog asking whether a preset is for input or output."""
+
+    def __init__(self, parent: tk.Misc) -> None:
+        """Build, show and wait for the preset kind dialog."""
+        self.kind: Optional[PresetKind] = None
+        self._win = tk.Toplevel(parent)
+        self._win.title('Preset kind')
+        if isinstance(parent, tk.Wm):
+            self._win.transient(parent)
+        self._win.protocol('WM_DELETE_WINDOW', self._win.destroy)
+        self._build()
+        self._show()
+
+    def _build(self) -> None:
+        """Add the explanation and the two kind buttons."""
+        tk.Label(self._win, text=PRESET_KIND_TEXT, justify='left',
+                 wraplength=NO_CONFIG_WRAP).pack(anchor='w', padx=12,
+                                                 pady=(12, 6))
+        self._add_button('Input format preset', PresetKind.INPUT)
+        self._add_button('Output format preset', PresetKind.OUTPUT)
+
+    def _add_button(self, text: str, kind: PresetKind) -> None:
+        """Add one button that selects the given preset kind."""
+        button = tk.Button(self._win, text=text,
+                           command=lambda: self._choose(kind))
+        button.pack(fill='x', padx=12, pady=4)
+
+    def _show(self) -> None:
+        """Grab the focus and wait for the dialog to close."""
+        self._win.grab_set()
+        self._win.wait_window()
+
+    def _choose(self, kind: PresetKind) -> None:
+        """Record the chosen kind and close the dialog."""
+        self.kind = kind
+        self._win.destroy()
+
+
+def ask_preset_kind(parent: tk.Misc) -> Optional[PresetKind]:
+    """Ask whether a preset file is an input or output preset.
+
+    Returns the chosen kind, or None when the dialog is closed without a
+    choice.
+    """
+    return _PresetKindDialog(parent).kind
 
 
 # pylint: disable-next=too-few-public-methods

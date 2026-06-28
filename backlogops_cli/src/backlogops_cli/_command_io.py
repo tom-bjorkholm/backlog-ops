@@ -16,7 +16,8 @@ from pathlib import Path
 from collections.abc import Callable
 from typing import Optional, TextIO
 import argcomplete
-from backlogops_cli._migrate_warn import CliMigrateWarnHook
+from backlogops_cli._migrate_warn import (
+    CliMigrateWarnHook, CliPresetMigrateWarnHook)
 from backlogops_cli.bloc_version_reporter import BloCliVersionReporter
 from backlogops import (
     BacklogOpsConfig, BacklogReleases, FileExistsCb, FormatRules, Levels,
@@ -180,7 +181,7 @@ def read_input(parsed: argparse.Namespace,
                   else None)
     in_config = resolve_input_config(parsed.input_config,
                                      data_file=parsed.input, presets=presets,
-                                     auto_ch_hook=CliMigrateWarnHook())
+                                     auto_ch_hook=CliPresetMigrateWarnHook())
     data = read_backlog_releases(parsed.input, in_config, levels, status_map)
     data.check_consistency(sys.stderr)
     return data
@@ -244,7 +245,7 @@ def _write_output(parsed: argparse.Namespace,
     out_config = resolve_output_config(parsed.output_config,
                                        data_file=parsed.output,
                                        presets=presets,
-                                       auto_ch_hook=CliMigrateWarnHook())
+                                       auto_ch_hook=CliPresetMigrateWarnHook())
     rules = FormatRules(backlog_first=not parsed.releases_first)
     write_backlog_releases(data, parsed.output, out_config, rules,
                            levels=io_levels(config),
