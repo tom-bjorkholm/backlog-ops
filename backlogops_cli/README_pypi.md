@@ -174,6 +174,9 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.list
      List all commands available in backlogops_cli
 
+  python3 -m backlogops_cli.migrate_cfg
+     Migrate a configuration file to the current file format
+
   python3 -m backlogops_cli.order_by_deps
      Reorder a backlog so that dependencies are fulfilled
 
@@ -199,7 +202,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 1403 passed in 29s
+- Test result: 1430 passed in 31s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

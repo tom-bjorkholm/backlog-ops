@@ -41,6 +41,7 @@ from backlogops_gui.io_dialogs import (
     ConfigChoice, ask_no_config_choice, ask_read_options, choose_config_file,
     choose_existing_config, choose_input_file)
 from backlogops_gui.log_buffer import LogBuffer
+from backlogops_gui._migrate_warn import GuiMigrateWarnHook
 from backlogops_gui.python_version import check_python_version
 from backlogops_gui.tcltk_version import check_tcltk_version
 
@@ -84,7 +85,8 @@ def initial_config(config_arg: Optional[str], sink: Optional[TextIO] = None
     """
     captured = StringIO()
     try:
-        config = get_backlog_ops_config(config_arg, captured)
+        config = get_backlog_ops_config(config_arg, captured,
+                                        auto_ch_hook=GuiMigrateWarnHook())
     except CONFIG_ERRORS as error:
         return None, _config_failure(captured, str(error))
     except SystemExit:

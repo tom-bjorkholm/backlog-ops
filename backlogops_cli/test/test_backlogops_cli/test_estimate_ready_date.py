@@ -108,7 +108,8 @@ def test_missing_config(tmp_path: Path) -> None:
 
 def test_load_teams_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a RuntimeError while loading teams becomes a ValueError."""
-    def boom(config: object, *args: object) -> BacklogOpsConfig:
+    def boom(config: object, *args: object,
+             **kwargs: object) -> BacklogOpsConfig:
         raise RuntimeError('no teams configured')
     monkeypatch.setattr(estimate_ready_date, 'get_backlog_ops_config', boom)
     with pytest.raises(ValueError, match='no teams configured'):

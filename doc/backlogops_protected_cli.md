@@ -16,6 +16,12 @@
 * [backlogops\_cli.demo\_backlog](#backlogops_cli.demo_backlog)
   * [build\_parser](#backlogops_cli.demo_backlog.build_parser)
   * [main](#backlogops_cli.demo_backlog.main)
+* [backlogops\_cli.migrate\_cfg](#backlogops_cli.migrate_cfg)
+  * [KIND\_CLASSES](#backlogops_cli.migrate_cfg.KIND_CLASSES)
+  * [MIGRATE\_ERRORS](#backlogops_cli.migrate_cfg.MIGRATE_ERRORS)
+  * [build\_parser](#backlogops_cli.migrate_cfg.build_parser)
+  * [\_exit\_code](#backlogops_cli.migrate_cfg._exit_code)
+  * [main](#backlogops_cli.migrate_cfg.main)
 * [backlogops\_cli.config\_wizard](#backlogops_cli.config_wizard)
   * [build\_parser](#backlogops_cli.config_wizard.build_parser)
   * [main](#backlogops_cli.config_wizard.main)
@@ -52,6 +58,9 @@
   * [\_check\_overwrite](#backlogops_cli._wizard_io._check_overwrite)
   * [\_make\_bridge](#backlogops_cli._wizard_io._make_bridge)
   * [run\_wizard\_to\_file](#backlogops_cli._wizard_io.run_wizard_to_file)
+* [backlogops\_cli.\_migrate\_warn](#backlogops_cli._migrate_warn)
+  * [CliMigrateWarnHook](#backlogops_cli._migrate_warn.CliMigrateWarnHook)
+    * [migrate\_instructions](#backlogops_cli._migrate_warn.CliMigrateWarnHook.migrate_instructions)
 * [backlogops\_cli.bloc\_version\_reporter](#backlogops_cli.bloc_version_reporter)
   * [BloCliVersionReporter](#backlogops_cli.bloc_version_reporter.BloCliVersionReporter)
     * [package\_names](#backlogops_cli.bloc_version_reporter.BloCliVersionReporter.package_names)
@@ -264,6 +273,72 @@ Write the demonstration backlog and releases to the output file.
 
   ``0`` on success, ``1`` when the data cannot be written.
 
+<a id="backlogops_cli.migrate_cfg"></a>
+
+# backlogops\_cli.migrate\_cfg
+
+Migrate a configuration file to the current file format.
+
+The command reads an existing configuration file through the normal
+backward-compatibility (Reading an Old Configuration File) rules and
+writes the same configuration back in the current format to a new file.
+The ``--kind`` option selects what the input file is: the backlog-ops
+configuration file, a stand-alone input format preset file, or a
+stand-alone output format preset file. The library refuses to overwrite an
+existing output file, so the destination must not exist.
+
+<a id="backlogops_cli.migrate_cfg.KIND_CLASSES"></a>
+
+#### KIND\_CLASSES
+
+Map a ``--kind`` value to the configuration class used to migrate it.
+
+<a id="backlogops_cli.migrate_cfg.MIGRATE_ERRORS"></a>
+
+#### MIGRATE\_ERRORS
+
+Errors raised when an input file cannot be read or written.
+
+<a id="backlogops_cli.migrate_cfg.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the migrate_cfg command.
+
+<a id="backlogops_cli.migrate_cfg._exit_code"></a>
+
+#### \_exit\_code
+
+```python
+def _exit_code(error: SystemExit) -> int
+```
+
+Return the integer exit code carried by a SystemExit.
+
+<a id="backlogops_cli.migrate_cfg.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Migrate a configuration file to the current format.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the input cannot be read, the output
+  already exists, or the data cannot be written.
+
 <a id="backlogops_cli.config_wizard"></a>
 
 # backlogops\_cli.config\_wizard
@@ -371,7 +446,15 @@ Add the input-file and input-config arguments.
 def _ops_config(io_config: Optional[str]) -> Optional[BacklogOpsConfig]
 ```
 
-Return the backlog-ops configuration from a file, if one is given.
+Return the backlog-ops configuration to use for the presets.
+
+When ``--io-config`` names a file, that file is read. Otherwise the
+default teams configuration is looked up the same way as the GUI and
+the estimate command (``$BACKLOGOPS_CFG``, then ``backlogops.cfg`` in
+``$BACKLOGOPS_DIR``, then ``$HOME/.backlogops.cfg``). When no
+configuration is found anywhere, the built-in defaults are used and
+``None`` is returned. An old configuration file is read through the
+compatibility path and triggers a migration warning.
 
 <a id="backlogops_cli._command_io.io_levels"></a>
 
@@ -781,6 +864,44 @@ already present.
 
   ``0`` on success, ``1`` when the wizard is abandoned or the
   configuration is rejected or cannot be written.
+
+<a id="backlogops_cli._migrate_warn"></a>
+
+# backlogops\_cli.\_migrate\_warn
+
+Backward-compatibility warning hook for the command line interface.
+
+When a command reads a configuration file that needed backward-compatible
+normalization (Reading an Old Configuration File), this hook prints the
+standard migration warning followed by command-specific instructions that
+point the user at the ``migrate_cfg`` command. The leading underscore in
+the module name keeps it out of the command listing.
+
+<a id="backlogops_cli._migrate_warn.CliMigrateWarnHook"></a>
+
+## CliMigrateWarnHook Objects
+
+```python
+class CliMigrateWarnHook(MigrateCfgWarnHook)
+```
+
+Tell the user to migrate an old config file with ``migrate_cfg``.
+
+<a id="backlogops_cli._migrate_warn.CliMigrateWarnHook.migrate_instructions"></a>
+
+#### migrate\_instructions
+
+```python
+@classmethod
+def migrate_instructions(cls) -> str
+```
+
+Return the command line migration instructions.
+
+**Returns**:
+
+  Text that points the user at the ``migrate_cfg`` command to
+  rewrite the configuration file in the current format.
 
 <a id="backlogops_cli.bloc_version_reporter"></a>
 

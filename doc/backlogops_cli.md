@@ -12,6 +12,11 @@
 * [backlogops\_cli.demo\_backlog](#backlogops_cli.demo_backlog)
   * [build\_parser](#backlogops_cli.demo_backlog.build_parser)
   * [main](#backlogops_cli.demo_backlog.main)
+* [backlogops\_cli.migrate\_cfg](#backlogops_cli.migrate_cfg)
+  * [KIND\_CLASSES](#backlogops_cli.migrate_cfg.KIND_CLASSES)
+  * [MIGRATE\_ERRORS](#backlogops_cli.migrate_cfg.MIGRATE_ERRORS)
+  * [build\_parser](#backlogops_cli.migrate_cfg.build_parser)
+  * [main](#backlogops_cli.migrate_cfg.main)
 * [backlogops\_cli.config\_wizard](#backlogops_cli.config_wizard)
   * [build\_parser](#backlogops_cli.config_wizard.build_parser)
   * [main](#backlogops_cli.config_wizard.main)
@@ -182,6 +187,62 @@ Write the demonstration backlog and releases to the output file.
 **Returns**:
 
   ``0`` on success, ``1`` when the data cannot be written.
+
+<a id="backlogops_cli.migrate_cfg"></a>
+
+# backlogops\_cli.migrate\_cfg
+
+Migrate a configuration file to the current file format.
+
+The command reads an existing configuration file through the normal
+backward-compatibility (Reading an Old Configuration File) rules and
+writes the same configuration back in the current format to a new file.
+The ``--kind`` option selects what the input file is: the backlog-ops
+configuration file, a stand-alone input format preset file, or a
+stand-alone output format preset file. The library refuses to overwrite an
+existing output file, so the destination must not exist.
+
+<a id="backlogops_cli.migrate_cfg.KIND_CLASSES"></a>
+
+#### KIND\_CLASSES
+
+Map a ``--kind`` value to the configuration class used to migrate it.
+
+<a id="backlogops_cli.migrate_cfg.MIGRATE_ERRORS"></a>
+
+#### MIGRATE\_ERRORS
+
+Errors raised when an input file cannot be read or written.
+
+<a id="backlogops_cli.migrate_cfg.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the migrate_cfg command.
+
+<a id="backlogops_cli.migrate_cfg.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Migrate a configuration file to the current format.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the input cannot be read, the output
+  already exists, or the data cannot be written.
 
 <a id="backlogops_cli.config_wizard"></a>
 

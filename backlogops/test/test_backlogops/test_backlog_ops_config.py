@@ -10,9 +10,11 @@ stored the workforce members at the top level.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import io
 import json
 from pathlib import Path
 import pytest
+from config_as_json import MigrateCfgWarnHook
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, DEFAULT_LEVELS, Level, LevelDisplay,
     Status, make_input_config, make_output_config, read_backlog_ops_config,
@@ -143,6 +145,32 @@ def test_old_no_presets(tmp_path: Path) -> None:
     loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
     assert not loaded.input_configs
     assert not loaded.output_configs
+
+
+def _write_old_config(path: Path) -> None:
+    """Write an old top-level-workforce file that needs ROCF on read."""
+    old = _config_json(_empty())['available_teams']
+    path.write_text(json.dumps(old), encoding='UTF-8')
+
+
+def test_warn_hook_old_file(tmp_path: Path) -> None:
+    """Test reading an old file notifies the backward-compatibility hook."""
+    config_file = tmp_path / 'old.cfg'
+    _write_old_config(config_file)
+    out = io.StringIO()
+    read_backlog_ops_config(config_file, out,
+                            auto_ch_hook=MigrateCfgWarnHook())
+    assert 'Backward compatibility' in out.getvalue()
+
+
+def test_warn_hook_current(tmp_path: Path) -> None:
+    """Test reading a current file leaves the warning hook silent."""
+    config_file = tmp_path / 'ops.cfg'
+    write_backlog_ops_config(_empty(), config_file, NO_OUTPUT)
+    out = io.StringIO()
+    read_backlog_ops_config(config_file, out,
+                            auto_ch_hook=MigrateCfgWarnHook())
+    assert out.getvalue() == ''
 
 
 def test_gui_display_default() -> None:

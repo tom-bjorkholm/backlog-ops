@@ -44,10 +44,11 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import ClassVar, NoReturn, Optional, TextIO, override
-from config_as_json import Config, ConfigNesting, ConfigNestingKind, \
-    ConfigPath, InvalidConfiguration, MemberValidationStep, MemberValidator, \
-    NestedConfigs, ParseConverter, PathOrStr, ReadOldConfiguration, \
-    RocfKeyMove, RocfValueMigration, RocfValueWrite, ValidationPlan
+from config_as_json import Config, ConfigAutoChangeHook, ConfigNesting, \
+    ConfigNestingKind, ConfigPath, InvalidConfiguration, \
+    MemberValidationStep, MemberValidator, NestedConfigs, ParseConverter, \
+    PathOrStr, ReadOldConfiguration, RocfKeyMove, RocfValueMigration, \
+    RocfValueWrite, ValidationPlan
 from tableio import Capabilities, FileAccess, access_capabilities
 from tableio_cfg_json import TioJsonConfig, tio_json_config_default
 from backlogops.backlog import Status
@@ -228,6 +229,7 @@ class _FormatConfig(Config):
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
+                 auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr) -> None:
         """Create default settings or read them from a JSON source."""
         self.tableio: TioJsonConfig = _tio_default(self._FILE_ACCESS,
@@ -236,7 +238,7 @@ class _FormatConfig(Config):
             list(self._UNCHECKED_EXTRA)
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
-                        stderr_file=stderr_file)
+                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
 
     def _tio_factory(self, *, from_json_data_text: Optional[str] = None,
                      from_json_filename: Optional[PathOrStr] = None,
@@ -331,6 +333,7 @@ class InputFormatConfig(_FormatConfig):
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
+                 auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr) -> None:
         """Create the input map defaults, then run the shared constructor."""
         self.backlog_to_internal = {}
@@ -338,6 +341,7 @@ class InputFormatConfig(_FormatConfig):
         self.status_input_map = {}
         _FormatConfig.__init__(self, from_json_data_text=from_json_data_text,
                                from_json_filename=from_json_filename,
+                               auto_ch_hook=auto_ch_hook,
                                stderr_file=stderr_file)
 
     @override
@@ -376,6 +380,7 @@ class OutputFormatConfig(_FormatConfig):
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
+                 auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr) -> None:
         """Create the output defaults, then run the shared constructor."""
         self.backlog_to_external = {}
@@ -383,6 +388,7 @@ class OutputFormatConfig(_FormatConfig):
         self.level_display = LevelDisplay.BOTH
         _FormatConfig.__init__(self, from_json_data_text=from_json_data_text,
                                from_json_filename=from_json_filename,
+                               auto_ch_hook=auto_ch_hook,
                                stderr_file=stderr_file)
 
     @override
@@ -515,6 +521,7 @@ def _preset(value: str, presets: Optional[Mapping[str, _FormatConfig]]
 def resolve_input_config(
         value: Optional[str], *, data_file: PathOrStr,
         presets: Optional[dict[str, InputFormatConfig]] = None,
+        auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
         stderr_file: TextIO = sys.stderr) -> InputFormatConfig:
     """Resolve a command-line input config value to an input config.
 
@@ -526,6 +533,8 @@ def resolve_input_config(
         value: The ``--input-config`` value, or None for inference.
         data_file: The input data file, used for format inference.
         presets: Named input presets, typically from the teams config.
+        auto_ch_hook: Hook notified when a stand-alone input config file
+            needed backward-compatible normalization while reading.
         stderr_file: Stream used for user-facing diagnostics.
 
     Returns:
@@ -540,12 +549,15 @@ def resolve_input_config(
         preset = _preset(value, presets)
         assert isinstance(preset, InputFormatConfig)
         return preset
-    return InputFormatConfig(from_json_filename=value, stderr_file=stderr_file)
+    return InputFormatConfig(from_json_filename=value,
+                             auto_ch_hook=auto_ch_hook,
+                             stderr_file=stderr_file)
 
 
 def resolve_output_config(
         value: Optional[str], *, data_file: PathOrStr,
         presets: Optional[dict[str, OutputFormatConfig]] = None,
+        auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
         stderr_file: TextIO = sys.stderr) -> OutputFormatConfig:
     """Resolve a command-line output config value to an output config.
 
@@ -557,6 +569,8 @@ def resolve_output_config(
         value: The ``--output-config`` value, or None for inference.
         data_file: The output data file, used for format inference.
         presets: Named output presets, typically from the teams config.
+        auto_ch_hook: Hook notified when a stand-alone output config file
+            needed backward-compatible normalization while reading.
         stderr_file: Stream used for user-facing diagnostics.
 
     Returns:
@@ -572,4 +586,5 @@ def resolve_output_config(
         assert isinstance(preset, OutputFormatConfig)
         return preset
     return OutputFormatConfig(from_json_filename=value,
+                              auto_ch_hook=auto_ch_hook,
                               stderr_file=stderr_file)

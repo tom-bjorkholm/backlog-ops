@@ -4,10 +4,11 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import io
 import json
 from pathlib import Path
 import pytest
-from config_as_json import InvalidConfiguration
+from config_as_json import InvalidConfiguration, MigrateCfgWarnHook
 from backlogops import (
     GuiDisplayConfig, InputFormatConfig, LevelDisplay, OutputFormatConfig,
     Status, make_input_config, make_output_config, resolve_input_config,
@@ -238,6 +239,45 @@ def test_gui_display_rt(tmp_path: Path) -> None:
     assert loaded.level_display is LevelDisplay.NAME
     assert loaded.backlog_to_external == {'key': 'Id', 'team': None}
     assert loaded.release_to_external == {'name': 'Release'}
+
+
+def _write_old_file(path: Path) -> None:
+    """Write a minimal old endpoint file that needs ROCF on read."""
+    path.write_text('{"tableio": {"format_name": "CSV"}}', encoding='UTF-8')
+
+
+def test_in_warn_hook(tmp_path: Path) -> None:
+    """Test reading an old stand-alone input file notifies the hook."""
+    config_file = tmp_path / 'in.cfg'
+    _write_old_file(config_file)
+    out = io.StringIO()
+    resolve_input_config(str(config_file), data_file='x.csv',
+                         auto_ch_hook=MigrateCfgWarnHook(), stderr_file=out)
+    assert 'Backward compatibility' in out.getvalue()
+
+
+def test_in_warn_quiet(tmp_path: Path) -> None:
+    """Test reading a current input file leaves the hook silent."""
+    source = make_input_config(
+        resolve_input_config(None, data_file='x.csv',
+                             stderr_file=NO_OUTPUT).tableio,
+        {'Type': 'level'}, {}, stderr_file=NO_OUTPUT)
+    config_file = tmp_path / 'in.cfg'
+    source.write(to_json_filename=config_file, stderr_file=NO_OUTPUT)
+    out = io.StringIO()
+    resolve_input_config(str(config_file), data_file='x.csv',
+                         auto_ch_hook=MigrateCfgWarnHook(), stderr_file=out)
+    assert out.getvalue() == ''
+
+
+def test_out_warn_hook(tmp_path: Path) -> None:
+    """Test reading an old stand-alone output file notifies the hook."""
+    config_file = tmp_path / 'out.cfg'
+    _write_old_file(config_file)
+    out = io.StringIO()
+    resolve_output_config(str(config_file), data_file='x.csv',
+                          auto_ch_hook=MigrateCfgWarnHook(), stderr_file=out)
+    assert 'Backward compatibility' in out.getvalue()
 
 
 def test_gui_bad_map() -> None:

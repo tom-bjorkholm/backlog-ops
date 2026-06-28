@@ -2871,6 +2871,7 @@ def __init__(*,
              available_teams: Optional[AvailableTeams] = None,
              from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr) -> None
 ```
 
@@ -2880,6 +2881,8 @@ The supplied workforce establishes the schema of the nested
 ``available_teams`` member; the library's auto-wrap step turns it
 into an :class:`AvailableTeamsConfig`. The presets default to
 empty maps and the levels default to ``None`` (use the defaults).
+The ``auto_ch_hook`` is notified when an old file needed
+backward-compatible normalization while reading.
 
 <a id="backlogops.backlog_ops_config.BacklogOpsConfig._get_read_old_config"></a>
 
@@ -3032,7 +3035,9 @@ Validate and write a backlog-ops configuration to a JSON file.
 ```python
 def read_backlog_ops_config(
         filename: PathOrStr,
-        stderr_file: TextIO = sys.stderr) -> BacklogOpsConfig
+        stderr_file: TextIO = sys.stderr,
+        auto_ch_hook: Optional[ConfigAutoChangeHook] = None
+) -> BacklogOpsConfig
 ```
 
 Read a backlog-ops configuration from a JSON configuration file.
@@ -3041,6 +3046,8 @@ Read a backlog-ops configuration from a JSON configuration file.
 
 - `filename` - Source JSON configuration file.
 - `stderr_file` - Stream used for user-facing diagnostics.
+- `auto_ch_hook` - Hook notified when an old file needed
+  backward-compatible normalization while reading.
   
 
 **Returns**:
@@ -3126,7 +3133,9 @@ Return the configuration file found by the documented precedence.
 ```python
 def get_backlog_ops_config(
         filename: Optional[PathOrStr],
-        stderr_file: TextIO = sys.stderr) -> BacklogOpsConfig
+        stderr_file: TextIO = sys.stderr,
+        auto_ch_hook: Optional[ConfigAutoChangeHook] = None
+) -> BacklogOpsConfig
 ```
 
 Return the BacklogOpsConfig to use, reading or reusing as needed.
@@ -3147,6 +3156,8 @@ returned. If no file is found, an exception is raised.
 
 - `filename` - Source JSON configuration file.
 - `stderr_file` - Stream used for user-facing diagnostics.
+- `auto_ch_hook` - Hook notified when an old file needed
+  backward-compatible normalization while reading.
   
 
 **Raises**:
@@ -5500,6 +5511,7 @@ declared as a nested configuration so it reads and writes itself.
 ```python
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr) -> None
 ```
 
@@ -5632,6 +5644,7 @@ to empty and is absent from an older file.
 ```python
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr) -> None
 ```
 
@@ -5685,6 +5698,7 @@ be absent from an older file, in which case the default applies.
 ```python
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr) -> None
 ```
 
@@ -5857,6 +5871,7 @@ def resolve_input_config(
         *,
         data_file: PathOrStr,
         presets: Optional[dict[str, InputFormatConfig]] = None,
+        auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
         stderr_file: TextIO = sys.stderr) -> InputFormatConfig
 ```
 
@@ -5871,6 +5886,8 @@ Any other value is the path of a stand-alone input config file.
 - `value` - The ``--input-config`` value, or None for inference.
 - `data_file` - The input data file, used for format inference.
 - `presets` - Named input presets, typically from the teams config.
+- `auto_ch_hook` - Hook notified when a stand-alone input config file
+  needed backward-compatible normalization while reading.
 - `stderr_file` - Stream used for user-facing diagnostics.
   
 
@@ -5893,6 +5910,7 @@ def resolve_output_config(
         *,
         data_file: PathOrStr,
         presets: Optional[dict[str, OutputFormatConfig]] = None,
+        auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
         stderr_file: TextIO = sys.stderr) -> OutputFormatConfig
 ```
 
@@ -5907,6 +5925,8 @@ Any other value is the path of a stand-alone output config file.
 - `value` - The ``--output-config`` value, or None for inference.
 - `data_file` - The output data file, used for format inference.
 - `presets` - Named output presets, typically from the teams config.
+- `auto_ch_hook` - Hook notified when a stand-alone output config file
+  needed backward-compatible normalization while reading.
 - `stderr_file` - Stream used for user-facing diagnostics.
   
 

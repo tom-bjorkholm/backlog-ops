@@ -64,6 +64,9 @@
     * [error\_file](#backlogops_gui.gui_wizard.TkWizardBridge.error_file)
     * [close](#backlogops_gui.gui_wizard.TkWizardBridge.close)
     * [\_window\_obj](#backlogops_gui.gui_wizard.TkWizardBridge._window_obj)
+* [backlogops\_gui.\_migrate\_warn](#backlogops_gui._migrate_warn)
+  * [GuiMigrateWarnHook](#backlogops_gui._migrate_warn.GuiMigrateWarnHook)
+    * [migrate\_instructions](#backlogops_gui._migrate_warn.GuiMigrateWarnHook.migrate_instructions)
 * [backlogops\_gui.application](#backlogops_gui.application)
   * [initial\_config](#backlogops_gui.application.initial_config)
   * [\_config\_failure](#backlogops_gui.application._config_failure)
@@ -981,6 +984,46 @@ def _window_obj() -> _WizardWindow
 ```
 
 Return the wizard window, creating it on first use.
+
+<a id="backlogops_gui._migrate_warn"></a>
+
+# backlogops\_gui.\_migrate\_warn
+
+Backward-compatibility warning hook for the graphical interface.
+
+When the application reads a configuration file that needed
+backward-compatible normalization (Reading an Old Configuration File),
+this hook prints the standard migration warning followed by instructions
+that point the user at the ``Write configuration…`` menu action. The
+warning is written to the diagnostics stream, which the application shows
+in its log view. The leading underscore in the module name marks it as an
+internal helper.
+
+<a id="backlogops_gui._migrate_warn.GuiMigrateWarnHook"></a>
+
+## GuiMigrateWarnHook Objects
+
+```python
+class GuiMigrateWarnHook(MigrateCfgWarnHook)
+```
+
+Tell the user to migrate an old config file from the menu.
+
+<a id="backlogops_gui._migrate_warn.GuiMigrateWarnHook.migrate_instructions"></a>
+
+#### migrate\_instructions
+
+```python
+@classmethod
+def migrate_instructions(cls) -> str
+```
+
+Return the graphical interface migration instructions.
+
+**Returns**:
+
+  Text that points the user at the ``Write configuration…`` menu
+  action to rewrite the configuration in the current format.
 
 <a id="backlogops_gui.application"></a>
 

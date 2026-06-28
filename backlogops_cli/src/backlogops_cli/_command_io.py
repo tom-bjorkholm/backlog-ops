@@ -15,13 +15,15 @@ import sys
 from collections.abc import Callable
 from typing import Optional, TextIO
 import argcomplete
+from backlogops_cli._migrate_warn import CliMigrateWarnHook
 from backlogops_cli.bloc_version_reporter import BloCliVersionReporter
 from backlogops import (
     BacklogOpsConfig, BacklogReleases, FileExistsCb, FormatRules, Levels,
     OutputFormatConfig, ReleaseChanges, ReleaseDateChanges, allow_overwrite,
-    format_content_changes, format_date_changes, read_backlog_ops_config,
-    read_backlog_releases, resolve_input_config, resolve_output_config,
-    write_backlog_releases, write_content_changes, write_date_changes)
+    format_content_changes, format_date_changes, get_backlog_ops_config,
+    read_backlog_ops_config, read_backlog_releases, resolve_input_config,
+    resolve_output_config, write_backlog_releases, write_content_changes,
+    write_date_changes)
 
 
 def overwrite_callback(force: bool, in_stream: Optional[TextIO] = None,
@@ -75,10 +77,24 @@ def add_input_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _ops_config(io_config: Optional[str]) -> Optional[BacklogOpsConfig]:
-    """Return the backlog-ops configuration from a file, if one is given."""
-    if io_config is None:
+    """Return the backlog-ops configuration to use for the presets.
+
+    When ``--io-config`` names a file, that file is read. Otherwise the
+    default teams configuration is looked up the same way as the GUI and
+    the estimate command (``$BACKLOGOPS_CFG``, then ``backlogops.cfg`` in
+    ``$BACKLOGOPS_DIR``, then ``$HOME/.backlogops.cfg``). When no
+    configuration is found anywhere, the built-in defaults are used and
+    ``None`` is returned. An old configuration file is read through the
+    compatibility path and triggers a migration warning.
+    """
+    if io_config is not None:
+        return read_backlog_ops_config(io_config, sys.stderr,
+                                       auto_ch_hook=CliMigrateWarnHook())
+    try:
+        return get_backlog_ops_config(None, sys.stderr,
+                                      auto_ch_hook=CliMigrateWarnHook())
+    except RuntimeError:
         return None
-    return read_backlog_ops_config(io_config, sys.stderr)
 
 
 def io_levels(parsed: argparse.Namespace) -> Optional[Levels]:
@@ -120,7 +136,8 @@ def read_input(parsed: argparse.Namespace) -> BacklogReleases:
     status_map = (config.get_status_input_map() if config is not None
                   else None)
     in_config = resolve_input_config(parsed.input_config,
-                                     data_file=parsed.input, presets=presets)
+                                     data_file=parsed.input, presets=presets,
+                                     auto_ch_hook=CliMigrateWarnHook())
     data = read_backlog_releases(parsed.input, in_config, levels, status_map)
     data.check_consistency(sys.stderr)
     return data
@@ -159,7 +176,8 @@ def _write_output(parsed: argparse.Namespace, data: BacklogReleases) -> None:
     """Write the backlog and releases to the configured output file."""
     presets = _output_presets(parsed.io_config)
     config = resolve_output_config(parsed.output_config,
-                                   data_file=parsed.output, presets=presets)
+                                   data_file=parsed.output, presets=presets,
+                                   auto_ch_hook=CliMigrateWarnHook())
     rules = FormatRules(backlog_first=not parsed.releases_first)
     write_backlog_releases(data, parsed.output, config, rules,
                            levels=io_levels(parsed),

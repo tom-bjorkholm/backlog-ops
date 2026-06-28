@@ -27,9 +27,9 @@ import sys
 from pathlib import Path
 from typing import Optional, TextIO, override
 from config_as_json import CallingWholeConfigValidator, Config, \
-    ConfigNesting, ConfigNestingKind, ConfigPath, JsonType, \
-    MemberValidationStep, MemberValidator, NestedConfigs, PathOrStr, \
-    ReadOldConfiguration, RocfKeyMove, SerializeConverter, \
+    ConfigAutoChangeHook, ConfigNesting, ConfigNestingKind, ConfigPath, \
+    JsonType, MemberValidationStep, MemberValidator, NestedConfigs, \
+    PathOrStr, ReadOldConfiguration, RocfKeyMove, SerializeConverter, \
     SerializeConverters, ValidationPlan, WholeConfigValidationStep
 from backlogops.available_teams import AvailableTeams
 from backlogops.available_teams_config import AvailableTeamsConfig
@@ -154,6 +154,7 @@ class BacklogOpsConfig(Config):
     def __init__(self, *, available_teams: Optional[AvailableTeams] = None,
                  from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
+                 auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr) -> None:
         """Create defaults, or read the configuration from JSON.
 
@@ -161,6 +162,8 @@ class BacklogOpsConfig(Config):
         ``available_teams`` member; the library's auto-wrap step turns it
         into an :class:`AvailableTeamsConfig`. The presets default to
         empty maps and the levels default to ``None`` (use the defaults).
+        The ``auto_ch_hook`` is notified when an old file needed
+        backward-compatible normalization while reading.
         """
         self.available_teams: AvailableTeams = (
             AvailableTeams(persons={}, teams=[]) if available_teams is None
@@ -174,7 +177,7 @@ class BacklogOpsConfig(Config):
         self._unchecked_dicts = ['status_input_map']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
-                        stderr_file=stderr_file)
+                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
 
     @override
     def _get_read_old_config(self) -> ReadOldConfiguration:
@@ -279,19 +282,22 @@ def write_backlog_ops_config(config: BacklogOpsConfig, filename: PathOrStr,
 
 
 def read_backlog_ops_config(filename: PathOrStr,
-                            stderr_file: TextIO = sys.stderr
+                            stderr_file: TextIO = sys.stderr,
+                            auto_ch_hook: Optional[ConfigAutoChangeHook] = None
                             ) -> BacklogOpsConfig:
     """Read a backlog-ops configuration from a JSON configuration file.
 
     Args:
         filename: Source JSON configuration file.
         stderr_file: Stream used for user-facing diagnostics.
+        auto_ch_hook: Hook notified when an old file needed
+            backward-compatible normalization while reading.
 
     Returns:
         The loaded configuration.
     """
     return BacklogOpsConfig(from_json_filename=filename,
-                            stderr_file=stderr_file)
+                            auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
 
 
 # pylint: disable-next=too-few-public-methods
@@ -369,7 +375,8 @@ def _config_path_from_env() -> Path:
 
 
 def get_backlog_ops_config(filename: Optional[PathOrStr],
-                           stderr_file: TextIO = sys.stderr
+                           stderr_file: TextIO = sys.stderr,
+                           auto_ch_hook: Optional[ConfigAutoChangeHook] = None
                            ) -> BacklogOpsConfig:
     """Return the BacklogOpsConfig to use, reading or reusing as needed.
 
@@ -388,6 +395,8 @@ def get_backlog_ops_config(filename: Optional[PathOrStr],
     Args:
         filename: Source JSON configuration file.
         stderr_file: Stream used for user-facing diagnostics.
+        auto_ch_hook: Hook notified when an old file needed
+            backward-compatible normalization while reading.
 
     Raises:
         FileNotFoundError: If $BACKLOGOPS_CFG is set but the file does not
@@ -401,10 +410,12 @@ def get_backlog_ops_config(filename: Optional[PathOrStr],
         The loaded configuration.
     """
     if filename is not None:
-        _ConfigStore.current = read_backlog_ops_config(filename, stderr_file)
+        _ConfigStore.current = read_backlog_ops_config(filename, stderr_file,
+                                                       auto_ch_hook)
         return _ConfigStore.current
     if _ConfigStore.current is not None:
         return _ConfigStore.current
     path = _config_path_from_env()
-    _ConfigStore.current = read_backlog_ops_config(path, stderr_file)
+    _ConfigStore.current = read_backlog_ops_config(path, stderr_file,
+                                                   auto_ch_hook)
     return _ConfigStore.current

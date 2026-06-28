@@ -4,12 +4,14 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import io
 from pathlib import Path
 from backlogops import (
     BacklogItem, BacklogReleases, Release, Status, make_input_config,
     resolve_input_config)
 from backlogops.no_text_io import NoTextIO
 from backlogops_gui.backlog_io import read_backlog, write_backlog
+from backlogops_gui._migrate_warn import GuiMigrateWarnHook
 
 
 def _data() -> BacklogReleases:
@@ -67,3 +69,33 @@ def test_preset_status_wins(tmp_path: Path) -> None:
     data = read_backlog(str(path), 'jira', {'jira': preset},
                         status_map={'Reviewing': Status.IN_PROGRESS})
     assert data.backlog[0].status is Status.DONE
+
+
+def test_old_input_warns(tmp_path: Path) -> None:
+    """Test reading via an old input config file warns into the sink."""
+    config_file = tmp_path / 'in.cfg'
+    config_file.write_text('{"tableio": {"format_name": "CSV"}}',
+                           encoding='UTF-8')
+    data_file = tmp_path / 'in.csv'
+    _status_csv(data_file, 'TODO')
+    sink = io.StringIO()
+    read_backlog(str(data_file), str(config_file), None, sink)
+    assert 'Write configuration' in sink.getvalue()
+
+
+def test_old_output_warns(tmp_path: Path) -> None:
+    """Test writing via an old output config file warns into the sink."""
+    config_file = tmp_path / 'out.cfg'
+    config_file.write_text('{"tableio": {"format_name": "CSV"}}',
+                           encoding='UTF-8')
+    sink = io.StringIO()
+    write_backlog(_data(), str(tmp_path / 'res.csv'), str(config_file), None,
+                  False, sink)
+    assert 'Write configuration' in sink.getvalue()
+
+
+def test_warn_hook_text() -> None:
+    """Test the GUI warning hook points the user at the menu action."""
+    message = GuiMigrateWarnHook.migrate_warn_msg()
+    assert 'Backward compatibility' in message
+    assert 'Write configuration' in message

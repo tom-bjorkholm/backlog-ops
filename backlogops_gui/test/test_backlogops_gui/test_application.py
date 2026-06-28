@@ -11,6 +11,7 @@ from backlogops import BacklogOpsConfig, BacklogReleases, OutputFormatConfig
 from backlogops_gui import application
 from backlogops_gui.application import APP_TITLE, BacklogApp
 from backlogops_gui.io_dialogs import ConfigChoice, ReadOptions
+from backlogops_gui._migrate_warn import GuiMigrateWarnHook
 
 DATA = BacklogReleases(backlog=[], releases=[])
 
@@ -102,17 +103,20 @@ def _opener(store: list[object]) -> Callable[[BacklogReleases, str], None]:
     return recorder
 
 
-def _raise_none(_arg: object, _sink: object) -> BacklogOpsConfig:
+def _raise_none(_arg: object, _sink: object,
+                **_kwargs: object) -> BacklogOpsConfig:
     """Raise as if no configuration file was found."""
     raise RuntimeError('none')
 
 
-def _raise_missing(_arg: object, _sink: object) -> BacklogOpsConfig:
+def _raise_missing(_arg: object, _sink: object,
+                   **_kwargs: object) -> BacklogOpsConfig:
     """Raise as if a named configuration file was missing."""
     raise FileNotFoundError('missing')
 
 
-def _raise_exit(_arg: object, captured: TextIO) -> BacklogOpsConfig:
+def _raise_exit(_arg: object, captured: TextIO,
+                **_kwargs: object) -> BacklogOpsConfig:
     """Report a missing file and exit, as the config loader does."""
     captured.write('File aha does not exist. Cannot proceed.\n')
     raise SystemExit(1)
@@ -127,9 +131,9 @@ def _choices(*values: ConfigChoice) -> Callable[[object], ConfigChoice]:
     return chooser
 
 
-def _load_for_path(config: object) -> Callable[[object, object], object]:
+def _load_for_path(config: object) -> Callable[..., object]:
     """Return a loader that fails without a path and works with one."""
-    def loader(arg: object, _sink: object) -> object:
+    def loader(arg: object, _sink: object, **_kwargs: object) -> object:
         if arg is None:
             raise RuntimeError('none')
         return config
@@ -155,9 +159,9 @@ def _read_fail(_path: object, _value: object, _presets: object, _sink: object,
     raise ValueError('bad file')
 
 
-def _returns(value: object) -> Callable[[object, object], object]:
-    """Return a two-argument stub yielding a fixed value."""
-    def get(_arg: object, _sink: object) -> object:
+def _returns(value: object) -> Callable[..., object]:
+    """Return a configuration-loader stub yielding a fixed value."""
+    def get(_arg: object, _sink: object, **_kwargs: object) -> object:
         return value
     return get
 
@@ -199,6 +203,21 @@ def test_initial_config_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     result, error = application.initial_config(None)
     assert result is cast(BacklogOpsConfig, config)
     assert error is None
+
+
+def test_initial_config_hook(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test initial_config passes a GUI migration warning hook."""
+    seen: list[object] = []
+
+    def record(_arg: object, _sink: object,
+               auto_ch_hook: object = None) -> object:
+        seen.append(auto_ch_hook)
+        return FakeConfig()
+    monkeypatch.setattr(application, 'get_backlog_ops_config', record)
+    result, error = application.initial_config('cfg')
+    assert error is None
+    assert result is not None
+    assert isinstance(seen[0], GuiMigrateWarnHook)
 
 
 def test_initial_config_err(monkeypatch: pytest.MonkeyPatch) -> None:
