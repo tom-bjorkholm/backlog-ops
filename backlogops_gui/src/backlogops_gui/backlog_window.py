@@ -125,25 +125,33 @@ def order_by_deps(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
                   'Ordered the backlog by dependencies.')
 
 
+def _release_order_message(honor: bool, later: bool) -> str:
+    """Return the success message describing a release-order action."""
+    if not honor:
+        return ('Ordered the backlog by release order without honoring '
+                'dependencies.')
+    if later:
+        return ('Ordered the backlog by release order, honoring '
+                'dependencies by pushing dependents later.')
+    return ('Ordered the backlog by release order, honoring dependencies '
+            'by pulling prerequisites earlier.')
+
+
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def order_by_release(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
                      refresh: Callable[[], None],
                      on_error: Callable[[str, str], None],
                      on_info: Callable[[str, str], None]) -> None:
     """Ask for options and order the backlog by release order."""
-    honor = ask_release_order(parent)
-    if honor is None:
+    options = ask_release_order(parent)
+    if options is None:
         return
-    if honor:
-        message = ('Ordered the backlog by release order, honoring '
-                   'dependencies.')
-    else:
-        message = ('Ordered the backlog by release order without honoring '
-                   'dependencies.')
+    honor, later = options.honor_dependencies, options.later
+    message = _release_order_message(honor, later)
 
     def change() -> None:
         """Order the backlog by release order with the chosen options."""
-        data.backlog_in_release_order(honor_dependencies=honor,
+        data.backlog_in_release_order(honor_dependencies=honor, later=later,
                                       stderr_file=sink)
     _apply_change(change, refresh, on_error, on_info,
                   'Could not order by release order', 'Ordered backlog',

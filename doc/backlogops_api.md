@@ -1620,7 +1620,9 @@ as documented for
 #### backlog\_in\_release\_order
 
 ```python
-def backlog_in_release_order(honor_dependencies: bool = False,
+def backlog_in_release_order(*,
+                             honor_dependencies: bool = False,
+                             later: bool = False,
                              stderr_file: TextIO = sys.stderr) -> None
 ```
 
@@ -1644,6 +1646,13 @@ recommended.
   before its dependent), as documented for
   :func:`backlogops.backlog_in_release_order`. Default is
   False.
+- `later` - When honoring dependencies, if False (the default) a
+  prerequisite is pulled to an earlier release and the
+  dependent keeps its release; if True the dependent is
+  pushed to a later release and the prerequisite keeps its
+  release, as documented for
+  :func:`backlogops.backlog_in_release_order`. Has no effect
+  when honor_dependencies is False. Default is False.
 - `stderr_file` - The file to report a missing release reference to.
 
 <a id="backlogops.demo_backlog"></a>
@@ -4780,7 +4789,9 @@ Functions to sort backlog items in release order.
 ```python
 def backlog_in_release_order(backlog: Backlog,
                              releases: Releases,
+                             *,
                              honor_dependencies: bool = False,
+                             later: bool = False,
                              stderr_file: TextIO = sys.stderr) -> Backlog
 ```
 
@@ -4802,7 +4813,7 @@ release named by an item but missing from ``releases`` is reported to
 ``stderr_file`` but does not raise.
 
 When ``honor_dependencies`` is False (the default) this grouping by
-release is the whole result.
+release is the whole result, and ``later`` has no effect.
 
 When ``honor_dependencies`` is True the result is still led by the
 release order, but no item is placed before an item that must be
@@ -4811,11 +4822,37 @@ delivered before it. An item ``X`` must be delivered before an item
 ``depends_on_f2f``, or when ``X`` is a child of ``Y`` (so a child is
 always placed before its parent). A ``depends_on_s2s`` reference does
 not affect the order, because it constrains only the start of an item,
-not its delivery. Where a dependency and the release order disagree
-the dependency wins, so a prerequisite may end up earlier, or a
-dependent later, than the release order alone would place it. The
-result is always a valid delivery order. References to keys that are
-not in the backlog are ignored.
+not its delivery. The result is always a valid delivery order, and
+references to keys that are not in the backlog are ignored.
+
+A dependency can disagree with the release order: a prerequisite may
+be planned for a *later* release than the item that depends on it.
+The ``later`` argument chooses how to resolve such a conflict, and it
+matters only when ``honor_dependencies`` is True:
+
+- ``later`` False (the default) moves the *prerequisite earlier*. The
+item that depends on it keeps its release, and the prerequisite is
+delivered ahead of its own release so that it is ready in time. The
+dependent's release wins and pulls its prerequisites forward. This
+is useful when the planned release of the dependent must hold.
+
+- ``later`` True moves the *dependent later*. The prerequisite keeps
+its release, and the item that depends on it is delivered after the
+prerequisite, behind its own release. The prerequisite's release
+wins and pushes its dependents back. This is useful when the
+planned release of the prerequisite must hold.
+
+Worked example. Item ``builder`` is planned for the first release but
+depends on item ``engine`` planned for the second release, so
+``engine`` must be delivered before ``builder``. With ``later`` False
+the result keeps ``builder`` in the first release and pulls ``engine``
+in ahead of it, delivering ``engine`` early. With ``later`` True the
+result keeps ``engine`` in the second release and pushes ``builder``
+out to be delivered after it. Either way ``engine`` ends up before
+``builder`` and the order stays a valid delivery order.
+
+The ``later`` argument has the same meaning here as in
+:func:`backlogops.order_by_dependencies`.
 
 Calling :func:`check_backlog_consistency` before calling this function
 is recommended.
@@ -4828,6 +4865,13 @@ is recommended.
 - `honor_dependencies` - If True, never place an item before an item
   that must be delivered before it, as described above. Default
   is False.
+- `later` - Chooses how a dependency that disagrees with the release
+  order is resolved when ``honor_dependencies`` is True. If
+  False (the default) the prerequisite is pulled to an earlier
+  release and the dependent keeps its release. If True the
+  dependent is pushed to a later release and the prerequisite
+  keeps its release. Has no effect when ``honor_dependencies``
+  is False. Default is False.
 - `stderr_file` - The file to report a missing release reference to.
   
 

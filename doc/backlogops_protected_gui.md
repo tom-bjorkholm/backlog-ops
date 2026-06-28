@@ -124,6 +124,7 @@
   * [\_apply\_change](#backlogops_gui.backlog_window._apply_change)
   * [order\_by\_keys](#backlogops_gui.backlog_window.order_by_keys)
   * [order\_by\_deps](#backlogops_gui.backlog_window.order_by_deps)
+  * [\_release\_order\_message](#backlogops_gui.backlog_window._release_order_message)
   * [order\_by\_release](#backlogops_gui.backlog_window.order_by_release)
   * [save\_changes](#backlogops_gui.backlog_window.save_changes)
   * [show\_changes](#backlogops_gui.backlog_window.show_changes)
@@ -208,6 +209,7 @@
   * [ask\_buffer\_days](#backlogops_gui.io_dialogs.ask_buffer_days)
   * [show\_change\_list](#backlogops_gui.io_dialogs.show_change_list)
   * [DepOptions](#backlogops_gui.io_dialogs.DepOptions)
+  * [ReleaseOrderOptions](#backlogops_gui.io_dialogs.ReleaseOrderOptions)
   * [StartChoice](#backlogops_gui.io_dialogs.StartChoice)
   * [\_KeysDialog](#backlogops_gui.io_dialogs._KeysDialog)
     * [\_\_init\_\_](#backlogops_gui.io_dialogs._KeysDialog.__init__)
@@ -1731,6 +1733,16 @@ def order_by_deps(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for the options and order the backlog by dependencies.
 
+<a id="backlogops_gui.backlog_window._release_order_message"></a>
+
+#### \_release\_order\_message
+
+```python
+def _release_order_message(honor: bool, later: bool) -> str
+```
+
+Return the success message describing a release-order action.
+
 <a id="backlogops_gui.backlog_window.order_by_release"></a>
 
 #### order\_by\_release
@@ -2673,6 +2685,17 @@ class DepOptions()
 
 The options selected for ordering a backlog by dependencies.
 
+<a id="backlogops_gui.io_dialogs.ReleaseOrderOptions"></a>
+
+## ReleaseOrderOptions Objects
+
+```python
+@dataclass
+class ReleaseOrderOptions()
+```
+
+The options selected for ordering a backlog by release order.
+
 <a id="backlogops_gui.io_dialogs.StartChoice"></a>
 
 ## StartChoice Objects
@@ -2942,7 +2965,7 @@ Build, show and wait for the release-order dialog.
 def _build() -> None
 ```
 
-Add the honor-dependencies check box, off by default.
+Add the honor-dependencies and direction check boxes.
 
 <a id="backlogops_gui.io_dialogs._ReleaseOrderDialog._confirm"></a>
 
@@ -2952,7 +2975,7 @@ Add the honor-dependencies check box, off by default.
 def _confirm() -> None
 ```
 
-Store whether dependencies should be honored and close.
+Store the chosen release-order options and close.
 
 <a id="backlogops_gui.io_dialogs.ask_keys"></a>
 
@@ -3009,10 +3032,10 @@ Ask whether to order by estimated date, or None when cancelled.
 #### ask\_release\_order
 
 ```python
-def ask_release_order(parent: tk.Misc) -> Optional[bool]
+def ask_release_order(parent: tk.Misc) -> Optional[ReleaseOrderOptions]
 ```
 
-Ask whether to honor dependencies, or None when cancelled.
+Ask for the release-order options, or None when cancelled.
 
 <a id="backlogops_gui.blog_version_reporter"></a>
 

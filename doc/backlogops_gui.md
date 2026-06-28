@@ -78,6 +78,7 @@
   * [ask\_buffer\_days](#backlogops_gui.io_dialogs.ask_buffer_days)
   * [show\_change\_list](#backlogops_gui.io_dialogs.show_change_list)
   * [DepOptions](#backlogops_gui.io_dialogs.DepOptions)
+  * [ReleaseOrderOptions](#backlogops_gui.io_dialogs.ReleaseOrderOptions)
   * [StartChoice](#backlogops_gui.io_dialogs.StartChoice)
   * [ask\_keys](#backlogops_gui.io_dialogs.ask_keys)
   * [ask\_dep\_options](#backlogops_gui.io_dialogs.ask_dep_options)
@@ -1091,6 +1092,17 @@ class DepOptions()
 
 The options selected for ordering a backlog by dependencies.
 
+<a id="backlogops_gui.io_dialogs.ReleaseOrderOptions"></a>
+
+## ReleaseOrderOptions Objects
+
+```python
+@dataclass
+class ReleaseOrderOptions()
+```
+
+The options selected for ordering a backlog by release order.
+
 <a id="backlogops_gui.io_dialogs.StartChoice"></a>
 
 ## StartChoice Objects
@@ -1157,10 +1169,10 @@ Ask whether to order by estimated date, or None when cancelled.
 #### ask\_release\_order
 
 ```python
-def ask_release_order(parent: tk.Misc) -> Optional[bool]
+def ask_release_order(parent: tk.Misc) -> Optional[ReleaseOrderOptions]
 ```
 
-Ask whether to honor dependencies, or None when cancelled.
+Ask for the release-order options, or None when cancelled.
 
 <a id="backlogops_gui.blog_version_reporter"></a>
 

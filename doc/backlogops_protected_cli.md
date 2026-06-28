@@ -1237,9 +1237,11 @@ unchanged; order the releases first (for example with the order_releases
 command) when a date order is wanted. By default the items are only grouped
 by release, keeping their original relative order within a release. With
 ``--honor-deps`` no item is placed before an item that must be delivered
-before it. The input and output formats are inferred from the file name
-extensions, but can be overridden by a configuration file or by a named
-preset.
+before it; a prerequisite that is planned for a later release is then
+pulled to an earlier release, unless ``--later`` is given, in which case
+the dependent is pushed to a later release instead. The input and output
+formats are inferred from the file name extensions, but can be overridden
+by a configuration file or by a named preset.
 
 <a id="backlogops_cli.order_by_release.build_parser"></a>
 

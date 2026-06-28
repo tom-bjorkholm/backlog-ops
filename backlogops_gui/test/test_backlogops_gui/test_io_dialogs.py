@@ -12,7 +12,7 @@ from backlogops import DependencyMode
 from backlogops.no_text_io import NoTextIO
 from backlogops_gui.io_dialogs import (
     MODE_FILE, MODE_INFER, MODE_PRESET, ConfigChoice, DepOptions, PresetKind,
-    ReadOptions, StartChoice, WriteOptions, format_value)
+    ReadOptions, ReleaseOrderOptions, StartChoice, WriteOptions, format_value)
 from backlogops_gui.io_dialogs import (
     _BufferDialog, _DateOrderDialog, _DepOptionsDialog, _FormatDialog,
     _KeysDialog, _LevelsDialog, _ModalDialog, _NoConfigDialog,
@@ -83,12 +83,21 @@ def test_action_dataclasses() -> None:
     assert options.space_around == ['A']
     assert StartChoice(None).start_date is None
     assert StartChoice(date(2026, 6, 15)).start_date == date(2026, 6, 15)
+    release = ReleaseOrderOptions(honor_dependencies=True, later=False)
+    assert release.honor_dependencies is True
+    assert release.later is False
 
 
 def _cancel_show(self: _ModalDialog) -> None:
     """Stand in for the modal show that cancels at once."""
     # pylint: disable-next=protected-access
     self._cancel()
+
+
+def _confirm_show(self: _ModalDialog) -> None:
+    """Stand in for the modal show that confirms at once."""
+    # pylint: disable-next=protected-access
+    self._confirm()
 
 
 CHOOSERS: list[tuple[Callable[[tk.Misc], Optional[str]], str]] = [
@@ -337,7 +346,7 @@ def test_ask_date_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_release_order_honor(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the release-order dialog stores the honor choice."""
+    """Test the release-order dialog stores the honor and later choice."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
     root = _root_or_skip()
     try:
@@ -345,8 +354,12 @@ def test_release_order_honor(monkeypatch: pytest.MonkeyPatch) -> None:
         # pylint: disable-next=protected-access
         dialog._honor.set(True)
         # pylint: disable-next=protected-access
+        dialog._later.set(True)
+        # pylint: disable-next=protected-access
         dialog._confirm()
-        assert dialog.honor_dependencies is True
+        assert dialog.options is not None
+        assert dialog.options.honor_dependencies is True
+        assert dialog.options.later is True
     finally:
         root.destroy()
 
@@ -359,17 +372,22 @@ def test_release_order_plain(monkeypatch: pytest.MonkeyPatch) -> None:
         dialog = _ReleaseOrderDialog(root)
         # pylint: disable-next=protected-access
         dialog._confirm()
-        assert dialog.honor_dependencies is False
+        assert dialog.options is not None
+        assert dialog.options.honor_dependencies is False
+        assert dialog.options.later is False
     finally:
         root.destroy()
 
 
 def test_ask_release_ok(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the wrapper returns the confirmed plain release-order choice."""
-    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    """Test the wrapper returns the confirmed release-order options."""
+    monkeypatch.setattr(_ModalDialog, '_show', _confirm_show)
     root = _root_or_skip()
     try:
-        assert ask_release_order(root) is False
+        options = ask_release_order(root)
+        assert options is not None
+        assert options.honor_dependencies is False
+        assert options.later is False
     finally:
         root.destroy()
 
@@ -394,7 +412,7 @@ def test_ask_wrappers_ok(monkeypatch: pytest.MonkeyPatch) -> None:
         assert ask_dep_options(root) is None
         assert ask_start_date(root) is None
         assert ask_levels(root) is None
-        assert ask_release_order(root) is False
+        assert ask_release_order(root) is None
     finally:
         root.destroy()
 

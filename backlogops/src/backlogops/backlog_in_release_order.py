@@ -83,43 +83,89 @@ def _with_leftovers(order: list[str], backlog: Backlog, rank: dict[str, int],
     return order + rest
 
 
-def _ordered_keys(backlog: Backlog, rank: dict[str, int]) -> list[str]:
-    """Return all keys in release order honoring the finish prerequisites.
+def _dependents_map(prereqs: dict[str, set[str]]) -> dict[str, set[str]]:
+    """Return each key mapped to the keys that depend on it.
 
-    The keys are emitted in release order (the release rank, then the
-    original backlog position), but a key is never emitted before the
-    keys that must be delivered before it, as given by
-    :func:`_finish_prereqs`. A prerequisite is therefore pulled in as
-    early as the release order allows once it becomes the next deliverable
-    item, which may place it earlier, or its dependents later, than the
-    release order alone would.
+    This inverts the prerequisite relation from :func:`_finish_prereqs`:
+    a key ``P`` maps to every key that names ``P`` as a prerequisite.
+    Every key is present, mapped to an empty set when nothing depends on
+    it.
     """
-    prereqs = _finish_prereqs(backlog)
-    position = {item.key: index for index, item in enumerate(backlog)}
-    dependents: dict[str, list[str]] = {}
+    dependents: dict[str, set[str]] = {key: set() for key in prereqs}
     for key, deps in prereqs.items():
         for dep in deps:
-            dependents.setdefault(dep, []).append(key)
+            dependents[dep].add(key)
+    return dependents
+
+
+def _adjusted_rank(rank: dict[str, int], prereqs: dict[str, set[str]],
+                   dependents: dict[str, set[str]],
+                   later: bool) -> dict[str, int]:
+    """Return the release rank adjusted for the chosen direction.
+
+    When ``later`` is True the rank of a dependent is raised to the
+    latest rank among its prerequisites, so a dependent is never ordered
+    before a prerequisite's release; the dependent moves later. When
+    ``later`` is False the rank of a prerequisite is lowered to the
+    earliest rank among its dependents, so a prerequisite is ready in
+    time for its earliest dependent; the prerequisite moves earlier. The
+    adjustment flows along the dependency edges, so it reaches a whole
+    chain. Keys left out by a dependency cycle keep their own rank.
+    """
+    upstream = prereqs if later else dependents
+    downstream = dependents if later else prereqs
+    combine = max if later else min
+    adjusted = dict(rank)
+    waiting = {key: len(upstream[key]) for key in rank}
+    ready = [key for key, count in waiting.items() if count == 0]
+    while ready:
+        key = ready.pop()
+        for following in downstream[key]:
+            adjusted[following] = combine(adjusted[following], adjusted[key])
+            waiting[following] -= 1
+            if waiting[following] == 0:
+                ready.append(following)
+    return adjusted
+
+
+def _ordered_keys(backlog: Backlog, rank: dict[str, int],
+                  later: bool) -> list[str]:
+    """Return all keys in release order honoring the finish prerequisites.
+
+    Each key is first given an effective release rank by
+    :func:`_adjusted_rank`, which moves either a prerequisite earlier or
+    a dependent later depending on ``later``. The keys are then emitted
+    in that effective release order (the effective rank, then the
+    original backlog position), but a key is never emitted before the
+    keys that must be delivered before it, as given by
+    :func:`_finish_prereqs`. The effective rank makes the two directions
+    fall out of the same emission loop.
+    """
+    prereqs = _finish_prereqs(backlog)
+    dependents = _dependents_map(prereqs)
+    eff = _adjusted_rank(rank, prereqs, dependents, later)
+    position = {item.key: index for index, item in enumerate(backlog)}
     pending = {key: len(deps) for key, deps in prereqs.items()}
 
     def entry(key: str) -> tuple[int, int, str]:
         """Return the heap entry that ranks one ready key."""
-        return (rank[key], position[key], key)
+        return (eff[key], position[key], key)
     ready = [entry(key) for key in pending if pending[key] == 0]
     heapq.heapify(ready)
     order: list[str] = []
     while ready:
         key = heapq.heappop(ready)[2]
         order.append(key)
-        for dependent in dependents.get(key, []):
+        for dependent in dependents[key]:
             pending[dependent] -= 1
             if pending[dependent] == 0:
                 heapq.heappush(ready, entry(dependent))
-    return _with_leftovers(order, backlog, rank, position)
+    return _with_leftovers(order, backlog, eff, position)
 
 
-def backlog_in_release_order(backlog: Backlog, releases: Releases,
+def backlog_in_release_order(backlog: Backlog, releases: Releases, *,
                              honor_dependencies: bool = False,
+                             later: bool = False,
                              stderr_file: TextIO = sys.stderr) -> Backlog:
     """Return the backlog items ordered to follow the release order.
 
@@ -139,7 +185,7 @@ def backlog_in_release_order(backlog: Backlog, releases: Releases,
     ``stderr_file`` but does not raise.
 
     When ``honor_dependencies`` is False (the default) this grouping by
-    release is the whole result.
+    release is the whole result, and ``later`` has no effect.
 
     When ``honor_dependencies`` is True the result is still led by the
     release order, but no item is placed before an item that must be
@@ -148,11 +194,37 @@ def backlog_in_release_order(backlog: Backlog, releases: Releases,
     ``depends_on_f2f``, or when ``X`` is a child of ``Y`` (so a child is
     always placed before its parent). A ``depends_on_s2s`` reference does
     not affect the order, because it constrains only the start of an item,
-    not its delivery. Where a dependency and the release order disagree
-    the dependency wins, so a prerequisite may end up earlier, or a
-    dependent later, than the release order alone would place it. The
-    result is always a valid delivery order. References to keys that are
-    not in the backlog are ignored.
+    not its delivery. The result is always a valid delivery order, and
+    references to keys that are not in the backlog are ignored.
+
+    A dependency can disagree with the release order: a prerequisite may
+    be planned for a *later* release than the item that depends on it.
+    The ``later`` argument chooses how to resolve such a conflict, and it
+    matters only when ``honor_dependencies`` is True:
+
+    - ``later`` False (the default) moves the *prerequisite earlier*. The
+      item that depends on it keeps its release, and the prerequisite is
+      delivered ahead of its own release so that it is ready in time. The
+      dependent's release wins and pulls its prerequisites forward. This
+      is useful when the planned release of the dependent must hold.
+
+    - ``later`` True moves the *dependent later*. The prerequisite keeps
+      its release, and the item that depends on it is delivered after the
+      prerequisite, behind its own release. The prerequisite's release
+      wins and pushes its dependents back. This is useful when the
+      planned release of the prerequisite must hold.
+
+    Worked example. Item ``builder`` is planned for the first release but
+    depends on item ``engine`` planned for the second release, so
+    ``engine`` must be delivered before ``builder``. With ``later`` False
+    the result keeps ``builder`` in the first release and pulls ``engine``
+    in ahead of it, delivering ``engine`` early. With ``later`` True the
+    result keeps ``engine`` in the second release and pushes ``builder``
+    out to be delivered after it. Either way ``engine`` ends up before
+    ``builder`` and the order stays a valid delivery order.
+
+    The ``later`` argument has the same meaning here as in
+    :func:`backlogops.order_by_dependencies`.
 
     Calling :func:`check_backlog_consistency` before calling this function
     is recommended.
@@ -164,6 +236,13 @@ def backlog_in_release_order(backlog: Backlog, releases: Releases,
         honor_dependencies: If True, never place an item before an item
             that must be delivered before it, as described above. Default
             is False.
+        later: Chooses how a dependency that disagrees with the release
+            order is resolved when ``honor_dependencies`` is True. If
+            False (the default) the prerequisite is pulled to an earlier
+            release and the dependent keeps its release. If True the
+            dependent is pushed to a later release and the prerequisite
+            keeps its release. Has no effect when ``honor_dependencies``
+            is False. Default is False.
         stderr_file: The file to report a missing release reference to.
 
     Returns:
@@ -173,4 +252,4 @@ def backlog_in_release_order(backlog: Backlog, releases: Releases,
     if not honor_dependencies:
         return sorted(backlog, key=lambda item: rank[item.key])
     by_key = {item.key: item for item in backlog}
-    return [by_key[key] for key in _ordered_keys(backlog, rank)]
+    return [by_key[key] for key in _ordered_keys(backlog, rank, later)]

@@ -18,7 +18,8 @@ from backlogops_cli import order_by_release
 NO_OUTPUT = NoTextIO()
 RELEASE_ORDER = ['R1', 'R2', 'R3']
 DEFAULT_ORDER = ['B', 'C', 'A', 'D', 'E']
-HONORED_ORDER = ['B', 'A', 'D', 'C', 'E']
+HONORED_ORDER = ['B', 'D', 'C', 'A', 'E']
+LATER_ORDER = ['B', 'A', 'D', 'C', 'E']
 
 
 def _item(key: str, release: Optional[str] = None,
@@ -85,17 +86,41 @@ def test_default_order(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize('flag', ['-d', '--honor-deps'])
 def test_honor_deps(tmp_path: Path, flag: str) -> None:
-    """Test the honor-deps flag moves a prerequisite ahead of its user.
+    """Test the honor-deps flag pulls a prerequisite ahead of its user.
 
-    D is delivered in the last release but C depends on it, so honoring
-    dependencies places D before C even though the release order alone
-    would keep C first.
+    C is in the first release R1 but depends on D in the last release R3.
+    By default honoring dependencies pulls D in ahead of C, so D is
+    delivered early while C keeps its release R1.
     """
     source, target = tmp_path / 'in.ods', tmp_path / 'out.ods'
     _write_source(source)
     assert order_by_release.main(['-i', str(source), '-o', str(target),
                                   flag]) == 0
     assert _result_keys(target) == HONORED_ORDER
+
+
+@pytest.mark.parametrize('flag', ['-L', '--later'])
+def test_later(tmp_path: Path, flag: str) -> None:
+    """Test --later pushes the dependent after its prerequisite instead.
+
+    With --honor-deps and --later, C is pushed out after D rather than
+    pulling D forward, so D keeps its release R3 and C is delivered
+    behind it.
+    """
+    source, target = tmp_path / 'in.ods', tmp_path / 'out.ods'
+    _write_source(source)
+    assert order_by_release.main(['-i', str(source), '-o', str(target),
+                                  '-d', flag]) == 0
+    assert _result_keys(target) == LATER_ORDER
+
+
+def test_later_needs_honor(tmp_path: Path) -> None:
+    """Test --later alone has no effect without --honor-deps."""
+    source, target = tmp_path / 'in.ods', tmp_path / 'out.ods'
+    _write_source(source)
+    assert order_by_release.main(['-i', str(source), '-o', str(target),
+                                  '-L']) == 0
+    assert _result_keys(target) == DEFAULT_ORDER
 
 
 def test_releases_unchanged(tmp_path: Path) -> None:

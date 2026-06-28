@@ -4,6 +4,7 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import inspect
 from io import StringIO
 from typing import Optional, Sequence
 import pytest
@@ -13,6 +14,7 @@ from backlogops import (
 from backlogops.no_text_io import NoTextIO
 
 NO_OUTPUT = NoTextIO()
+KEYWORD_ONLY = inspect.Parameter.KEYWORD_ONLY
 
 
 def _item(key: str, release: Optional[str] = None, *, f2s: Sequence[str] = (),
@@ -40,10 +42,13 @@ def _keys(backlog: Backlog) -> list[str]:
     return [item.key for item in backlog]
 
 
-def _run(backlog: Backlog, releases: Releases,
-         honor: bool = False) -> list[str]:
+def _run(backlog: Backlog, releases: Releases, honor: bool = False,
+         later: bool = False) -> list[str]:
     """Order the backlog and return the resulting keys."""
-    return _keys(backlog_in_release_order(backlog, releases, honor, NO_OUTPUT))
+    result = backlog_in_release_order(backlog, releases,
+                                      honor_dependencies=honor, later=later,
+                                      stderr_file=NO_OUTPUT)
+    return _keys(result)
 
 
 @pytest.mark.parametrize('honor', [False, True])
@@ -78,7 +83,8 @@ def test_release_list_order() -> None:
 
 def test_empty_backlog() -> None:
     """Test an empty backlog yields an empty result."""
-    assert not backlog_in_release_order([], _releases('R1'), False, NO_OUTPUT)
+    assert not backlog_in_release_order([], _releases('R1'),
+                                        stderr_file=NO_OUTPUT)
 
 
 def test_unknown_release() -> None:
@@ -86,7 +92,8 @@ def test_unknown_release() -> None:
     releases = _releases('R1')
     backlog = [_item('x', 'R1'), _item('y', 'RX'), _item('z')]
     stderr_file = StringIO()
-    result = backlog_in_release_order(backlog, releases, False, stderr_file)
+    result = backlog_in_release_order(backlog, releases,
+                                      stderr_file=stderr_file)
     assert _keys(result) == ['x', 'y', 'z']
     message = stderr_file.getvalue()
     assert 'RX' in message and 'y' in message
@@ -97,7 +104,7 @@ def test_empty_releases() -> None:
     """Test all items follow the backlog order when there is no release."""
     backlog = [_item('a', 'R1'), _item('b'), _item('c', 'R2')]
     stderr_file = StringIO()
-    result = backlog_in_release_order(backlog, [], False, stderr_file)
+    result = backlog_in_release_order(backlog, [], stderr_file=stderr_file)
     assert _keys(result) == ['a', 'b', 'c']
     assert stderr_file.getvalue().count('unknown release') == 2
 
@@ -106,7 +113,7 @@ def test_input_unchanged() -> None:
     """Test the argument backlog keeps its order after ordering."""
     releases = _releases('R1', 'R2')
     backlog = [_item('a', 'R2'), _item('b', 'R1')]
-    backlog_in_release_order(backlog, releases, False, NO_OUTPUT)
+    backlog_in_release_order(backlog, releases, stderr_file=NO_OUTPUT)
     assert _keys(backlog) == ['a', 'b']
 
 
@@ -114,7 +121,7 @@ def test_returns_new_list() -> None:
     """Test a new list is returned even for an already ordered backlog."""
     releases = _releases('R1')
     backlog = [_item('a', 'R1'), _item('b', 'R1')]
-    result = backlog_in_release_order(backlog, releases, False, NO_OUTPUT)
+    result = backlog_in_release_order(backlog, releases, stderr_file=NO_OUTPUT)
     assert result is not backlog
     assert _keys(result) == ['a', 'b']
 
@@ -142,13 +149,79 @@ def test_relation_orders(kind: str, expected: list[str]) -> None:
     assert _run(backlog, _releases('R1'), True) == expected
 
 
-def test_dep_pulls_across() -> None:
-    """Test a prerequisite in a later release is pulled before its user."""
+def test_dep_ignored_plain() -> None:
+    """Test a cross-release dependency is ignored without honoring."""
     releases = _releases('R1', 'R2')
     backlog = [_item('dep', 'R1', f2s=['pre']), _item('pre', 'R2'),
                _item('other', 'R1')]
     assert _run(backlog, releases) == ['dep', 'other', 'pre']
-    assert _run(backlog, releases, True) == ['other', 'pre', 'dep']
+
+
+@pytest.mark.parametrize('later', [False, True])
+def test_later_ignored_plain(later: bool) -> None:
+    """Test later has no effect when dependencies are not honored."""
+    releases = _releases('R1', 'R2')
+    backlog = [_item('dep', 'R1', f2s=['pre']), _item('pre', 'R2'),
+               _item('other', 'R1')]
+    assert _run(backlog, releases, False, later) == ['dep', 'other', 'pre']
+
+
+@pytest.mark.parametrize('later, expected', [
+    (False, ['pre', 'dep', 'other']),
+    (True, ['other', 'pre', 'dep'])])
+def test_direction_f2s(later: bool, expected: list[str]) -> None:
+    """Test later picks pulling the prereq or pushing the dependent.
+
+    Item 'dep' is in the first release but its finish-to-start
+    prerequisite 'pre' is in the second release. With later False 'pre'
+    is pulled in ahead of 'dep', which keeps the first release. With
+    later True 'dep' is pushed after 'pre', which keeps its release.
+    """
+    releases = _releases('R1', 'R2')
+    backlog = [_item('dep', 'R1', f2s=['pre']), _item('pre', 'R2'),
+               _item('other', 'R1')]
+    assert _run(backlog, releases, True, later) == expected
+
+
+@pytest.mark.parametrize('later, expected', [
+    (False, ['child', 'parent', 'mid']),
+    (True, ['mid', 'child', 'parent'])])
+def test_direction_parent(later: bool, expected: list[str]) -> None:
+    """Test later also drives a parent and child across releases.
+
+    The child is a prerequisite of its parent. With later False the
+    child is pulled in before the parent, which keeps the first release
+    and leaves 'mid' last. With later True the parent is pushed after
+    the child to the last release, so 'mid' comes first.
+    """
+    releases = _releases('R1', 'R2', 'R3')
+    backlog = [_item('parent', 'R1'), _child('child', 'R3', 'parent'),
+               _item('mid', 'R2')]
+    assert _run(backlog, releases, True, later) == expected
+
+
+@pytest.mark.parametrize('later, expected', [
+    (False, ['c', 'b', 'a', 'mid']),
+    (True, ['mid', 'c', 'b', 'a'])])
+def test_direction_chain(later: bool, expected: list[str]) -> None:
+    """Test later propagates along a whole dependency chain.
+
+    Item 'a' depends on 'b', which depends on 'c'. With later False the
+    whole chain is pulled in to the first release ahead of 'mid'. With
+    later True the whole chain is pushed out after 'c' to the last
+    release, so 'mid' comes first.
+    """
+    releases = _releases('R1', 'R2', 'R3', 'R4')
+    backlog = [_item('a', 'R1', f2s=['b']), _item('b', 'R2', f2s=['c']),
+               _item('c', 'R4'), _item('mid', 'R3')]
+    assert _run(backlog, releases, True, later) == expected
+
+
+def test_keyword_only() -> None:
+    """Test honor_dependencies and later are keyword-only parameters."""
+    params = inspect.signature(backlog_in_release_order).parameters
+    assert params['honor_dependencies'].kind is KEYWORD_ONLY
+    assert params['later'].kind is KEYWORD_ONLY
 
 
 def test_child_across_release() -> None:
@@ -187,7 +260,8 @@ def test_input_unchanged_deps() -> None:
     """Test the argument backlog is not modified when honoring deps."""
     releases = _releases('R1', 'R2')
     backlog = [_item('dep', 'R1', f2s=['pre']), _item('pre', 'R2')]
-    backlog_in_release_order(backlog, releases, True, NO_OUTPUT)
+    backlog_in_release_order(backlog, releases, honor_dependencies=True,
+                             stderr_file=NO_OUTPUT)
     assert _keys(backlog) == ['dep', 'pre']
 
 
@@ -201,11 +275,22 @@ def test_wrapper_orders() -> None:
 
 
 def test_wrapper_honor_deps() -> None:
-    """Test the wrapper honors dependencies when asked to."""
+    """Test the wrapper honors deps, pulling the prereq in by default."""
     releases = _releases('R1', 'R2')
     backlog = [_item('dep', 'R1', f2s=['pre']), _item('pre', 'R2'),
                _item('other', 'R1')]
     data = BacklogReleases(backlog, releases)
     data.backlog_in_release_order(honor_dependencies=True,
+                                  stderr_file=NO_OUTPUT)
+    assert _keys(data.backlog) == ['pre', 'dep', 'other']
+
+
+def test_wrapper_later() -> None:
+    """Test the wrapper can push the dependent later instead."""
+    releases = _releases('R1', 'R2')
+    backlog = [_item('dep', 'R1', f2s=['pre']), _item('pre', 'R2'),
+               _item('other', 'R1')]
+    data = BacklogReleases(backlog, releases)
+    data.backlog_in_release_order(honor_dependencies=True, later=True,
                                   stderr_file=NO_OUTPUT)
     assert _keys(data.backlog) == ['other', 'pre', 'dep']

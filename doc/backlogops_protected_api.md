@@ -422,6 +422,8 @@
   * [\_release\_rank](#backlogops.backlog_in_release_order._release_rank)
   * [\_finish\_prereqs](#backlogops.backlog_in_release_order._finish_prereqs)
   * [\_with\_leftovers](#backlogops.backlog_in_release_order._with_leftovers)
+  * [\_dependents\_map](#backlogops.backlog_in_release_order._dependents_map)
+  * [\_adjusted\_rank](#backlogops.backlog_in_release_order._adjusted_rank)
   * [\_ordered\_keys](#backlogops.backlog_in_release_order._ordered_keys)
   * [backlog\_in\_release\_order](#backlogops.backlog_in_release_order.backlog_in_release_order)
 * [backlogops.move\_keys\_first](#backlogops.move_keys_first)
@@ -2212,7 +2214,9 @@ as documented for
 #### backlog\_in\_release\_order
 
 ```python
-def backlog_in_release_order(honor_dependencies: bool = False,
+def backlog_in_release_order(*,
+                             honor_dependencies: bool = False,
+                             later: bool = False,
                              stderr_file: TextIO = sys.stderr) -> None
 ```
 
@@ -2236,6 +2240,13 @@ recommended.
   before its dependent), as documented for
   :func:`backlogops.backlog_in_release_order`. Default is
   False.
+- `later` - When honoring dependencies, if False (the default) a
+  prerequisite is pulled to an earlier release and the
+  dependent keeps its release; if True the dependent is
+  pushed to a later release and the prerequisite keeps its
+  release, as documented for
+  :func:`backlogops.backlog_in_release_order`. Has no effect
+  when honor_dependencies is False. Default is False.
 - `stderr_file` - The file to report a missing release reference to.
 
 <a id="backlogops.demo_backlog"></a>
@@ -7280,23 +7291,61 @@ in ``order`` and nothing is appended. A cyclic backlog would leave
 some keys without a satisfiable order; those keys are added at the end
 in release order so that no backlog item is ever lost.
 
+<a id="backlogops.backlog_in_release_order._dependents_map"></a>
+
+#### \_dependents\_map
+
+```python
+def _dependents_map(prereqs: dict[str, set[str]]) -> dict[str, set[str]]
+```
+
+Return each key mapped to the keys that depend on it.
+
+This inverts the prerequisite relation from :func:`_finish_prereqs`:
+a key ``P`` maps to every key that names ``P`` as a prerequisite.
+Every key is present, mapped to an empty set when nothing depends on
+it.
+
+<a id="backlogops.backlog_in_release_order._adjusted_rank"></a>
+
+#### \_adjusted\_rank
+
+```python
+def _adjusted_rank(rank: dict[str, int], prereqs: dict[str, set[str]],
+                   dependents: dict[str,
+                                    set[str]], later: bool) -> dict[str, int]
+```
+
+Return the release rank adjusted for the chosen direction.
+
+When ``later`` is True the rank of a dependent is raised to the
+latest rank among its prerequisites, so a dependent is never ordered
+before a prerequisite's release; the dependent moves later. When
+``later`` is False the rank of a prerequisite is lowered to the
+earliest rank among its dependents, so a prerequisite is ready in
+time for its earliest dependent; the prerequisite moves earlier. The
+adjustment flows along the dependency edges, so it reaches a whole
+chain. Keys left out by a dependency cycle keep their own rank.
+
 <a id="backlogops.backlog_in_release_order._ordered_keys"></a>
 
 #### \_ordered\_keys
 
 ```python
-def _ordered_keys(backlog: Backlog, rank: dict[str, int]) -> list[str]
+def _ordered_keys(backlog: Backlog, rank: dict[str, int],
+                  later: bool) -> list[str]
 ```
 
 Return all keys in release order honoring the finish prerequisites.
 
-The keys are emitted in release order (the release rank, then the
+Each key is first given an effective release rank by
+:func:`_adjusted_rank`, which moves either a prerequisite earlier or
+a dependent later depending on ``later``. The keys are then emitted
+in that effective release order (the effective rank, then the
 original backlog position), but a key is never emitted before the
 keys that must be delivered before it, as given by
-:func:`_finish_prereqs`. A prerequisite is therefore pulled in as
-early as the release order allows once it becomes the next deliverable
-item, which may place it earlier, or its dependents later, than the
-release order alone would.
+:func:`_finish_prereqs`. The effective rank makes the two directions
+fall out of the same emission loop.
 
 <a id="backlogops.backlog_in_release_order.backlog_in_release_order"></a>
 
@@ -7305,7 +7354,9 @@ release order alone would.
 ```python
 def backlog_in_release_order(backlog: Backlog,
                              releases: Releases,
+                             *,
                              honor_dependencies: bool = False,
+                             later: bool = False,
                              stderr_file: TextIO = sys.stderr) -> Backlog
 ```
 
@@ -7327,7 +7378,7 @@ release named by an item but missing from ``releases`` is reported to
 ``stderr_file`` but does not raise.
 
 When ``honor_dependencies`` is False (the default) this grouping by
-release is the whole result.
+release is the whole result, and ``later`` has no effect.
 
 When ``honor_dependencies`` is True the result is still led by the
 release order, but no item is placed before an item that must be
@@ -7336,11 +7387,37 @@ delivered before it. An item ``X`` must be delivered before an item
 ``depends_on_f2f``, or when ``X`` is a child of ``Y`` (so a child is
 always placed before its parent). A ``depends_on_s2s`` reference does
 not affect the order, because it constrains only the start of an item,
-not its delivery. Where a dependency and the release order disagree
-the dependency wins, so a prerequisite may end up earlier, or a
-dependent later, than the release order alone would place it. The
-result is always a valid delivery order. References to keys that are
-not in the backlog are ignored.
+not its delivery. The result is always a valid delivery order, and
+references to keys that are not in the backlog are ignored.
+
+A dependency can disagree with the release order: a prerequisite may
+be planned for a *later* release than the item that depends on it.
+The ``later`` argument chooses how to resolve such a conflict, and it
+matters only when ``honor_dependencies`` is True:
+
+- ``later`` False (the default) moves the *prerequisite earlier*. The
+item that depends on it keeps its release, and the prerequisite is
+delivered ahead of its own release so that it is ready in time. The
+dependent's release wins and pulls its prerequisites forward. This
+is useful when the planned release of the dependent must hold.
+
+- ``later`` True moves the *dependent later*. The prerequisite keeps
+its release, and the item that depends on it is delivered after the
+prerequisite, behind its own release. The prerequisite's release
+wins and pushes its dependents back. This is useful when the
+planned release of the prerequisite must hold.
+
+Worked example. Item ``builder`` is planned for the first release but
+depends on item ``engine`` planned for the second release, so
+``engine`` must be delivered before ``builder``. With ``later`` False
+the result keeps ``builder`` in the first release and pulls ``engine``
+in ahead of it, delivering ``engine`` early. With ``later`` True the
+result keeps ``engine`` in the second release and pushes ``builder``
+out to be delivered after it. Either way ``engine`` ends up before
+``builder`` and the order stays a valid delivery order.
+
+The ``later`` argument has the same meaning here as in
+:func:`backlogops.order_by_dependencies`.
 
 Calling :func:`check_backlog_consistency` before calling this function
 is recommended.
@@ -7353,6 +7430,13 @@ is recommended.
 - `honor_dependencies` - If True, never place an item before an item
   that must be delivered before it, as described above. Default
   is False.
+- `later` - Chooses how a dependency that disagrees with the release
+  order is resolved when ``honor_dependencies`` is True. If
+  False (the default) the prerequisite is pulled to an earlier
+  release and the dependent keeps its release. If True the
+  dependent is pushed to a later release and the prerequisite
+  keeps its release. Has no effect when ``honor_dependencies``
+  is False. Default is False.
 - `stderr_file` - The file to report a missing release reference to.
   
 

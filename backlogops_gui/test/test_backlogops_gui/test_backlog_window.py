@@ -17,7 +17,8 @@ from backlogops_gui.backlog_window import (
     order_by_keys, order_by_release, order_dates, plan_dates, save_backlog,
     save_changes, set_plan, show_changes)
 from backlogops_gui.io_dialogs import (
-    DepOptions, StartChoice, WriteOptions, show_change_list)
+    DepOptions, ReleaseOrderOptions, StartChoice, WriteOptions,
+    show_change_list)
 
 
 class _MsgRecorder:
@@ -86,10 +87,10 @@ class _FakeData:
         """Record an order-by-dependencies call."""
         self._record(f'deps:{later}:{mode.name}:{space_around}')
 
-    def backlog_in_release_order(self, honor_dependencies: bool = False,
-                                 **_kw: object) -> None:
+    def backlog_in_release_order(self, *, honor_dependencies: bool = False,
+                                 later: bool = False, **_kw: object) -> None:
         """Record a backlog-in-release-order call."""
-        self._record(f'release:{honor_dependencies}')
+        self._record(f'release:{honor_dependencies}:{later}')
 
     def estimate_ready_date(self, _teams: object, start_date: object,
                             _sink: TextIO) -> list[object]:
@@ -343,15 +344,23 @@ def test_order_release_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not data.calls and not done
 
 
+def _release_opts(honor: bool, later: bool
+                  ) -> Callable[[object], ReleaseOrderOptions]:
+    """Return a stub that yields the given release-order options."""
+    options = ReleaseOrderOptions(honor_dependencies=honor, later=later)
+    return lambda _p: options
+
+
 def test_order_release_plain(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test plain release ordering is passed on and reported."""
-    monkeypatch.setattr(backlog_window, 'ask_release_order', lambda _p: False)
+    monkeypatch.setattr(backlog_window, 'ask_release_order',
+                        _release_opts(False, False))
     done: list[bool] = []
     data = _FakeData()
     infos: list[tuple[str, str]] = []
     order_by_release(PARENT, _as_data(data), SINK, _refresher(done),
                      _record([]), _record(infos))
-    assert data.calls == ['release:False']
+    assert data.calls == ['release:False:False']
     assert done == [True]
     assert infos == [
         ('Ordered backlog',
@@ -360,8 +369,28 @@ def test_order_release_plain(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_order_release_honor(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test honored dependencies are passed to the real backlog order."""
-    monkeypatch.setattr(backlog_window, 'ask_release_order', lambda _p: True)
+    """Test honoring deps pulls a prerequisite to an earlier release."""
+    monkeypatch.setattr(backlog_window, 'ask_release_order',
+                        _release_opts(True, False))
+    backlog = [_release_item('dep', 'R1', ['pre']),
+               _release_item('pre', 'R2'), _release_item('other', 'R1')]
+    data = BacklogReleases(backlog, [Release('R1'), Release('R2')])
+    done: list[bool] = []
+    infos: list[tuple[str, str]] = []
+    order_by_release(PARENT, data, SINK, _refresher(done), _record([]),
+                     _record(infos))
+    assert _keys(data) == ['pre', 'dep', 'other']
+    assert done == [True]
+    assert infos == [
+        ('Ordered backlog',
+         'Ordered the backlog by release order, honoring dependencies '
+         'by pulling prerequisites earlier.')]
+
+
+def test_order_release_later(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the later option pushes the dependent to a later release."""
+    monkeypatch.setattr(backlog_window, 'ask_release_order',
+                        _release_opts(True, True))
     backlog = [_release_item('dep', 'R1', ['pre']),
                _release_item('pre', 'R2'), _release_item('other', 'R1')]
     data = BacklogReleases(backlog, [Release('R1'), Release('R2')])
@@ -373,12 +402,14 @@ def test_order_release_honor(monkeypatch: pytest.MonkeyPatch) -> None:
     assert done == [True]
     assert infos == [
         ('Ordered backlog',
-         'Ordered the backlog by release order, honoring dependencies.')]
+         'Ordered the backlog by release order, honoring dependencies '
+         'by pushing dependents later.')]
 
 
 def test_order_release_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a release-order failure is reported and skips the refresh."""
-    monkeypatch.setattr(backlog_window, 'ask_release_order', lambda _p: True)
+    monkeypatch.setattr(backlog_window, 'ask_release_order',
+                        _release_opts(True, False))
     done: list[bool] = []
     data = _FakeData(ValueError('bad release'))
     errors: list[tuple[str, str]] = []

@@ -316,7 +316,8 @@ class BacklogReleases:
         self.releases = order_releases_by_date(self.releases, by_estimated,
                                                stderr_file)
 
-    def backlog_in_release_order(self, honor_dependencies: bool = False,
+    def backlog_in_release_order(self, *, honor_dependencies: bool = False,
+                                 later: bool = False,
                                  stderr_file: TextIO = sys.stderr) -> None:
         """Order the member backlog to follow the member release order.
 
@@ -337,8 +338,15 @@ class BacklogReleases:
                 before its dependent), as documented for
                 :func:`backlogops.backlog_in_release_order`. Default is
                 False.
+            later: When honoring dependencies, if False (the default) a
+                prerequisite is pulled to an earlier release and the
+                dependent keeps its release; if True the dependent is
+                pushed to a later release and the prerequisite keeps its
+                release, as documented for
+                :func:`backlogops.backlog_in_release_order`. Has no effect
+                when honor_dependencies is False. Default is False.
             stderr_file: The file to report a missing release reference to.
         """
-        self.backlog = backlog_in_release_order(self.backlog, self.releases,
-                                                honor_dependencies,
-                                                stderr_file)
+        self.backlog = backlog_in_release_order(
+            self.backlog, self.releases, honor_dependencies=honor_dependencies,
+            later=later, stderr_file=stderr_file)

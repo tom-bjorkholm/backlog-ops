@@ -441,6 +441,14 @@ class DepOptions:
 
 
 @dataclass
+class ReleaseOrderOptions:
+    """The options selected for ordering a backlog by release order."""
+
+    honor_dependencies: bool
+    later: bool
+
+
+@dataclass
 class StartChoice:
     """The start date selected for estimating ready dates."""
 
@@ -643,20 +651,26 @@ class _ReleaseOrderDialog(_ModalDialog):
     def __init__(self, parent: tk.Misc) -> None:
         """Build, show and wait for the release-order dialog."""
         super().__init__(parent, 'Order by release order')
-        self.honor_dependencies = False
+        self.options: Optional[ReleaseOrderOptions] = None
         self._honor = tk.BooleanVar(self._win, False)
+        self._later = tk.BooleanVar(self._win, False)
         self._build()
         self._show()
 
     def _build(self) -> None:
-        """Add the honor-dependencies check box, off by default."""
+        """Add the honor-dependencies and direction check boxes."""
         tk.Checkbutton(self._win, variable=self._honor,
                        text='Honor dependencies').pack(anchor='w', padx=12,
                                                        pady=(10, 2))
+        tk.Checkbutton(self._win, variable=self._later,
+                       text='Push dependent items later instead of pulling '
+                       'prerequisites earlier').pack(anchor='w', padx=12,
+                                                     pady=(0, 2))
 
     def _confirm(self) -> None:
-        """Store whether dependencies should be honored and close."""
-        self.honor_dependencies = self._honor.get()
+        """Store the chosen release-order options and close."""
+        self.options = ReleaseOrderOptions(
+            honor_dependencies=self._honor.get(), later=self._later.get())
         super()._confirm()
 
 
@@ -700,9 +714,9 @@ def ask_date_order(parent: tk.Misc) -> Optional[bool]:
     return dialog.by_estimated
 
 
-def ask_release_order(parent: tk.Misc) -> Optional[bool]:
-    """Ask whether to honor dependencies, or None when cancelled."""
+def ask_release_order(parent: tk.Misc) -> Optional[ReleaseOrderOptions]:
+    """Ask for the release-order options, or None when cancelled."""
     dialog = _ReleaseOrderDialog(parent)
     if dialog.cancelled:
         return None
-    return dialog.honor_dependencies
+    return dialog.options
