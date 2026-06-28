@@ -47,14 +47,17 @@ TITLES: dict[ReadmeType, str] = {
 
 P1 = 'There are 3 related packages for backlog operations:'
 B1 = [
-    'backlogops: a collection of library functions to manipulate backlogs',
-    'backlogops-cli: command line interface to use the functions in the '
-    'library. This is just a thin wrapper around the library functions. '
-    'It serves a dual purpose as both an example of how to use the '
-    'library and as a tool for the user to use the library.',
-    'backlogops-gui: graphical user interface to use the functions in '
-    'the library. It is based on TkInter. The ambition is to keep it '
-    'as a thin wrapper around the library.'
+    ('backlogops', 'https://pypi.org/project/backlogops/',
+     'a collection of library functions to manipulate backlogs'),
+    ('backlogops-cli', 'https://pypi.org/project/backlogops-cli/',
+     'command line interface to use the functions in the '
+     'library. This is just a thin wrapper around the library functions. '
+     'It serves a dual purpose as both an example of how to use the '
+     'library and as a tool for the user to use the library.'),
+    ('backlogops-gui', 'https://pypi.org/project/backlogops-gui/',
+     'graphical user interface to use the functions in '
+     'the library. It is based on TkInter. The ambition is to keep it '
+     'as a thin wrapper around the library.')
 ]
 P2 = 'The following functionality is available in all 3 packages:'
 B2 = [
@@ -73,6 +76,8 @@ B2 = [
     'Reorder the backlog so that items identified by keys in a list '
     'come first. If the key is at a higher level it will bring all '
     'items it is a parent of in front of it (recursively).',
+    'Reorder the backlog in release order, optionally taking dependencies '
+    'into account.',
     'Set planned release dates from the estimated release dates.',
     'Calculate the release dates from the backlog items estimated '
     'ready dates, with a configurable buffer time.',
@@ -90,14 +95,14 @@ P3 = 'The operating model that most of the functionality is designed for ' \
      'and what we know about the availability of the team members.'
 P4 = 'Each backlog item has the following fields that are used by the ' \
      'algorithms in the library:'
-B4 = ['key: The key of the backlog item. Required. Must be unique. '
+B4 = {'key': 'The key of the backlog item. Required. Must be unique. '
       'Must not be empty, must not contain whitespace and must '
       'not contain any of the characters , . ; : ( ) [ ] { }.',
-      'level: The level of the backlog item. Required. Must be an integer.',
-      'title: The title of the backlog item. Required.',
-      'story_points: The story points of the backlog item. Required.',
-      'status: The status of the backlog item. Required.',
-      'parent_key: The key of the parent backlog item. Optional. '
+      'level': 'The level of the backlog item. Required. Must be an integer.',
+      'title': 'The title of the backlog item. Required.',
+      'story_points': 'The story points of the backlog item. Required.',
+      'status': 'The status of the backlog item. Required.',
+      'parent_key': 'The key of the parent backlog item. Optional. '
       'Must exist as a key in the backlog. '
       'Parent keys are used to build the hierarchy of the backlog. '
       'The parent key must be at a higher level than the current '
@@ -105,23 +110,23 @@ B4 = ['key: The key of the backlog item. Required. Must be unique. '
       'items: the current item cannot start before the parent '
       'item starts, and the parent item cannot finish before all '
       'its children have finished.',
-      'release: The release of the backlog item. Optional. '
+      'release': 'The release of the backlog item. Optional. '
       'Follows the same character rules as the key. '
       'Must not be empty string.',
-      'team: The team responsible for the backlog item. Optional. '
+      'team': 'The team responsible for the backlog item. Optional. '
       'Must not be empty string. Must be a valid team name. '
       'If None the item can be done by any team. If not None. '
       'the item can only be done by the specified team.',
-      'depends_on_f2s: The list of keys of the backlog items that must '
+      'depends_on_f2s': 'The list of keys of the backlog items that must '
       'have been finished before the current item can start. May be empty.',
-      'depends_on_f2f: The list of keys of the backlog items that must '
+      'depends_on_f2f': 'The list of keys of the backlog items that must '
       'have been finished before the current item can finish. May be empty.',
-      'depends_on_s2s: The list of keys of the backlog items that must '
+      'depends_on_s2s': 'The list of keys of the backlog items that must '
       'have been started before the current item can start. May be empty.',
-      'planned_ready_date: The planned ready date of the backlog item. '
+      'planned_ready_date': 'The planned ready date of the backlog item. '
       'The date that is communicated to the customer. Optional.',
-      'estimated_ready_date: The estimated ready date of the backlog item. '
-      'Optional.']
+      'estimated_ready_date': 'The estimated ready date of the backlog item. '
+      'Optional.'}
 P5 = 'Additionally each backlog item can have any number of other fields.'
 
 
@@ -226,18 +231,22 @@ def create_pypi_readme(readme_type: ReadmeType, path: Path) -> None:
     with create_mf(format_name='md', file_name=str(path), args=args) as mft:
         mft.new_heading(level=1, text=f'{TITLES[readme_type]}')
         mft.new_paragraph(text=P1)
-        for item in B1:
-            mft.new_bullet_item(text=item)
+        for b1_item in B1:
+            mft.new_bullet_item(text='')
+            mft.add_url(url=b1_item[1], text=b1_item[0], bold=True)
+            mft.add_text(text=b1_item[2])
         mft.new_heading(level=2, text='Available functionality')
         mft.new_paragraph(text=P2)
-        for item in B2:
-            mft.new_bullet_item(text=item)
+        for b2_item in B2:
+            mft.new_bullet_item(text=b2_item)
         mft.new_heading(level=2, text='The operating model')
         mft.new_paragraph(text=P3)
         mft.new_heading(level=2, text='The backlog item fields')
         mft.new_paragraph(text=P4)
-        for item in B4:
-            mft.new_bullet_item(text=item)
+        for key, value in B4.items():
+            mft.new_bullet_item(text='')
+            mft.add_code_in_text(text=key)
+            mft.add_text(text=value)
         mft.new_paragraph(text=P5)
         _write_installing(mft, readme_type)
         _write_api_docs(mft)

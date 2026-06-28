@@ -2,16 +2,17 @@
 
 There are 3 related packages for backlog operations:
 
-- backlogops: a collection of library functions to manipulate backlogs
+- **[backlogops](https://pypi.org/project/backlogops/)** a collection of library
+  functions to manipulate backlogs
 
-- backlogops-cli: command line interface to use the functions in the library.
-  This is just a thin wrapper around the library functions. It serves a dual
-  purpose as both an example of how to use the library and as a tool for the
-  user to use the library.
+- **[backlogops-cli](https://pypi.org/project/backlogops-cli/)** command line
+  interface to use the functions in the library. This is just a thin wrapper
+  around the library functions. It serves a dual purpose as both an example of
+  how to use the library and as a tool for the user to use the library.
 
-- backlogops-gui: graphical user interface to use the functions in the library.
-  It is based on TkInter. The ambition is to keep it as a thin wrapper around
-  the library.
+- **[backlogops-gui](https://pypi.org/project/backlogops-gui/)** graphical user
+  interface to use the functions in the library. It is based on TkInter. The
+  ambition is to keep it as a thin wrapper around the library.
 
 ## Available functionality
 
@@ -40,6 +41,9 @@ The following functionality is available in all 3 packages:
   the key is at a higher level it will bring all items it is a parent of in
   front of it (recursively).
 
+- Reorder the backlog in release order, optionally taking dependencies into
+  account.
+
 - Set planned release dates from the estimated release dates.
 
 - Calculate the release dates from the backlog items estimated ready dates, with
@@ -65,45 +69,45 @@ availability of the team members.
 Each backlog item has the following fields that are used by the algorithms in
 the library:
 
-- key: The key of the backlog item. Required. Must be unique. Must not be empty,
-  must not contain whitespace and must not contain any of the characters , . ; :
-  ( ) \[ \] \{ \}.
+- `key` The key of the backlog item. Required. Must be unique. Must not be
+  empty, must not contain whitespace and must not contain any of the characters
+  , . ; : ( ) \[ \] \{ \}.
 
-- level: The level of the backlog item. Required. Must be an integer.
+- `level` The level of the backlog item. Required. Must be an integer.
 
-- title: The title of the backlog item. Required.
+- `title` The title of the backlog item. Required.
 
-- story_points: The story points of the backlog item. Required.
+- `story_points` The story points of the backlog item. Required.
 
-- status: The status of the backlog item. Required.
+- `status` The status of the backlog item. Required.
 
-- parent_key: The key of the parent backlog item. Optional. Must exist as a key
+- `parent_key` The key of the parent backlog item. Optional. Must exist as a key
   in the backlog. Parent keys are used to build the hierarchy of the backlog.
   The parent key must be at a higher level than the current item. Parent keys
   introduce implicit dependencies between items: the current item cannot start
   before the parent item starts, and the parent item cannot finish before all
   its children have finished.
 
-- release: The release of the backlog item. Optional. Follows the same character
-  rules as the key. Must not be empty string.
+- `release` The release of the backlog item. Optional. Follows the same
+  character rules as the key. Must not be empty string.
 
-- team: The team responsible for the backlog item. Optional. Must not be empty
+- `team` The team responsible for the backlog item. Optional. Must not be empty
   string. Must be a valid team name. If None the item can be done by any team.
   If not None. the item can only be done by the specified team.
 
-- depends_on_f2s: The list of keys of the backlog items that must have been
+- `depends_on_f2s` The list of keys of the backlog items that must have been
   finished before the current item can start. May be empty.
 
-- depends_on_f2f: The list of keys of the backlog items that must have been
+- `depends_on_f2f` The list of keys of the backlog items that must have been
   finished before the current item can finish. May be empty.
 
-- depends_on_s2s: The list of keys of the backlog items that must have been
+- `depends_on_s2s` The list of keys of the backlog items that must have been
   started before the current item can start. May be empty.
 
-- planned_ready_date: The planned ready date of the backlog item. The date that
+- `planned_ready_date` The planned ready date of the backlog item. The date that
   is communicated to the customer. Optional.
 
-- estimated_ready_date: The estimated ready date of the backlog item. Optional.
+- `estimated_ready_date` The estimated ready date of the backlog item. Optional.
 
 Additionally each backlog item can have any number of other fields.
 
@@ -223,7 +227,7 @@ one with the list of releases. You will want to use the menus.
 
 ## Test summary
 
-- Test result: 1545 passed in 33s
+- Test result: 1545 passed in 34s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.
