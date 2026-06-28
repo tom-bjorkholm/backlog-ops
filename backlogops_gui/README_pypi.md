@@ -262,5 +262,5 @@ one with the list of releases. You will want to use the menus.
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.
-- Built version(s): 0.1.1
+- Built version(s): 0.2
 - Build and test using Python 3.14.6
