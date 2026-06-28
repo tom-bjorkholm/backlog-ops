@@ -29,12 +29,15 @@
   * [overwrite\_callback](#backlogops_cli._command_io.overwrite_callback)
   * [parsed\_args](#backlogops_cli._command_io.parsed_args)
   * [add\_input\_args](#backlogops_cli._command_io.add_input_args)
-  * [\_ops\_config](#backlogops_cli._command_io._ops_config)
+  * [add\_config\_arg](#backlogops_cli._command_io.add_config_arg)
+  * [\_resolve\_config](#backlogops_cli._command_io._resolve_config)
+  * [required\_config](#backlogops_cli._command_io.required_config)
+  * [optional\_config](#backlogops_cli._command_io.optional_config)
   * [io\_levels](#backlogops_cli._command_io.io_levels)
   * [read\_input](#backlogops_cli._command_io.read_input)
   * [add\_force\_arg](#backlogops_cli._command_io.add_force_arg)
   * [add\_output\_args](#backlogops_cli._command_io.add_output_args)
-  * [\_output\_presets](#backlogops_cli._command_io._output_presets)
+  * [build\_io\_parser](#backlogops_cli._command_io.build_io_parser)
   * [\_write\_output](#backlogops_cli._command_io._write_output)
   * [run\_write](#backlogops_cli._command_io.run_write)
   * [DEFAULT\_BUFFER\_DAYS](#backlogops_cli._command_io.DEFAULT_BUFFER_DAYS)
@@ -91,7 +94,6 @@
 * [backlogops\_cli.estimate\_ready\_date](#backlogops_cli.estimate_ready_date)
   * [build\_parser](#backlogops_cli.estimate_ready_date.build_parser)
   * [\_start\_date](#backlogops_cli.estimate_ready_date._start_date)
-  * [\_load\_teams](#backlogops_cli.estimate_ready_date._load_teams)
   * [\_estimate](#backlogops_cli.estimate_ready_date._estimate)
   * [main](#backlogops_cli.estimate_ready_date.main)
 
@@ -438,67 +440,112 @@ def add_input_args(parser: argparse.ArgumentParser) -> None
 
 Add the input-file and input-config arguments.
 
-<a id="backlogops_cli._command_io._ops_config"></a>
+<a id="backlogops_cli._command_io.add_config_arg"></a>
 
-#### \_ops\_config
+#### add\_config\_arg
 
 ```python
-def _ops_config(io_config: Optional[str]) -> Optional[BacklogOpsConfig]
+def add_config_arg(parser: argparse.ArgumentParser) -> None
 ```
 
-Return the backlog-ops configuration to use for the presets.
+Add the ``-c``/``--config`` backlog-ops configuration argument.
 
-When ``--io-config`` names a file, that file is read. Otherwise the
-default teams configuration is looked up the same way as the GUI and
-the estimate command (``$BACKLOGOPS_CFG``, then ``backlogops.cfg`` in
-``$BACKLOGOPS_DIR``, then ``$HOME/.backlogops.cfg``). When no
-configuration is found anywhere, the built-in defaults are used and
-``None`` is returned. An old configuration file is read through the
-compatibility path and triggers a migration warning.
+The configuration file holds the workforce, the named input and output
+presets, the levels and the global status map. Without ``-c`` the file
+is discovered the same way as the GUI.
+
+<a id="backlogops_cli._command_io._resolve_config"></a>
+
+#### \_resolve\_config
+
+```python
+def _resolve_config(parsed: argparse.Namespace) -> BacklogOpsConfig
+```
+
+Return the backlog-ops configuration from ``-c`` or by discovery.
+
+With ``-c`` the named file is read; an old file triggers a migration
+warning. Without ``-c`` the file is discovered the same way as the GUI
+(``$BACKLOGOPS_CFG``, then ``backlogops.cfg`` in ``$BACKLOGOPS_DIR``,
+then ``$HOME/.backlogops.cfg``).
+
+**Raises**:
+
+- `ValueError` - If ``-c`` names a file that does not exist.
+- `RuntimeError` - If no ``-c`` is given and no file is discovered.
+
+<a id="backlogops_cli._command_io.required_config"></a>
+
+#### required\_config
+
+```python
+def required_config(parsed: argparse.Namespace) -> BacklogOpsConfig
+```
+
+Return the configuration, reporting a missing one as a ValueError.
+
+Used by commands that cannot work without a configuration, such as the
+estimate command, which needs the workforce.
+
+<a id="backlogops_cli._command_io.optional_config"></a>
+
+#### optional\_config
+
+```python
+def optional_config(parsed: argparse.Namespace) -> Optional[BacklogOpsConfig]
+```
+
+Return the configuration, or None with a note when none is found.
+
+Used by commands that fall back to the built-in defaults (formats
+inferred from the file name, no presets) when no configuration file is
+available.
 
 <a id="backlogops_cli._command_io.io_levels"></a>
 
 #### io\_levels
 
 ```python
-def io_levels(parsed: argparse.Namespace) -> Optional[Levels]
+def io_levels(config: Optional[BacklogOpsConfig]) -> Optional[Levels]
 ```
 
-Return the configured levels from ``--io-config``, if one is given.
+Return the configured levels from ``config``, or None.
 
 **Arguments**:
 
-- `parsed` - Parsed command line arguments that may hold an
-  ``--io-config`` option.
+- `config` - The resolved backlog-ops configuration, or None to use the
+  default levels.
   
 
 **Returns**:
 
-  The levels configured in the ``--io-config`` file, or None when
-  no such file is given.
+  The levels configured in ``config``, or None when no configuration
+  is given.
 
 <a id="backlogops_cli._command_io.read_input"></a>
 
 #### read\_input
 
 ```python
-def read_input(parsed: argparse.Namespace) -> BacklogReleases
+def read_input(parsed: argparse.Namespace,
+               config: Optional[BacklogOpsConfig]) -> BacklogReleases
 ```
 
 Read and validate the backlog and releases from the input file.
 
 The input format is resolved from the ``--input-config`` value, which
 may be empty (inferred from the file name), a preset name looked up in
-the presets file given by ``--io-config``, or a config file path. When
-a ``--io-config`` is given its configured levels and its library-wide
-status input map are honoured while reading the items; the input
-configuration's own status map overrides the global one per name.
+``config``, or a config file path. When ``config`` is given its levels
+and its library-wide status input map are honoured while reading the
+items; the input configuration's own status map overrides the global
+one per name.
 
 **Arguments**:
 
 - `parsed` - Parsed command line arguments holding the input options
-  added by :func:`add_input_args` and, optionally, the
-  ``--io-config`` option added by :func:`add_output_args`.
+  added by :func:`add_input_args`.
+- `config` - The resolved backlog-ops configuration, or None to use the
+  built-in defaults.
   
 
 **Returns**:
@@ -525,23 +572,47 @@ def add_output_args(parser: argparse.ArgumentParser) -> None
 
 Add the output-file, output-config and ordering arguments.
 
-<a id="backlogops_cli._command_io._output_presets"></a>
+<a id="backlogops_cli._command_io.build_io_parser"></a>
 
-#### \_output\_presets
+#### build\_io\_parser
 
 ```python
-def _output_presets(
-        io_config: Optional[str]) -> Optional[dict[str, OutputFormatConfig]]
+def build_io_parser(description: str,
+                    *,
+                    with_input: bool = True,
+                    with_config: bool = True,
+                    with_output: bool = True) -> argparse.ArgumentParser
 ```
 
-Return the named output presets from a presets file, if given.
+Create a parser with the common input, config and output options.
+
+Most data commands read a file, take the backlog-ops configuration,
+and write a file, so this builds the parser with those option groups
+already added. A command adds only its own extra options to the
+returned parser. A group is left out when its flag is False, for a
+command that does not read (or does not write) a backlog file.
+
+**Arguments**:
+
+- `description` - The command description shown in the help text.
+- `with_input` - Add the input-file and input-config options.
+- `with_config` - Add the ``-c`` backlog-ops configuration option.
+- `with_output` - Add the output-file, output-config, ordering and
+  force options.
+  
+
+**Returns**:
+
+  The parser with the requested common options added.
 
 <a id="backlogops_cli._command_io._write_output"></a>
 
 #### \_write\_output
 
 ```python
-def _write_output(parsed: argparse.Namespace, data: BacklogReleases) -> None
+def _write_output(parsed: argparse.Namespace,
+                  config: Optional[BacklogOpsConfig],
+                  data: BacklogReleases) -> None
 ```
 
 Write the backlog and releases to the configured output file.
@@ -551,19 +622,26 @@ Write the backlog and releases to the configured output file.
 #### run\_write
 
 ```python
-def run_write(parsed: argparse.Namespace,
-              data_source: Callable[[], BacklogReleases]) -> int
+def run_write(
+    parsed: argparse.Namespace,
+    data_source: Callable[[Optional[BacklogOpsConfig]],
+                          BacklogReleases]) -> int
 ```
 
 Build the data, write it to the output file, and report the result.
 
+The configuration is resolved once from ``-c`` or by discovery, falling
+back to the built-in defaults when none is found.
+
 **Arguments**:
 
 - `parsed` - Parsed command line arguments holding the output options
-  added by :func:`add_output_args`.
-- `data_source` - Callable that returns the backlog and releases to
-  write. It is called inside the error handling so that reading
-  failures are reported like writing failures.
+  added by :func:`add_output_args` and the ``-c`` option added by
+  :func:`add_config_arg`.
+- `data_source` - Callable that receives the resolved configuration (or
+  None) and returns the backlog and releases to write. It is
+  called inside the error handling so that reading failures are
+  reported like writing failures.
   
 
 **Returns**:
@@ -604,7 +682,7 @@ Add the optional file to also save the list of changes to.
 def build_change_parser(description: str) -> argparse.ArgumentParser
 ```
 
-Build a parser with input, buffer, output and changes arguments.
+Build a parser with input, config, output, buffer and changes.
 
 <a id="backlogops_cli._command_io.date_report"></a>
 
@@ -641,27 +719,31 @@ The writer overwrites an existing changes file as decided by
 #### run\_change\_command
 
 ```python
-def run_change_command(
-    parsed: argparse.Namespace,
-    produce: Callable[[BacklogReleases], tuple[str, Optional[Callable[[str],
-                                                                      None]]]]
-) -> int
+def run_change_command(parsed: argparse.Namespace,
+                       produce: Callable[
+                           [Optional[BacklogOpsConfig], BacklogReleases],
+                           tuple[str, Optional[Callable[[str], None]]]],
+                       require_config: bool = False) -> int
 ```
 
 Read, change, write the data, and emit the list of changes.
 
-The input is read and validated, ``produce`` changes it in place and
-returns the change listing as text together with a callback that
-writes the same changes to a file. The changed data is written to the
-output file, the listing is printed to stdout, and, when
-``--changes-file`` is given, the changes are also written to that file.
+The configuration is resolved once, the input is read and validated,
+``produce`` changes it in place and returns the change listing as text
+together with a callback that writes the same changes to a file. The
+changed data is written to the output file, the listing is printed to
+stdout, and, when ``--changes-file`` is given, the changes are also
+written to that file.
 
 **Arguments**:
 
-- `parsed` - Parsed command line arguments holding the input, output
-  and ``--changes-file`` options.
-- `produce` - Callable that changes the data and returns the change
+- `parsed` - Parsed command line arguments holding the input, output,
+  ``-c`` and ``--changes-file`` options.
+- `produce` - Callable that receives the resolved configuration (or
+  None) and the data, changes the data, and returns the change
   listing text and a writer for the change file.
+- `require_config` - When True a missing configuration is reported as an
+  error instead of falling back to the built-in defaults.
   
 
 **Returns**:
@@ -1028,7 +1110,8 @@ Build the command line parser for the order_releases command.
 #### \_ordered
 
 ```python
-def _ordered(parsed: argparse.Namespace) -> BacklogReleases
+def _ordered(parsed: argparse.Namespace,
+             config: Optional[BacklogOpsConfig]) -> BacklogReleases
 ```
 
 Read the data and return it with the releases ordered by date.
@@ -1082,7 +1165,8 @@ Build the command line parser for the order_by_deps command.
 #### \_ordered
 
 ```python
-def _ordered(parsed: argparse.Namespace) -> BacklogReleases
+def _ordered(parsed: argparse.Namespace,
+             config: Optional[BacklogOpsConfig]) -> BacklogReleases
 ```
 
 Read the backlog and return it reordered by dependencies.
@@ -1139,7 +1223,8 @@ Build the command line parser for the order_by_release command.
 #### \_ordered
 
 ```python
-def _ordered(parsed: argparse.Namespace) -> BacklogReleases
+def _ordered(parsed: argparse.Namespace,
+             config: Optional[BacklogOpsConfig]) -> BacklogReleases
 ```
 
 Read the data and order the backlog by the release order.
@@ -1238,7 +1323,8 @@ Build the command line parser for the order_by_keys command.
 #### \_reordered
 
 ```python
-def _reordered(parsed: argparse.Namespace) -> BacklogReleases
+def _reordered(parsed: argparse.Namespace,
+               config: Optional[BacklogOpsConfig]) -> BacklogReleases
 ```
 
 Read the backlog and key list and return the reordered data.
@@ -1299,27 +1385,20 @@ def _start_date(parsed: argparse.Namespace) -> Optional[date]
 
 Return the start date from the command line, or None for today.
 
-<a id="backlogops_cli.estimate_ready_date._load_teams"></a>
-
-#### \_load\_teams
-
-```python
-def _load_teams(config: Optional[str]) -> AvailableTeams
-```
-
-Return the available teams, mapping a missing file to ValueError.
-
 <a id="backlogops_cli.estimate_ready_date._estimate"></a>
 
 #### \_estimate
 
 ```python
 def _estimate(
-        parsed: argparse.Namespace,
+        parsed: argparse.Namespace, config: Optional[BacklogOpsConfig],
         data: BacklogReleases) -> tuple[str, Optional[Callable[[str], None]]]
 ```
 
 Estimate the dates and return the release date change report.
+
+The configuration is required for this command, so ``config`` is never
+None here; the assertion makes that explicit for the type checker.
 
 <a id="backlogops_cli.estimate_ready_date.main"></a>
 

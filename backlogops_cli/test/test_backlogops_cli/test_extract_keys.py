@@ -70,6 +70,14 @@ def test_missing_input(tmp_path: Path) -> None:
                               '--levels', 'Story']) == 1
 
 
+def test_missing_config(tmp_path: Path) -> None:
+    """Test a -c config file that does not exist returns 1."""
+    source = tmp_path / 'in.ods'
+    _write_source(source)
+    assert extract_keys.main(['-i', str(source), '--levels', 'Epic',
+                              '-c', str(tmp_path / 'no.cfg')]) == 1
+
+
 def _extract(source: Path, target: Path, extra: list[str]) -> int:
     """Run extract_keys writing epics to target with extra arguments."""
     return extract_keys.main(['-i', str(source), '--levels', 'Epic',

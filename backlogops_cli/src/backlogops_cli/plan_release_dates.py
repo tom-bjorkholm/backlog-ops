@@ -49,7 +49,7 @@ def main(args: Optional[list[str]] = None) -> int:
         written.
     """
     parsed = parsed_args(build_parser(), args)
-    return run_change_command(parsed, lambda data: _plan(parsed, data))
+    return run_change_command(parsed, lambda _, data: _plan(parsed, data))
 
 
 if __name__ == '__main__':  # pragma: no cover

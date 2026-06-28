@@ -16,17 +16,14 @@ import argparse
 import sys
 from typing import Optional
 from backlogops_cli._command_io import (
-    add_input_args, add_output_args, parsed_args, read_input, run_write)
+    build_io_parser, parsed_args, read_input, run_write)
 
 DESCRIPTION = 'Convert a backlog and releases between table file formats'
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the convert command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_input_args(parser)
-    add_output_args(parser)
-    return parser
+    return build_io_parser(DESCRIPTION)
 
 
 def main(args: Optional[list[str]] = None) -> int:
@@ -40,7 +37,7 @@ def main(args: Optional[list[str]] = None) -> int:
         or written.
     """
     parsed = parsed_args(build_parser(), args)
-    return run_write(parsed, lambda: read_input(parsed))
+    return run_write(parsed, lambda config: read_input(parsed, config))
 
 
 if __name__ == '__main__':  # pragma: no cover

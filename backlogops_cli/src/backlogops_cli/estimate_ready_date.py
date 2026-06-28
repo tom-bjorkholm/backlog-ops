@@ -19,34 +19,25 @@ configuration file or by a named preset.
 import argparse
 import sys
 from datetime import date
-from pathlib import Path
+from functools import partial
 from typing import Callable, Optional
-from backlogops import AvailableTeams, BacklogReleases, \
-    get_backlog_ops_config
-from backlogops_cli._migrate_warn import CliMigrateWarnHook
+from backlogops import BacklogOpsConfig, BacklogReleases
 from backlogops_cli._command_io import (
-    add_changes_arg, add_input_args, add_output_args, date_report,
-    overwrite_callback, parsed_args, run_change_command)
+    add_changes_arg, build_io_parser, date_report, overwrite_callback,
+    parsed_args, run_change_command)
 
 DESCRIPTION = 'Estimate ready dates for the backlog items'
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the estimate command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_input_args(parser)
-    parser.add_argument('-c', '--config', dest='config',
-                        help='Teams configuration file (velocity, work '
-                        'hours, vacations). Without -c the file is found '
-                        'from $BACKLOGOPS_CFG, else backlogops.cfg in '
-                        '$BACKLOGOPS_DIR, else $HOME/.backlogops.cfg.')
+    parser = build_io_parser(DESCRIPTION)
     parser.add_argument('-d', '--start-date', dest='start_date',
                         metavar='ISO_DATE',
                         help='Day the teams start working (default today).')
     parser.add_argument('--set-plan', dest='set_plan', action='store_true',
                         help='Also copy each estimated date to the planned '
                         'date.')
-    add_output_args(parser)
     add_changes_arg(parser)
     return parser
 
@@ -58,22 +49,17 @@ def _start_date(parsed: argparse.Namespace) -> Optional[date]:
     return date.fromisoformat(parsed.start_date)
 
 
-def _load_teams(config: Optional[str]) -> AvailableTeams:
-    """Return the available teams, mapping a missing file to ValueError."""
-    if config is not None and not Path(config).is_file():
-        raise ValueError(f'Teams configuration file not found: {config}')
-    try:
-        return get_backlog_ops_config(
-            config, auto_ch_hook=CliMigrateWarnHook()).available_teams
-    except RuntimeError as error:
-        raise ValueError(str(error)) from error
-
-
-def _estimate(parsed: argparse.Namespace, data: BacklogReleases
+def _estimate(parsed: argparse.Namespace, config: Optional[BacklogOpsConfig],
+              data: BacklogReleases
               ) -> tuple[str, Optional[Callable[[str], None]]]:
-    """Estimate the dates and return the release date change report."""
-    teams = _load_teams(parsed.config)
-    changes = data.estimate_ready_date(teams, _start_date(parsed))
+    """Estimate the dates and return the release date change report.
+
+    The configuration is required for this command, so ``config`` is never
+    None here; the assertion makes that explicit for the type checker.
+    """
+    assert isinstance(config, BacklogOpsConfig)
+    changes = data.estimate_ready_date(config.available_teams,
+                                       _start_date(parsed))
     if parsed.set_plan:
         data.set_plan_from_estimate()
     return date_report(changes, overwrite_callback(parsed.force))
@@ -95,7 +81,8 @@ def main(args: Optional[list[str]] = None) -> int:
         or written.
     """
     parsed = parsed_args(build_parser(), args)
-    return run_change_command(parsed, lambda data: _estimate(parsed, data))
+    return run_change_command(parsed, partial(_estimate, parsed),
+                              require_config=True)
 
 
 if __name__ == '__main__':  # pragma: no cover

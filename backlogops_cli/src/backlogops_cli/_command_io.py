@@ -12,6 +12,7 @@ underscore in the module name keeps it out of the command listing.
 
 import argparse
 import sys
+from pathlib import Path
 from collections.abc import Callable
 from typing import Optional, TextIO
 import argcomplete
@@ -19,11 +20,10 @@ from backlogops_cli._migrate_warn import CliMigrateWarnHook
 from backlogops_cli.bloc_version_reporter import BloCliVersionReporter
 from backlogops import (
     BacklogOpsConfig, BacklogReleases, FileExistsCb, FormatRules, Levels,
-    OutputFormatConfig, ReleaseChanges, ReleaseDateChanges, allow_overwrite,
+    ReleaseChanges, ReleaseDateChanges, allow_overwrite,
     format_content_changes, format_date_changes, get_backlog_ops_config,
-    read_backlog_ops_config, read_backlog_releases, resolve_input_config,
-    resolve_output_config, write_backlog_releases, write_content_changes,
-    write_date_changes)
+    read_backlog_releases, resolve_input_config, resolve_output_config,
+    write_backlog_releases, write_content_changes, write_date_changes)
 
 
 def overwrite_callback(force: bool, in_stream: Optional[TextIO] = None,
@@ -76,61 +76,104 @@ def add_input_args(parser: argparse.ArgumentParser) -> None:
                         help='Input format: a config file or a preset name.')
 
 
-def _ops_config(io_config: Optional[str]) -> Optional[BacklogOpsConfig]:
-    """Return the backlog-ops configuration to use for the presets.
+def add_config_arg(parser: argparse.ArgumentParser) -> None:
+    """Add the ``-c``/``--config`` backlog-ops configuration argument.
 
-    When ``--io-config`` names a file, that file is read. Otherwise the
-    default teams configuration is looked up the same way as the GUI and
-    the estimate command (``$BACKLOGOPS_CFG``, then ``backlogops.cfg`` in
-    ``$BACKLOGOPS_DIR``, then ``$HOME/.backlogops.cfg``). When no
-    configuration is found anywhere, the built-in defaults are used and
-    ``None`` is returned. An old configuration file is read through the
-    compatibility path and triggers a migration warning.
+    The configuration file holds the workforce, the named input and output
+    presets, the levels and the global status map. Without ``-c`` the file
+    is discovered the same way as the GUI.
     """
-    if io_config is not None:
-        return read_backlog_ops_config(io_config, sys.stderr,
-                                       auto_ch_hook=CliMigrateWarnHook())
-    try:
-        return get_backlog_ops_config(None, sys.stderr,
+    parser.add_argument('-c', '--config', dest='config',
+                        help='Backlog-ops configuration file (workforce, '
+                        'named presets, levels, status map). Without -c the '
+                        'file is found from $BACKLOGOPS_CFG, else '
+                        'backlogops.cfg in $BACKLOGOPS_DIR, else '
+                        '$HOME/.backlogops.cfg.')
+
+
+def _resolve_config(parsed: argparse.Namespace) -> BacklogOpsConfig:
+    """Return the backlog-ops configuration from ``-c`` or by discovery.
+
+    With ``-c`` the named file is read; an old file triggers a migration
+    warning. Without ``-c`` the file is discovered the same way as the GUI
+    (``$BACKLOGOPS_CFG``, then ``backlogops.cfg`` in ``$BACKLOGOPS_DIR``,
+    then ``$HOME/.backlogops.cfg``).
+
+    Raises:
+        ValueError: If ``-c`` names a file that does not exist.
+        RuntimeError: If no ``-c`` is given and no file is discovered.
+    """
+    config_file = parsed.config
+    if config_file is not None:
+        if not Path(config_file).is_file():
+            raise ValueError(f'Configuration file not found: {config_file}')
+        return get_backlog_ops_config(config_file, sys.stderr,
                                       auto_ch_hook=CliMigrateWarnHook())
+    return get_backlog_ops_config(None, sys.stderr,
+                                  auto_ch_hook=CliMigrateWarnHook())
+
+
+def required_config(parsed: argparse.Namespace) -> BacklogOpsConfig:
+    """Return the configuration, reporting a missing one as a ValueError.
+
+    Used by commands that cannot work without a configuration, such as the
+    estimate command, which needs the workforce.
+    """
+    try:
+        return _resolve_config(parsed)
+    except RuntimeError as error:
+        raise ValueError(str(error)) from error
+
+
+def optional_config(parsed: argparse.Namespace) -> Optional[BacklogOpsConfig]:
+    """Return the configuration, or None with a note when none is found.
+
+    Used by commands that fall back to the built-in defaults (formats
+    inferred from the file name, no presets) when no configuration file is
+    available.
+    """
+    try:
+        return _resolve_config(parsed)
     except RuntimeError:
+        print('No backlog-ops configuration file found; using built-in '
+              'defaults.', file=sys.stderr)
         return None
 
 
-def io_levels(parsed: argparse.Namespace) -> Optional[Levels]:
-    """Return the configured levels from ``--io-config``, if one is given.
+def io_levels(config: Optional[BacklogOpsConfig]) -> Optional[Levels]:
+    """Return the configured levels from ``config``, or None.
 
     Args:
-        parsed: Parsed command line arguments that may hold an
-            ``--io-config`` option.
+        config: The resolved backlog-ops configuration, or None to use the
+            default levels.
 
     Returns:
-        The levels configured in the ``--io-config`` file, or None when
-        no such file is given.
+        The levels configured in ``config``, or None when no configuration
+        is given.
     """
-    config = _ops_config(getattr(parsed, 'io_config', None))
     return config.get_levels() if config is not None else None
 
 
-def read_input(parsed: argparse.Namespace) -> BacklogReleases:
+def read_input(parsed: argparse.Namespace,
+               config: Optional[BacklogOpsConfig]) -> BacklogReleases:
     """Read and validate the backlog and releases from the input file.
 
     The input format is resolved from the ``--input-config`` value, which
     may be empty (inferred from the file name), a preset name looked up in
-    the presets file given by ``--io-config``, or a config file path. When
-    a ``--io-config`` is given its configured levels and its library-wide
-    status input map are honoured while reading the items; the input
-    configuration's own status map overrides the global one per name.
+    ``config``, or a config file path. When ``config`` is given its levels
+    and its library-wide status input map are honoured while reading the
+    items; the input configuration's own status map overrides the global
+    one per name.
 
     Args:
         parsed: Parsed command line arguments holding the input options
-            added by :func:`add_input_args` and, optionally, the
-            ``--io-config`` option added by :func:`add_output_args`.
+            added by :func:`add_input_args`.
+        config: The resolved backlog-ops configuration, or None to use the
+            built-in defaults.
 
     Returns:
         The validated backlog and releases read from the input file.
     """
-    config = _ops_config(getattr(parsed, 'io_config', None))
     presets = config.input_configs if config is not None else None
     levels = config.get_levels() if config is not None else None
     status_map = (config.get_status_input_map() if config is not None
@@ -156,51 +199,82 @@ def add_output_args(parser: argparse.ArgumentParser) -> None:
                         help='Output data file to create.')
     parser.add_argument('-O', '--output-config', dest='output_config',
                         help='Output format: a config file or a preset name.')
-    parser.add_argument('--io-config', dest='io_config',
-                        help='Configuration file holding the named presets '
-                        '(by default the teams configuration file).')
     parser.add_argument('--releases-first', dest='releases_first',
                         action='store_true',
                         help='Write the releases before the backlog.')
     add_force_arg(parser)
 
 
-def _output_presets(io_config: Optional[str]
-                    ) -> Optional[dict[str, OutputFormatConfig]]:
-    """Return the named output presets from a presets file, if given."""
-    config = _ops_config(io_config)
-    return config.output_configs if config is not None else None
+def build_io_parser(description: str, *, with_input: bool = True,
+                    with_config: bool = True,
+                    with_output: bool = True) -> argparse.ArgumentParser:
+    """Create a parser with the common input, config and output options.
+
+    Most data commands read a file, take the backlog-ops configuration,
+    and write a file, so this builds the parser with those option groups
+    already added. A command adds only its own extra options to the
+    returned parser. A group is left out when its flag is False, for a
+    command that does not read (or does not write) a backlog file.
+
+    Args:
+        description: The command description shown in the help text.
+        with_input: Add the input-file and input-config options.
+        with_config: Add the ``-c`` backlog-ops configuration option.
+        with_output: Add the output-file, output-config, ordering and
+            force options.
+
+    Returns:
+        The parser with the requested common options added.
+    """
+    parser = argparse.ArgumentParser(description=description)
+    if with_input:
+        add_input_args(parser)
+    if with_config:
+        add_config_arg(parser)
+    if with_output:
+        add_output_args(parser)
+    return parser
 
 
-def _write_output(parsed: argparse.Namespace, data: BacklogReleases) -> None:
+def _write_output(parsed: argparse.Namespace,
+                  config: Optional[BacklogOpsConfig],
+                  data: BacklogReleases) -> None:
     """Write the backlog and releases to the configured output file."""
-    presets = _output_presets(parsed.io_config)
-    config = resolve_output_config(parsed.output_config,
-                                   data_file=parsed.output, presets=presets,
-                                   auto_ch_hook=CliMigrateWarnHook())
+    presets = config.output_configs if config is not None else None
+    out_config = resolve_output_config(parsed.output_config,
+                                       data_file=parsed.output,
+                                       presets=presets,
+                                       auto_ch_hook=CliMigrateWarnHook())
     rules = FormatRules(backlog_first=not parsed.releases_first)
-    write_backlog_releases(data, parsed.output, config, rules,
-                           levels=io_levels(parsed),
+    write_backlog_releases(data, parsed.output, out_config, rules,
+                           levels=io_levels(config),
                            file_exists_callback=overwrite_callback(
                                parsed.force))
 
 
 def run_write(parsed: argparse.Namespace,
-              data_source: Callable[[], BacklogReleases]) -> int:
+              data_source: Callable[[Optional[BacklogOpsConfig]],
+                                    BacklogReleases]) -> int:
     """Build the data, write it to the output file, and report the result.
+
+    The configuration is resolved once from ``-c`` or by discovery, falling
+    back to the built-in defaults when none is found.
 
     Args:
         parsed: Parsed command line arguments holding the output options
-            added by :func:`add_output_args`.
-        data_source: Callable that returns the backlog and releases to
-            write. It is called inside the error handling so that reading
-            failures are reported like writing failures.
+            added by :func:`add_output_args` and the ``-c`` option added by
+            :func:`add_config_arg`.
+        data_source: Callable that receives the resolved configuration (or
+            None) and returns the backlog and releases to write. It is
+            called inside the error handling so that reading failures are
+            reported like writing failures.
 
     Returns:
         ``0`` on success, ``1`` when the data cannot be built or written.
     """
     try:
-        _write_output(parsed, data_source())
+        config = optional_config(parsed)
+        _write_output(parsed, config, data_source(config))
     except (ValueError, TypeError, KeyError, OSError) as error:
         print(f'Could not write {parsed.output}: {error}', file=sys.stderr)
         return 1
@@ -230,11 +304,9 @@ def add_changes_arg(parser: argparse.ArgumentParser) -> None:
 
 
 def build_change_parser(description: str) -> argparse.ArgumentParser:
-    """Build a parser with input, buffer, output and changes arguments."""
-    parser = argparse.ArgumentParser(description=description)
-    add_input_args(parser)
+    """Build a parser with input, config, output, buffer and changes."""
+    parser = build_io_parser(description)
     add_buffer_arg(parser)
-    add_output_args(parser)
     add_changes_arg(parser)
     return parser
 
@@ -266,30 +338,38 @@ def content_report(changes: ReleaseChanges, file_exists_cb: FileExistsCb
     return format_content_changes(changes), (write if changes else None)
 
 
-def run_change_command(parsed: argparse.Namespace,
-                       produce: Callable[[BacklogReleases], tuple[
-                           str, Optional[Callable[[str], None]]]]) -> int:
+def run_change_command(
+        parsed: argparse.Namespace,
+        produce: Callable[[Optional[BacklogOpsConfig], BacklogReleases],
+                          tuple[str, Optional[Callable[[str], None]]]],
+        require_config: bool = False) -> int:
     """Read, change, write the data, and emit the list of changes.
 
-    The input is read and validated, ``produce`` changes it in place and
-    returns the change listing as text together with a callback that
-    writes the same changes to a file. The changed data is written to the
-    output file, the listing is printed to stdout, and, when
-    ``--changes-file`` is given, the changes are also written to that file.
+    The configuration is resolved once, the input is read and validated,
+    ``produce`` changes it in place and returns the change listing as text
+    together with a callback that writes the same changes to a file. The
+    changed data is written to the output file, the listing is printed to
+    stdout, and, when ``--changes-file`` is given, the changes are also
+    written to that file.
 
     Args:
-        parsed: Parsed command line arguments holding the input, output
-            and ``--changes-file`` options.
-        produce: Callable that changes the data and returns the change
+        parsed: Parsed command line arguments holding the input, output,
+            ``-c`` and ``--changes-file`` options.
+        produce: Callable that receives the resolved configuration (or
+            None) and the data, changes the data, and returns the change
             listing text and a writer for the change file.
+        require_config: When True a missing configuration is reported as an
+            error instead of falling back to the built-in defaults.
 
     Returns:
         ``0`` on success, ``1`` when any step fails.
     """
     try:
-        data = read_input(parsed)
-        listing, write_changes = produce(data)
-        _write_output(parsed, data)
+        config = (required_config(parsed) if require_config
+                  else optional_config(parsed))
+        data = read_input(parsed, config)
+        listing, write_changes = produce(config, data)
+        _write_output(parsed, config, data)
         print(f'Wrote {parsed.output}')
         print(listing)
         _save_changes(parsed, write_changes)

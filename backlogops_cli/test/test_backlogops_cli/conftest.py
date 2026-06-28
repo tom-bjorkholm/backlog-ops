@@ -13,9 +13,9 @@ from backlogops import backlog_ops_config
 def _isolate_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Reset the stored configuration and point HOME at an empty directory.
 
-    The data commands look up the default teams configuration the same way
-    as the GUI when no ``--io-config`` is given. Without this isolation the
-    tests would pick up the developer's ``$HOME/.backlogops.cfg`` and the
+    The data commands look up the backlog-ops configuration the same way
+    as the GUI when no ``-c`` is given. Without this isolation the tests
+    would pick up the developer's ``$HOME/.backlogops.cfg`` and the
     process-wide configuration cache would leak between tests.
     """
     # pylint: disable-next=protected-access

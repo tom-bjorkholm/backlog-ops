@@ -119,9 +119,9 @@ def test_warn_hook_text() -> None:
     assert 'migrate_cfg' in message
 
 
-def test_old_io_config_warns(tmp_path: Path,
-                             capsys: pytest.CaptureFixture[str]) -> None:
-    """Test a command reading an old --io-config warns about migration."""
+def test_old_config_warns(tmp_path: Path,
+                          capsys: pytest.CaptureFixture[str]) -> None:
+    """Test a command reading an old -c config warns about migration."""
     teams = tmp_path / 'teams.cfg'
     _write_old_config(teams)
     source = tmp_path / 'in.csv'
@@ -129,7 +129,7 @@ def test_old_io_config_warns(tmp_path: Path,
     source.write_text('key,level,title,story_points,status\n'
                       'A1,1,First,5,TODO\n', encoding='utf-8')
     assert convert.main(['-i', str(source), '-o', str(target),
-                        '--io-config', str(teams)]) == 0
+                        '-c', str(teams)]) == 0
     assert 'migrate_cfg' in capsys.readouterr().err
 
 
@@ -137,10 +137,10 @@ def test_default_config_warns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                               capsys: pytest.CaptureFixture[str]) -> None:
     """Test a command auto-discovers an old default config and warns once.
 
-    With no ``--io-config`` the command falls back to the default teams
-    configuration found via ``$BACKLOGOPS_CFG``, just like the GUI. The
-    warning is shown exactly once even though the configuration is consulted
-    several times while writing.
+    With no ``-c`` the command falls back to the backlog-ops configuration
+    found via ``$BACKLOGOPS_CFG``, just like the GUI. The warning is shown
+    exactly once even though the configuration is consulted several times
+    while writing.
     """
     teams = tmp_path / 'teams.cfg'
     _write_old_config(teams)

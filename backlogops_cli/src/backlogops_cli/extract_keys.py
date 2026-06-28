@@ -17,23 +17,20 @@ import sys
 from typing import Optional
 from backlogops import get_keys_in_order, write_key_list
 from backlogops_cli._command_io import (
-    add_force_arg, add_input_args, io_levels, overwrite_callback,
-    parsed_args, read_input)
+    add_force_arg, build_io_parser, io_levels, optional_config,
+    overwrite_callback, parsed_args, read_input)
 
 DESCRIPTION = 'Extract backlog keys at the given levels to a key list'
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the extract-keys command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_input_args(parser)
+    parser = build_io_parser(DESCRIPTION, with_output=False)
     parser.add_argument('-l', '--levels', dest='levels', nargs='+',
                         required=True, metavar='LEVEL',
                         help='Levels to extract keys at, by name or number.')
     parser.add_argument('-o', '--output', dest='output',
                         help='Key list file to create; stdout if omitted.')
-    parser.add_argument('--io-config', dest='io_config',
-                        help='Configuration file holding the named presets.')
     add_force_arg(parser)
     return parser
 
@@ -68,9 +65,10 @@ def main(args: Optional[list[str]] = None) -> int:
     """
     parsed = parsed_args(build_parser(), args)
     try:
-        data = read_input(parsed)
+        config = optional_config(parsed)
+        data = read_input(parsed, config)
         only_levels = [_level_value(text) for text in parsed.levels]
-        keys = get_keys_in_order(data.backlog, only_levels, io_levels(parsed))
+        keys = get_keys_in_order(data.backlog, only_levels, io_levels(config))
         _emit(keys, parsed.output, parsed.force)
     except (ValueError, TypeError, KeyError, OSError) as error:
         print(f'Could not extract keys: {error}', file=sys.stderr)

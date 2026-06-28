@@ -17,26 +17,25 @@ configuration file or by a named preset.
 import argparse
 import sys
 from typing import Optional
-from backlogops import BacklogReleases, read_key_list
+from backlogops import BacklogOpsConfig, BacklogReleases, read_key_list
 from backlogops_cli._command_io import (
-    add_input_args, add_output_args, parsed_args, read_input, run_write)
+    build_io_parser, parsed_args, read_input, run_write)
 
 DESCRIPTION = 'Reorder a backlog so that key-list items come first'
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the order_by_keys command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_input_args(parser)
+    parser = build_io_parser(DESCRIPTION)
     parser.add_argument('-k', '--key-list', dest='key_list', required=True,
                         help='Key list file giving the new leading order.')
-    add_output_args(parser)
     return parser
 
 
-def _reordered(parsed: argparse.Namespace) -> BacklogReleases:
+def _reordered(parsed: argparse.Namespace,
+               config: Optional[BacklogOpsConfig]) -> BacklogReleases:
     """Read the backlog and key list and return the reordered data."""
-    data = read_input(parsed)
+    data = read_input(parsed, config)
     data.move_keys_first(read_key_list(parsed.key_list))
     return data
 
@@ -52,7 +51,7 @@ def main(args: Optional[list[str]] = None) -> int:
         or written.
     """
     parsed = parsed_args(build_parser(), args)
-    return run_write(parsed, lambda: _reordered(parsed))
+    return run_write(parsed, lambda config: _reordered(parsed, config))
 
 
 if __name__ == '__main__':  # pragma: no cover

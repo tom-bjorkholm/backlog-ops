@@ -112,6 +112,14 @@ def test_missing_input(tmp_path: Path) -> None:
                                   '-o', str(tmp_path / 'out.ods')]) == 1
 
 
+def test_missing_config(tmp_path: Path) -> None:
+    """Test a -c config file that does not exist returns 1."""
+    source, target = tmp_path / 'in.ods', tmp_path / 'out.ods'
+    _write_source(source)
+    assert order_by_release.main(['-i', str(source), '-o', str(target),
+                                  '-c', str(tmp_path / 'no.cfg')]) == 1
+
+
 def test_bad_release_fails(tmp_path: Path) -> None:
     """Test an input that names a missing release returns 1.
 

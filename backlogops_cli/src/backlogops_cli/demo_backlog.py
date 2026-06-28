@@ -15,16 +15,15 @@ import argparse
 import sys
 from typing import Optional
 from backlogops import get_demo_backlog
-from backlogops_cli._command_io import add_output_args, parsed_args, run_write
+from backlogops_cli._command_io import (
+    build_io_parser, parsed_args, run_write)
 
 DESCRIPTION = 'Write a demonstration backlog and releases to a file'
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the demo backlog command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_output_args(parser)
-    return parser
+    return build_io_parser(DESCRIPTION, with_input=False)
 
 
 def main(args: Optional[list[str]] = None) -> int:
@@ -37,7 +36,7 @@ def main(args: Optional[list[str]] = None) -> int:
         ``0`` on success, ``1`` when the data cannot be written.
     """
     parsed = parsed_args(build_parser(), args)
-    return run_write(parsed, get_demo_backlog)
+    return run_write(parsed, lambda config: get_demo_backlog())
 
 
 if __name__ == '__main__':  # pragma: no cover

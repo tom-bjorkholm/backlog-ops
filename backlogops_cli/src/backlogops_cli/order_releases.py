@@ -18,28 +18,27 @@ preset.
 import argparse
 import sys
 from typing import Optional
-from backlogops import BacklogReleases
+from backlogops import BacklogOpsConfig, BacklogReleases
 from backlogops_cli._command_io import (
-    add_input_args, add_output_args, parsed_args, read_input, run_write)
+    build_io_parser, parsed_args, read_input, run_write)
 
 DESCRIPTION = 'Order the releases by their planned or estimated date'
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the order_releases command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_input_args(parser)
+    parser = build_io_parser(DESCRIPTION)
     parser.add_argument('-e', '--by-estimated', dest='by_estimated',
                         action='store_true',
                         help='Order by the estimated date instead of the '
                         'planned date.')
-    add_output_args(parser)
     return parser
 
 
-def _ordered(parsed: argparse.Namespace) -> BacklogReleases:
+def _ordered(parsed: argparse.Namespace,
+             config: Optional[BacklogOpsConfig]) -> BacklogReleases:
     """Read the data and return it with the releases ordered by date."""
-    data = read_input(parsed)
+    data = read_input(parsed, config)
     data.order_releases_by_date(by_estimated=parsed.by_estimated)
     return data
 
@@ -55,7 +54,7 @@ def main(args: Optional[list[str]] = None) -> int:
         written.
     """
     parsed = parsed_args(build_parser(), args)
-    return run_write(parsed, lambda: _ordered(parsed))
+    return run_write(parsed, lambda config: _ordered(parsed, config))
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -85,3 +85,11 @@ def test_missing_input(tmp_path: Path) -> None:
     """Test a missing input file makes the command return 1."""
     assert order_by_deps.main(['-i', str(tmp_path / 'no.csv'),
                                '-o', str(tmp_path / 'out.csv')]) == 1
+
+
+def test_missing_config(tmp_path: Path) -> None:
+    """Test a -c config file that does not exist returns 1."""
+    source, target = tmp_path / 'in.ods', tmp_path / 'out.csv'
+    _write_source(source)
+    assert order_by_deps.main(['-i', str(source), '-o', str(target),
+                               '-c', str(tmp_path / 'no.cfg')]) == 1

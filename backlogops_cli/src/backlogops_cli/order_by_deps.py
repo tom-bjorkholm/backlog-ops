@@ -17,17 +17,16 @@ configuration file or by a named preset.
 import argparse
 import sys
 from typing import Optional
-from backlogops import BacklogReleases, DependencyMode
+from backlogops import BacklogOpsConfig, BacklogReleases, DependencyMode
 from backlogops_cli._command_io import (
-    add_input_args, add_output_args, parsed_args, read_input, run_write)
+    build_io_parser, parsed_args, read_input, run_write)
 
 DESCRIPTION = 'Reorder a backlog so that dependencies are fulfilled'
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the order_by_deps command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_input_args(parser)
+    parser = build_io_parser(DESCRIPTION)
     parser.add_argument('-s', '--space-around', dest='space_around',
                         action='append', metavar='KEY',
                         help='Key to keep far from its dependencies. May '
@@ -39,13 +38,13 @@ def build_parser() -> argparse.ArgumentParser:
                         choices=[mode.name for mode in DependencyMode],
                         default=DependencyMode.KEEP.name,
                         help='Placement of dependency items (default KEEP).')
-    add_output_args(parser)
     return parser
 
 
-def _ordered(parsed: argparse.Namespace) -> BacklogReleases:
+def _ordered(parsed: argparse.Namespace,
+             config: Optional[BacklogOpsConfig]) -> BacklogReleases:
     """Read the backlog and return it reordered by dependencies."""
-    data = read_input(parsed)
+    data = read_input(parsed, config)
     data.order_by_dependencies(later=parsed.later,
                                mode=DependencyMode[parsed.mode],
                                space_around=parsed.space_around)
@@ -63,7 +62,7 @@ def main(args: Optional[list[str]] = None) -> int:
         or written.
     """
     parsed = parsed_args(build_parser(), args)
-    return run_write(parsed, lambda: _ordered(parsed))
+    return run_write(parsed, lambda config: _ordered(parsed, config))
 
 
 if __name__ == '__main__':  # pragma: no cover
