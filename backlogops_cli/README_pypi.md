@@ -222,9 +222,9 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 1545 passed in 59s
+- Test result: 1545 passed in 32s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.
 - Built version(s): 0.2
-- Build and test using Python 3.13.7
+- Build and test using Python 3.14.6
