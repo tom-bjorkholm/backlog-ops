@@ -227,4 +227,4 @@ backlogops_cli serves 2 purposes:
 - No mypy errors found.
 - No python layout warnings.
 - Built version(s): 0.2
-- Build and test using Python 3.12.6
+- Build and test using Python 3.13.7
