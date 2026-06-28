@@ -6,12 +6,16 @@
 
 from datetime import date
 import pytest
+from tableio import DictData, Fmt, Value, ValueFmt
 from backlogops.backlog import BacklogItem, Status
+from backlogops.levels import DEFAULT_LEVELS, LevelDisplay
 from backlogops.no_text_io import NoTextIO
 from backlogops.releases import Release
 from backlogops.table_rows import item_to_row, release_to_row
 from backlogops.table_rows import row_to_item, row_to_release
 from backlogops.table_rows import _extra_cell, _maybe_int, _split_deps
+from backlogops.table_rows import (
+    LEVEL_NAME_COLUMN, _name_cell_text, display_level_rows, fold_level_name)
 
 
 def _item() -> BacklogItem:
@@ -96,3 +100,31 @@ def test_release_round_trip() -> None:
     assert row['planned_date'] == '2026-06-17'
     assert row['estimated_date'] is None
     assert row_to_release(row, stderr_file=NoTextIO()) == release
+
+
+@pytest.mark.parametrize('value, expected', [
+    (None, ('', False)),
+    ('Story', ('Story', False)),
+    (True, ('True', False))])
+def test_name_cell_non_int(value: Value, expected: tuple[str, bool]) -> None:
+    """Test a non-numeric level cell becomes its text, reported unnamed.
+
+    Only a real level number can map to a configured name. None becomes
+    an empty cell and any other value becomes its text, both flagged as
+    not found so the value itself is shown and never lost.
+    """
+    assert _name_cell_text(value, DEFAULT_LEVELS) == expected
+
+
+def test_expand_no_level() -> None:
+    """Test a row without a level column is returned unchanged."""
+    rows: DictData[ValueFmt] = [{'key': ValueFmt(value='BI-1', fmt=Fmt())}]
+    result = display_level_rows(rows, DEFAULT_LEVELS, LevelDisplay.BOTH)
+    assert result == rows
+
+
+def test_fold_empty_name() -> None:
+    """Test an empty level-name cell is dropped without setting a level."""
+    rows: DictData[Value] = [{LEVEL_NAME_COLUMN: ''}]
+    fold_level_name(rows)
+    assert rows == [{}]

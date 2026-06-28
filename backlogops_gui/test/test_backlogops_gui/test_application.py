@@ -8,7 +8,8 @@ import tkinter as tk
 from typing import Callable, Optional, TextIO, cast
 import pytest
 from backlogops import (
-    BacklogOpsConfig, BacklogReleases, InputFormatConfig, OutputFormatConfig)
+    BacklogOpsConfig, BacklogReleases, GuiDisplayConfig, InputFormatConfig,
+    OutputFormatConfig)
 from backlogops_gui import application
 from backlogops_gui.application import APP_TITLE, BacklogApp
 from backlogops_gui.io_dialogs import ConfigChoice, PresetKind, ReadOptions
@@ -68,6 +69,7 @@ class FakeConfig:
         self.input_configs: dict[str, object] = {'in': object()}
         self.output_configs: dict[str, object] = {'out': object()}
         self.available_teams: object = object()
+        self.gui_display: GuiDisplayConfig = GuiDisplayConfig()
         self.written: Optional[str] = None
 
     def get_levels(self) -> dict[int, object]:
@@ -462,6 +464,17 @@ def test_levels_from_config() -> None:
     config = FakeConfig()
     assert _app(config).levels() == config.get_levels()
     assert _app().levels() is None
+
+
+def test_gui_display_none() -> None:
+    """Test the GUI display falls back to a fresh default with no config."""
+    assert isinstance(_app().gui_display(), GuiDisplayConfig)
+
+
+def test_gui_display_cfg() -> None:
+    """Test the GUI display comes from the loaded configuration."""
+    config = FakeConfig()
+    assert _app(config).gui_display() is config.gui_display
 
 
 def test_show_messages(monkeypatch: pytest.MonkeyPatch) -> None:

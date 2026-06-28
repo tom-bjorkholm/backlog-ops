@@ -274,6 +274,27 @@ def test_levels_not_a_list() -> None:
                          stderr_file=NO_OUTPUT)
 
 
+def test_level_name_not_str() -> None:
+    """Test a non-string level name is rejected as a TypeError."""
+    text = _levels_text([{'level': 0, 'name': 123}])
+    with pytest.raises(TypeError):
+        BacklogOpsConfig(from_json_data_text=text, stderr_file=NO_OUTPUT)
+
+
+def test_alias_not_list() -> None:
+    """Test a non-list aliases member is rejected as a TypeError."""
+    text = _levels_text([{'level': 0, 'name': 'A', 'aliases': 'oops'}])
+    with pytest.raises(TypeError):
+        BacklogOpsConfig(from_json_data_text=text, stderr_file=NO_OUTPUT)
+
+
+def test_level_not_dict() -> None:
+    """Test a levels element that is not an object is rejected."""
+    text = _ops_text([{'level': 0, 'name': 'A'}, 'notadict'])
+    with pytest.raises(TypeError):
+        BacklogOpsConfig(from_json_data_text=text, stderr_file=NO_OUTPUT)
+
+
 def test_status_map_default() -> None:
     """Test the global status input map defaults to empty."""
     assert _empty().get_status_input_map() == {}

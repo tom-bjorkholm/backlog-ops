@@ -80,6 +80,21 @@ def test_style_other_noop() -> None:
         root.destroy()
 
 
+def test_style_ttk_other() -> None:
+    """Test a ttk widget that is not a drop-down is left unchanged.
+
+    Only a ttk combobox gets the shared input style; any other ttk
+    widget, such as a frame, keeps its default empty style.
+    """
+    root = _root_or_skip()
+    try:
+        frame = ttk.Frame(root)
+        style_input(frame)
+        assert str(frame.cget('style')) != 'Input.TCombobox'
+    finally:
+        root.destroy()
+
+
 def test_is_input() -> None:
     """Test editable widgets are inputs and a label is not."""
     root = _root_or_skip()

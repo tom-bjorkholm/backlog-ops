@@ -128,6 +128,22 @@ def test_existing_output(tmp_path: Path) -> None:
     assert migrate_cfg.main(['-i', str(old), '-o', str(new)]) == 1
 
 
+def test_migrate_data_err(monkeypatch: pytest.MonkeyPatch,
+                          capsys: pytest.CaptureFixture[str]) -> None:
+    """Test a read or write data error is reported and returns 1.
+
+    The library raises a data error such as a ValueError when an input
+    file cannot be parsed; the command reports it on stderr and exits
+    with a non-zero status instead of failing.
+    """
+    def boom(*_args: object, **_kw: object) -> None:
+        """Raise as if migrating the data failed with a value error."""
+        raise ValueError('bad data')
+    monkeypatch.setattr(migrate_cfg, 'migrate_cfg', boom)
+    assert migrate_cfg.main(['-i', 'a.cfg', '-o', 'b.cfg']) == 1
+    assert 'Could not migrate a.cfg: bad data' in capsys.readouterr().err
+
+
 def test_warn_hook_text() -> None:
     """Test the CLI warning hook points the user at migrate_cfg."""
     message = CliMigrateWarnHook.migrate_warn_msg()

@@ -6,16 +6,19 @@
 
 import tkinter as tk
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Callable, Optional, Sequence, TextIO, cast
 import pytest
 from backlogops import (
     AvailableTeams, BacklogItem, BacklogReleases, DependencyMode,
-    GuiDisplayConfig, NoTextIO, Release, Status, get_demo_backlog)
+    GuiDisplayConfig, NoTextIO, Release, ReleaseChange, ReleaseDateChange,
+    Status, get_demo_backlog)
 from backlogops_gui import backlog_window
 from backlogops_gui.backlog_window import (
     BacklogWindow, adjust_content, estimate_date, extract_keys, order_by_deps,
     order_by_keys, order_by_release, order_dates, plan_dates, save_backlog,
     save_changes, set_plan, show_changes)
+from backlogops_gui.backlog_window import _content_report, _date_report
 from backlogops_gui.io_dialogs import (
     DepOptions, ReleaseOrderOptions, StartChoice, WriteOptions,
     show_change_list)
@@ -617,6 +620,33 @@ def test_save_changes_error(monkeypatch: pytest.MonkeyPatch) -> None:
     errors: list[tuple[str, str]] = []
     save_changes(_parent(), _write_fail, _record(errors), _record([]))
     assert errors == [('Could not write file', 'disk full')]
+
+
+def test_date_writer(tmp_path: Path) -> None:
+    """Test the date-change report yields a writer that writes the file.
+
+    A non-empty change list returns a writer; calling it writes the
+    listing to the chosen file, overwriting it as the save dialog has
+    already confirmed.
+    """
+    changes = [ReleaseDateChange('R1', None, date(2026, 1, 15))]
+    text, writer = _date_report(changes, SINK)
+    assert 'R1' in text
+    assert writer is not None
+    target = tmp_path / 'd.csv'
+    writer(str(target))
+    assert target.exists()
+
+
+def test_content_writer(tmp_path: Path) -> None:
+    """Test the content-change report yields a writer that writes a file."""
+    changes = [ReleaseChange('a', 'R1', 'R2')]
+    text, writer = _content_report(changes, SINK)
+    assert 'a' in text
+    assert writer is not None
+    target = tmp_path / 'c.csv'
+    writer(str(target))
+    assert target.exists()
 
 
 def test_show_changes(monkeypatch: pytest.MonkeyPatch) -> None:

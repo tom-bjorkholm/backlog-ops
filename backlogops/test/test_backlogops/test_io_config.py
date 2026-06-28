@@ -7,13 +7,14 @@
 import io
 import json
 from pathlib import Path
+from typing import cast
 import pytest
-from config_as_json import InvalidConfiguration, MigrateCfgWarnHook
+from config_as_json import Config, InvalidConfiguration, MigrateCfgWarnHook
 from backlogops import (
     GuiDisplayConfig, InputFormatConfig, LevelDisplay, OutputFormatConfig,
     Status, make_input_config, make_output_config, resolve_input_config,
     resolve_output_config)
-from backlogops.io_config import parse_status_input_map
+from backlogops.io_config import _ColumnMapValidator, parse_status_input_map
 from backlogops.no_text_io import NoTextIO
 
 NO_OUTPUT = NoTextIO()
@@ -154,6 +155,19 @@ def test_map_types(member: str) -> None:
         OutputFormatConfig(
             from_json_data_text='{"tableio": {"format_name": "CSV"}, '
             f'"{member}": {{"level": 5}}}}', stderr_file=NO_OUTPUT)
+
+
+def test_map_not_dict() -> None:
+    """Test the column-map validator rejects a member that is not a map.
+
+    The base parser already refuses a non-mapping member of a checked
+    config, so this guards the reusable validator directly: a non-dict
+    value is reported and rejected rather than treated as a column map.
+    """
+    validator = _ColumnMapValidator()
+    with pytest.raises(InvalidConfiguration):
+        validator.validate_member(cast(Config, object()),
+                                  'backlog_to_external', 'oops', NO_OUTPUT)
 
 
 def test_out_maps_rt(tmp_path: Path) -> None:

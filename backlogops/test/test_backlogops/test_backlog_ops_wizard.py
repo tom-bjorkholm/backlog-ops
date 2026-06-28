@@ -7,9 +7,10 @@
 import importlib
 import io
 from datetime import date
-from typing import Optional
+from typing import Optional, Sequence, TextIO
 import pytest
-from tableio_cfg_json import WizardUiBridgeConsole
+from tableio_cfg_json import TableCell, TableColumn, WizardBack, \
+    WizardUiBridge, WizardUiBridgeConsole
 import backlogops
 from backlogops import InputFormatConfig, OutputFormatConfig, Status
 from backlogops.available_teams import AvailableTeams
@@ -23,6 +24,11 @@ from backlogops.wizard_helpers import (
     _backlog_map_fields, _parse_column_renames, _parse_input_renames,
     _parse_status_map, _read_int, _read_number, _read_opt_date, _read_text,
     _status_target)
+from backlogops.wizard_helpers import (
+    _Navigator, _is_nonneg, _parse_level_int, _parse_levels, _parse_schedule,
+    _read_end_date, _read_levels, _read_preset_name, _read_renames,
+    _read_schedule, _read_status_map, _read_unique_name, _rename_check,
+    _sched_check, _split_aliases, _status_check)
 from backlogops.levels import DEFAULT_LEVELS, LevelDisplay
 from backlogops.work_hours import DEFAULT_WORK_WEEK, WeekDay
 
@@ -737,3 +743,173 @@ def test_preset_input_status() -> None:
     config = preset_wizard(_bridge(answers))
     assert isinstance(config, InputFormatConfig)
     assert config.status_input_map == {'Testing': Status.DONE}
+
+
+def test_config_abort() -> None:
+    """Test aborting the full config wizard ends with an end-of-input error."""
+    with pytest.raises(EOFError):
+        backlog_ops_wizard(_bridge([':q']))
+
+
+def test_back_at_start() -> None:
+    """Test a back request before any answer simply restarts the body."""
+    nav = _Navigator(_bridge([]))
+    calls: list[int] = []
+
+    def body(_nav: _Navigator) -> str:
+        """Raise back once, then return on the replayed run."""
+        calls.append(1)
+        if len(calls) == 1:
+            raise WizardBack()
+        return 'done'
+    assert nav.run(body) == 'done'
+    assert len(calls) == 2
+
+
+def test_nav_error_file() -> None:
+    """Test the navigator exposes the bridge's diagnostics stream."""
+    errors = io.StringIO()
+    bridge = WizardUiBridgeConsole(io.StringIO(), io.StringIO(), errors)
+    assert _Navigator(bridge).error_file() is errors
+
+
+@pytest.mark.parametrize('text, expected', [
+    (None, False), ('abc', False), ('-1', False), ('0', True),
+    ('3.5', True)])
+def test_is_nonneg(text: Optional[str], expected: bool) -> None:
+    """Test only a parseable number that is at least zero is accepted."""
+    assert _is_nonneg(text) is expected
+
+
+@pytest.mark.parametrize('table, pos, ok', [
+    ([['Mon', '8']], (0, 0), True),
+    ([['Mon', '8']], (0, 1), True),
+    ([['Mon', 'x']], (0, 1), False)])
+def test_sched_check(table: list[list[Optional[str]]], pos: tuple[int, int],
+                     ok: bool) -> None:
+    """Test only the work-hours column is checked, rejecting non-numbers."""
+    assert _sched_check(table, pos)[0] is ok
+
+
+def test_parse_sched_bad() -> None:
+    """Test a non-numeric work-hours cell makes the schedule invalid."""
+    assert _parse_schedule([WeekDay.MONDAY], [['Mon', 'x']]) is None
+
+
+@pytest.mark.parametrize('table, pos, ok', [
+    ([['', 'X']], (0, 1), False),
+    ([['key', 'X']], (0, 1), True),
+    ([['', 'X']], (0, 0), True)])
+def test_rename_check(table: list[list[Optional[str]]], pos: tuple[int, int],
+                      ok: bool) -> None:
+    """Test an output column with no internal field name is rejected."""
+    assert _rename_check(table, pos)[0] is ok
+
+
+@pytest.mark.parametrize('text, expected', [
+    (None, None), ('abc', None), (' 5 ', 5), ('-2', -2)])
+def test_parse_level_int(text: Optional[str], expected: Optional[int]) -> None:
+    """Test a signed whole number parses, anything else gives None."""
+    assert _parse_level_int(text) == expected
+
+
+@pytest.mark.parametrize('text, expected', [
+    (None, []), ('', []), (' a , , b ', ['a', 'b'])])
+def test_split_aliases(text: Optional[str], expected: list[str]) -> None:
+    """Test aliases split on commas, trimming blanks; None gives empty."""
+    assert _split_aliases(text) == expected
+
+
+def test_parse_levels_bad() -> None:
+    """Test a level row with a bad number or a blank name is invalid."""
+    assert _parse_levels([['x', 'Name', '']]) is None
+    assert _parse_levels([['1', '', '']]) is None
+
+
+@pytest.mark.parametrize('table, pos, ok', [
+    ([['n', 'BAD']], (0, 1), False),
+    ([['', 'TODO']], (0, 1), False),
+    ([['n', 'TODO']], (0, 1), True),
+    ([['', '']], (0, 1), True)])
+def test_status_check(table: list[list[Optional[str]]], pos: tuple[int, int],
+                      ok: bool) -> None:
+    """Test a status row is flagged for a bad target or a missing name."""
+    assert _status_check(table, pos)[0] is ok
+
+
+def test_read_end_date_bad() -> None:
+    """Test an unparseable end date is re-asked until it is a valid date."""
+    bridge = _bridge(['nope', '2026-01-05'])
+    assert _read_end_date(bridge, 'Q', date(2026, 1, 1)) == date(2026, 1, 5)
+
+
+def test_read_name_empty() -> None:
+    """Test an empty person name is re-asked until a name is entered."""
+    assert _read_unique_name(_bridge(['', 'Ada']), 'Q', {}) == 'Ada'
+
+
+def test_read_preset_dup() -> None:
+    """Test a preset name already in use is re-asked until it is free."""
+    assert _read_preset_name(_bridge(['used', 'fresh']), 'Q', {'used'}) == \
+        'fresh'
+
+
+class _TableScript(WizardUiBridge):
+    """A bridge that returns queued raw tables for each ask_table call.
+
+    It hands the wizard an invalid table first and a valid one next,
+    which the real console bridge's per-cell checks never produce, so the
+    whole-table re-ask path of the read helpers can be exercised.
+    """
+
+    def __init__(self, tables: list[list[list[Optional[str]]]]) -> None:
+        """Store the tables to return in order and a diagnostics sink."""
+        self._tables = tables
+        self._index = 0
+        self._errors = io.StringIO()
+
+    def ask_table(self, columns: Sequence[TableColumn],
+                  cells: list[list[TableCell]], question: str,
+                  **kwargs: object) -> list[list[Optional[str]]]:
+        """Return the next queued table, ignoring the prompt details."""
+        _ = (columns, cells, question, kwargs)
+        table = self._tables[self._index]
+        self._index += 1
+        return table
+
+    def error_file(self) -> TextIO:
+        """Return the diagnostics stream used for level validation."""
+        return self._errors
+
+    def show(self, message: str) -> None:
+        """Ignore any message shown while a table is being re-asked."""
+        _ = message
+
+
+def test_sched_reask() -> None:
+    """Test an invalid schedule table is re-asked until it parses."""
+    bridge = _TableScript([[['Mon', 'x']], [['Mon', '8']]])
+    assert _read_schedule(bridge) == {WeekDay.MONDAY: 8.0}
+
+
+def test_levels_reask() -> None:
+    """Test an unparseable levels table is re-asked until it is valid."""
+    bridge = _TableScript([[['x', 'N', '']], [['1', 'Story', '']]])
+    assert [level.name for level in _read_levels(bridge)] == ['Story']
+
+
+def test_renames_reask() -> None:
+    """Test a rename table with a repeated field is re-asked until valid.
+
+    The valid table keeps every field at its own name, so it renames
+    nothing and the resulting map is empty.
+    """
+    bridge = _TableScript([[['key', 'X'], ['key', 'Y']], [['key', 'key']]])
+    assert not _read_renames(bridge, ['key', 'title'], False, 'External',
+                             False)
+
+
+def test_status_reask() -> None:
+    """Test a status table missing its target is re-asked until valid."""
+    bridge = _TableScript([[['Name', '']], [['Name', 'TODO']]])
+    assert _read_status_map(bridge, 'Q?') == {'Name': Status.TODO}

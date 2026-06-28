@@ -5,7 +5,7 @@
 # MIT License
 
 import tkinter as tk
-from typing import cast
+from typing import Optional, cast
 import pytest
 from tableio_cfg_json import TableCell, TableColumn, WizardAbort, \
     WizardBack, WizardCancelLevel
@@ -22,6 +22,22 @@ def _root_or_skip() -> tk.Tk:
         pytest.skip('no display available')
     root.withdraw()
     return root
+
+
+def _drive_multi(root: tk.Tk, bridge: TkWizardBridge,
+                 picks: list[list[str]]) -> None:
+    """Schedule finishing each multi-select prompt with the next picks."""
+    queue = list(picks)
+
+    def step() -> None:
+        """Finish the current prompt, then queue the next finish."""
+        # pylint: disable-next=protected-access
+        window = bridge._window_obj()
+        # pylint: disable-next=protected-access
+        window._finish(queue.pop(0))
+        if queue:
+            root.after(0, step)
+    root.after(0, step)
 
 
 def test_error_file_is_sink() -> None:
@@ -441,5 +457,114 @@ def test_pick_many() -> None:
         # pylint: disable-next=protected-access
         assert window._result == ['a', 'c']
         window.close()
+    finally:
+        root.destroy()
+
+
+def test_pick_one_none() -> None:
+    """Test confirming a single choice with no selection picks nothing."""
+    root = _root_or_skip()
+    try:
+        window = _WizardWindow(tk.Frame(root))
+        # pylint: disable-next=protected-access
+        listbox = tk.Listbox(window._content)
+        listbox.insert('end', 'a')
+        # pylint: disable-next=protected-access
+        window._pick_one(listbox, ['a'])
+        # pylint: disable-next=protected-access
+        assert window._result == ''
+        window.close()
+    finally:
+        root.destroy()
+
+
+def test_choice_preselect() -> None:
+    """Test a default choice is preselected in the single-choice list.
+
+    A string default marks one row, while a sequence default marks each
+    of its rows, so the list opens with the configured values selected.
+    """
+    root = _root_or_skip()
+    try:
+        window = _WizardWindow(tk.Frame(root))
+        # pylint: disable-next=protected-access
+        listbox = window._choice_list(['a', 'b', 'c'], 'b', 'browse')
+        selected = listbox.curselection()  # type: ignore[no-untyped-call]
+        assert list(selected) == [1]
+        # pylint: disable-next=protected-access
+        assert _WizardWindow._preset_indexes(['a', 'b', 'c'],
+                                             ['a', 'c']) == [0, 2]
+        window.close()
+    finally:
+        root.destroy()
+
+
+def test_choice_no_value() -> None:
+    """Test a drop-down cell with no value builds an empty combobox."""
+    root = _root_or_skip()
+    try:
+        columns = [TableColumn(header='X')]
+        cells = [[TableCell(value=None, choices=('a', 'b'))]]
+        editor = _TableEditor(tk.Frame(root), columns, cells, None)
+        assert editor.values() == [['']]
+    finally:
+        root.destroy()
+
+
+def test_table_feedback() -> None:
+    """Test a table with a check binds cells and shows per-cell feedback.
+
+    Both a drop-down and a text cell are bound to the partial check; the
+    check accepts the drop-down column and rejects the text column, so
+    the status line clears and then shows the rejection message.
+    """
+    root = _root_or_skip()
+    try:
+        columns = [TableColumn(header='Sel'), TableColumn(header='Txt')]
+        cells = [[TableCell(value='a', choices=('a', 'b')),
+                  TableCell(value='x')]]
+        seen: list[tuple[int, int]] = []
+        def check(table: list[list[Optional[str]]],
+                  pos: tuple[int, int]) -> tuple[bool, str]:
+            """Accept the drop-down column and reject the text column."""
+            _ = table
+            seen.append(pos)
+            return (pos[1] == 0, '' if pos[1] == 0 else 'bad')
+        editor = _TableEditor(tk.Frame(root), columns, cells, check)
+        # pylint: disable-next=protected-access
+        editor._feedback(0, 1)
+        # pylint: disable-next=protected-access
+        assert editor._status.cget('text') == 'bad'
+        # pylint: disable-next=protected-access
+        editor._feedback(0, 0)
+        # pylint: disable-next=protected-access
+        assert editor._status.cget('text') == ''
+        assert (0, 1) in seen and (0, 0) in seen
+    finally:
+        root.destroy()
+
+
+def test_multi_min_select() -> None:
+    """Test picking fewer than the minimum re-asks until enough are picked."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        _drive_multi(root, bridge, [[], ['a']])
+        assert bridge.ask_multi('Pick', choices=['a', 'b'],
+                                min_select=1) == ['a']
+        bridge.close()
+    finally:
+        root.destroy()
+
+
+def test_multi_max_select() -> None:
+    """Test picking more than the maximum re-asks until few enough remain."""
+    root = _root_or_skip()
+    try:
+        bridge = TkWizardBridge(root)
+        _drive_multi(root, bridge, [['a', 'b'], ['a']])
+        assert bridge.ask_multi('Pick', choices=['a', 'b'],
+                                max_select=1) == ['a']
+        bridge.close()
     finally:
         root.destroy()
