@@ -19,6 +19,7 @@ from datetime import date
 from enum import Enum
 from typing import Callable, Optional, Sequence, TextIO
 from backlogops import DependencyMode, DEFAULT_LEVELS, read_key_list
+from backlogops_gui.gui_style import focus_first_input, style_input
 
 MODE_INFER = 0
 MODE_PRESET = 1
@@ -154,8 +155,9 @@ class _ModalDialog:
         self._win.protocol('WM_DELETE_WINDOW', self._cancel)
 
     def _show(self) -> None:
-        """Add the buttons, grab the focus and wait for the close."""
+        """Add buttons, focus the first input and wait for the close."""
         self._add_buttons()
+        focus_first_input(self._win)
         self._win.grab_set()
         self._win.wait_window()
 
@@ -218,6 +220,7 @@ class _FormatDialog(_ModalDialog):
         self._add_radio('Use a named preset:', MODE_PRESET)
         box = ttk.Combobox(self._win, textvariable=self._preset,
                            values=list(self._presets), state='readonly')
+        style_input(box)
         box.pack(anchor='w', padx=36, pady=2)
 
     def _add_file_row(self) -> None:
@@ -225,7 +228,9 @@ class _FormatDialog(_ModalDialog):
         self._add_radio('Read format from a configuration file:', MODE_FILE)
         row = tk.Frame(self._win)
         row.pack(anchor='w', padx=36, pady=2, fill='x')
-        tk.Entry(row, textvariable=self._path, width=30).pack(side='left')
+        entry = tk.Entry(row, textvariable=self._path, width=30)
+        style_input(entry)
+        entry.pack(side='left')
         tk.Button(row, text='Browse', command=self._browse).pack(side='left',
                                                                  padx=6)
 
@@ -296,8 +301,9 @@ class _BufferDialog(_ModalDialog):
         """Add the buffer label and entry prefilled with the default."""
         tk.Label(self._win, text='Buffer in calendar days (0 or more):'
                  ).pack(anchor='w', padx=12, pady=(10, 2))
-        tk.Entry(self._win, textvariable=self._text,
-                 width=10).pack(anchor='w', padx=12)
+        entry = tk.Entry(self._win, textvariable=self._text, width=10)
+        style_input(entry)
+        entry.pack(anchor='w', padx=12)
 
     def _confirm(self) -> None:
         """Parse the buffer, keeping the dialog open on a bad value."""
@@ -383,6 +389,7 @@ class _KeysDialog(_ModalDialog):
         tk.Label(self._win, text='Enter keys separated by spaces or '
                  'newlines:').pack(anchor='w', padx=12, pady=(10, 2))
         text = tk.Text(self._win, width=40, height=8)
+        style_input(text)
         text.pack(padx=12, pady=2)
         tk.Button(self._win, text='Load from file…',
                   command=self._load).pack(anchor='w', padx=12, pady=4)
@@ -437,16 +444,19 @@ class _DepOptionsDialog(_ModalDialog):
         tk.Label(self._win, text='Placement of dependency items:'
                  ).pack(anchor='w', padx=12, pady=(6, 2))
         names = [mode.name for mode in DependencyMode]
-        ttk.Combobox(self._win, textvariable=self._mode, values=names,
-                     state='readonly').pack(anchor='w', padx=12)
+        box = ttk.Combobox(self._win, textvariable=self._mode, values=names,
+                           state='readonly')
+        style_input(box)
+        box.pack(anchor='w', padx=12)
 
     def _build_space(self) -> None:
         """Add the space-around label and key entry."""
         tk.Label(self._win, text='Keys to keep far from dependencies '
                  '(optional, space separated):').pack(anchor='w', padx=12,
                                                       pady=(6, 2))
-        tk.Entry(self._win, textvariable=self._space,
-                 width=40).pack(anchor='w', padx=12)
+        entry = tk.Entry(self._win, textvariable=self._space, width=40)
+        style_input(entry)
+        entry.pack(anchor='w', padx=12)
 
     def _confirm(self) -> None:
         """Store the selected options and close the dialog."""
@@ -473,8 +483,9 @@ class _StartDateDialog(_ModalDialog):
         """Add the start date label and entry."""
         tk.Label(self._win, text='Start date (ISO, empty for today):'
                  ).pack(anchor='w', padx=12, pady=(10, 2))
-        tk.Entry(self._win, textvariable=self._date,
-                 width=20).pack(anchor='w', padx=12)
+        entry = tk.Entry(self._win, textvariable=self._date, width=20)
+        style_input(entry)
+        entry.pack(anchor='w', padx=12)
 
     def _confirm(self) -> None:
         """Parse the date, keeping the dialog open on a bad value."""

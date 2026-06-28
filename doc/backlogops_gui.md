@@ -1,5 +1,8 @@
 # Table of Contents
 
+* [backlogops\_gui.gui\_style](#backlogops_gui.gui_style)
+  * [style\_input](#backlogops_gui.gui_style.style_input)
+  * [focus\_first\_input](#backlogops_gui.gui_style.focus_first_input)
 * [backlogops\_gui.gui\_wizard](#backlogops_gui.gui_wizard)
   * [TkWizardBridge](#backlogops_gui.gui_wizard.TkWizardBridge)
     * [\_\_init\_\_](#backlogops_gui.gui_wizard.TkWizardBridge.__init__)
@@ -96,6 +99,45 @@
   * [release\_table](#backlogops_gui.table_view.release_table)
   * [supports\_cell\_tags](#backlogops_gui.table_view.supports_cell_tags)
   * [make\_table](#backlogops_gui.table_view.make_table)
+
+<a id="backlogops_gui.gui_style"></a>
+
+# backlogops\_gui.gui\_style
+
+Shared look and focus helpers for the Tkinter input windows.
+
+Editable input widgets blend into the window background on some
+platforms, so the user cannot tell an entry, drop-down or list from the
+surrounding window. :func:`style_input` gives such a widget a white
+field and a thin border so it stands out. :func:`focus_first_input`
+puts the keyboard focus on the first editable widget of a window, so the
+user can start typing as soon as the window opens.
+
+<a id="backlogops_gui.gui_style.style_input"></a>
+
+#### style\_input
+
+```python
+def style_input(widget: tk.Widget) -> None
+```
+
+Make one editable input widget stand out from the background.
+
+A classic entry, text box or list gets a white field and a thin
+solid border. A drop-down keeps its arrow but gets a white field
+through a shared ttk style. Any other widget is left unchanged. The
+ttk styling is best-effort: a native theme that ignores field colors
+leaves the drop-down as it is.
+
+<a id="backlogops_gui.gui_style.focus_first_input"></a>
+
+#### focus\_first\_input
+
+```python
+def focus_first_input(window: tk.Misc) -> None
+```
+
+Give the keyboard focus to the first editable input, if any.
 
 <a id="backlogops_gui.gui_wizard"></a>
 

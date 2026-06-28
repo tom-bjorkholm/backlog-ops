@@ -29,6 +29,7 @@ from tableio_cfg_json import PartialCheck, TableCell, TableColumn, \
     WizardAbort, WizardBack, WizardCancelLevel, WizardNavigation, \
     WizardUiBridge
 from backlogops import NoTextIO
+from backlogops_gui.gui_style import focus_first_input, style_input
 
 WIZARD_TITLE = 'Configuration wizard'
 WINDOW_SIZE = '620x520'
@@ -217,10 +218,12 @@ class _TableEditor:
                                state='readonly', width=18)
             if cell.value is not None:
                 box.set(cell.value)
+            style_input(box)
             return box
         entry = tk.Entry(self._grid, width=20)
         if cell.value is not None:
             entry.insert(0, cell.value)
+        style_input(entry)
         return entry
 
     def _bind_change(self, widget: tk.Widget, row: int, col: int) -> None:
@@ -286,8 +289,8 @@ class _WizardWindow:
         """Ask one free-text question and return the entered text."""
         self._begin(question, re_ask)
         entry = tk.Entry(self._content, width=44)
+        style_input(entry)
         entry.pack(anchor='w', pady=6)
-        entry.focus_set()
         self._add_buttons(lambda: self._finish(entry.get()))
         self._win.bind('<Return>', lambda event: self._finish(entry.get()))
         result = self._wait()
@@ -374,6 +377,7 @@ class _WizardWindow:
                              height=min(len(choices), CHOICE_HEIGHT))
         for choice in choices:
             listbox.insert('end', choice)
+        style_input(listbox)
         listbox.pack(anchor='w', pady=6)
         preset = self._preset_indexes(choices, marked)
         for index in preset:
@@ -449,7 +453,8 @@ class _WizardWindow:
                   command=self._cancel).pack(side='left', padx=6)
 
     def _wait(self) -> object:
-        """Block until the prompt is answered or navigation is requested."""
+        """Focus the first input, then wait for an answer or navigation."""
+        focus_first_input(self._content)
         self._win.wait_variable(self._done)
         if self._nav is not None:
             raise self._nav()

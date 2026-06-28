@@ -1,5 +1,11 @@
 # Table of Contents
 
+* [backlogops\_gui.gui\_style](#backlogops_gui.gui_style)
+  * [style\_input](#backlogops_gui.gui_style.style_input)
+  * [\_style\_combobox](#backlogops_gui.gui_style._style_combobox)
+  * [focus\_first\_input](#backlogops_gui.gui_style.focus_first_input)
+  * [\_first\_input](#backlogops_gui.gui_style._first_input)
+  * [\_is\_input](#backlogops_gui.gui_style._is_input)
 * [backlogops\_gui.gui\_wizard](#backlogops_gui.gui_wizard)
   * [\_uniform](#backlogops_gui.gui_wizard._uniform)
   * [\_new\_row\_template](#backlogops_gui.gui_wizard._new_row_template)
@@ -248,6 +254,75 @@
   * [\_color\_cells](#backlogops_gui.table_view._color_cells)
   * [\_insert\_row](#backlogops_gui.table_view._insert_row)
   * [make\_table](#backlogops_gui.table_view.make_table)
+
+<a id="backlogops_gui.gui_style"></a>
+
+# backlogops\_gui.gui\_style
+
+Shared look and focus helpers for the Tkinter input windows.
+
+Editable input widgets blend into the window background on some
+platforms, so the user cannot tell an entry, drop-down or list from the
+surrounding window. :func:`style_input` gives such a widget a white
+field and a thin border so it stands out. :func:`focus_first_input`
+puts the keyboard focus on the first editable widget of a window, so the
+user can start typing as soon as the window opens.
+
+<a id="backlogops_gui.gui_style.style_input"></a>
+
+#### style\_input
+
+```python
+def style_input(widget: tk.Widget) -> None
+```
+
+Make one editable input widget stand out from the background.
+
+A classic entry, text box or list gets a white field and a thin
+solid border. A drop-down keeps its arrow but gets a white field
+through a shared ttk style. Any other widget is left unchanged. The
+ttk styling is best-effort: a native theme that ignores field colors
+leaves the drop-down as it is.
+
+<a id="backlogops_gui.gui_style._style_combobox"></a>
+
+#### \_style\_combobox
+
+```python
+def _style_combobox(widget: ttk.Combobox) -> None
+```
+
+Give a drop-down a white field through a shared ttk style.
+
+<a id="backlogops_gui.gui_style.focus_first_input"></a>
+
+#### focus\_first\_input
+
+```python
+def focus_first_input(window: tk.Misc) -> None
+```
+
+Give the keyboard focus to the first editable input, if any.
+
+<a id="backlogops_gui.gui_style._first_input"></a>
+
+#### \_first\_input
+
+```python
+def _first_input(parent: tk.Misc) -> Optional[tk.Misc]
+```
+
+Return the first editable input under parent, in child order.
+
+<a id="backlogops_gui.gui_style._is_input"></a>
+
+#### \_is\_input
+
+```python
+def _is_input(widget: tk.Misc) -> bool
+```
+
+Return whether the widget is an editable input to fill in.
 
 <a id="backlogops_gui.gui_wizard"></a>
 
@@ -714,7 +789,7 @@ Add the back, out-one-level and abort navigation buttons.
 def _wait() -> object
 ```
 
-Block until the prompt is answered or navigation is requested.
+Focus the first input, then wait for an answer or navigation.
 
 <a id="backlogops_gui.gui_wizard._WizardWindow._finish"></a>
 
@@ -2122,7 +2197,7 @@ Create the modal top-level window and its close handler.
 def _show() -> None
 ```
 
-Add the buttons, grab the focus and wait for the close.
+Add buttons, focus the first input and wait for the close.
 
 <a id="backlogops_gui.io_dialogs._ModalDialog._add_buttons"></a>
 
