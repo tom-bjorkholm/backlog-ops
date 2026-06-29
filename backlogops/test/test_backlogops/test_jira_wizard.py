@@ -16,7 +16,8 @@ import pytest
 from tableio_cfg_json import WizardUiBridgeConsole
 from backlogops.backlog_ops_wizard import backlog_ops_wizard
 from backlogops.jira_io_config import (
-    JiraAttrPath, JiraAttrType, JiraColumnMap, JiraConnectConfig)
+    JiraAttrPath, JiraAttrType, JiraColumnMap, JiraConnectConfig,
+    default_jira_filter)
 from backlogops.jira_wizard import _build_connections, _build_jira_presets
 from backlogops.wizard_helpers import (
     _Navigator, _attr_from_cells, _jira_map_check, _parse_jira_map)
@@ -96,6 +97,16 @@ def test_jira_presets() -> None:
     assert preset.release_column_map_name == 'm2'
     assert preset.def_project == 'PROJ'
     assert preset.def_filter == 'filter'
+
+
+def test_preset_def_filter() -> None:
+    """Test a blank preset filter defaults to the project rank filter."""
+    conns = {'c1': JiraConnectConfig(stderr_file=io.StringIO())}
+    maps: dict[str, JiraColumnMap] = {'m1': {}, 'm2': {}}
+    answers = ['1', 'p1', 'c1', 'm1', 'm2', 'PROJ', '']
+    nav = _Navigator(_console(answers))
+    preset = nav.run(lambda n: _build_jira_presets(n, conns, maps))['p1']
+    assert preset.def_filter == default_jira_filter('PROJ')
 
 
 @pytest.mark.parametrize('kind, path, expected', [

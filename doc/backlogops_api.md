@@ -101,6 +101,7 @@
   * [JiraAttrPath](#backlogops.jira_io_config.JiraAttrPath)
   * [DEF\_BACKLOG\_COLUMN\_MAP](#backlogops.jira_io_config.DEF_BACKLOG_COLUMN_MAP)
   * [DEF\_RELEASE\_COLUMN\_MAP](#backlogops.jira_io_config.DEF_RELEASE_COLUMN_MAP)
+  * [default\_jira\_filter](#backlogops.jira_io_config.default_jira_filter)
   * [JiraConnectConfig](#backlogops.jira_io_config.JiraConnectConfig)
     * [\_\_init\_\_](#backlogops.jira_io_config.JiraConnectConfig.__init__)
     * [parse\_converters](#backlogops.jira_io_config.JiraConnectConfig.parse_converters)
@@ -193,6 +194,11 @@
   * [get\_releases](#backlogops.releases.get_releases)
   * [check\_releases](#backlogops.releases.check_releases)
   * [order\_releases\_by\_date](#backlogops.releases.order_releases_by_date)
+* [backlogops.jira\_read](#backlogops.jira_read)
+  * [build\_backlog\_releases](#backlogops.jira_read.build_backlog_releases)
+  * [resolve\_jql](#backlogops.jira_read.resolve_jql)
+  * [read\_backlog\_from\_jira](#backlogops.jira_read.read_backlog_from_jira)
+  * [read\_jira\_from\_config](#backlogops.jira_read.read_jira_from_config)
 * [backlogops.table\_rows](#backlogops.table_rows)
   * [BACKLOG\_FIELDS](#backlogops.table_rows.BACKLOG_FIELDS)
   * [RELEASE\_FIELDS](#backlogops.table_rows.RELEASE_FIELDS)
@@ -2378,16 +2384,38 @@ Fields:
 
 A usable default backlog column map for a fresh Jira preset.
 
-The ``release`` field maps to the Jira ``fixVersions`` field, which is a
-list of versions; the reader reduces it to a single release name. The
-``team`` field maps to a custom field named ``Team`` (the Atlassian Teams
-field); adjust it in the wizard when a project names the field otherwise.
+The ``level`` field maps to the Jira issue type name (such as 'Story'),
+resolved to a level number through the configured levels. The ``release``
+field maps to the Jira ``fixVersions`` field, which is a list of
+versions; the reader reduces it to a single release name. The ``team``
+field maps to a custom field named ``Team`` (the Atlassian Teams field);
+adjust it in the wizard when a project names the field otherwise.
 
 <a id="backlogops.jira_io_config.DEF_RELEASE_COLUMN_MAP"></a>
 
 #### DEF\_RELEASE\_COLUMN\_MAP
 
 A usable default release column map for a fresh Jira preset.
+
+<a id="backlogops.jira_io_config.default_jira_filter"></a>
+
+#### default\_jira\_filter
+
+```python
+def default_jira_filter(project: str) -> str
+```
+
+Return the default issue filter selecting a project, ordered by rank.
+
+**Arguments**:
+
+- `project` - The Jira project key to select issues from.
+  
+
+**Returns**:
+
+  A Jira Query Language filter for every issue in the project,
+  ordered by rank ascending.
 
 <a id="backlogops.jira_io_config.JiraConnectConfig"></a>
 
@@ -4055,6 +4083,182 @@ of the list. Releases with the same date will keep their original order.
 **Returns**:
 
   The ordered list of releases.
+
+<a id="backlogops.jira_read"></a>
+
+# backlogops.jira\_read
+
+Read a backlog and its releases from Jira into BacklogReleases.
+
+A configured :class:`JiraPreset` names the connection, the backlog and
+release column maps, the default project and the default issue filter.
+:func:`read_backlog_from_jira` connects to Jira, runs the issue
+filter (Jira Query Language) to read the backlog items, reads the project
+versions to read the releases, and maps each Jira attribute to an
+internal field through the preset's column maps. Custom field display
+names in a column map (such as 'Story point estimate') are resolved to
+their field ids through the live custom field list of the Jira instance.
+
+The caller may override the preset's filter for one read. When no filter
+is configured at all, the default filter selects every issue in the
+default project, ordered by rank, while the releases always come from the
+default project's versions.
+
+A cloud connection authenticates with the login email and the token; a
+server connection uses the token as a personal access token. The token
+is materialized through :meth:`JiraConnectConfig.get_token`, asking the
+supplied pass phrase provider only when an encrypted storage mode needs
+it.
+
+<a id="backlogops.jira_read.build_backlog_releases"></a>
+
+#### build\_backlog\_releases
+
+```python
+def build_backlog_releases(
+        issues: Iterable[object],
+        versions: Iterable[object],
+        fields_list: Iterable[Mapping[str, object]],
+        *,
+        backlog_map: JiraColumnMap,
+        release_map: JiraColumnMap,
+        levels: Optional[Levels] = None,
+        status_map: Optional[dict[str, Status]] = None,
+        stderr_file: TextIO = sys.stderr) -> BacklogReleases
+```
+
+Build a BacklogReleases from fetched Jira issues and versions.
+
+Each issue is mapped through ``backlog_map`` into a backlog item, with
+a string level resolved through ``levels`` and a string status matched
+through ``status_map``; each version is mapped through ``release_map``
+into a release. The issue attributes are read relative to the issue
+itself and its ``fields``, while a version is read relative to itself.
+
+**Arguments**:
+
+- `issues` - The Jira issues to map into backlog items.
+- `versions` - The Jira versions to map into releases.
+- `fields_list` - The Jira field descriptors, used to resolve custom
+  field display names to their ids.
+- `backlog_map` - The internal-field to Jira attribute path map for the
+  backlog items.
+- `release_map` - The internal-field to Jira attribute path map for the
+  releases.
+- `levels` - The levels used to resolve a string level, or None for the
+  default levels.
+- `status_map` - Extra status names mapped to Status members, or None.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The backlog and releases read from Jira.
+
+<a id="backlogops.jira_read.resolve_jql"></a>
+
+#### resolve\_jql
+
+```python
+def resolve_jql(preset: JiraPreset, filter_override: Optional[str]) -> str
+```
+
+Return the Jira Query Language filter to run for a preset.
+
+A non-empty override wins over the preset's default filter, and an
+empty filter falls back to the default project filter.
+
+**Arguments**:
+
+- `preset` - The preset that carries the default filter and project.
+- `filter_override` - A filter to use instead of the preset's, or None.
+  
+
+**Returns**:
+
+  The filter to run.
+  
+
+**Raises**:
+
+- `ValueError` - If no filter and no default project are configured.
+
+<a id="backlogops.jira_read.read_backlog_from_jira"></a>
+
+#### read\_backlog\_from\_jira
+
+```python
+def read_backlog_from_jira(
+        jira_config: JiraIOConfig,
+        preset_name: str,
+        *,
+        filter_override: Optional[str] = None,
+        passphrase: Optional[Callable[[], str]] = None,
+        levels: Optional[Levels] = None,
+        status_map: Optional[dict[str, Status]] = None,
+        stderr_file: TextIO = sys.stderr) -> BacklogReleases
+```
+
+Read a backlog and its releases from Jira using a named preset.
+
+The preset names the connection and the backlog and release column
+maps, all looked up in ``jira_config``. The issues come from the
+resolved filter and the releases from the default project's versions.
+
+**Arguments**:
+
+- `jira_config` - The Jira configuration holding the preset, connection
+  and column maps.
+- `preset_name` - The name of the from-Jira preset to use.
+- `filter_override` - A Jira filter to use instead of the preset's.
+- `passphrase` - Called to obtain the pass phrase for an encrypted
+  token; not called for a clear token.
+- `levels` - The levels used to resolve a string level, or None for the
+  default levels.
+- `status_map` - Extra status names mapped to Status members, or None.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The backlog and releases read from Jira.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or a referenced connection or map is
+  missing.
+- `ValueError` - If no filter and no default project are configured.
+
+<a id="backlogops.jira_read.read_jira_from_config"></a>
+
+#### read\_jira\_from\_config
+
+```python
+def read_jira_from_config(config: BacklogOpsConfig,
+                          preset_name: str,
+                          *,
+                          filter_override: Optional[str] = None,
+                          passphrase: Optional[Callable[[], str]] = None,
+                          stderr_file: TextIO = sys.stderr) -> BacklogReleases
+```
+
+Read from Jira using the config's Jira settings, levels and status map.
+
+**Arguments**:
+
+- `config` - The backlog-ops configuration to take the Jira settings,
+  levels and status map from.
+- `preset_name` - The name of the from-Jira preset to use.
+- `filter_override` - A Jira filter to use instead of the preset's.
+- `passphrase` - Called to obtain the pass phrase for an encrypted
+  token; not called for a clear token.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The backlog and releases read from Jira.
 
 <a id="backlogops.table_rows"></a>
 

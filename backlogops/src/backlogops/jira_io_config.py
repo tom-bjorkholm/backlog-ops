@@ -130,6 +130,7 @@ version. Internal fields that are not mapped are not read.
 
 DEF_BACKLOG_COLUMN_MAP: JiraColumnMap = {
     'key': JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',)),
+    'level': JiraAttrPath(JiraAttrType.FIELD, ('issuetype', 'name')),
     'title': JiraAttrPath(JiraAttrType.FIELD, ('summary',)),
     'status': JiraAttrPath(JiraAttrType.FIELD, ('status', 'name')),
     'release': JiraAttrPath(JiraAttrType.FIELD, ('fixVersions',)),
@@ -138,10 +139,12 @@ DEF_BACKLOG_COLUMN_MAP: JiraColumnMap = {
                                  ('Story point estimate',))}
 """A usable default backlog column map for a fresh Jira preset.
 
-The ``release`` field maps to the Jira ``fixVersions`` field, which is a
-list of versions; the reader reduces it to a single release name. The
-``team`` field maps to a custom field named ``Team`` (the Atlassian Teams
-field); adjust it in the wizard when a project names the field otherwise.
+The ``level`` field maps to the Jira issue type name (such as 'Story'),
+resolved to a level number through the configured levels. The ``release``
+field maps to the Jira ``fixVersions`` field, which is a list of
+versions; the reader reduces it to a single release name. The ``team``
+field maps to a custom field named ``Team`` (the Atlassian Teams field);
+adjust it in the wizard when a project names the field otherwise.
 """
 
 
@@ -149,6 +152,19 @@ DEF_RELEASE_COLUMN_MAP: JiraColumnMap = {
     'name': JiraAttrPath(JiraAttrType.ATTRIBUTE, ('name',)),
     'planned_date': JiraAttrPath(JiraAttrType.ATTRIBUTE, ('releaseDate',))}
 """A usable default release column map for a fresh Jira preset."""
+
+
+def default_jira_filter(project: str) -> str:
+    """Return the default issue filter selecting a project, ordered by rank.
+
+    Args:
+        project: The Jira project key to select issues from.
+
+    Returns:
+        A Jira Query Language filter for every issue in the project,
+        ordered by rank ascending.
+    """
+    return f'project = "{project}" ORDER BY rank ASC'
 
 
 def _as_step(name: str, value: object, stderr_file: TextIO) -> str:

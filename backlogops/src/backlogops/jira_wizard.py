@@ -21,7 +21,7 @@ from enum import Enum
 from typing import TypeVar
 from backlogops.jira_io_config import DEF_BACKLOG_COLUMN_MAP, \
     DEF_RELEASE_COLUMN_MAP, JiraColumnMap, JiraConnectConfig, JiraIOConfig, \
-    JiraPreset, JiraType, TokenStorage
+    JiraPreset, JiraType, TokenStorage, default_jira_filter
 from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS
 from backlogops.wizard_helpers import _Navigator
 
@@ -149,6 +149,13 @@ def _ask_jira_preset(nav: _Navigator, used: set[str], conn_names: list[str],
                              default=map_names[0])
     preset.release_column_map_name = release
     preset.def_project = nav.ask_text('Default Jira project key')
-    preset.def_filter = nav.ask_text('Default issue filter (JQL)',
-                                     allow_empty=True)
+    preset.def_filter = _ask_filter(nav, preset.def_project)
     return name, preset
+
+
+def _ask_filter(nav: _Navigator, project: str) -> str:
+    """Ask the default issue filter, suggesting the project filter."""
+    if project:
+        return nav.ask_text('Default issue filter (JQL)',
+                            default=default_jira_filter(project))
+    return nav.ask_text('Default issue filter (JQL)', allow_empty=True)
