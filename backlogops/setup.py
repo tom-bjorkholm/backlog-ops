@@ -15,6 +15,7 @@ setup(
   package_data={'backlogops': ['src/py.typed']},
   install_requires=[
     'config-as-json >= 1.3',
+    'jira[cli,opt] >= 3.10.5',
     'tableio >= 1.0',
     'tableio-cfg-json >= 0.6',
     'versionreporter >= 0.3'
