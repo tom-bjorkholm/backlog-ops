@@ -9,6 +9,8 @@ backlog item levels:
 * ``available_teams`` is the workforce (persons, teams and company work
   hours), bridged to JSON by :class:`AvailableTeamsConfig`;
 * ``input_configs`` and ``output_configs`` are named TableIO presets;
+* ``jira`` is the Jira input and output configuration, bridged to JSON by
+  :class:`backlogops.jira_io_config.JiraIOConfig`;
 * ``levels`` is the optional list of backlog item levels. It is omitted
   from the file while it is ``None``; :meth:`BacklogOpsConfig.get_levels`
   then falls back to :data:`backlogops.levels.DEFAULT_LEVELS`.
@@ -37,6 +39,7 @@ from backlogops.backlog import Status
 from backlogops.backlog_helpers import report_bad_value, report_wrong_type
 from backlogops.io_config import GuiDisplayConfig, InputFormatConfig, \
     OutputFormatConfig, _StatusMapValidator
+from backlogops.jira_io_config import JiraIOConfig
 from backlogops.levels import DEFAULT_LEVELS, Level, Levels, LevelDisplay, \
     levels_from_list
 
@@ -145,10 +148,11 @@ class _BacklogOpsReadOldConfig(ReadOldConfiguration):
     def get_missing_path_values(self) -> dict[ConfigPath, object]:
         """Return defaults for the members old files may omit."""
         return {('input_configs',): {}, ('output_configs',): {},
-                ('gui_display',): {}, ('status_input_map',): {}}
+                ('gui_display',): {}, ('status_input_map',): {},
+                ('jira',): {}}
 
 
-class BacklogOpsConfig(Config):
+class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
     """Top-level backlog-ops configuration stored as config-as-json."""
 
     def __init__(self, *, available_teams: Optional[AvailableTeams] = None,
@@ -173,6 +177,7 @@ class BacklogOpsConfig(Config):
         self.gui_display: GuiDisplayConfig = GuiDisplayConfig(
             stderr_file=stderr_file)
         self.status_input_map: dict[str, Status] = {}
+        self.jira: JiraIOConfig = JiraIOConfig(stderr_file=stderr_file)
         self.levels: Optional[list[Level]] = None
         self._unchecked_dicts = ['status_input_map']
         Config.__init__(self, from_json_data_text=from_json_data_text,
@@ -195,8 +200,10 @@ class BacklogOpsConfig(Config):
                                 config_type=OutputFormatConfig)
         gui = ConfigNesting(kind=ConfigNestingKind.MEMBER,
                             config_type=GuiDisplayConfig)
+        jira = ConfigNesting(kind=ConfigNestingKind.MEMBER,
+                             config_type=JiraIOConfig)
         return {'available_teams': member, 'input_configs': in_cfg,
-                'output_configs': out_cfg, 'gui_display': gui}
+                'output_configs': out_cfg, 'gui_display': gui, 'jira': jira}
 
     @override
     def _omit_none_from_json(self) -> list[str]:
@@ -267,6 +274,15 @@ class BacklogOpsConfig(Config):
             The :class:`LevelDisplay` configured for the GUI display.
         """
         return self.gui_display.level_display
+
+    def get_jira_config(self) -> JiraIOConfig:
+        """Return the Jira input and output configuration.
+
+        Returns:
+            The :class:`JiraIOConfig` holding the Jira connections, column
+            maps and from-Jira presets. Empty when none are configured.
+        """
+        return self.jira
 
 
 def write_backlog_ops_config(config: BacklogOpsConfig, filename: PathOrStr,

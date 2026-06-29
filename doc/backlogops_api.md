@@ -86,12 +86,37 @@
     * [get\_levels](#backlogops.backlog_ops_config.BacklogOpsConfig.get_levels)
     * [get\_status\_input\_map](#backlogops.backlog_ops_config.BacklogOpsConfig.get_status_input_map)
     * [get\_gui\_level\_display](#backlogops.backlog_ops_config.BacklogOpsConfig.get_gui_level_display)
+    * [get\_jira\_config](#backlogops.backlog_ops_config.BacklogOpsConfig.get_jira_config)
   * [write\_backlog\_ops\_config](#backlogops.backlog_ops_config.write_backlog_ops_config)
   * [read\_backlog\_ops\_config](#backlogops.backlog_ops_config.read_backlog_ops_config)
   * [get\_backlog\_ops\_config](#backlogops.backlog_ops_config.get_backlog_ops_config)
 * [backlogops.table\_create](#backlogops.table_create)
   * [allow\_overwrite](#backlogops.table_create.allow_overwrite)
   * [create\_output\_table](#backlogops.table_create.create_output_table)
+* [backlogops.jira\_io\_config](#backlogops.jira_io_config)
+  * [JiraType](#backlogops.jira_io_config.JiraType)
+  * [TokenStorage](#backlogops.jira_io_config.TokenStorage)
+  * [CLEAR\_TOKEN\_WARNING](#backlogops.jira_io_config.CLEAR_TOKEN_WARNING)
+  * [JiraAttrType](#backlogops.jira_io_config.JiraAttrType)
+  * [JiraAttrPath](#backlogops.jira_io_config.JiraAttrPath)
+  * [DEF\_BACKLOG\_COLUMN\_MAP](#backlogops.jira_io_config.DEF_BACKLOG_COLUMN_MAP)
+  * [DEF\_RELEASE\_COLUMN\_MAP](#backlogops.jira_io_config.DEF_RELEASE_COLUMN_MAP)
+  * [JiraConnectConfig](#backlogops.jira_io_config.JiraConnectConfig)
+    * [\_\_init\_\_](#backlogops.jira_io_config.JiraConnectConfig.__init__)
+    * [parse\_converters](#backlogops.jira_io_config.JiraConnectConfig.parse_converters)
+    * [get\_validation\_plan](#backlogops.jira_io_config.JiraConnectConfig.get_validation_plan)
+    * [get\_token](#backlogops.jira_io_config.JiraConnectConfig.get_token)
+    * [set\_token](#backlogops.jira_io_config.JiraConnectConfig.set_token)
+  * [JiraPreset](#backlogops.jira_io_config.JiraPreset)
+    * [\_\_init\_\_](#backlogops.jira_io_config.JiraPreset.__init__)
+    * [get\_validation\_plan](#backlogops.jira_io_config.JiraPreset.get_validation_plan)
+  * [JiraIOConfig](#backlogops.jira_io_config.JiraIOConfig)
+    * [\_\_init\_\_](#backlogops.jira_io_config.JiraIOConfig.__init__)
+    * [nested\_configs](#backlogops.jira_io_config.JiraIOConfig.nested_configs)
+    * [get\_validation\_plan](#backlogops.jira_io_config.JiraIOConfig.get_validation_plan)
+    * [serialize\_converters](#backlogops.jira_io_config.JiraIOConfig.serialize_converters)
+    * [check\_consistency](#backlogops.jira_io_config.JiraIOConfig.check_consistency)
+    * [get\_preset](#backlogops.jira_io_config.JiraIOConfig.get_preset)
 * [backlogops.team](#backlogops.team)
   * [FteException](#backlogops.team.FteException)
     * [check\_consistency](#backlogops.team.FteException.check_consistency)
@@ -207,6 +232,9 @@
 * [backlogops.date\_ranges](#backlogops.date_ranges)
   * [check\_date\_range](#backlogops.date_ranges.check_date_range)
   * [check\_no\_overlap](#backlogops.date_ranges.check_no_overlap)
+* [backlogops.jira\_token](#backlogops.jira_token)
+  * [encrypt\_token](#backlogops.jira_token.encrypt_token)
+  * [decrypt\_token](#backlogops.jira_token.decrypt_token)
 * [backlogops.levels](#backlogops.levels)
   * [LevelDisplay](#backlogops.levels.LevelDisplay)
   * [Level](#backlogops.levels.Level)
@@ -1929,6 +1957,8 @@ backlog item levels:
 * ``available_teams`` is the workforce (persons, teams and company work
   hours), bridged to JSON by :class:`AvailableTeamsConfig`;
 * ``input_configs`` and ``output_configs`` are named TableIO presets;
+* ``jira`` is the Jira input and output configuration, bridged to JSON by
+  :class:`backlogops.jira_io_config.JiraIOConfig`;
 * ``levels`` is the optional list of backlog item levels. It is omitted
   from the file while it is ``None``; :meth:`BacklogOpsConfig.get_levels`
   then falls back to :data:`backlogops.levels.DEFAULT_LEVELS`.
@@ -2073,6 +2103,21 @@ Return how levels should be shown in the GUI.
 **Returns**:
 
   The :class:`LevelDisplay` configured for the GUI display.
+
+<a id="backlogops.backlog_ops_config.BacklogOpsConfig.get_jira_config"></a>
+
+#### get\_jira\_config
+
+```python
+def get_jira_config() -> JiraIOConfig
+```
+
+Return the Jira input and output configuration.
+
+**Returns**:
+
+  The :class:`JiraIOConfig` holding the Jira connections, column
+  maps and from-Jira presets. Empty when none are configured.
 
 <a id="backlogops.backlog_ops_config.write_backlog_ops_config"></a>
 
@@ -2225,6 +2270,378 @@ write the table inside the ``with`` block.
 **Yields**:
 
   The TableIO ready to write one table to the file.
+
+<a id="backlogops.jira_io_config"></a>
+
+# backlogops.jira\_io\_config
+
+Jira input and output configuration stored as config-as-json.
+
+A :class:`JiraIOConfig` is the ``jira`` member of the top-level
+:class:`backlogops.backlog_ops_config.BacklogOpsConfig`. It groups three
+named, reusable parts:
+
+* ``connections`` are named :class:`JiraConnectConfig` objects, each
+  describing one Jira server and how its API token is stored;
+* ``column_maps`` are named :data:`JiraColumnMap` maps from an internal
+  field name to the :class:`JiraAttrPath` that reaches the value on a
+  Jira issue or version;
+* ``from_jira_presets`` are named :class:`JiraPreset` objects that tie a
+  connection, a backlog column map and a release column map together with
+  a default project and a default issue filter for reading from Jira.
+
+Keeping the connections and column maps in their own dictionaries lets
+several presets share one connection or one map. A preset refers to them
+by name, and :meth:`JiraIOConfig.check_consistency` rejects a preset that
+refers to a name that is not defined.
+
+The API token is never written into the configuration file in clear text
+unless the user explicitly chooses a clear storage mode (meant for demo
+data). The token itself is materialized only at use time by
+:meth:`JiraConnectConfig.get_token`, into a private attribute that
+config-as-json does not serialize.
+
+<a id="backlogops.jira_io_config.JiraType"></a>
+
+## JiraType Objects
+
+```python
+class JiraType(Enum)
+```
+
+Jira deployment type, cloud or server.
+
+<a id="backlogops.jira_io_config.TokenStorage"></a>
+
+## TokenStorage Objects
+
+```python
+class TokenStorage(Enum)
+```
+
+How the Jira API token is stored.
+
+A ``CLEAR`` mode stores the token unprotected and is meant for demo
+data only. An ``ENCRYPTED`` mode stores the token encrypted with a
+pass phrase the user supplies when the token is stored and when it is
+used. A ``FILE`` mode keeps the token in a separate file named by
+``token_file_path``; an ``INTERNAL`` mode keeps it in the
+configuration itself.
+
+<a id="backlogops.jira_io_config.CLEAR_TOKEN_WARNING"></a>
+
+#### CLEAR\_TOKEN\_WARNING
+
+Warning shown when a token is stored with a clear storage mode.
+
+<a id="backlogops.jira_io_config.JiraAttrType"></a>
+
+## JiraAttrType Objects
+
+```python
+class JiraAttrType(Enum)
+```
+
+Where the value of a mapped column is found on a Jira object.
+
+ATTRIBUTE is a direct attribute of the issue or version object, such
+as ``issue.key`` or ``version.releaseDate``. FIELD is reached under
+``issue.fields`` by the remaining path steps, such as
+``issue.fields.status.name``. CUSTOM_FIELD is a custom field named by
+its id (``customfield_10016``) or by its display name (``Story point
+estimate``); the display name is resolved against the live custom
+field mapping when reading.
+
+<a id="backlogops.jira_io_config.JiraAttrPath"></a>
+
+## JiraAttrPath Objects
+
+```python
+@dataclass(frozen=True)
+class JiraAttrPath()
+```
+
+A path to the value of one column on a Jira issue or version.
+
+Fields:
+    kind: How the path is interpreted, as documented for
+        :class:`JiraAttrType`.
+    path: The path steps. ATTRIBUTE and CUSTOM_FIELD use exactly one
+        step; FIELD uses one or more steps reached under
+        ``issue.fields``.
+
+<a id="backlogops.jira_io_config.DEF_BACKLOG_COLUMN_MAP"></a>
+
+#### DEF\_BACKLOG\_COLUMN\_MAP
+
+A usable default backlog column map for a fresh Jira preset.
+
+<a id="backlogops.jira_io_config.DEF_RELEASE_COLUMN_MAP"></a>
+
+#### DEF\_RELEASE\_COLUMN\_MAP
+
+A usable default release column map for a fresh Jira preset.
+
+<a id="backlogops.jira_io_config.JiraConnectConfig"></a>
+
+## JiraConnectConfig Objects
+
+```python
+class JiraConnectConfig(Config)
+```
+
+Connection to one Jira server and how its API token is stored.
+
+The connection holds the deployment type, the base URL and the login
+email, plus the chosen :class:`TokenStorage`. For a file storage mode
+the token lives in the file named by ``token_file_path``; for an
+internal storage mode it lives in ``stored_token`` (clear text for a
+clear mode, an encrypted blob for an encrypted mode). The clear text
+token is materialized on demand by :meth:`get_token` into a private
+attribute that is never serialized.
+
+<a id="backlogops.jira_io_config.JiraConnectConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create connection defaults, then read them from JSON.
+
+<a id="backlogops.jira_io_config.JiraConnectConfig.parse_converters"></a>
+
+#### parse\_converters
+
+```python
+@override
+def parse_converters() -> dict[str, ParseConverter]
+```
+
+Parse the enum members from their member names.
+
+<a id="backlogops.jira_io_config.JiraConnectConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check the base URL and the login email are strings.
+
+<a id="backlogops.jira_io_config.JiraConnectConfig.get_token"></a>
+
+#### get\_token
+
+```python
+def get_token(passphrase: Optional[Callable[[], str]] = None,
+              stderr_file: TextIO = sys.stderr) -> str
+```
+
+Return the clear text API token, materializing it once.
+
+The token is read from its file or internal storage and decrypted
+when an encrypted mode is used; the result is cached so a later
+call returns it without asking for the pass phrase again.
+
+**Arguments**:
+
+- `passphrase` - Called to obtain the pass phrase for an encrypted
+  mode. Not called for a clear mode.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The clear text API token.
+  
+
+**Raises**:
+
+- `ValueError` - If a needed token, file path or pass phrase is
+  missing, or decryption fails.
+
+<a id="backlogops.jira_io_config.JiraConnectConfig.set_token"></a>
+
+#### set\_token
+
+```python
+def set_token(token: str,
+              passphrase: Optional[Callable[[], str]] = None,
+              stderr_file: TextIO = sys.stderr) -> None
+```
+
+Store a clear text API token according to the storage mode.
+
+For an encrypted mode the token is encrypted with the pass phrase;
+for a clear mode a strong warning is printed. The token is also
+cached so a following :meth:`get_token` returns it directly.
+
+**Arguments**:
+
+- `token` - The clear text API token to store.
+- `passphrase` - Called to obtain the pass phrase for an encrypted
+  mode. Not called for a clear mode.
+- `stderr_file` - Stream the clear-text warning is printed to.
+  
+
+**Raises**:
+
+- `ValueError` - If a needed file path or pass phrase is missing.
+
+<a id="backlogops.jira_io_config.JiraPreset"></a>
+
+## JiraPreset Objects
+
+```python
+class JiraPreset(Config)
+```
+
+A named preset for reading a backlog and releases from Jira.
+
+The preset names the connection to use, the backlog and release
+column maps to use, the default project key, and the default issue
+filter (Jira Query Language). The names refer to entries in the
+enclosing :class:`JiraIOConfig`. The default project is used to read
+the releases (versions) even when the caller overrides the issue
+filter.
+
+<a id="backlogops.jira_io_config.JiraPreset.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create preset defaults, then read them from JSON.
+
+<a id="backlogops.jira_io_config.JiraPreset.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check every preset member is a string.
+
+<a id="backlogops.jira_io_config.JiraIOConfig"></a>
+
+## JiraIOConfig Objects
+
+```python
+class JiraIOConfig(Config)
+```
+
+Jira input and output configuration as the top-level jira member.
+
+Holds the named connections, the named column maps, and the named
+presets for reading from Jira, each indexed by name so that several
+presets can share one connection or one column map. The column maps
+are validated and converted to :class:`JiraAttrPath` values on read
+and written back as lists on write; an old file that omits any
+sub-section loads with that sub-section empty.
+
+<a id="backlogops.jira_io_config.JiraIOConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
+             stderr_file: TextIO = sys.stderr) -> None
+```
+
+Create empty defaults, then read the jira configuration.
+
+<a id="backlogops.jira_io_config.JiraIOConfig.nested_configs"></a>
+
+#### nested\_configs
+
+```python
+@override
+def nested_configs() -> NestedConfigs
+```
+
+Declare the connections and presets as nested configurations.
+
+<a id="backlogops.jira_io_config.JiraIOConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Convert the column maps, then check the preset references.
+
+<a id="backlogops.jira_io_config.JiraIOConfig.serialize_converters"></a>
+
+#### serialize\_converters
+
+```python
+@override
+def serialize_converters() -> SerializeConverters
+```
+
+Write the column maps as lists of a kind and path steps.
+
+<a id="backlogops.jira_io_config.JiraIOConfig.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check every preset refers to a defined connection and maps.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `KeyError` - If a preset refers to a connection or column map
+  name that is not defined.
+
+<a id="backlogops.jira_io_config.JiraIOConfig.get_preset"></a>
+
+#### get\_preset
+
+```python
+def get_preset(name: str) -> JiraPreset
+```
+
+Return the named from-Jira preset.
+
+**Arguments**:
+
+- `name` - The preset name.
+  
+
+**Returns**:
+
+  The named preset.
+  
+
+**Raises**:
+
+- `KeyError` - If no preset of that name is configured.
 
 <a id="backlogops.team"></a>
 
@@ -4239,6 +4656,69 @@ overlap is found in a single pass.
 **Raises**:
 
 - `ValueError` - If two ranges share a day.
+
+<a id="backlogops.jira_token"></a>
+
+# backlogops.jira\_token
+
+Encrypt and decrypt a Jira API token with a pass phrase.
+
+The encryption is pass-phrase based and stores no key of its own: a
+Fernet key is derived from the pass phrase and a fresh random salt with
+PBKDF2-HMAC-SHA256. The salt is stored next to the ciphertext, so the
+same pass phrase recreates the key when the token is later read. The
+caller supplies the pass phrase both when a token is encrypted and when
+it is decrypted; there is no key store to manage.
+
+<a id="backlogops.jira_token.encrypt_token"></a>
+
+#### encrypt\_token
+
+```python
+def encrypt_token(token: str, passphrase: str) -> str
+```
+
+Return the token encrypted with the pass phrase as a text blob.
+
+**Arguments**:
+
+- `token` - The plain text API token to encrypt.
+- `passphrase` - The pass phrase to derive the encryption key from.
+  
+
+**Returns**:
+
+  A url-safe base64 text blob holding the salt and the ciphertext.
+  
+
+**Raises**:
+
+- `ValueError` - If the pass phrase is empty.
+
+<a id="backlogops.jira_token.decrypt_token"></a>
+
+#### decrypt\_token
+
+```python
+def decrypt_token(blob_text: str, passphrase: str) -> str
+```
+
+Return the token decrypted from a blob with the pass phrase.
+
+**Arguments**:
+
+- `blob_text` - The text blob produced by :func:`encrypt_token`.
+- `passphrase` - The pass phrase used when the token was encrypted.
+  
+
+**Returns**:
+
+  The decrypted plain text API token.
+  
+
+**Raises**:
+
+- `ValueError` - If the pass phrase is wrong or the blob is corrupt.
 
 <a id="backlogops.levels"></a>
 

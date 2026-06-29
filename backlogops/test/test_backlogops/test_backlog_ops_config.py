@@ -16,9 +16,10 @@ from pathlib import Path
 import pytest
 from config_as_json import MigrateCfgWarnHook
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, DEFAULT_LEVELS, Level, LevelDisplay,
-    Status, make_input_config, make_output_config, read_backlog_ops_config,
-    resolve_input_config, resolve_output_config, write_backlog_ops_config)
+    AvailableTeams, BacklogOpsConfig, DEFAULT_LEVELS, JiraConnectConfig,
+    Level, LevelDisplay, Status, TokenStorage, make_input_config,
+    make_output_config, read_backlog_ops_config, resolve_input_config,
+    resolve_output_config, write_backlog_ops_config)
 from backlogops.no_text_io import NoTextIO
 from backlogops.work_hours import WeekDay
 
@@ -335,3 +336,34 @@ def test_status_map_bad_value() -> None:
     with pytest.raises(TypeError):
         BacklogOpsConfig(from_json_data_text=json.dumps(data),
                          stderr_file=NO_OUTPUT)
+
+
+def test_jira_default() -> None:
+    """Test a fresh configuration has an empty Jira configuration."""
+    assert not _empty().get_jira_config().connections
+
+
+def test_jira_round_trip(tmp_path: Path) -> None:
+    """Test a Jira connection on the top-level config survives a write."""
+    config = _empty()
+    conn = JiraConnectConfig(stderr_file=NO_OUTPUT)
+    conn.base_url = 'https://x.atlassian.net'
+    conn.token_storage = TokenStorage.CLEAR_INTERNAL
+    conn.stored_token = 'TOK'
+    config.jira.connections = {'main': conn}
+    target = tmp_path / 'ops.cfg'
+    write_backlog_ops_config(config, target, NO_OUTPUT)
+    loaded = read_backlog_ops_config(target, NO_OUTPUT)
+    main = loaded.get_jira_config().connections['main']
+    assert main.base_url == 'https://x.atlassian.net'
+    assert main.get_token() == 'TOK'
+
+
+def test_old_no_jira(tmp_path: Path) -> None:
+    """Test an old file without a jira section loads with it empty."""
+    data = _config_json(_empty())
+    del data['jira']
+    config_file = tmp_path / 'old.cfg'
+    config_file.write_text(json.dumps(data), encoding='UTF-8')
+    loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
+    assert not loaded.get_jira_config().connections
