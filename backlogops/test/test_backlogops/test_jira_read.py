@@ -13,6 +13,7 @@ from datetime import date
 from types import SimpleNamespace
 from typing import Optional
 import pytest
+import backlogops
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog import Status
 from backlogops.backlog_ops_config import BacklogOpsConfig
@@ -250,3 +251,10 @@ def test_read_from_config(monkeypatch: pytest.MonkeyPatch) -> None:
     data = read_jira_from_config(config, 'p')
     assert data.backlog[0].level == 1
     assert data.releases[0].name == 'R1'
+
+
+def test_reexport() -> None:
+    """Test the package re-exports the Jira reader functions."""
+    assert backlogops.read_backlog_from_jira is read_backlog_from_jira
+    assert 'read_backlog_from_jira' in backlogops.__all__
+    assert 'read_jira_from_config' in backlogops.__all__
