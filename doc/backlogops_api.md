@@ -105,6 +105,8 @@
     * [\_\_init\_\_](#backlogops.jira_io_config.JiraConnectConfig.__init__)
     * [parse\_converters](#backlogops.jira_io_config.JiraConnectConfig.parse_converters)
     * [get\_validation\_plan](#backlogops.jira_io_config.JiraConnectConfig.get_validation_plan)
+    * [uses\_token\_file](#backlogops.jira_io_config.JiraConnectConfig.uses_token_file)
+    * [uses\_encryption](#backlogops.jira_io_config.JiraConnectConfig.uses_encryption)
     * [get\_token](#backlogops.jira_io_config.JiraConnectConfig.get_token)
     * [set\_token](#backlogops.jira_io_config.JiraConnectConfig.set_token)
   * [JiraPreset](#backlogops.jira_io_config.JiraPreset)
@@ -2376,6 +2378,11 @@ Fields:
 
 A usable default backlog column map for a fresh Jira preset.
 
+The ``release`` field maps to the Jira ``fixVersions`` field, which is a
+list of versions; the reader reduces it to a single release name. The
+``team`` field maps to a custom field named ``Team`` (the Atlassian Teams
+field); adjust it in the wizard when a project names the field otherwise.
+
 <a id="backlogops.jira_io_config.DEF_RELEASE_COLUMN_MAP"></a>
 
 #### DEF\_RELEASE\_COLUMN\_MAP
@@ -2434,6 +2441,26 @@ def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
 ```
 
 Check the base URL and the login email are strings.
+
+<a id="backlogops.jira_io_config.JiraConnectConfig.uses_token_file"></a>
+
+#### uses\_token\_file
+
+```python
+def uses_token_file() -> bool
+```
+
+Return whether the token is stored in a separate file.
+
+<a id="backlogops.jira_io_config.JiraConnectConfig.uses_encryption"></a>
+
+#### uses\_encryption
+
+```python
+def uses_encryption() -> bool
+```
+
+Return whether the token is stored encrypted with a pass phrase.
 
 <a id="backlogops.jira_io_config.JiraConnectConfig.get_token"></a>
 
@@ -5140,7 +5167,8 @@ columns and how levels are written; the column tables start pre-filled
 with the internal field names so leaving them unchanged renames
 nothing. The levels start filled in with the default levels; when the
 user leaves them at the defaults they are stored as "use the defaults"
-rather than written out.
+rather than written out. Finally the user may configure the Jira
+integration: named connections, column maps and from-Jira read presets.
 
 **Arguments**:
 

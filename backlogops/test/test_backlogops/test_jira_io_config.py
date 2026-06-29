@@ -267,5 +267,8 @@ def test_def_maps() -> None:
     """Test the shipped default column maps hold the expected paths."""
     assert DEF_BACKLOG_COLUMN_MAP['status'] == \
         JiraAttrPath(JiraAttrType.FIELD, ('status', 'name'))
+    assert DEF_BACKLOG_COLUMN_MAP['release'] == \
+        JiraAttrPath(JiraAttrType.FIELD, ('fixVersions',))
+    assert DEF_BACKLOG_COLUMN_MAP['team'].kind is JiraAttrType.CUSTOM_FIELD
     assert DEF_RELEASE_COLUMN_MAP['planned_date'].kind is \
         JiraAttrType.ATTRIBUTE

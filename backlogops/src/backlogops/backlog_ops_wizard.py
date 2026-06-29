@@ -33,6 +33,7 @@ from backlogops.wizard_helpers import _Navigator, _ask_level_display, \
     _backlog_map_fields
 from backlogops.io_preset_wizard import _build_input_presets, \
     _build_output_presets
+from backlogops.jira_wizard import _build_jira_config
 
 
 _GUI_LEVEL_QUESTION = \
@@ -72,6 +73,10 @@ _GUI_DISPLAY_HEAD = 'Configure the GUI display.'
 """Stage heading shown while collecting the GUI display."""
 
 
+_JIRA_HEAD = 'Configure the Jira integration.'
+"""Stage heading shown while collecting the Jira configuration."""
+
+
 def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams:
     """Interactively create an available workforce configuration.
 
@@ -106,7 +111,8 @@ def backlog_ops_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig:
     with the internal field names so leaving them unchanged renames
     nothing. The levels start filled in with the default levels; when the
     user leaves them at the defaults they are stored as "use the defaults"
-    rather than written out.
+    rather than written out. Finally the user may configure the Jira
+    integration: named connections, column maps and from-Jira read presets.
 
     Args:
         ui_bridge: Bridge between the wizard and the user interface.
@@ -149,6 +155,8 @@ def _collect_config(nav: _Navigator) -> BacklogOpsConfig:
     config.status_input_map = nav.ask_status_map(_GLOBAL_STATUS_QUESTION)
     nav.show(_GUI_DISPLAY_HEAD)
     config.gui_display = _build_gui_display(nav)
+    nav.show(_JIRA_HEAD)
+    config.jira = _build_jira_config(nav)
     return config
 
 

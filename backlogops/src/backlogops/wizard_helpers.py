@@ -27,6 +27,8 @@ from tableio_cfg_json import TableCell, TableColumn, TioJsonConfig, \
     WizardBack, WizardCancelLevel, WizardUiBridge, tio_json_config_wizard
 from backlogops.backlog import Status
 from backlogops.io_config import PRESET_NAME_RE
+from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
+    JiraColumnMap
 from backlogops.levels import DEFAULT_LEVELS, Level, LevelDisplay, \
     levels_from_list
 from backlogops.person import Person
@@ -224,6 +226,18 @@ class _Navigator:
     def ask_status_map(self, question: str) -> dict[str, Status]:
         """Ask the input status-name map as one variable-row table."""
         result = self._ask(lambda: _read_status_map(self._ui, question))
+        assert isinstance(result, dict)
+        return result
+
+    def ask_jira_map(self, fields: list[str],
+                     default_map: JiraColumnMap) -> JiraColumnMap:
+        """Ask one Jira column map as one variable-row table.
+
+        Each internal field is shown pre-filled with the kind and path of
+        the default map, or blank when the default leaves it unmapped.
+        """
+        result = self._ask(lambda: _read_jira_map(self._ui, fields,
+                                                  default_map))
         assert isinstance(result, dict)
         return result
 
@@ -757,4 +771,111 @@ def _read_status_map(ui: WizardUiBridge, question: str) -> dict[str, Status]:
             return mapping
         reason = ('Map each file status name once to '
                   + ', '.join(_STATUS_NAMES) + '.')
+        cells = _cells_from_table(table)
+
+
+_JIRA_KINDS = [kind.name for kind in JiraAttrType]
+"""Attribute kind names offered as Jira column-map targets."""
+
+_MAX_JIRA_EXTRA = 30
+"""How many extra-field rows the user may add to a Jira column map."""
+
+_JIRA_MAP_INSTRUCTION = (
+    'Jira attribute paths (Kind is one of ' + ', '.join(_JIRA_KINDS)
+    + '; a FIELD path uses dots like status.name; blank leaves a field '
+    'unmapped):')
+"""Instruction shown above a Jira column-map table."""
+
+_JIRA_MAP_REASON = ('Give each mapped field a valid kind and path, and map '
+                    'each internal field only once.')
+"""Re-ask reason for an inconsistent Jira column-map table."""
+
+
+def _jira_map_cells(fields: list[str],
+                    default_map: JiraColumnMap) -> list[list[TableCell]]:
+    """Return seed rows pre-filled from the default Jira column map."""
+    rows: list[list[TableCell]] = []
+    for field in fields:
+        attr = default_map.get(field)
+        kind = attr.kind.name if attr is not None else ''
+        path = '.'.join(attr.path) if attr is not None else ''
+        rows.append([TableCell(value=field), TableCell(value=kind),
+                     TableCell(value=path)])
+    return rows
+
+
+def _jira_map_check(table: list[list[Optional[str]]],
+                    position: tuple[int, int]) -> tuple[bool, str]:
+    """Give early feedback that a Jira column-map row is valid."""
+    row, col = position
+    kind, path = table[row][1], table[row][2]
+    if col == 1 and kind and kind.strip().upper() not in _JIRA_KINDS:
+        return (False, 'Kind is one of ' + ', '.join(_JIRA_KINDS) + '.')
+    if col == 2 and path and not kind:
+        return (False, 'Enter the kind for this path.')
+    return (True, '')
+
+
+def _attr_from_cells(kind_text: str, path_text: str) -> Optional[JiraAttrPath]:
+    """Return a JiraAttrPath from a kind cell and a path cell, or None."""
+    name = kind_text.strip().upper()
+    if name not in _JIRA_KINDS:
+        return None
+    kind = JiraAttrType[name]
+    text = path_text.strip()
+    if kind is JiraAttrType.FIELD:
+        steps = tuple(part for part in text.split('.') if part)
+    else:
+        steps = (text,) if text else ()
+    if not steps:
+        return None
+    return JiraAttrPath(kind=kind, path=steps)
+
+
+def _parse_jira_map(table: list[list[Optional[str]]]
+                    ) -> Optional[JiraColumnMap]:
+    """Return the Jira column map from a table, or None when invalid.
+
+    A row with a blank kind and path leaves that field unmapped. A row
+    with only one of kind and path is invalid. A repeated internal field
+    rejects the whole table.
+    """
+    result: JiraColumnMap = {}
+    for field, kind_text, path_text in ((r[0], r[1], r[2]) for r in table):
+        if not field:
+            continue
+        if not kind_text and not path_text:
+            continue
+        if not kind_text or not path_text:
+            return None
+        attr = _attr_from_cells(kind_text, path_text)
+        if attr is None or field in result:
+            return None
+        result[field] = attr
+    return result
+
+
+def _read_jira_map(ui: WizardUiBridge, fields: list[str],
+                   default_map: JiraColumnMap) -> JiraColumnMap:
+    """Ask one Jira column map as one variable-row table.
+
+    Each internal field is a read-only, pre-filled row; its kind and path
+    cells start from the default map or blank. Added rows are fully
+    editable so an extra field can be mapped. An invalid table is re-asked
+    with the user's own rows kept.
+    """
+    columns = [TableColumn(header='Internal field', read_only=True),
+               TableColumn(header='Kind'), TableColumn(header='Path')]
+    cells = _jira_map_cells(fields, default_map)
+    reason: Optional[str] = None
+    while True:
+        table = ui.ask_table(columns, cells, _JIRA_MAP_INSTRUCTION,
+                             re_ask_reason=reason,
+                             partial_check=_jira_map_check,
+                             min_rows=len(fields),
+                             max_rows=len(fields) + _MAX_JIRA_EXTRA)
+        mapping = _parse_jira_map(table)
+        if mapping is not None:
+            return mapping
+        reason = _JIRA_MAP_REASON
         cells = _cells_from_table(table)

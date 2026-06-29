@@ -18,12 +18,13 @@ from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.backlog_ops_wizard import (
     available_teams_wizard, backlog_ops_wizard, _WORKFORCE_HEAD,
     _INPUT_PRESETS_HEAD, _OUTPUT_PRESETS_HEAD, _LEVELS_HEAD, _STATUS_MAP_HEAD,
-    _GUI_DISPLAY_HEAD)
+    _GUI_DISPLAY_HEAD, _JIRA_HEAD)
 from backlogops.io_preset_wizard import preset_wizard
+from backlogops.jira_io_config import JiraAttrPath, JiraAttrType
 from backlogops.wizard_helpers import (
     _backlog_map_fields, _parse_column_renames, _parse_input_renames,
-    _parse_status_map, _read_int, _read_number, _read_opt_date, _read_text,
-    _status_target)
+    _parse_status_map, _read_int, _read_jira_map, _read_number,
+    _read_opt_date, _read_text, _status_target)
 from backlogops.wizard_helpers import (
     _Navigator, _is_nonneg, _parse_level_int, _parse_levels, _parse_schedule,
     _read_end_date, _read_levels, _read_preset_name, _read_renames,
@@ -41,6 +42,9 @@ MAPS_KEEP = ['', '']
 GUI_MAPS_KEEP = MAPS_KEEP + GUI_KEEP
 """Accept both GUI rename tables, then keep the GUI level display."""
 
+JIRA_SKIP = ['0', '0']
+"""Zero Jira connections and zero column maps, which skips presets too."""
+
 LEVELS_KEEP = ['']
 """A blank answer that accepts the pre-filled default levels table."""
 
@@ -55,7 +59,7 @@ CSV_OPTS = [''] * 7
 
 _CONFIG_HEADS = [
     _WORKFORCE_HEAD, _INPUT_PRESETS_HEAD, _OUTPUT_PRESETS_HEAD,
-    _LEVELS_HEAD, _STATUS_MAP_HEAD, _GUI_DISPLAY_HEAD]
+    _LEVELS_HEAD, _STATUS_MAP_HEAD, _GUI_DISPLAY_HEAD, _JIRA_HEAD]
 """The full-config wizard stage headings, in collection order."""
 
 
@@ -326,7 +330,7 @@ def test_preset_wizard() -> None:
                + ['out1'] + ['1'] + CSV_OPTS
                + MAPS_KEEP + ['numeric']
                + LEVELS_KEEP + STATUS_KEEP
-               + MAPS_KEEP + ['name'])
+               + MAPS_KEEP + ['name'] + JIRA_SKIP)
     config = backlog_ops_wizard(_bridge(answers))
     assert isinstance(config, BacklogOpsConfig)
     assert sorted(config.input_configs) == ['in1']
@@ -354,7 +358,7 @@ def test_output_rename_wizard() -> None:
                + ['1']
                + ['out1'] + ['1'] + CSV_OPTS
                + edit_backlog + [''] + ['both']
-               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP)
+               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(_bridge(answers))
     output = config.output_configs['out1']
     assert output.backlog_to_external == {'key': 'Id', 'story_points': None,
@@ -371,7 +375,7 @@ def test_gui_rename_wizard() -> None:
     edit_backlog = ['1', 'Id', '9', ':e', '']
     answers = (SCHED + ['0', '0', '0', '0', '0']
                + LEVELS_KEEP + STATUS_KEEP
-               + edit_backlog + [''] + ['both'])
+               + edit_backlog + [''] + ['both'] + JIRA_SKIP)
     config = backlog_ops_wizard(_bridge(answers))
     gui = config.gui_display
     assert gui.backlog_to_external == {'key': 'Id', 'team': None}
@@ -381,7 +385,7 @@ def test_gui_rename_wizard() -> None:
 def test_levels_default() -> None:
     """Test accepting the pre-filled default levels stores None."""
     answers = (SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP
-               + STATUS_KEEP + GUI_MAPS_KEEP)
+               + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(_bridge(answers))
     assert config.levels is None
     assert config.get_levels() == DEFAULT_LEVELS
@@ -399,7 +403,7 @@ def test_levels_edited_stored() -> None:
     """
     edit_first = ['1', '', 'Chore', '']
     answers = (SCHED + ['0', '0', '0', '0', '0'] + edit_first + ['']
-               + STATUS_KEEP + GUI_MAPS_KEEP)
+               + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(_bridge(answers))
     assert config.levels is not None
     levels = config.get_levels()
@@ -417,7 +421,7 @@ def test_levels_added() -> None:
     """
     add_row = [':+', '-1', 'Spike', 'Research, Investigation']
     answers = (SCHED + ['0', '0', '0', '0', '0'] + add_row + ['']
-               + STATUS_KEEP + GUI_MAPS_KEEP)
+               + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(_bridge(answers))
     assert config.levels is not None
     levels = config.get_levels()
@@ -433,7 +437,7 @@ def test_levels_dup_number() -> None:
     """
     fix = ['2', '0', '', '', '', '2', '7', '', '', '']
     answers = (SCHED + ['0', '0', '0', '0', '0'] + fix
-               + STATUS_KEEP + GUI_MAPS_KEEP)
+               + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config, errors = _run_config(answers)
     assert 'more than once' in errors
     levels = config.get_levels()
@@ -449,7 +453,7 @@ def test_levels_dup_name() -> None:
     """
     fix = ['1', '', 'Story', '', '', '1', '', 'Chore', '', '']
     answers = (SCHED + ['0', '0', '0', '0', '0'] + fix
-               + STATUS_KEEP + GUI_MAPS_KEEP)
+               + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config, errors = _run_config(answers)
     assert 'duplicates' in errors
     assert config.get_levels()[0].name == 'Chore'
@@ -538,7 +542,7 @@ def test_input_rename_wizard() -> None:
                + ['1'] + ['in1'] + ['1'] + CSV_OPTS
                + edit_backlog + [''] + [''] + STATUS_KEEP
                + ['0']
-               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP)
+               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(_bridge(answers))
     in_config = config.input_configs['in1']
     assert in_config.backlog_to_internal == {'Issue ID': 'key', 'Junk': None,
@@ -554,7 +558,7 @@ def test_stage_heads_order() -> None:
     once and in the order the stages are collected.
     """
     answers = (SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP
-               + STATUS_KEEP + GUI_MAPS_KEEP)
+               + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     out = _config_stdout(answers)
     positions = [out.find(head) for head in _CONFIG_HEADS]
     assert all(out.count(head) == 1 for head in _CONFIG_HEADS)
@@ -572,7 +576,7 @@ def test_stage_heads_presets() -> None:
                + ['2', 'Type', ''] + [''] + STATUS_KEEP
                + ['1'] + ['out1'] + ['1'] + CSV_OPTS
                + MAPS_KEEP + ['numeric']
-               + LEVELS_KEEP + STATUS_KEEP + MAPS_KEEP + ['name'])
+               + LEVELS_KEEP + STATUS_KEEP + MAPS_KEEP + ['name'] + JIRA_SKIP)
     out = _config_stdout(answers)
     positions = [out.find(head) for head in _CONFIG_HEADS]
     assert all(out.count(head) == 1 for head in _CONFIG_HEADS)
@@ -598,7 +602,7 @@ def test_head_repeats_on_back() -> None:
     output headings twice, and still reaches every stage.
     """
     answers = (SCHED + ['0', '0', '0', '0'] + [':b'] + ['0', '0']
-               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP)
+               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     out = _config_stdout(answers)
     assert out.count(_WORKFORCE_HEAD) == 1
     assert out.count(_INPUT_PRESETS_HEAD) == 2
@@ -718,7 +722,7 @@ def test_global_status_wizard() -> None:
     """Test the wizard captures the global status map from a added row."""
     add = [':+', 'Testing', 'IN_PROGRESS', '']
     answers = (SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP
-               + add + GUI_MAPS_KEEP)
+               + add + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(_bridge(answers))
     assert config.status_input_map == {'Testing': Status.IN_PROGRESS}
 
@@ -730,7 +734,7 @@ def test_in_preset_status() -> None:
                + ['1'] + ['in1'] + ['1'] + CSV_OPTS
                + MAPS_KEEP + add
                + ['0']
-               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP)
+               + LEVELS_KEEP + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(_bridge(answers))
     assert config.input_configs['in1'].status_input_map == {
         'Spike': Status.TODO}
@@ -913,3 +917,11 @@ def test_status_reask() -> None:
     """Test a status table missing its target is re-asked until valid."""
     bridge = _TableScript([[['Name', '']], [['Name', 'TODO']]])
     assert _read_status_map(bridge, 'Q?') == {'Name': Status.TODO}
+
+
+def test_jira_map_reask() -> None:
+    """Test an invalid Jira column-map table is re-asked until it parses."""
+    bridge = _TableScript([[['key', 'ATTRIBUTE', '']],
+                           [['key', 'ATTRIBUTE', 'key']]])
+    result = _read_jira_map(bridge, ['key'], {})
+    assert result == {'key': JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',))}

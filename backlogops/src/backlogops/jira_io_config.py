@@ -132,9 +132,17 @@ DEF_BACKLOG_COLUMN_MAP: JiraColumnMap = {
     'key': JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',)),
     'title': JiraAttrPath(JiraAttrType.FIELD, ('summary',)),
     'status': JiraAttrPath(JiraAttrType.FIELD, ('status', 'name')),
+    'release': JiraAttrPath(JiraAttrType.FIELD, ('fixVersions',)),
+    'team': JiraAttrPath(JiraAttrType.CUSTOM_FIELD, ('Team',)),
     'story_points': JiraAttrPath(JiraAttrType.CUSTOM_FIELD,
                                  ('Story point estimate',))}
-"""A usable default backlog column map for a fresh Jira preset."""
+"""A usable default backlog column map for a fresh Jira preset.
+
+The ``release`` field maps to the Jira ``fixVersions`` field, which is a
+list of versions; the reader reduces it to a single release name. The
+``team`` field maps to a custom field named ``Team`` (the Atlassian Teams
+field); adjust it in the wizard when a project names the field otherwise.
+"""
 
 
 DEF_RELEASE_COLUMN_MAP: JiraColumnMap = {
@@ -283,6 +291,14 @@ class JiraConnectConfig(Config):
         return [MemberValidationStep(
             member_names=['base_url', 'login_email'],
             validator=ValueTypeValidator(value_type=str))]
+
+    def uses_token_file(self) -> bool:
+        """Return whether the token is stored in a separate file."""
+        return self.token_storage in _FILE_MODES
+
+    def uses_encryption(self) -> bool:
+        """Return whether the token is stored encrypted with a pass phrase."""
+        return self.token_storage in _ENCRYPTED_MODES
 
     def get_token(self, passphrase: Optional[Callable[[], str]] = None,
                   stderr_file: TextIO = sys.stderr) -> str:
@@ -457,18 +473,14 @@ class JiraIOConfig(Config):
     sub-section loads with that sub-section empty.
     """
 
-    connections: dict[str, JiraConnectConfig]
-    column_maps: dict[str, JiraColumnMap]
-    from_jira_presets: dict[str, JiraPreset]
-
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr) -> None:
         """Create empty defaults, then read the jira configuration."""
-        self.connections = {}
-        self.column_maps = {}
-        self.from_jira_presets = {}
+        self.connections: dict[str, JiraConnectConfig] = {}
+        self.column_maps: dict[str, JiraColumnMap] = {}
+        self.from_jira_presets: dict[str, JiraPreset] = {}
         self._unchecked_dicts = ['column_maps']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,

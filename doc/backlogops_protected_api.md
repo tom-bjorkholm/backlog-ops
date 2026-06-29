@@ -182,6 +182,8 @@
     * [\_omit\_none\_from\_json](#backlogops.jira_io_config.JiraConnectConfig._omit_none_from_json)
     * [parse\_converters](#backlogops.jira_io_config.JiraConnectConfig.parse_converters)
     * [get\_validation\_plan](#backlogops.jira_io_config.JiraConnectConfig.get_validation_plan)
+    * [uses\_token\_file](#backlogops.jira_io_config.JiraConnectConfig.uses_token_file)
+    * [uses\_encryption](#backlogops.jira_io_config.JiraConnectConfig.uses_encryption)
     * [get\_token](#backlogops.jira_io_config.JiraConnectConfig.get_token)
     * [set\_token](#backlogops.jira_io_config.JiraConnectConfig.set_token)
     * [\_materialize\_token](#backlogops.jira_io_config.JiraConnectConfig._materialize_token)
@@ -386,6 +388,16 @@
     * [get\_app\_support\_expires](#backlogops.blo_version_reporter.BloVersionReporter.get_app_support_expires)
     * [get\_main\_package\_name](#backlogops.blo_version_reporter.BloVersionReporter.get_main_package_name)
     * [recommended\_python](#backlogops.blo_version_reporter.BloVersionReporter.recommended_python)
+* [backlogops.jira\_wizard](#backlogops.jira_wizard)
+  * [\_ask\_enum](#backlogops.jira_wizard._ask_enum)
+  * [\_build\_jira\_config](#backlogops.jira_wizard._build_jira_config)
+  * [\_build\_connections](#backlogops.jira_wizard._build_connections)
+  * [\_ask\_connection](#backlogops.jira_wizard._ask_connection)
+  * [\_set\_token](#backlogops.jira_wizard._set_token)
+  * [\_build\_column\_maps](#backlogops.jira_wizard._build_column_maps)
+  * [\_ask\_column\_map](#backlogops.jira_wizard._ask_column_map)
+  * [\_build\_jira\_presets](#backlogops.jira_wizard._build_jira_presets)
+  * [\_ask\_jira\_preset](#backlogops.jira_wizard._ask_jira_preset)
 * [backlogops.date\_ranges](#backlogops.date_ranges)
   * [check\_date\_range](#backlogops.date_ranges.check_date_range)
   * [check\_no\_overlap](#backlogops.date_ranges.check_no_overlap)
@@ -433,6 +445,7 @@
   * [\_LEVELS\_HEAD](#backlogops.backlog_ops_wizard._LEVELS_HEAD)
   * [\_STATUS\_MAP\_HEAD](#backlogops.backlog_ops_wizard._STATUS_MAP_HEAD)
   * [\_GUI\_DISPLAY\_HEAD](#backlogops.backlog_ops_wizard._GUI_DISPLAY_HEAD)
+  * [\_JIRA\_HEAD](#backlogops.backlog_ops_wizard._JIRA_HEAD)
   * [available\_teams\_wizard](#backlogops.backlog_ops_wizard.available_teams_wizard)
   * [backlog\_ops\_wizard](#backlogops.backlog_ops_wizard.backlog_ops_wizard)
   * [\_collect\_teams](#backlogops.backlog_ops_wizard._collect_teams)
@@ -512,6 +525,7 @@
     * [ask\_levels](#backlogops.wizard_helpers._Navigator.ask_levels)
     * [ask\_renames](#backlogops.wizard_helpers._Navigator.ask_renames)
     * [ask\_status\_map](#backlogops.wizard_helpers._Navigator.ask_status_map)
+    * [ask\_jira\_map](#backlogops.wizard_helpers._Navigator.ask_jira_map)
     * [\_ask](#backlogops.wizard_helpers._Navigator._ask)
     * [\_replaying](#backlogops.wizard_helpers._Navigator._replaying)
   * [\_parse\_date](#backlogops.wizard_helpers._parse_date)
@@ -557,6 +571,15 @@
   * [\_status\_check](#backlogops.wizard_helpers._status_check)
   * [\_parse\_status\_map](#backlogops.wizard_helpers._parse_status_map)
   * [\_read\_status\_map](#backlogops.wizard_helpers._read_status_map)
+  * [\_JIRA\_KINDS](#backlogops.wizard_helpers._JIRA_KINDS)
+  * [\_MAX\_JIRA\_EXTRA](#backlogops.wizard_helpers._MAX_JIRA_EXTRA)
+  * [\_JIRA\_MAP\_INSTRUCTION](#backlogops.wizard_helpers._JIRA_MAP_INSTRUCTION)
+  * [\_JIRA\_MAP\_REASON](#backlogops.wizard_helpers._JIRA_MAP_REASON)
+  * [\_jira\_map\_cells](#backlogops.wizard_helpers._jira_map_cells)
+  * [\_jira\_map\_check](#backlogops.wizard_helpers._jira_map_check)
+  * [\_attr\_from\_cells](#backlogops.wizard_helpers._attr_from_cells)
+  * [\_parse\_jira\_map](#backlogops.wizard_helpers._parse_jira_map)
+  * [\_read\_jira\_map](#backlogops.wizard_helpers._read_jira_map)
 * [backlogops.estimate\_ready\_date](#backlogops.estimate_ready_date)
   * [\_ONE\_DAY](#backlogops.estimate_ready_date._ONE_DAY)
   * [\_HORIZON](#backlogops.estimate_ready_date._HORIZON)
@@ -3438,6 +3461,11 @@ Fields:
 
 A usable default backlog column map for a fresh Jira preset.
 
+The ``release`` field maps to the Jira ``fixVersions`` field, which is a
+list of versions; the reader reduces it to a single release name. The
+``team`` field maps to a custom field named ``Team`` (the Atlassian Teams
+field); adjust it in the wizard when a project names the field otherwise.
+
 <a id="backlogops.jira_io_config.DEF_RELEASE_COLUMN_MAP"></a>
 
 #### DEF\_RELEASE\_COLUMN\_MAP
@@ -3591,6 +3619,26 @@ def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
 ```
 
 Check the base URL and the login email are strings.
+
+<a id="backlogops.jira_io_config.JiraConnectConfig.uses_token_file"></a>
+
+#### uses\_token\_file
+
+```python
+def uses_token_file() -> bool
+```
+
+Return whether the token is stored in a separate file.
+
+<a id="backlogops.jira_io_config.JiraConnectConfig.uses_encryption"></a>
+
+#### uses\_encryption
+
+```python
+def uses_encryption() -> bool
+```
+
+Return whether the token is stored encrypted with a pass phrase.
 
 <a id="backlogops.jira_io_config.JiraConnectConfig.get_token"></a>
 
@@ -6680,6 +6728,120 @@ def recommended_python(cls) -> Version
 
 Return the Python version this package recommends.
 
+<a id="backlogops.jira_wizard"></a>
+
+# backlogops.jira\_wizard
+
+Interactively collect the Jira input and output configuration.
+
+The :func:`_build_jira_config` helper drives any ``WizardUiBridge`` to ask
+for the named Jira connections, the named column maps, and the named
+from-Jira read presets, returning a :class:`JiraIOConfig`. It is used by
+the full configuration wizard in :mod:`backlogops.backlog_ops_wizard`.
+
+The API token is captured in the wizard only for an internal storage mode,
+where the token must live in the configuration; for a file storage mode
+only the token file path is asked and the user places the file. An
+encrypted internal token is encrypted with a pass phrase entered in the
+wizard. Wizard input is not masked, so the token and pass phrase are
+visible while typed.
+
+<a id="backlogops.jira_wizard._ask_enum"></a>
+
+#### \_ask\_enum
+
+```python
+def _ask_enum(nav: _Navigator, question: str, enum_cls: type[_E],
+              default: _E) -> _E
+```
+
+Ask the user to pick one member of an enum by its lower-case name.
+
+<a id="backlogops.jira_wizard._build_jira_config"></a>
+
+#### \_build\_jira\_config
+
+```python
+def _build_jira_config(nav: _Navigator) -> JiraIOConfig
+```
+
+Ask for the Jira connections, column maps and read presets.
+
+<a id="backlogops.jira_wizard._build_connections"></a>
+
+#### \_build\_connections
+
+```python
+def _build_connections(nav: _Navigator) -> dict[str, JiraConnectConfig]
+```
+
+Ask for a counted list of named Jira connections.
+
+<a id="backlogops.jira_wizard._ask_connection"></a>
+
+#### \_ask\_connection
+
+```python
+def _ask_connection(nav: _Navigator,
+                    used: set[str]) -> tuple[str, JiraConnectConfig]
+```
+
+Ask one Jira connection: name, type, URL, email and token storage.
+
+<a id="backlogops.jira_wizard._set_token"></a>
+
+#### \_set\_token
+
+```python
+def _set_token(nav: _Navigator, connection: JiraConnectConfig) -> None
+```
+
+Ask the token file path, or the token itself for an internal mode.
+
+<a id="backlogops.jira_wizard._build_column_maps"></a>
+
+#### \_build\_column\_maps
+
+```python
+def _build_column_maps(nav: _Navigator) -> dict[str, JiraColumnMap]
+```
+
+Ask for a counted list of named Jira column maps.
+
+<a id="backlogops.jira_wizard._ask_column_map"></a>
+
+#### \_ask\_column\_map
+
+```python
+def _ask_column_map(nav: _Navigator,
+                    used: set[str]) -> tuple[str, JiraColumnMap]
+```
+
+Ask one named column map, seeded from the backlog or release default.
+
+<a id="backlogops.jira_wizard._build_jira_presets"></a>
+
+#### \_build\_jira\_presets
+
+```python
+def _build_jira_presets(
+        nav: _Navigator, connections: dict[str, JiraConnectConfig],
+        column_maps: dict[str, JiraColumnMap]) -> dict[str, JiraPreset]
+```
+
+Ask for a counted list of named from-Jira read presets.
+
+<a id="backlogops.jira_wizard._ask_jira_preset"></a>
+
+#### \_ask\_jira\_preset
+
+```python
+def _ask_jira_preset(nav: _Navigator, used: set[str], conn_names: list[str],
+                     map_names: list[str]) -> tuple[str, JiraPreset]
+```
+
+Ask one read preset: name, connection, column maps and defaults.
+
 <a id="backlogops.date_ranges"></a>
 
 # backlogops.date\_ranges
@@ -7424,6 +7586,12 @@ Stage heading shown while collecting the global status map.
 
 Stage heading shown while collecting the GUI display.
 
+<a id="backlogops.backlog_ops_wizard._JIRA_HEAD"></a>
+
+#### \_JIRA\_HEAD
+
+Stage heading shown while collecting the Jira configuration.
+
 <a id="backlogops.backlog_ops_wizard.available_teams_wizard"></a>
 
 #### available\_teams\_wizard
@@ -7470,7 +7638,8 @@ columns and how levels are written; the column tables start pre-filled
 with the internal field names so leaving them unchanged renames
 nothing. The levels start filled in with the default levels; when the
 user leaves them at the defaults they are stored as "use the defaults"
-rather than written out.
+rather than written out. Finally the user may configure the Jira
+integration: named connections, column maps and from-Jira read presets.
 
 **Arguments**:
 
@@ -8639,6 +8808,20 @@ def ask_status_map(question: str) -> dict[str, Status]
 
 Ask the input status-name map as one variable-row table.
 
+<a id="backlogops.wizard_helpers._Navigator.ask_jira_map"></a>
+
+#### ask\_jira\_map
+
+```python
+def ask_jira_map(fields: list[str],
+                 default_map: JiraColumnMap) -> JiraColumnMap
+```
+
+Ask one Jira column map as one variable-row table.
+
+Each internal field is shown pre-filled with the kind and path of
+the default map, or blank when the default leaves it unmapped.
+
 <a id="backlogops.wizard_helpers._Navigator._ask"></a>
 
 #### \_ask
@@ -9117,6 +9300,93 @@ Ask the input status-name map as one variable-row table.
 Each row maps an extra file status name to an internal status. The
 table starts empty and may be left empty for no extra names. An
 invalid table is re-asked with the user's own rows kept.
+
+<a id="backlogops.wizard_helpers._JIRA_KINDS"></a>
+
+#### \_JIRA\_KINDS
+
+Attribute kind names offered as Jira column-map targets.
+
+<a id="backlogops.wizard_helpers._MAX_JIRA_EXTRA"></a>
+
+#### \_MAX\_JIRA\_EXTRA
+
+How many extra-field rows the user may add to a Jira column map.
+
+<a id="backlogops.wizard_helpers._JIRA_MAP_INSTRUCTION"></a>
+
+#### \_JIRA\_MAP\_INSTRUCTION
+
+Instruction shown above a Jira column-map table.
+
+<a id="backlogops.wizard_helpers._JIRA_MAP_REASON"></a>
+
+#### \_JIRA\_MAP\_REASON
+
+Re-ask reason for an inconsistent Jira column-map table.
+
+<a id="backlogops.wizard_helpers._jira_map_cells"></a>
+
+#### \_jira\_map\_cells
+
+```python
+def _jira_map_cells(fields: list[str],
+                    default_map: JiraColumnMap) -> list[list[TableCell]]
+```
+
+Return seed rows pre-filled from the default Jira column map.
+
+<a id="backlogops.wizard_helpers._jira_map_check"></a>
+
+#### \_jira\_map\_check
+
+```python
+def _jira_map_check(table: list[list[Optional[str]]],
+                    position: tuple[int, int]) -> tuple[bool, str]
+```
+
+Give early feedback that a Jira column-map row is valid.
+
+<a id="backlogops.wizard_helpers._attr_from_cells"></a>
+
+#### \_attr\_from\_cells
+
+```python
+def _attr_from_cells(kind_text: str, path_text: str) -> Optional[JiraAttrPath]
+```
+
+Return a JiraAttrPath from a kind cell and a path cell, or None.
+
+<a id="backlogops.wizard_helpers._parse_jira_map"></a>
+
+#### \_parse\_jira\_map
+
+```python
+def _parse_jira_map(
+        table: list[list[Optional[str]]]) -> Optional[JiraColumnMap]
+```
+
+Return the Jira column map from a table, or None when invalid.
+
+A row with a blank kind and path leaves that field unmapped. A row
+with only one of kind and path is invalid. A repeated internal field
+rejects the whole table.
+
+<a id="backlogops.wizard_helpers._read_jira_map"></a>
+
+#### \_read\_jira\_map
+
+```python
+def _read_jira_map(ui: WizardUiBridge, fields: list[str],
+                   default_map: JiraColumnMap) -> JiraColumnMap
+```
+
+Ask one Jira column map as one variable-row table.
+
+Each internal field is a read-only, pre-filled row; its kind and path
+cells start from the default map or blank. Added rows are fully
+editable so an extra field can be mapped. An invalid table is re-asked
+with the user's own rows kept.
 
 <a id="backlogops.estimate_ready_date"></a>
 
