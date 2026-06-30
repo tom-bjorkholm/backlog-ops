@@ -215,6 +215,9 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.preset_wizard
      Create an input or output preset config file via a wizard
 
+  python3 -m backlogops_cli.read_jira
+     Read a backlog and releases from Jira and store to a file
+
   python3 -m backlogops_cli.version
      Print version information for the backlogops_cli package
 
@@ -222,7 +225,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 1632 passed in 35s
+- Test result: 1641 passed in 37s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

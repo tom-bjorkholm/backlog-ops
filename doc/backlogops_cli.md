@@ -48,6 +48,9 @@
 * [backlogops\_cli.order\_by\_keys](#backlogops_cli.order_by_keys)
   * [build\_parser](#backlogops_cli.order_by_keys.build_parser)
   * [main](#backlogops_cli.order_by_keys.main)
+* [backlogops\_cli.read\_jira](#backlogops_cli.read_jira)
+  * [build\_parser](#backlogops_cli.read_jira.build_parser)
+  * [main](#backlogops_cli.read_jira.main)
 * [backlogops\_cli.estimate\_ready\_date](#backlogops_cli.estimate_ready_date)
   * [build\_parser](#backlogops_cli.estimate_ready_date.build_parser)
   * [main](#backlogops_cli.estimate_ready_date.main)
@@ -676,6 +679,51 @@ Reorder the backlog from the key list and write the output file.
 
   ``0`` on success, ``1`` when the data cannot be read, reordered
   or written.
+
+<a id="backlogops_cli.read_jira"></a>
+
+# backlogops\_cli.read\_jira
+
+Read a backlog and its releases from Jira and store them to a file.
+
+The command reads the backlog items and the releases from Jira using a
+named from-Jira preset of the backlog-ops configuration, then writes them
+to an output file like the other commands (the output format is inferred
+from the file name or taken from an output preset or config file).
+
+The ``--preset`` flag names the Jira preset to use; the optional
+``--filter`` flag supplies a Jira Query Language filter to use instead of
+the preset's default. An encrypted Jira token is unlocked by a pass
+phrase asked on the terminal only when it is needed.
+
+<a id="backlogops_cli.read_jira.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the read-from-Jira command.
+
+<a id="backlogops_cli.read_jira.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Read a backlog and releases from Jira and write them to a file.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the data cannot be read or written.
 
 <a id="backlogops_cli.estimate_ready_date"></a>
 

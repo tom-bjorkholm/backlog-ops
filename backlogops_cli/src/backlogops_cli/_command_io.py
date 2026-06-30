@@ -255,11 +255,14 @@ def _write_output(parsed: argparse.Namespace,
 
 def run_write(parsed: argparse.Namespace,
               data_source: Callable[[Optional[BacklogOpsConfig]],
-                                    BacklogReleases]) -> int:
+                                    BacklogReleases],
+              require_config: bool = False) -> int:
     """Build the data, write it to the output file, and report the result.
 
-    The configuration is resolved once from ``-c`` or by discovery, falling
-    back to the built-in defaults when none is found.
+    The configuration is resolved once from ``-c`` or by discovery. It
+    falls back to the built-in defaults when none is found, unless
+    ``require_config`` is True, in which case a missing configuration is
+    reported as an error.
 
     Args:
         parsed: Parsed command line arguments holding the output options
@@ -269,12 +272,15 @@ def run_write(parsed: argparse.Namespace,
             None) and returns the backlog and releases to write. It is
             called inside the error handling so that reading failures are
             reported like writing failures.
+        require_config: When True a missing configuration is reported as an
+            error instead of falling back to the built-in defaults.
 
     Returns:
         ``0`` on success, ``1`` when the data cannot be built or written.
     """
     try:
-        config = optional_config(parsed)
+        config = (required_config(parsed) if require_config
+                  else optional_config(parsed))
         _write_output(parsed, config, data_source(config))
     except (ValueError, TypeError, KeyError, OSError) as error:
         print(f'Could not write {parsed.output}: {error}', file=sys.stderr)

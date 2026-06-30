@@ -93,6 +93,12 @@
   * [build\_parser](#backlogops_cli.order_by_keys.build_parser)
   * [\_reordered](#backlogops_cli.order_by_keys._reordered)
   * [main](#backlogops_cli.order_by_keys.main)
+* [backlogops\_cli.read\_jira](#backlogops_cli.read_jira)
+  * [build\_parser](#backlogops_cli.read_jira.build_parser)
+  * [\_passphrase](#backlogops_cli.read_jira._passphrase)
+  * [\_warn\_if\_inconsistent](#backlogops_cli.read_jira._warn_if_inconsistent)
+  * [\_read\_jira](#backlogops_cli.read_jira._read_jira)
+  * [main](#backlogops_cli.read_jira.main)
 * [backlogops\_cli.estimate\_ready\_date](#backlogops_cli.estimate_ready_date)
   * [build\_parser](#backlogops_cli.estimate_ready_date.build_parser)
   * [\_start\_date](#backlogops_cli.estimate_ready_date._start_date)
@@ -624,16 +630,18 @@ Write the backlog and releases to the configured output file.
 #### run\_write
 
 ```python
-def run_write(
-    parsed: argparse.Namespace,
-    data_source: Callable[[Optional[BacklogOpsConfig]],
-                          BacklogReleases]) -> int
+def run_write(parsed: argparse.Namespace,
+              data_source: Callable[[Optional[BacklogOpsConfig]],
+                                    BacklogReleases],
+              require_config: bool = False) -> int
 ```
 
 Build the data, write it to the output file, and report the result.
 
-The configuration is resolved once from ``-c`` or by discovery, falling
-back to the built-in defaults when none is found.
+The configuration is resolved once from ``-c`` or by discovery. It
+falls back to the built-in defaults when none is found, unless
+``require_config`` is True, in which case a missing configuration is
+reported as an error.
 
 **Arguments**:
 
@@ -644,6 +652,8 @@ back to the built-in defaults when none is found.
   None) and returns the backlog and releases to write. It is
   called inside the error handling so that reading failures are
   reported like writing failures.
+- `require_config` - When True a missing configuration is reported as an
+  error instead of falling back to the built-in defaults.
   
 
 **Returns**:
@@ -1383,6 +1393,86 @@ Reorder the backlog from the key list and write the output file.
 
   ``0`` on success, ``1`` when the data cannot be read, reordered
   or written.
+
+<a id="backlogops_cli.read_jira"></a>
+
+# backlogops\_cli.read\_jira
+
+Read a backlog and its releases from Jira and store them to a file.
+
+The command reads the backlog items and the releases from Jira using a
+named from-Jira preset of the backlog-ops configuration, then writes them
+to an output file like the other commands (the output format is inferred
+from the file name or taken from an output preset or config file).
+
+The ``--preset`` flag names the Jira preset to use; the optional
+``--filter`` flag supplies a Jira Query Language filter to use instead of
+the preset's default. An encrypted Jira token is unlocked by a pass
+phrase asked on the terminal only when it is needed.
+
+<a id="backlogops_cli.read_jira.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the read-from-Jira command.
+
+<a id="backlogops_cli.read_jira._passphrase"></a>
+
+#### \_passphrase
+
+```python
+def _passphrase() -> str
+```
+
+Ask for the Jira token pass phrase on the terminal.
+
+<a id="backlogops_cli.read_jira._warn_if_inconsistent"></a>
+
+#### \_warn\_if\_inconsistent
+
+```python
+def _warn_if_inconsistent(data: BacklogReleases) -> None
+```
+
+Warn when the data read from Jira is not fully consistent.
+
+A filtered read can leave a cross reference dangling, for example a
+parent or release that the filter excluded. The problem is reported
+but the file is still written, so a partial read still produces output.
+
+<a id="backlogops_cli.read_jira._read_jira"></a>
+
+#### \_read\_jira
+
+```python
+def _read_jira(parsed: argparse.Namespace,
+               config: Optional[BacklogOpsConfig]) -> BacklogReleases
+```
+
+Read the backlog and releases from Jira for the named preset.
+
+<a id="backlogops_cli.read_jira.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Read a backlog and releases from Jira and write them to a file.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the data cannot be read or written.
 
 <a id="backlogops_cli.estimate_ready_date"></a>
 
