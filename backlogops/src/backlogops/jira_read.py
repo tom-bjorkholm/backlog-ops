@@ -135,6 +135,16 @@ def _row(attr_root: object, field_root: object, column_map: JiraColumnMap,
             for name, attr in column_map.items()}
 
 
+def _backlog_row(attr_root: object, field_root: object,
+                 column_map: JiraColumnMap,
+                 custom_ids: dict[str, str]) -> dict[str, object]:
+    """Return one Jira issue row with Jira-specific defaults applied."""
+    row = _row(attr_root, field_root, column_map, custom_ids)
+    if 'story_points' in row and row['story_points'] in (None, ''):
+        row['story_points'] = 0
+    return row
+
+
 # pylint: disable-next=too-many-arguments
 def build_backlog_releases(
         issues: Iterable[object], versions: Iterable[object],
@@ -170,8 +180,9 @@ def build_backlog_releases(
     """
     custom_ids = _custom_ids(fields_list)
     backlog: list[BacklogItem] = [
-        row_to_item(_row(issue, getattr(issue, 'fields', None), backlog_map,
-                         custom_ids), levels, status_map, stderr_file)
+        row_to_item(_backlog_row(issue, getattr(issue, 'fields', None),
+                                 backlog_map, custom_ids), levels, status_map,
+                    stderr_file)
         for issue in issues]
     releases: list[Release] = [
         row_to_release(_row(version, version, release_map, {}), stderr_file)

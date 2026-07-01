@@ -10,6 +10,7 @@ import pytest
 from backlogops import (
     BacklogOpsConfig, BacklogReleases, JiraConnectConfig, JiraIOConfig,
     JiraPreset, TokenStorage)
+from backlogops.jira_token import encrypt_token
 from backlogops_gui import application
 from backlogops_gui.application import BacklogApp
 from backlogops_gui.io_dialogs import JiraReadOptions
@@ -79,6 +80,7 @@ def _jira_config(encrypted: bool = False) -> JiraIOConfig:
     conn = JiraConnectConfig()
     conn.token_storage = (TokenStorage.ENCRYPTED_INTERNAL if encrypted
                           else TokenStorage.CLEAR_INTERNAL)
+    conn.stored_token = encrypt_token('TOK', 'secret') if encrypted else 'TOK'
     preset = JiraPreset()
     preset.connection_name = 'main'
     preset.def_filter = 'project = SCRUM'
@@ -221,22 +223,26 @@ def test_jira_thread_opens(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_read_jira_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test encrypted Jira connections ask for a masked pass phrase."""
+    """Test encrypted Jira connections cache the token after one prompt."""
     app = _app(_config(encrypted=True))
-    seen: list[str] = []
+    asked: list[object] = []
 
     def read(_config_obj: BacklogOpsConfig, _preset: str, *,
-             filter_override: Optional[str],
-             passphrase: Optional[Callable[[], str]],
-             stderr_file: TextIO) -> BacklogReleases:
-        """Record the supplied pass phrase provider."""
+             filter_override: Optional[str], stderr_file: TextIO,
+             passphrase: Optional[Callable[[], str]] = None
+             ) -> BacklogReleases:
+        """Check the worker reader gets no pass phrase provider."""
         assert filter_override is not None
         assert stderr_file is not None
-        assert passphrase is not None
-        seen.append(passphrase())
+        assert passphrase is None
         return DATA
+
+    def secret(_parent: object) -> str:
+        """Record that the pass phrase was requested."""
+        asked.append(_parent)
+        return 'secret'
     monkeypatch.setattr(application, 'ask_jira_read_options', _jira_opts)
-    monkeypatch.setattr(application, 'ask_jira_passphrase', _secret)
+    monkeypatch.setattr(application, 'ask_jira_passphrase', secret)
     monkeypatch.setattr(application, 'read_jira_from_config', read)
     monkeypatch.setattr('backlogops_gui.application.threading.Thread',
                         _make_immediate)
@@ -244,7 +250,9 @@ def test_read_jira_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app, 'open_backlog', _none)
     # pylint: disable-next=protected-access
     app._read_jira_backlog()
-    assert seen == ['secret']
+    # pylint: disable-next=protected-access
+    app._read_jira_backlog()
+    assert len(asked) == 1
 
 
 def test_jira_pass_cancel(monkeypatch: pytest.MonkeyPatch) -> None:

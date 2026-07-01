@@ -37,13 +37,15 @@ FIELDS: list[dict[str, str]] = [
 """Field descriptors with two custom fields and one system field."""
 
 
-def _issue(status: str = 'DONE', issuetype: str = 'Story') -> SimpleNamespace:
+def _issue(status: str = 'DONE', issuetype: str = 'Story',
+           points: object = 5.0) -> SimpleNamespace:
     """Return a stand-in Jira issue with the default-mapped attributes."""
     fields = SimpleNamespace(summary='Build it',
                              status=SimpleNamespace(name=status),
                              issuetype=SimpleNamespace(name=issuetype),
                              fixVersions=[SimpleNamespace(name='R1')],
-                             customfield_10016=5.0, customfield_10001='Alpha')
+                             customfield_10016=points,
+                             customfield_10001='Alpha')
     return SimpleNamespace(key='S-1', fields=fields)
 
 
@@ -129,6 +131,13 @@ def test_build_status_map() -> None:
     data = _build(_issue(status='To Do'), _version(),
                   status_map={'To Do': Status.TODO})
     assert data.backlog[0].status is Status.TODO
+
+
+@pytest.mark.parametrize('points', [None, ''])
+def test_empty_points(points: object) -> None:
+    """Test Jira backlog items without story points become zero points."""
+    data = _build(_issue(points=points), _version())
+    assert data.backlog[0].story_points == 0
 
 
 def _preset(def_filter: str = '', def_project: str = 'PROJ') -> JiraPreset:

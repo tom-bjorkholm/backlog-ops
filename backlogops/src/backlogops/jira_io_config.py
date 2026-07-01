@@ -316,6 +316,10 @@ class JiraConnectConfig(Config):
         """Return whether the token is stored encrypted with a pass phrase."""
         return self.token_storage in _ENCRYPTED_MODES
 
+    def has_cached_token(self) -> bool:
+        """Return whether the clear text API token is already cached."""
+        return self._cached_token is not None
+
     def get_token(self, passphrase: Optional[Callable[[], str]] = None,
                   stderr_file: TextIO = sys.stderr) -> str:
         """Return the clear text API token, materializing it once.

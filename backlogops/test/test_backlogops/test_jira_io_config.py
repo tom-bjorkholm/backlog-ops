@@ -237,6 +237,16 @@ def test_enc_needs_pass() -> None:
         conn.get_token()
 
 
+def test_token_cache_state() -> None:
+    """Test the token cache reports whether a token is materialized."""
+    conn = JiraConnectConfig(stderr_file=NO)
+    conn.token_storage = TokenStorage.ENCRYPTED_INTERNAL
+    conn.stored_token = encrypt_token('x', 'pw')
+    assert not conn.has_cached_token()
+    assert conn.get_token(_pf) == 'x'
+    assert conn.has_cached_token()
+
+
 def test_file_no_leak(tmp_path: Path) -> None:
     """Test a file storage mode keeps the token out of the configuration."""
     conn = JiraConnectConfig(stderr_file=NO)

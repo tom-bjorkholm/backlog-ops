@@ -98,8 +98,8 @@
     * [\_write\_to\_chosen](#backlogops_gui.application.BacklogApp._write_to_chosen)
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
     * [\_read\_jira\_backlog](#backlogops_gui.application.BacklogApp._read_jira_backlog)
-    * [\_needs\_jira\_passphrase](#backlogops_gui.application.BacklogApp._needs_jira_passphrase)
-    * [\_jira\_passphrase](#backlogops_gui.application.BacklogApp._jira_passphrase)
+    * [\_jira\_connection](#backlogops_gui.application.BacklogApp._jira_connection)
+    * [\_prepare\_jira\_token](#backlogops_gui.application.BacklogApp._prepare_jira_token)
     * [\_start\_jira\_thread](#backlogops_gui.application.BacklogApp._start_jira_thread)
     * [\_read\_jira\_worker](#backlogops_gui.application.BacklogApp._read_jira_worker)
     * [\_jira\_consistency\_warning](#backlogops_gui.application.BacklogApp._jira_consistency_warning)
@@ -120,6 +120,8 @@
     * [\_status\_text](#backlogops_gui.application.BacklogApp._status_text)
     * [\_update\_status](#backlogops_gui.application.BacklogApp._update_status)
     * [\_refresh\_log](#backlogops_gui.application.BacklogApp._refresh_log)
+    * [\_log\_selection](#backlogops_gui.application.BacklogApp._log_selection)
+    * [\_copy\_log](#backlogops_gui.application.BacklogApp._copy_log)
     * [\_schedule\_refresh](#backlogops_gui.application.BacklogApp._schedule_refresh)
   * [\_build\_parser](#backlogops_gui.application._build_parser)
   * [main](#backlogops_gui.application.main)
@@ -1455,33 +1457,32 @@ def _read_jira_backlog() -> None
 
 Read a backlog from Jira into a new window.
 
-<a id="backlogops_gui.application.BacklogApp._needs_jira_passphrase"></a>
+<a id="backlogops_gui.application.BacklogApp._jira_connection"></a>
 
-#### \_needs\_jira\_passphrase
-
-```python
-def _needs_jira_passphrase(preset_name: str) -> bool
-```
-
-Return whether the selected Jira preset uses an encrypted token.
-
-<a id="backlogops_gui.application.BacklogApp._jira_passphrase"></a>
-
-#### \_jira\_passphrase
+#### \_jira\_connection
 
 ```python
-def _jira_passphrase(preset_name: str) -> Optional[str]
+def _jira_connection(preset_name: str) -> JiraConnectConfig
 ```
 
-Ask for a pass phrase when the Jira connection needs one.
+Return the Jira connection used by the selected preset.
+
+<a id="backlogops_gui.application.BacklogApp._prepare_jira_token"></a>
+
+#### \_prepare\_jira\_token
+
+```python
+def _prepare_jira_token(preset_name: str) -> bool
+```
+
+Materialize an encrypted Jira token before the worker starts.
 
 <a id="backlogops_gui.application.BacklogApp._start_jira_thread"></a>
 
 #### \_start\_jira\_thread
 
 ```python
-def _start_jira_thread(preset_name: str, issue_filter: str,
-                       passphrase: str) -> None
+def _start_jira_thread(preset_name: str, issue_filter: str) -> None
 ```
 
 Start the Jira read worker thread.
@@ -1491,8 +1492,7 @@ Start the Jira read worker thread.
 #### \_read\_jira\_worker
 
 ```python
-def _read_jira_worker(preset_name: str, issue_filter: str,
-                      passphrase: str) -> None
+def _read_jira_worker(preset_name: str, issue_filter: str) -> None
 ```
 
 Read Jira data on a worker and schedule the GUI update.
@@ -1687,6 +1687,26 @@ def _refresh_log() -> None
 ```
 
 Copy the latest log lines into the read-only log view.
+
+<a id="backlogops_gui.application.BacklogApp._log_selection"></a>
+
+#### \_log\_selection
+
+```python
+def _log_selection() -> Optional[tuple[str, str]]
+```
+
+Return the selected log range, or None when nothing is selected.
+
+<a id="backlogops_gui.application.BacklogApp._copy_log"></a>
+
+#### \_copy\_log
+
+```python
+def _copy_log(_event: object) -> str
+```
+
+Copy the selected log text to the clipboard.
 
 <a id="backlogops_gui.application.BacklogApp._schedule_refresh"></a>
 

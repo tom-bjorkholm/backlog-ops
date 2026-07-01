@@ -774,6 +774,29 @@ def test_refresh_no_view() -> None:
         root.destroy()
 
 
+def test_log_copy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test selected log text can be copied after a log refresh."""
+    monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
+    monkeypatch.setattr(application, 'check_python_version', lambda: None)
+    root = root_or_skip()
+    try:
+        app = BacklogApp(root)
+        app.build_body()
+        assert app.log_view is not None
+        app.log.write('copy this line\n')
+        # pylint: disable-next=protected-access
+        app._refresh_log()
+        app.log_view.tag_add('sel', '1.0', '1.4')
+        app.log.write('and keep selection\n')
+        # pylint: disable-next=protected-access
+        app._refresh_log()
+        # pylint: disable-next=protected-access
+        app._copy_log(object())
+        assert root.clipboard_get() == 'copy'
+    finally:
+        root.destroy()
+
+
 def test_sched_destroyed() -> None:
     """Test the log refresh stops quietly once the window is gone."""
     root = root_or_skip()

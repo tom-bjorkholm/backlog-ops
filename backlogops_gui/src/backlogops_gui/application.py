@@ -33,9 +33,9 @@ from jira.exceptions import JIRAError
 from tableio_cfg_json import WizardUiBridge
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, BacklogReleases, GuiDisplayConfig,
-    InputFormatConfig, Levels, OutputFormatConfig, Status, get_demo_backlog,
-    get_backlog_ops_config, backlog_ops_wizard, preset_wizard,
-    read_jira_from_config)
+    InputFormatConfig, JiraConnectConfig, Levels, OutputFormatConfig, Status,
+    get_demo_backlog, get_backlog_ops_config, backlog_ops_wizard,
+    preset_wizard, read_jira_from_config)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
@@ -381,45 +381,50 @@ class BacklogApp:
         options = ask_jira_read_options(self.root, filters)
         if options is None:
             return
-        passphrase = self._jira_passphrase(options.preset_name)
-        if passphrase is None:
+        if not self._prepare_jira_token(options.preset_name):
             return
-        self._start_jira_thread(options.preset_name, options.issue_filter,
-                                passphrase)
+        self._start_jira_thread(options.preset_name, options.issue_filter)
 
-    def _needs_jira_passphrase(self, preset_name: str) -> bool:
-        """Return whether the selected Jira preset uses an encrypted token."""
+    def _jira_connection(self, preset_name: str) -> JiraConnectConfig:
+        """Return the Jira connection used by the selected preset."""
         assert self.config is not None
         jira_config = self.config.get_jira_config()
         preset = jira_config.get_preset(preset_name)
-        connection = jira_config.connections[preset.connection_name]
-        return connection.uses_encryption()
+        return jira_config.connections[preset.connection_name]
 
-    def _jira_passphrase(self, preset_name: str) -> Optional[str]:
-        """Ask for a pass phrase when the Jira connection needs one."""
-        if not self._needs_jira_passphrase(preset_name):
-            return ''
-        return ask_jira_passphrase(self.root)
+    def _prepare_jira_token(self, preset_name: str) -> bool:
+        """Materialize an encrypted Jira token before the worker starts."""
+        connection = self._jira_connection(preset_name)
+        if not connection.uses_encryption() or connection.has_cached_token():
+            return True
+        passphrase = ask_jira_passphrase(self.root)
+        if passphrase is None:
+            return False
+        try:
+            connection.get_token(lambda: passphrase, self.log)
+        except JIRA_ERRORS as error:
+            message = str(error)
+            self.log.write(f"Could not read Jira token for preset "
+                           f"'{preset_name}': {message}\n")
+            self.show_error('Could not read Jira token', message)
+            return False
+        return True
 
-    def _start_jira_thread(self, preset_name: str, issue_filter: str,
-                           passphrase: str) -> None:
+    def _start_jira_thread(self, preset_name: str, issue_filter: str) -> None:
         """Start the Jira read worker thread."""
         self.log.write(f"Reading from Jira using preset '{preset_name}'...\n")
         self._refresh_log()
         thread = threading.Thread(
-            target=lambda: self._read_jira_worker(preset_name, issue_filter,
-                                                  passphrase),
+            target=lambda: self._read_jira_worker(preset_name, issue_filter),
             daemon=True)
         thread.start()
 
-    def _read_jira_worker(self, preset_name: str, issue_filter: str,
-                          passphrase: str) -> None:
+    def _read_jira_worker(self, preset_name: str, issue_filter: str) -> None:
         """Read Jira data on a worker and schedule the GUI update."""
         assert self.config is not None
         try:
             data = read_jira_from_config(self.config, preset_name,
                                          filter_override=issue_filter,
-                                         passphrase=lambda: passphrase,
                                          stderr_file=self.log)
             warning = self._jira_consistency_warning(data)
         except JIRA_ERRORS as error:
@@ -563,9 +568,13 @@ class BacklogApp:
         """Build the read-only log view in the main window."""
         frame = tk.LabelFrame(self.root, text='Log (most recent messages)')
         frame.pack(fill='both', expand=True, padx=12, pady=8)
-        text = tk.Text(frame, height=12, wrap='word', state='disabled')
+        text = tk.Text(frame, height=12, wrap='word', state='disabled',
+                       exportselection=False)
         scroll = ttk.Scrollbar(frame, orient='vertical', command=text.yview)
         text.configure(yscrollcommand=scroll.set)
+        text.bind('<<Copy>>', self._copy_log)
+        text.bind('<Command-c>', self._copy_log)
+        text.bind('<Control-c>', self._copy_log)
         scroll.pack(side='right', fill='y')
         text.pack(side='left', fill='both', expand=True)
         self.log_view = text
@@ -585,11 +594,35 @@ class BacklogApp:
         """Copy the latest log lines into the read-only log view."""
         if self.log_view is None:
             return
+        selection = self._log_selection()
         self.log_view.configure(state='normal')
         self.log_view.delete('1.0', 'end')
         self.log_view.insert('end', self.log.text())
+        if selection is not None:
+            self.log_view.tag_add('sel', *selection)
         self.log_view.see('end')
         self.log_view.configure(state='disabled')
+
+    def _log_selection(self) -> Optional[tuple[str, str]]:
+        """Return the selected log range, or None when nothing is selected."""
+        assert self.log_view is not None
+        try:
+            return (self.log_view.index('sel.first'),
+                    self.log_view.index('sel.last'))
+        except tk.TclError:
+            return None
+
+    def _copy_log(self, _event: object) -> str:
+        """Copy the selected log text to the clipboard."""
+        if self.log_view is None:
+            return 'break'
+        try:
+            text = self.log_view.get('sel.first', 'sel.last')
+        except tk.TclError:
+            return 'break'
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+        return 'break'
 
     def _schedule_refresh(self) -> None:
         """Refresh the log view and schedule the next refresh."""

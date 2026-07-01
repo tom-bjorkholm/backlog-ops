@@ -108,6 +108,7 @@
     * [get\_validation\_plan](#backlogops.jira_io_config.JiraConnectConfig.get_validation_plan)
     * [uses\_token\_file](#backlogops.jira_io_config.JiraConnectConfig.uses_token_file)
     * [uses\_encryption](#backlogops.jira_io_config.JiraConnectConfig.uses_encryption)
+    * [has\_cached\_token](#backlogops.jira_io_config.JiraConnectConfig.has_cached_token)
     * [get\_token](#backlogops.jira_io_config.JiraConnectConfig.get_token)
     * [set\_token](#backlogops.jira_io_config.JiraConnectConfig.set_token)
   * [JiraPreset](#backlogops.jira_io_config.JiraPreset)
@@ -2489,6 +2490,16 @@ def uses_encryption() -> bool
 ```
 
 Return whether the token is stored encrypted with a pass phrase.
+
+<a id="backlogops.jira_io_config.JiraConnectConfig.has_cached_token"></a>
+
+#### has\_cached\_token
+
+```python
+def has_cached_token() -> bool
+```
+
+Return whether the clear text API token is already cached.
 
 <a id="backlogops.jira_io_config.JiraConnectConfig.get_token"></a>
 
