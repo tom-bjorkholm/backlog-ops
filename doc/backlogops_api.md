@@ -198,6 +198,7 @@
   * [check\_releases](#backlogops.releases.check_releases)
   * [order\_releases\_by\_date](#backlogops.releases.order_releases_by_date)
 * [backlogops.jira\_read](#backlogops.jira_read)
+  * [is\_appendable\_jira\_field](#backlogops.jira_read.is_appendable_jira_field)
   * [build\_backlog\_releases](#backlogops.jira_read.build_backlog_releases)
   * [resolve\_jql](#backlogops.jira_read.resolve_jql)
   * [read\_backlog\_from\_jira](#backlogops.jira_read.read_backlog_from_jira)
@@ -2333,8 +2334,8 @@ named, reusable parts:
 * ``connections`` are named :class:`JiraConnectConfig` objects, each
   describing one Jira server and how its API token is stored;
 * ``column_maps`` are named :data:`JiraColumnMap` maps from an internal
-  field name to the :class:`JiraAttrPath` that reaches the value on a
-  Jira issue or version;
+  field name to the paths that may reach the value on a Jira issue or
+  version;
 * ``from_jira_presets`` are named :class:`JiraPreset` objects that tie a
   connection, a backlog column map and a release column map together with
   a default project and a default issue filter for reading from Jira.
@@ -2399,7 +2400,9 @@ as ``issue.key`` or ``version.releaseDate``. FIELD is reached under
 ``issue.fields.status.name``. CUSTOM_FIELD is a custom field named by
 its id (``customfield_10016``) or by its display name (``Story point
 estimate``); the display name is resolved against the live custom
-field mapping when reading.
+field mapping when reading. FILTERED_FIELD reads a list field under
+``issue.fields`` and returns values from the list entries where a
+nested attribute matches a configured value.
 
 <a id="backlogops.jira_io_config.JiraAttrPath"></a>
 
@@ -2417,7 +2420,9 @@ Fields:
         :class:`JiraAttrType`.
     path: The path steps. ATTRIBUTE and CUSTOM_FIELD use exactly one
         step; FIELD uses one or more steps reached under
-        ``issue.fields``.
+        ``issue.fields``. FILTERED_FIELD uses four steps: list field
+        name, filter path, expected filter value and value path. The
+        filter and value paths use dots between nested attributes.
 
 <a id="backlogops.jira_io_config.DEF_BACKLOG_COLUMN_MAP"></a>
 
@@ -2428,9 +2433,13 @@ A usable default backlog column map for a fresh Jira preset.
 The ``level`` field maps to the Jira issue type name (such as 'Story'),
 resolved to a level number through the configured levels. The ``release``
 field maps to the Jira ``fixVersions`` field, which is a list of
-versions; the reader reduces it to a single release name. The ``team``
-field maps to a custom field named ``Team`` (the Atlassian Teams field);
-adjust it in the wizard when a project names the field otherwise.
+versions; the reader reduces it to a single release name. The
+``parent_key`` field maps both to the Cloud parent object and to the old
+Jira Software ``Epic Link`` custom field. The ``depends_on_f2s`` field
+maps Jira issue links of type ``Blocks`` where the current issue is
+blocked by another issue. The ``team`` field maps to a custom field
+named ``Team`` (the Atlassian Teams field); adjust it in the wizard when
+a project names the field otherwise.
 
 <a id="backlogops.jira_io_config.DEF_RELEASE_COLUMN_MAP"></a>
 
@@ -4158,6 +4167,16 @@ server connection uses the token as a personal access token. The token
 is materialized through :meth:`JiraConnectConfig.get_token`, asking the
 supplied pass phrase provider only when an encrypted storage mode needs
 it.
+
+<a id="backlogops.jira_read.is_appendable_jira_field"></a>
+
+#### is\_appendable\_jira\_field
+
+```python
+def is_appendable_jira_field(name: str) -> bool
+```
+
+Return whether duplicate Jira values should be appended.
 
 <a id="backlogops.jira_read.build_backlog_releases"></a>
 

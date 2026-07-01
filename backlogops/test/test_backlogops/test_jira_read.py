@@ -9,6 +9,7 @@ connection and orchestration are tested by replacing the client factory.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import io
 from datetime import date
 from types import SimpleNamespace
 from typing import Optional
@@ -33,8 +34,9 @@ NO = NoTextIO()
 FIELDS: list[dict[str, str]] = [
     {'id': 'customfield_10016', 'name': 'Story point estimate'},
     {'id': 'customfield_10001', 'name': 'Team'},
+    {'id': 'customfield_10008', 'name': 'Epic Link'},
     {'id': 'summary', 'name': 'Summary'}]
-"""Field descriptors with two custom fields and one system field."""
+"""Field descriptors with three custom fields and one system field."""
 
 
 def _issue(status: str = 'DONE', issuetype: str = 'Story',
@@ -44,8 +46,10 @@ def _issue(status: str = 'DONE', issuetype: str = 'Story',
                              status=SimpleNamespace(name=status),
                              issuetype=SimpleNamespace(name=issuetype),
                              fixVersions=[SimpleNamespace(name=release)],
+                             parent=None, issuelinks=[],
                              customfield_10016=points,
-                             customfield_10001='Alpha')
+                             customfield_10001='Alpha', customfield_10008=None,
+                             description='Useful text')
     return SimpleNamespace(key='S-1', fields=fields)
 
 
@@ -77,7 +81,8 @@ def test_custom_ids() -> None:
     """Test the custom field display names map to their field ids."""
     assert _custom_ids(FIELDS) == {
         'Story point estimate': 'customfield_10016',
-        'Team': 'customfield_10001'}
+        'Team': 'customfield_10001',
+        'Epic Link': 'customfield_10008'}
 
 
 def test_resolve_attr() -> None:
@@ -120,6 +125,7 @@ def test_build() -> None:
     assert item.release == 'R1'
     assert item.team == 'Alpha'
     assert item.story_points == 5
+    assert item.extra_fields['description'] == 'Useful text'
     release = data.releases[0]
     assert release.name == 'R1'
     assert release.planned_date == date(2026, 6, 1)
@@ -147,6 +153,86 @@ def test_empty_points(points: object) -> None:
     """Test Jira backlog items without story points become zero points."""
     data = _build(_issue(points=points), _version())
     assert data.backlog[0].story_points == 0
+
+
+def _blocked_by(key: str) -> SimpleNamespace:
+    """Return a Jira issue link where the current issue is blocked."""
+    link_type = SimpleNamespace(name='Blocks', inward='is blocked by',
+                                outward='blocks')
+    issue = SimpleNamespace(key=key)
+    return SimpleNamespace(type=link_type, inwardIssue=issue)
+
+
+def test_default_parent_cloud() -> None:
+    """Test the default map reads the Cloud parent issue key."""
+    parent = SimpleNamespace(key='SCRUM-5')
+    issue = _issue()
+    issue.fields.parent = parent
+    data = _build(issue, _version())
+    assert data.backlog[0].parent_key == 'SCRUM-5'
+
+
+def test_parent_epic_link() -> None:
+    """Test the default map reads the old Jira Epic Link custom field."""
+    issue = _issue()
+    issue.fields.customfield_10008 = 'SCRUM-5'
+    data = _build(issue, _version())
+    assert data.backlog[0].parent_key == 'SCRUM-5'
+
+
+def test_default_dependency() -> None:
+    """Test the default map reads Jira Blocks links as dependencies."""
+    issue = _issue()
+    issue.fields.issuelinks = [_blocked_by('SCRUM-2')]
+    data = _build(issue, _version())
+    assert data.backlog[0].depends_on_f2s == ['SCRUM-2']
+
+
+def test_same_sources_no_warn() -> None:
+    """Test identical duplicate Jira values are stored once without warn."""
+    parent = SimpleNamespace(key='SCRUM-5')
+    err = io.StringIO()
+    issue = _issue()
+    issue.fields.parent = parent
+    issue.fields.customfield_10008 = 'SCRUM-5'
+    data = build_backlog_releases([issue], [_version()], FIELDS,
+                                  backlog_map=DEF_BACKLOG_COLUMN_MAP,
+                                  release_map=DEF_RELEASE_COLUMN_MAP,
+                                  stderr_file=err)
+    assert data.backlog[0].parent_key == 'SCRUM-5'
+    assert err.getvalue() == ''
+
+
+def test_scalar_conflict_warn() -> None:
+    """Test conflicting scalar Jira values keep the first and warn."""
+    parent = SimpleNamespace(key='SCRUM-5')
+    err = io.StringIO()
+    issue = _issue()
+    issue.fields.parent = parent
+    issue.fields.customfield_10008 = 'SCRUM-6'
+    data = build_backlog_releases([issue], [_version()], FIELDS,
+                                  backlog_map=DEF_BACKLOG_COLUMN_MAP,
+                                  release_map=DEF_RELEASE_COLUMN_MAP,
+                                  stderr_file=err)
+    assert data.backlog[0].parent_key == 'SCRUM-5'
+    assert 'parent_key' in err.getvalue()
+
+
+def test_append_conflict_warn() -> None:
+    """Test conflicting extra-field Jira values append and warn."""
+    err = io.StringIO()
+    desc_map = dict(DEF_BACKLOG_COLUMN_MAP)
+    desc_map['description'] = (
+        JiraAttrPath(JiraAttrType.FIELD, ('description',)),
+        JiraAttrPath(JiraAttrType.CUSTOM_FIELD, ('Team',)))
+    issue = _issue()
+    issue.fields.description = 'First'
+    data = build_backlog_releases([issue], [_version()], FIELDS,
+                                  backlog_map=desc_map,
+                                  release_map=DEF_RELEASE_COLUMN_MAP,
+                                  stderr_file=err)
+    assert data.backlog[0].extra_fields['description'] == 'First\n\nAlpha'
+    assert 'description' in err.getvalue()
 
 
 def _preset(def_filter: str = '', def_project: str = 'PROJ') -> JiraPreset:

@@ -31,6 +31,11 @@ def _attr(kind: JiraAttrType, *steps: str) -> JiraAttrPath:
     return JiraAttrPath(kind, tuple(steps))
 
 
+def _paths(*attrs: JiraAttrPath) -> tuple[JiraAttrPath, ...]:
+    """Return Jira attribute paths as a column-map value."""
+    return attrs
+
+
 def _empty() -> JiraIOConfig:
     """Return a fresh, empty Jira configuration."""
     return JiraIOConfig(stderr_file=NO)
@@ -69,11 +74,11 @@ def _full() -> JiraIOConfig:
     conn.token_storage = TokenStorage.CLEAR_INTERNAL
     conn.stored_token = 'TOK'
     config.connections = {'main': conn}
-    backlog = {'key': _attr(JiraAttrType.ATTRIBUTE, 'key'),
-               'status': _attr(JiraAttrType.FIELD, 'status', 'name'),
-               'story_points': _attr(JiraAttrType.CUSTOM_FIELD,
-                                     'Story point estimate')}
-    release = {'name': _attr(JiraAttrType.ATTRIBUTE, 'name')}
+    backlog = {'key': _paths(_attr(JiraAttrType.ATTRIBUTE, 'key')),
+               'status': _paths(_attr(JiraAttrType.FIELD, 'status', 'name')),
+               'story_points': _paths(_attr(JiraAttrType.CUSTOM_FIELD,
+                                            'Story point estimate'))}
+    release = {'name': _paths(_attr(JiraAttrType.ATTRIBUTE, 'name'))}
     config.column_maps = {'bk': backlog, 'rel': release}
     config.from_jira_presets = {'scrum': _preset('main', 'bk', 'rel')}
     return config
@@ -94,8 +99,9 @@ def test_round_trip(tmp_path: Path) -> None:
     assert conn.jira_type is JiraType.SERVER
     assert conn.stored_token == 'TOK'
     backlog = loaded.column_maps['bk']
-    assert backlog['status'] == _attr(JiraAttrType.FIELD, 'status', 'name')
-    assert backlog['story_points'].kind is JiraAttrType.CUSTOM_FIELD
+    assert backlog['status'] == (
+        _attr(JiraAttrType.FIELD, 'status', 'name'),)
+    assert backlog['story_points'][0].kind is JiraAttrType.CUSTOM_FIELD
     preset = loaded.get_preset('scrum')
     assert preset.def_project == 'SCRUM'
     assert preset.connection_name == 'main'
@@ -117,6 +123,18 @@ def test_attr_path_json() -> None:
     assert isinstance(maps, dict)
     assert maps['bk']['status'] == ['FIELD', 'status', 'name']
     assert maps['rel']['name'] == ['ATTRIBUTE', 'name']
+
+
+def test_multi_attr_path_json() -> None:
+    """Test several paths for one internal field write as nested lists."""
+    config = _full()
+    config.column_maps['bk']['parent_key'] = (
+        _attr(JiraAttrType.FIELD, 'parent', 'key'),
+        _attr(JiraAttrType.CUSTOM_FIELD, 'Epic Link'))
+    maps = _json(config)['column_maps']
+    assert isinstance(maps, dict)
+    assert maps['bk']['parent_key'] == [
+        ['FIELD', 'parent', 'key'], ['CUSTOM_FIELD', 'Epic Link']]
 
 
 def test_enum_names_json() -> None:
@@ -165,7 +183,8 @@ def _cmap_text(path_value: object) -> str:
 
 @pytest.mark.parametrize('bad', [
     'notalist', ['FIELD'], [], ['BOGUS', 'x'], ['FIELD', 1],
-    ['ATTRIBUTE', 'a', 'b'], ['CUSTOM_FIELD', 'a', 'b']])
+    ['ATTRIBUTE', 'a', 'b'], ['CUSTOM_FIELD', 'a', 'b'],
+    ['FILTERED_FIELD', 'a', 'b', 'c']])
 def test_bad_attr_path(bad: object) -> None:
     """Test a malformed attribute path is rejected on read."""
     with pytest.raises((TypeError, ValueError)):
@@ -275,10 +294,18 @@ def test_old_partial() -> None:
 
 def test_def_maps() -> None:
     """Test the shipped default column maps hold the expected paths."""
-    assert DEF_BACKLOG_COLUMN_MAP['status'] == \
-        JiraAttrPath(JiraAttrType.FIELD, ('status', 'name'))
-    assert DEF_BACKLOG_COLUMN_MAP['release'] == \
-        JiraAttrPath(JiraAttrType.FIELD, ('fixVersions',))
-    assert DEF_BACKLOG_COLUMN_MAP['team'].kind is JiraAttrType.CUSTOM_FIELD
-    assert DEF_RELEASE_COLUMN_MAP['planned_date'].kind is \
+    assert DEF_BACKLOG_COLUMN_MAP['status'] == (
+        JiraAttrPath(JiraAttrType.FIELD, ('status', 'name')),)
+    assert DEF_BACKLOG_COLUMN_MAP['release'] == (
+        JiraAttrPath(JiraAttrType.FIELD, ('fixVersions',)),)
+    assert DEF_BACKLOG_COLUMN_MAP['team'][0].kind is JiraAttrType.CUSTOM_FIELD
+    assert DEF_BACKLOG_COLUMN_MAP['parent_key'] == (
+        JiraAttrPath(JiraAttrType.FIELD, ('parent', 'key')),
+        JiraAttrPath(JiraAttrType.CUSTOM_FIELD, ('Epic Link',)))
+    assert DEF_BACKLOG_COLUMN_MAP['depends_on_f2s'][0] == JiraAttrPath(
+        JiraAttrType.FILTERED_FIELD,
+        ('issuelinks', 'type.name', 'Blocks', 'inwardIssue.key'))
+    assert DEF_BACKLOG_COLUMN_MAP['description'] == (
+        JiraAttrPath(JiraAttrType.FIELD, ('description',)),)
+    assert DEF_RELEASE_COLUMN_MAP['planned_date'][0].kind is \
         JiraAttrType.ATTRIBUTE

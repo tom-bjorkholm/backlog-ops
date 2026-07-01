@@ -782,13 +782,22 @@ _MAX_JIRA_EXTRA = 30
 
 _JIRA_MAP_INSTRUCTION = (
     'Jira attribute paths (Kind is one of ' + ', '.join(_JIRA_KINDS)
-    + '; a FIELD path uses dots like status.name; blank leaves a field '
-    'unmapped):')
+    + '; a FIELD path uses dots like status.name; a FILTERED_FIELD path '
+    'uses semicolons like issuelinks;type.name;Blocks;inwardIssue.key; '
+    'blank leaves a field unmapped):')
 """Instruction shown above a Jira column-map table."""
 
-_JIRA_MAP_REASON = ('Give each mapped field a valid kind and path, and map '
-                    'each internal field only once.')
+_JIRA_MAP_REASON = 'Give each mapped field a valid kind and path.'
 """Re-ask reason for an inconsistent Jira column-map table."""
+
+
+def _path_text(attr: JiraAttrPath) -> str:
+    """Return a Jira path as text for the wizard table."""
+    if attr.kind is JiraAttrType.FIELD:
+        return '.'.join(attr.path)
+    if attr.kind is JiraAttrType.FILTERED_FIELD:
+        return ';'.join(attr.path)
+    return attr.path[0]
 
 
 def _jira_map_cells(fields: list[str],
@@ -796,11 +805,14 @@ def _jira_map_cells(fields: list[str],
     """Return seed rows pre-filled from the default Jira column map."""
     rows: list[list[TableCell]] = []
     for field in fields:
-        attr = default_map.get(field)
-        kind = attr.kind.name if attr is not None else ''
-        path = '.'.join(attr.path) if attr is not None else ''
-        rows.append([TableCell(value=field), TableCell(value=kind),
-                     TableCell(value=path)])
+        attrs = default_map.get(field, ())
+        if not attrs:
+            rows.append([TableCell(value=field), TableCell(value=''),
+                         TableCell(value='')])
+        for attr in attrs:
+            rows.append([TableCell(value=field),
+                         TableCell(value=attr.kind.name),
+                         TableCell(value=_path_text(attr))])
     return rows
 
 
@@ -825,9 +837,12 @@ def _attr_from_cells(kind_text: str, path_text: str) -> Optional[JiraAttrPath]:
     text = path_text.strip()
     if kind is JiraAttrType.FIELD:
         steps = tuple(part for part in text.split('.') if part)
+    elif kind is JiraAttrType.FILTERED_FIELD:
+        steps = tuple(part.strip() for part in text.split(';')
+                      if part.strip())
     else:
         steps = (text,) if text else ()
-    if not steps:
+    if not steps or (kind is JiraAttrType.FILTERED_FIELD and len(steps) != 4):
         return None
     return JiraAttrPath(kind=kind, path=steps)
 
@@ -837,8 +852,8 @@ def _parse_jira_map(table: list[list[Optional[str]]]
     """Return the Jira column map from a table, or None when invalid.
 
     A row with a blank kind and path leaves that field unmapped. A row
-    with only one of kind and path is invalid. A repeated internal field
-    rejects the whole table.
+    with only one of kind and path is invalid. Repeated internal fields
+    become multiple paths for the same field.
     """
     result: JiraColumnMap = {}
     for field, kind_text, path_text in ((r[0], r[1], r[2]) for r in table):
@@ -849,9 +864,10 @@ def _parse_jira_map(table: list[list[Optional[str]]]
         if not kind_text or not path_text:
             return None
         attr = _attr_from_cells(kind_text, path_text)
-        if attr is None or field in result:
+        if attr is None:
             return None
-        result[field] = attr
+        result.setdefault(field, ())
+        result[field] = (*result[field], attr)
     return result
 
 
@@ -873,7 +889,7 @@ def _read_jira_map(ui: WizardUiBridge, fields: list[str],
                              re_ask_reason=reason,
                              partial_check=_jira_map_check,
                              min_rows=len(fields),
-                             max_rows=len(fields) + _MAX_JIRA_EXTRA)
+                             max_rows=len(cells) + _MAX_JIRA_EXTRA)
         mapping = _parse_jira_map(table)
         if mapping is not None:
             return mapping

@@ -60,7 +60,7 @@ def test_jira_full() -> None:
     assert conn.base_url == 'https://x.atlassian.net'
     assert conn.get_token() == 'TOK'
     status_path = JiraAttrPath(JiraAttrType.FIELD, ('status', 'name'))
-    assert jira.column_maps['bk']['status'] == status_path
+    assert jira.column_maps['bk']['status'] == (status_path,)
     assert jira.get_preset('scrum').def_project == 'SCRUM'
     assert 'WARNING' in errors.getvalue()
 
@@ -112,7 +112,9 @@ def test_preset_def_filter() -> None:
 @pytest.mark.parametrize('kind, path, expected', [
     ('ATTRIBUTE', 'key', ('key',)),
     ('field', 'status.name', ('status', 'name')),
-    ('CUSTOM_FIELD', 'Story point estimate', ('Story point estimate',))])
+    ('CUSTOM_FIELD', 'Story point estimate', ('Story point estimate',)),
+    ('FILTERED_FIELD', 'issuelinks;type.name;Blocks;inwardIssue.key',
+     ('issuelinks', 'type.name', 'Blocks', 'inwardIssue.key'))])
 def test_attr_from_cells(kind: str, path: str,
                          expected: tuple[str, ...]) -> None:
     """Test a kind cell and a path cell parse into a JiraAttrPath."""
@@ -122,7 +124,8 @@ def test_attr_from_cells(kind: str, path: str,
 
 
 @pytest.mark.parametrize('kind, path', [
-    ('BOGUS', 'x'), ('FIELD', ''), ('ATTRIBUTE', '   ')])
+    ('BOGUS', 'x'), ('FIELD', ''), ('ATTRIBUTE', '   '),
+    ('FILTERED_FIELD', 'issuelinks;type.name;Blocks')])
 def test_attr_bad(kind: str, path: str) -> None:
     """Test an unknown kind or an empty path gives no JiraAttrPath."""
     assert _attr_from_cells(kind, path) is None
@@ -134,8 +137,8 @@ def test_parse_jira_map() -> None:
         ['key', 'ATTRIBUTE', 'key'], ['status', 'FIELD', 'status.name'],
         ['title', '', '']]
     assert _parse_jira_map(table) == {
-        'key': JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',)),
-        'status': JiraAttrPath(JiraAttrType.FIELD, ('status', 'name'))}
+        'key': (JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',)),),
+        'status': (JiraAttrPath(JiraAttrType.FIELD, ('status', 'name')),)}
 
 
 def test_parse_jira_half() -> None:
@@ -144,10 +147,12 @@ def test_parse_jira_half() -> None:
 
 
 def test_parse_jira_dup() -> None:
-    """Test a repeated internal field rejects the whole table."""
+    """Test a repeated internal field becomes multiple paths."""
     table: list[list[Optional[str]]] = [['key', 'ATTRIBUTE', 'key'],
                                         ['key', 'ATTRIBUTE', 'id']]
-    assert _parse_jira_map(table) is None
+    assert _parse_jira_map(table) == {
+        'key': (JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',)),
+                JiraAttrPath(JiraAttrType.ATTRIBUTE, ('id',)))}
 
 
 @pytest.mark.parametrize('table, pos, ok', [

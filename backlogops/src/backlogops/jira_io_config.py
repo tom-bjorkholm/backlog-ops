@@ -8,8 +8,8 @@ named, reusable parts:
 * ``connections`` are named :class:`JiraConnectConfig` objects, each
   describing one Jira server and how its API token is stored;
 * ``column_maps`` are named :data:`JiraColumnMap` maps from an internal
-  field name to the :class:`JiraAttrPath` that reaches the value on a
-  Jira issue or version;
+  field name to the paths that may reach the value on a Jira issue or
+  version;
 * ``from_jira_presets`` are named :class:`JiraPreset` objects that tie a
   connection, a backlog column map and a release column map together with
   a default project and a default issue filter for reading from Jira.
@@ -95,12 +95,15 @@ class JiraAttrType(Enum):
     ``issue.fields.status.name``. CUSTOM_FIELD is a custom field named by
     its id (``customfield_10016``) or by its display name (``Story point
     estimate``); the display name is resolved against the live custom
-    field mapping when reading.
+    field mapping when reading. FILTERED_FIELD reads a list field under
+    ``issue.fields`` and returns values from the list entries where a
+    nested attribute matches a configured value.
     """
 
     ATTRIBUTE = auto()
     FIELD = auto()
     CUSTOM_FIELD = auto()
+    FILTERED_FIELD = auto()
 
 
 @dataclass(frozen=True)
@@ -112,45 +115,61 @@ class JiraAttrPath:
             :class:`JiraAttrType`.
         path: The path steps. ATTRIBUTE and CUSTOM_FIELD use exactly one
             step; FIELD uses one or more steps reached under
-            ``issue.fields``.
+            ``issue.fields``. FILTERED_FIELD uses four steps: list field
+            name, filter path, expected filter value and value path. The
+            filter and value paths use dots between nested attributes.
     """
 
     kind: JiraAttrType
     path: tuple[str, ...]
 
 
-type JiraColumnMap = dict[str, JiraAttrPath]
+type JiraColumnMap = dict[str, tuple[JiraAttrPath, ...]]
 """Map from an internal field name to the Jira attribute path for it.
 
-The key is the internal backlog or release field name. The value is the
-:class:`JiraAttrPath` that reaches the matching value on a Jira issue or
-version. Internal fields that are not mapped are not read.
+The key is the internal backlog or release field name. The value is one
+or more :class:`JiraAttrPath` values that may reach the matching value on
+a Jira issue or version. Internal fields that are not mapped are not
+read.
 """
 
 
 DEF_BACKLOG_COLUMN_MAP: JiraColumnMap = {
-    'key': JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',)),
-    'level': JiraAttrPath(JiraAttrType.FIELD, ('issuetype', 'name')),
-    'title': JiraAttrPath(JiraAttrType.FIELD, ('summary',)),
-    'status': JiraAttrPath(JiraAttrType.FIELD, ('status', 'name')),
-    'release': JiraAttrPath(JiraAttrType.FIELD, ('fixVersions',)),
-    'team': JiraAttrPath(JiraAttrType.CUSTOM_FIELD, ('Team',)),
-    'story_points': JiraAttrPath(JiraAttrType.CUSTOM_FIELD,
-                                 ('Story point estimate',))}
+    'key': (JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',)),),
+    'level': (JiraAttrPath(JiraAttrType.FIELD, ('issuetype', 'name')),),
+    'title': (JiraAttrPath(JiraAttrType.FIELD, ('summary',)),),
+    'status': (JiraAttrPath(JiraAttrType.FIELD, ('status', 'name')),),
+    'parent_key': (
+        JiraAttrPath(JiraAttrType.FIELD, ('parent', 'key')),
+        JiraAttrPath(JiraAttrType.CUSTOM_FIELD, ('Epic Link',))),
+    'release': (JiraAttrPath(JiraAttrType.FIELD, ('fixVersions',)),),
+    'team': (JiraAttrPath(JiraAttrType.CUSTOM_FIELD, ('Team',)),),
+    'story_points': (JiraAttrPath(JiraAttrType.CUSTOM_FIELD,
+                                  ('Story point estimate',)),),
+    'depends_on_f2s': (
+        JiraAttrPath(JiraAttrType.FILTERED_FIELD,
+                     ('issuelinks', 'type.name', 'Blocks',
+                      'inwardIssue.key')),),
+    'description': (JiraAttrPath(JiraAttrType.FIELD, ('description',)),)}
 """A usable default backlog column map for a fresh Jira preset.
 
 The ``level`` field maps to the Jira issue type name (such as 'Story'),
 resolved to a level number through the configured levels. The ``release``
 field maps to the Jira ``fixVersions`` field, which is a list of
-versions; the reader reduces it to a single release name. The ``team``
-field maps to a custom field named ``Team`` (the Atlassian Teams field);
-adjust it in the wizard when a project names the field otherwise.
+versions; the reader reduces it to a single release name. The
+``parent_key`` field maps both to the Cloud parent object and to the old
+Jira Software ``Epic Link`` custom field. The ``depends_on_f2s`` field
+maps Jira issue links of type ``Blocks`` where the current issue is
+blocked by another issue. The ``team`` field maps to a custom field
+named ``Team`` (the Atlassian Teams field); adjust it in the wizard when
+a project names the field otherwise.
 """
 
 
 DEF_RELEASE_COLUMN_MAP: JiraColumnMap = {
-    'name': JiraAttrPath(JiraAttrType.ATTRIBUTE, ('name',)),
-    'planned_date': JiraAttrPath(JiraAttrType.ATTRIBUTE, ('releaseDate',))}
+    'name': (JiraAttrPath(JiraAttrType.ATTRIBUTE, ('name',)),),
+    'planned_date': (
+        JiraAttrPath(JiraAttrType.ATTRIBUTE, ('releaseDate',)),)}
 """A usable default release column map for a fresh Jira preset."""
 
 
@@ -177,7 +196,11 @@ def _as_step(name: str, value: object, stderr_file: TextIO) -> str:
 def _check_arity(name: str, kind: JiraAttrType, steps: tuple[str, ...],
                  stderr_file: TextIO) -> None:
     """Check the number of path steps matches the attribute kind."""
-    if kind is not JiraAttrType.FIELD and len(steps) != 1:
+    if kind is JiraAttrType.FILTERED_FIELD and len(steps) != 4:
+        report_bad_value(name, list(steps), 'FILTERED_FIELD needs four '
+                         'path steps', stderr_file, 'Jira column map')
+    if kind not in (JiraAttrType.FIELD, JiraAttrType.FILTERED_FIELD) and \
+            len(steps) != 1:
         report_bad_value(name, list(steps),
                          f'{kind.name} needs exactly one path step',
                          stderr_file, 'Jira column map')
@@ -200,22 +223,43 @@ def _attr_path_from_obj(name: str, value: object,
     return JiraAttrPath(kind=kind, path=steps)
 
 
+def _is_one_attr_path(value: object) -> bool:
+    """Return whether a raw config value has the one-path JSON shape."""
+    return isinstance(value, JiraAttrPath) or (
+        isinstance(value, (list, tuple)) and len(value) >= 2
+        and isinstance(value[0], str))
+
+
+def _attr_paths_from_obj(name: str, value: object,
+                         stderr_file: TextIO) -> tuple[JiraAttrPath, ...]:
+    """Return one or more JiraAttrPath values from a config value."""
+    if _is_one_attr_path(value):
+        return (_attr_path_from_obj(name, value, stderr_file),)
+    if not isinstance(value, (list, tuple)) or not value:
+        report_bad_value(name, value, 'a Jira column map value must be one '
+                         'path or a non-empty list of paths', stderr_file,
+                         'Jira column map')
+    return tuple(_attr_path_from_obj(f'{name}[{index}]', item, stderr_file)
+                 for index, item in enumerate(value))
+
+
 # pylint: disable-next=too-few-public-methods
 class _ColumnMapsValidator(MemberValidator):
     """Validate and convert the named column maps member.
 
     The member maps each map name to a map from an internal field name to
-    a Jira attribute path written as a list of a kind and one or more
-    path steps. The lists are converted to :class:`JiraAttrPath` objects;
-    a value that is already a :class:`JiraAttrPath` is kept, so the
-    validator is safe to run again before writing.
+    one or more Jira attribute paths. A single path is written as a list
+    of a kind and one or more path steps. Several paths are written as a
+    list of those path lists. The lists are converted to tuples of
+    :class:`JiraAttrPath` objects; values that are already converted are
+    kept, so the validator is safe to run again before writing.
     """
 
     @override
     def validate_member(self, config: Config, member_name: str,
                         member_value: object,
                         stderr_file: TextIO = sys.stderr) -> object:
-        """Return the column maps with each path as a JiraAttrPath."""
+        """Return the column maps with each path converted."""
         _ = config
         if not isinstance(member_value, dict):
             report_wrong_type(member_name, member_value, dict, stderr_file,
@@ -229,12 +273,12 @@ class _ColumnMapsValidator(MemberValidator):
     @staticmethod
     def _one_map(name: str, mapping: object,
                  stderr_file: TextIO) -> JiraColumnMap:
-        """Return one column map with each path as a JiraAttrPath."""
+        """Return one column map with each value as JiraAttrPath values."""
         if not isinstance(mapping, dict):
             report_wrong_type(name, mapping, dict, stderr_file,
                               'Jira column map')
-        return {column: _attr_path_from_obj(f'{name}[{column}]', path,
-                                            stderr_file)
+        return {column: _attr_paths_from_obj(f'{name}[{column}]', path,
+                                             stderr_file)
                 for column, path in mapping.items()}
 
 
@@ -247,9 +291,13 @@ def _column_maps_to_json(value: object, *, path_text: str, stderr_file: TextIO,
     for map_name, mapping in value.items():
         assert isinstance(mapping, dict)
         columns: dict[str, JsonType] = {}
-        for column, attr in mapping.items():
-            assert isinstance(attr, JiraAttrPath)
-            columns[column] = [attr.kind.name, *attr.path]
+        for column, attrs in mapping.items():
+            assert isinstance(attrs, tuple)
+            paths: list[JsonType] = []
+            for attr in attrs:
+                assert isinstance(attr, JiraAttrPath)
+                paths.append([attr.kind.name, *attr.path])
+            columns[column] = paths[0] if len(paths) == 1 else paths
         maps[map_name] = columns
     return maps
 

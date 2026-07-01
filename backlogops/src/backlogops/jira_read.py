@@ -30,7 +30,7 @@ from collections.abc import Iterable, Mapping
 from datetime import date
 from typing import Callable, Optional, TextIO
 from jira import JIRA
-from backlogops.backlog import BacklogItem, Status
+from backlogops.backlog import BacklogItem, DEPENDENCY_FIELDS, Status
 from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.backlog_releases import BacklogReleases
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
@@ -38,7 +38,11 @@ from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
     default_jira_filter
 from backlogops.levels import Levels
 from backlogops.releases import Release
+from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS
 from backlogops.table_rows import row_to_item, row_to_release
+
+_SINGLE_VALUE_FIELDS = frozenset(BACKLOG_FIELDS + RELEASE_FIELDS)
+"""Internal fields that hold a single scalar value."""
 
 
 def _connect(connection: JiraConnectConfig,
@@ -72,6 +76,24 @@ def _walk(root: object, path: tuple[str, ...]) -> object:
     return value
 
 
+def _dotted(text: str) -> tuple[str, ...]:
+    """Return dot-separated path text as path steps."""
+    return tuple(part for part in text.split('.') if part)
+
+
+def _filtered_values(field_root: object, attr: JiraAttrPath) -> list[object]:
+    """Return values from list entries matching a filter path."""
+    list_name, filter_path, expected, value_path = attr.path
+    candidates = _walk(field_root, (list_name,))
+    if not isinstance(candidates, (list, tuple)):
+        return []
+    values: list[object] = []
+    for candidate in candidates:
+        if _walk(candidate, _dotted(filter_path)) == expected:
+            values.append(_walk(candidate, _dotted(value_path)))
+    return values
+
+
 def _field_id(name: str, custom_ids: dict[str, str]) -> Optional[str]:
     """Return the field id for a custom field given as id or display name."""
     if name.startswith('customfield_'):
@@ -86,6 +108,8 @@ def _resolve(attr_root: object, field_root: object, attr: JiraAttrPath,
         return _walk(attr_root, attr.path)
     if attr.kind is JiraAttrType.FIELD:
         return _walk(field_root, attr.path)
+    if attr.kind is JiraAttrType.FILTERED_FIELD:
+        return _filtered_values(field_root, attr)
     field_id = _field_id(attr.path[0], custom_ids)
     if field_id is None:
         return None
@@ -128,18 +152,86 @@ def _coerce(value: object) -> object:
     return _coerce_resource(value)
 
 
+def _coerce_all(values: Iterable[object]) -> list[object]:
+    """Return all non-empty coerced elements from a sequence."""
+    result: list[object] = []
+    for element in values:
+        cell = _coerce(element)
+        if cell not in (None, ''):
+            result.append(cell)
+    return result
+
+
+def _coerce_field(name: str, value: object) -> object:
+    """Return a Jira value coerced for one internal field."""
+    if name in DEPENDENCY_FIELDS and isinstance(value, (list, tuple)):
+        return ' '.join(str(item) for item in _coerce_all(value))
+    return _coerce(value)
+
+
+def is_appendable_jira_field(name: str) -> bool:
+    """Return whether duplicate Jira values should be appended."""
+    return name not in _SINGLE_VALUE_FIELDS
+
+
+def _unique(values: list[object]) -> list[object]:
+    """Return values with duplicates removed while preserving order."""
+    result: list[object] = []
+    for value in values:
+        if value not in result:
+            result.append(value)
+    return result
+
+
+def _warn_many(name: str, values: list[object], stderr_file: TextIO) -> None:
+    """Warn that several Jira paths had values for one field."""
+    text = ', '.join(repr(value) for value in values)
+    print(f'WARNING: several Jira paths had values for {name}: {text}.',
+          file=stderr_file)
+
+
+def _merge_values(name: str, values: list[object],
+                  stderr_file: TextIO) -> object:
+    """Return the value to store after merging duplicate sources."""
+    unique = _unique(values)
+    if not unique:
+        return None
+    if len(unique) == 1:
+        return unique[0]
+    _warn_many(name, unique, stderr_file)
+    if is_appendable_jira_field(name):
+        return '\n\n'.join(str(value) for value in unique)
+    return unique[0]
+
+
+def _field_values(name: str, attr_root: object, field_root: object,
+                  attrs: tuple[JiraAttrPath, ...],
+                  custom_ids: dict[str, str]) -> list[object]:
+    """Return all non-empty values read from Jira paths."""
+    values = []
+    for attr in attrs:
+        value = _coerce_field(name, _resolve(attr_root, field_root, attr,
+                                             custom_ids))
+        if value not in (None, ''):
+            values.append(value)
+    return values
+
+
 def _row(attr_root: object, field_root: object, column_map: JiraColumnMap,
-         custom_ids: dict[str, str]) -> dict[str, object]:
+         custom_ids: dict[str, str],
+         stderr_file: TextIO = sys.stderr) -> dict[str, object]:
     """Return one Jira object as a row keyed by internal field name."""
-    return {name: _coerce(_resolve(attr_root, field_root, attr, custom_ids))
-            for name, attr in column_map.items()}
+    return {name: _merge_values(name, _field_values(name, attr_root,
+                                                    field_root, attrs,
+                                                    custom_ids), stderr_file)
+            for name, attrs in column_map.items()}
 
 
 def _backlog_row(attr_root: object, field_root: object,
-                 column_map: JiraColumnMap,
-                 custom_ids: dict[str, str]) -> dict[str, object]:
+                 column_map: JiraColumnMap, custom_ids: dict[str, str],
+                 stderr_file: TextIO) -> dict[str, object]:
     """Return one Jira issue row with Jira-specific defaults applied."""
-    row = _row(attr_root, field_root, column_map, custom_ids)
+    row = _row(attr_root, field_root, column_map, custom_ids, stderr_file)
     if 'story_points' in row and row['story_points'] in (None, ''):
         row['story_points'] = 0
     return row
@@ -181,11 +273,12 @@ def build_backlog_releases(
     custom_ids = _custom_ids(fields_list)
     backlog: list[BacklogItem] = [
         row_to_item(_backlog_row(issue, getattr(issue, 'fields', None),
-                                 backlog_map, custom_ids), levels, status_map,
-                    stderr_file)
+                                 backlog_map, custom_ids, stderr_file),
+                    levels, status_map, stderr_file)
         for issue in issues]
     releases: list[Release] = [
-        row_to_release(_row(version, version, release_map, {}), stderr_file)
+        row_to_release(_row(version, version, release_map, {}, stderr_file),
+                       stderr_file)
         for version in versions]
     return BacklogReleases(backlog=backlog, releases=releases)
 

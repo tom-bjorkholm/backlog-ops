@@ -924,4 +924,5 @@ def test_jira_map_reask() -> None:
     bridge = _TableScript([[['key', 'ATTRIBUTE', '']],
                            [['key', 'ATTRIBUTE', 'key']]])
     result = _read_jira_map(bridge, ['key'], {})
-    assert result == {'key': JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',))}
+    assert result == {
+        'key': (JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',)),)}

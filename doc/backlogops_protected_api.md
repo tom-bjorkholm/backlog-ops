@@ -178,6 +178,8 @@
   * [\_as\_step](#backlogops.jira_io_config._as_step)
   * [\_check\_arity](#backlogops.jira_io_config._check_arity)
   * [\_attr\_path\_from\_obj](#backlogops.jira_io_config._attr_path_from_obj)
+  * [\_is\_one\_attr\_path](#backlogops.jira_io_config._is_one_attr_path)
+  * [\_attr\_paths\_from\_obj](#backlogops.jira_io_config._attr_paths_from_obj)
   * [\_ColumnMapsValidator](#backlogops.jira_io_config._ColumnMapsValidator)
     * [validate\_member](#backlogops.jira_io_config._ColumnMapsValidator.validate_member)
     * [\_one\_map](#backlogops.jira_io_config._ColumnMapsValidator._one_map)
@@ -318,14 +320,24 @@
   * [check\_releases](#backlogops.releases.check_releases)
   * [order\_releases\_by\_date](#backlogops.releases.order_releases_by_date)
 * [backlogops.jira\_read](#backlogops.jira_read)
+  * [\_SINGLE\_VALUE\_FIELDS](#backlogops.jira_read._SINGLE_VALUE_FIELDS)
   * [\_connect](#backlogops.jira_read._connect)
   * [\_custom\_ids](#backlogops.jira_read._custom_ids)
   * [\_walk](#backlogops.jira_read._walk)
+  * [\_dotted](#backlogops.jira_read._dotted)
+  * [\_filtered\_values](#backlogops.jira_read._filtered_values)
   * [\_field\_id](#backlogops.jira_read._field_id)
   * [\_resolve](#backlogops.jira_read._resolve)
   * [\_coerce\_first](#backlogops.jira_read._coerce_first)
   * [\_coerce\_resource](#backlogops.jira_read._coerce_resource)
   * [\_coerce](#backlogops.jira_read._coerce)
+  * [\_coerce\_all](#backlogops.jira_read._coerce_all)
+  * [\_coerce\_field](#backlogops.jira_read._coerce_field)
+  * [is\_appendable\_jira\_field](#backlogops.jira_read.is_appendable_jira_field)
+  * [\_unique](#backlogops.jira_read._unique)
+  * [\_warn\_many](#backlogops.jira_read._warn_many)
+  * [\_merge\_values](#backlogops.jira_read._merge_values)
+  * [\_field\_values](#backlogops.jira_read._field_values)
   * [\_row](#backlogops.jira_read._row)
   * [\_backlog\_row](#backlogops.jira_read._backlog_row)
   * [build\_backlog\_releases](#backlogops.jira_read.build_backlog_releases)
@@ -597,6 +609,7 @@
   * [\_MAX\_JIRA\_EXTRA](#backlogops.wizard_helpers._MAX_JIRA_EXTRA)
   * [\_JIRA\_MAP\_INSTRUCTION](#backlogops.wizard_helpers._JIRA_MAP_INSTRUCTION)
   * [\_JIRA\_MAP\_REASON](#backlogops.wizard_helpers._JIRA_MAP_REASON)
+  * [\_path\_text](#backlogops.wizard_helpers._path_text)
   * [\_jira\_map\_cells](#backlogops.wizard_helpers._jira_map_cells)
   * [\_jira\_map\_check](#backlogops.wizard_helpers._jira_map_check)
   * [\_attr\_from\_cells](#backlogops.wizard_helpers._attr_from_cells)
@@ -3431,8 +3444,8 @@ named, reusable parts:
 * ``connections`` are named :class:`JiraConnectConfig` objects, each
   describing one Jira server and how its API token is stored;
 * ``column_maps`` are named :data:`JiraColumnMap` maps from an internal
-  field name to the :class:`JiraAttrPath` that reaches the value on a
-  Jira issue or version;
+  field name to the paths that may reach the value on a Jira issue or
+  version;
 * ``from_jira_presets`` are named :class:`JiraPreset` objects that tie a
   connection, a backlog column map and a release column map together with
   a default project and a default issue filter for reading from Jira.
@@ -3515,7 +3528,9 @@ as ``issue.key`` or ``version.releaseDate``. FIELD is reached under
 ``issue.fields.status.name``. CUSTOM_FIELD is a custom field named by
 its id (``customfield_10016``) or by its display name (``Story point
 estimate``); the display name is resolved against the live custom
-field mapping when reading.
+field mapping when reading. FILTERED_FIELD reads a list field under
+``issue.fields`` and returns values from the list entries where a
+nested attribute matches a configured value.
 
 <a id="backlogops.jira_io_config.JiraAttrPath"></a>
 
@@ -3533,7 +3548,9 @@ Fields:
         :class:`JiraAttrType`.
     path: The path steps. ATTRIBUTE and CUSTOM_FIELD use exactly one
         step; FIELD uses one or more steps reached under
-        ``issue.fields``.
+        ``issue.fields``. FILTERED_FIELD uses four steps: list field
+        name, filter path, expected filter value and value path. The
+        filter and value paths use dots between nested attributes.
 
 <a id="backlogops.jira_io_config.DEF_BACKLOG_COLUMN_MAP"></a>
 
@@ -3544,9 +3561,13 @@ A usable default backlog column map for a fresh Jira preset.
 The ``level`` field maps to the Jira issue type name (such as 'Story'),
 resolved to a level number through the configured levels. The ``release``
 field maps to the Jira ``fixVersions`` field, which is a list of
-versions; the reader reduces it to a single release name. The ``team``
-field maps to a custom field named ``Team`` (the Atlassian Teams field);
-adjust it in the wizard when a project names the field otherwise.
+versions; the reader reduces it to a single release name. The
+``parent_key`` field maps both to the Cloud parent object and to the old
+Jira Software ``Epic Link`` custom field. The ``depends_on_f2s`` field
+maps Jira issue links of type ``Blocks`` where the current issue is
+blocked by another issue. The ``team`` field maps to a custom field
+named ``Team`` (the Atlassian Teams field); adjust it in the wizard when
+a project names the field otherwise.
 
 <a id="backlogops.jira_io_config.DEF_RELEASE_COLUMN_MAP"></a>
 
@@ -3606,6 +3627,27 @@ def _attr_path_from_obj(name: str, value: object,
 
 Return a JiraAttrPath from a parsed JSON list, or pass one through.
 
+<a id="backlogops.jira_io_config._is_one_attr_path"></a>
+
+#### \_is\_one\_attr\_path
+
+```python
+def _is_one_attr_path(value: object) -> bool
+```
+
+Return whether a raw config value has the one-path JSON shape.
+
+<a id="backlogops.jira_io_config._attr_paths_from_obj"></a>
+
+#### \_attr\_paths\_from\_obj
+
+```python
+def _attr_paths_from_obj(name: str, value: object,
+                         stderr_file: TextIO) -> tuple[JiraAttrPath, ...]
+```
+
+Return one or more JiraAttrPath values from a config value.
+
 <a id="backlogops.jira_io_config._ColumnMapsValidator"></a>
 
 ## \_ColumnMapsValidator Objects
@@ -3617,10 +3659,11 @@ class _ColumnMapsValidator(MemberValidator)
 Validate and convert the named column maps member.
 
 The member maps each map name to a map from an internal field name to
-a Jira attribute path written as a list of a kind and one or more
-path steps. The lists are converted to :class:`JiraAttrPath` objects;
-a value that is already a :class:`JiraAttrPath` is kept, so the
-validator is safe to run again before writing.
+one or more Jira attribute paths. A single path is written as a list
+of a kind and one or more path steps. Several paths are written as a
+list of those path lists. The lists are converted to tuples of
+:class:`JiraAttrPath` objects; values that are already converted are
+kept, so the validator is safe to run again before writing.
 
 <a id="backlogops.jira_io_config._ColumnMapsValidator.validate_member"></a>
 
@@ -3634,7 +3677,7 @@ def validate_member(config: Config,
                     stderr_file: TextIO = sys.stderr) -> object
 ```
 
-Return the column maps with each path as a JiraAttrPath.
+Return the column maps with each path converted.
 
 <a id="backlogops.jira_io_config._ColumnMapsValidator._one_map"></a>
 
@@ -3645,7 +3688,7 @@ Return the column maps with each path as a JiraAttrPath.
 def _one_map(name: str, mapping: object, stderr_file: TextIO) -> JiraColumnMap
 ```
 
-Return one column map with each path as a JiraAttrPath.
+Return one column map with each value as JiraAttrPath values.
 
 <a id="backlogops.jira_io_config._column_maps_to_json"></a>
 
@@ -5845,6 +5888,12 @@ is materialized through :meth:`JiraConnectConfig.get_token`, asking the
 supplied pass phrase provider only when an encrypted storage mode needs
 it.
 
+<a id="backlogops.jira_read._SINGLE_VALUE_FIELDS"></a>
+
+#### \_SINGLE\_VALUE\_FIELDS
+
+Internal fields that hold a single scalar value.
+
 <a id="backlogops.jira_read._connect"></a>
 
 #### \_connect
@@ -5875,6 +5924,26 @@ def _walk(root: object, path: tuple[str, ...]) -> object
 ```
 
 Return the attribute reached from root by the path steps.
+
+<a id="backlogops.jira_read._dotted"></a>
+
+#### \_dotted
+
+```python
+def _dotted(text: str) -> tuple[str, ...]
+```
+
+Return dot-separated path text as path steps.
+
+<a id="backlogops.jira_read._filtered_values"></a>
+
+#### \_filtered\_values
+
+```python
+def _filtered_values(field_root: object, attr: JiraAttrPath) -> list[object]
+```
+
+Return values from list entries matching a filter path.
 
 <a id="backlogops.jira_read._field_id"></a>
 
@@ -5931,13 +6000,89 @@ A list (such as fix versions) yields the first non-empty element, a
 Jira resource yields its ``name`` or ``value``, and a date yields its
 ISO text, so a mapped value becomes a string, number or None.
 
+<a id="backlogops.jira_read._coerce_all"></a>
+
+#### \_coerce\_all
+
+```python
+def _coerce_all(values: Iterable[object]) -> list[object]
+```
+
+Return all non-empty coerced elements from a sequence.
+
+<a id="backlogops.jira_read._coerce_field"></a>
+
+#### \_coerce\_field
+
+```python
+def _coerce_field(name: str, value: object) -> object
+```
+
+Return a Jira value coerced for one internal field.
+
+<a id="backlogops.jira_read.is_appendable_jira_field"></a>
+
+#### is\_appendable\_jira\_field
+
+```python
+def is_appendable_jira_field(name: str) -> bool
+```
+
+Return whether duplicate Jira values should be appended.
+
+<a id="backlogops.jira_read._unique"></a>
+
+#### \_unique
+
+```python
+def _unique(values: list[object]) -> list[object]
+```
+
+Return values with duplicates removed while preserving order.
+
+<a id="backlogops.jira_read._warn_many"></a>
+
+#### \_warn\_many
+
+```python
+def _warn_many(name: str, values: list[object], stderr_file: TextIO) -> None
+```
+
+Warn that several Jira paths had values for one field.
+
+<a id="backlogops.jira_read._merge_values"></a>
+
+#### \_merge\_values
+
+```python
+def _merge_values(name: str, values: list[object],
+                  stderr_file: TextIO) -> object
+```
+
+Return the value to store after merging duplicate sources.
+
+<a id="backlogops.jira_read._field_values"></a>
+
+#### \_field\_values
+
+```python
+def _field_values(name: str, attr_root: object, field_root: object,
+                  attrs: tuple[JiraAttrPath, ...],
+                  custom_ids: dict[str, str]) -> list[object]
+```
+
+Return all non-empty values read from Jira paths.
+
 <a id="backlogops.jira_read._row"></a>
 
 #### \_row
 
 ```python
-def _row(attr_root: object, field_root: object, column_map: JiraColumnMap,
-         custom_ids: dict[str, str]) -> dict[str, object]
+def _row(attr_root: object,
+         field_root: object,
+         column_map: JiraColumnMap,
+         custom_ids: dict[str, str],
+         stderr_file: TextIO = sys.stderr) -> dict[str, object]
 ```
 
 Return one Jira object as a row keyed by internal field name.
@@ -5948,8 +6093,8 @@ Return one Jira object as a row keyed by internal field name.
 
 ```python
 def _backlog_row(attr_root: object, field_root: object,
-                 column_map: JiraColumnMap,
-                 custom_ids: dict[str, str]) -> dict[str, object]
+                 column_map: JiraColumnMap, custom_ids: dict[str, str],
+                 stderr_file: TextIO) -> dict[str, object]
 ```
 
 Return one Jira issue row with Jira-specific defaults applied.
@@ -9731,6 +9876,16 @@ Instruction shown above a Jira column-map table.
 
 Re-ask reason for an inconsistent Jira column-map table.
 
+<a id="backlogops.wizard_helpers._path_text"></a>
+
+#### \_path\_text
+
+```python
+def _path_text(attr: JiraAttrPath) -> str
+```
+
+Return a Jira path as text for the wizard table.
+
 <a id="backlogops.wizard_helpers._jira_map_cells"></a>
 
 #### \_jira\_map\_cells
@@ -9775,8 +9930,8 @@ def _parse_jira_map(
 Return the Jira column map from a table, or None when invalid.
 
 A row with a blank kind and path leaves that field unmapped. A row
-with only one of kind and path is invalid. A repeated internal field
-rejects the whole table.
+with only one of kind and path is invalid. Repeated internal fields
+become multiple paths for the same field.
 
 <a id="backlogops.wizard_helpers._read_jira_map"></a>
 
