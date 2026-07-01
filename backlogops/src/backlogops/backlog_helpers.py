@@ -12,6 +12,7 @@ import.
 # MIT License
 
 import sys
+import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import MISSING, Field
 from datetime import date, datetime
@@ -24,7 +25,15 @@ from config_as_json import string_to_enum_best_match
 T = TypeVar('T')
 
 FORBIDDEN_KEY_CHARS = frozenset(',.;:()[]{}')
-"""Characters that must never appear in a key, release or dependency."""
+"""Characters that must never appear in a key or dependency."""
+
+CONTROL_CHAR_NAMES = {
+    '\t': 'tab',
+    '\n': 'newline',
+    '\r': 'carriage return',
+    '\x1b': 'escape',
+    '\x7f': 'delete'}
+"""Readable names for common invisible control characters."""
 
 
 def field_type_hints(cls: type) -> dict[str, object]:
@@ -585,11 +594,11 @@ def check_key_syntax(field_name: str, value: object,
                      subject: str = 'Backlog item') -> None:
     """Check that a value is a well formed backlog key.
 
-    A backlog key (used by ``key`` and ``release`` and by the entries of
-    the dependency lists) must be a non-empty string that contains no
-    whitespace and none of the separator or bracket characters
-    ``, . ; : ( ) [ ] { }``. All other characters, including letters,
-    digits, ``-``, ``_`` and signs such as ``#`` or ``$``, are allowed.
+    A backlog key (used by ``key`` and by the entries of the dependency
+    lists) must be a non-empty string that contains no whitespace and
+    none of the separator or bracket characters ``, . ; : ( ) [ ] { }``.
+    All other characters, including letters, digits, ``-``, ``_`` and
+    signs such as ``#`` or ``$``, are allowed.
 
     Args:
         field_name: The name of the field being checked.
@@ -615,6 +624,59 @@ def check_key_syntax(field_name: str, value: object,
         report_bad_value(field_name, value,
                          'must not contain any of ' + ''.join(forbidden),
                          stderr_file, subject)
+
+
+def _char_text(char: str) -> str:
+    """Return a readable description of a rejected character."""
+    name = CONTROL_CHAR_NAMES.get(char)
+    if name is None:
+        name = unicodedata.name(char, 'unknown character')
+    return f'{name} (U+{ord(char):04X})'
+
+
+def _bad_label_char(value: str) -> Optional[str]:
+    """Return the first control-like character in the label, or None."""
+    for char in value:
+        if char != ' ' and (
+                char.isspace() or unicodedata.category(char)[0] == 'C'):
+            return char
+    return None
+
+
+def check_label_syntax(field_name: str, value: object,
+                       stderr_file: TextIO = sys.stderr,
+                       subject: str = 'Backlog item') -> None:
+    """Check that a value is a readable human-facing label.
+
+    A label is a non-empty string without leading or trailing whitespace.
+    Ordinary spaces and punctuation are allowed inside the label, but
+    tabs, newlines, other whitespace characters and control-like Unicode
+    characters are rejected with a readable character name.
+
+    Args:
+        field_name: The name of the field being checked.
+        value: The value that should be a valid label.
+        stderr_file: The file to report errors to.
+        subject: What owns the field, used to start error messages.
+
+    Raises:
+        TypeError: If the value is not a string.
+        ValueError: If the string is empty, padded, or contains a
+            control-like character.
+    """
+    if not isinstance(value, str):
+        report_wrong_type(field_name, value, str, stderr_file, subject)
+    if value == '':
+        report_bad_value(field_name, value, 'must not be empty', stderr_file,
+                         subject)
+    bad_char = _bad_label_char(value)
+    if bad_char is not None:
+        report_bad_value(field_name, value,
+                         f'must not contain {_char_text(bad_char)}',
+                         stderr_file, subject)
+    if value != value.strip(' '):
+        message = 'must not start or end with whitespace'
+        report_bad_value(field_name, value, message, stderr_file, subject)
 
 
 def find_cycle(graph: dict[str, list[str]]) -> Optional[list[str]]:

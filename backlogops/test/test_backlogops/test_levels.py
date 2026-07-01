@@ -42,6 +42,13 @@ def test_level_ok() -> None:
         NoTextIO())
 
 
+def test_level_label_ok() -> None:
+    """Test level names and aliases may contain spaces and punctuation."""
+    level = Level(level=1, name='Defect Report',
+                  aliases=['Bug (External)', 'Problem: Customer'])
+    level.check_consistency(NoTextIO())
+
+
 @pytest.mark.parametrize('level_value', [1.0, True, 'one'])
 def test_level_bad_type(level_value: object) -> None:
     """Test a non-integer level number is reported as a TypeError."""
@@ -51,14 +58,14 @@ def test_level_bad_type(level_value: object) -> None:
         level.check_consistency(NoTextIO())
 
 
-@pytest.mark.parametrize('name', ['', 'a b', 'a,b', 'a(b)'])
+@pytest.mark.parametrize('name', ['', ' a', 'a ', 'a\tb', 'a\nb', 'a\x1bb'])
 def test_level_bad_name(name: str) -> None:
     """Test an invalid level name is reported as a ValueError."""
     with pytest.raises(ValueError):
         Level(level=1, name=name).check_consistency(NoTextIO())
 
 
-@pytest.mark.parametrize('alias', ['', 'a b', 'a;b'])
+@pytest.mark.parametrize('alias', ['', ' a', 'a ', 'a\tb', 'a\nb', 'a\x1bb'])
 def test_level_bad_alias(alias: str) -> None:
     """Test an invalid alias is reported as a ValueError."""
     with pytest.raises(ValueError):
@@ -110,10 +117,12 @@ def test_levels_dup_label(duplicate: str) -> None:
 
 @pytest.mark.parametrize('name, expected', [
     ('Story', 1), ('story', 1), ('STORY', 1), ('Task', 1), ('bug', 1),
-    ('Epic', 2)])
+    ('Defect Report', 1), ('Epic', 2)])
 def test_name_to_number(name: str, expected: int) -> None:
     """Test names and aliases resolve case-insensitively to numbers."""
-    assert level_number_from_name(name, _levels()) == expected
+    levels = _levels()
+    levels[1].aliases.append('Defect Report')
+    assert level_number_from_name(name, levels) == expected
 
 
 def test_name_unknown() -> None:

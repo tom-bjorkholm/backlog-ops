@@ -103,6 +103,14 @@ def test_cons_ok() -> None:
     BacklogReleases(_backlog(), releases).check_consistency(NoTextIO())
 
 
+def test_cons_label_release() -> None:
+    """Test release labels with spaces and punctuation match by name."""
+    release_name = 'First release (R1.0)'
+    backlog = [_item('BI-1', release_name)]
+    releases = [Release(name=release_name)]
+    BacklogReleases(backlog, releases).check_consistency(NoTextIO())
+
+
 def test_cons_missing_rel() -> None:
     """Test a release named by the backlog but absent is a KeyError."""
     backlog_releases = BacklogReleases(_backlog(), [Release(name='R1')])
@@ -129,7 +137,7 @@ def test_cons_bad_backlog() -> None:
 def test_cons_bad_release() -> None:
     """Test an internally invalid release is reported by the check."""
     backlog_releases = BacklogReleases([_item('BI-1', 'R1')],
-                                       [Release(name='R 1')])
+                                       [Release(name=' R1')])
     with pytest.raises(ValueError):
         backlog_releases.check_consistency(NoTextIO())
 

@@ -8,8 +8,9 @@ from dataclasses import dataclass, fields
 from datetime import date
 from typing import NoReturn, Optional, TextIO
 import sys
-from backlogops.backlog_helpers import build_item_kwargs, check_field_types
-from backlogops.backlog_helpers import check_key_syntax, construct
+from backlogops.backlog_helpers import build_item_kwargs
+from backlogops.backlog_helpers import check_field_types, check_label_syntax
+from backlogops.backlog_helpers import construct
 from backlogops.backlog_helpers import field_type_hints, report_bad_value
 
 
@@ -19,14 +20,13 @@ class Release:
 
     A release groups backlog items that are delivered together. A
     backlog item refers to its release by name through its ``release``
-    field, so the release name must follow the same syntax rules as a
-    backlog item key.
+    field, so the release name is a stable human-facing label.
 
     Fields:
         name: The name of the release. Required. Must be unique among
-              the releases. Must not be empty, must not contain
-              whitespace and must not contain any of the characters
-              , . ; : ( ) [ ] { }.
+              the releases. Must not be empty, must not start or end
+              with whitespace, and must not contain tabs, newlines or
+              control characters.
         planned_date: The planned date of the release. Optional.
                       The date that is communicated to the customer.
         estimated_date: The estimated date of the release. Optional.
@@ -44,20 +44,18 @@ class Release:
         """Check the internal consistency of the release.
 
         The field types are verified and the name is checked to be a
-        well formed key (a non-empty string with no whitespace and none
-        of the forbidden separator characters). Uniqueness of the name
-        among several releases is not checked here; that is done by
-        :func:`check_releases`.
+        well formed label. Uniqueness of the name among several releases
+        is not checked here; that is done by :func:`check_releases`.
 
         Args:
             stderr_file: The file to report errors to.
 
         Raises:
             TypeError: If a field has the wrong type.
-            ValueError: If the name violates the key syntax constraint.
+            ValueError: If the name violates the label syntax constraint.
         """
         check_field_types(self, stderr_file, subject='Release')
-        check_key_syntax('name', self.name, stderr_file, subject='Release')
+        check_label_syntax('name', self.name, stderr_file, subject='Release')
 
 
 type Releases = list[Release]

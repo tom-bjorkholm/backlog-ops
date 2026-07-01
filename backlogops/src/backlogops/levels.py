@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 import sys
 from typing import NoReturn, Optional, TextIO
-from backlogops.backlog_helpers import check_key_syntax, report_bad_value
+from backlogops.backlog_helpers import check_label_syntax, report_bad_value
 from backlogops.backlog_helpers import report_wrong_type
 
 
@@ -34,16 +34,17 @@ class Level:
                cases. A higher level means a bigger backlog item.
                A lower level means a smaller, more detailed backlog item.
         name: The name of the level. Required. Must be a string.
-              Must not be empty, must not contain whitespace and must
-              not contain any of the characters , . ; : ( ) [ ] { }.
+              Must not be empty, must not start or end with whitespace,
+              and must not contain tabs, newlines or control characters.
               Must be unique within the Levels.
         aliases: The aliases of the level. Optional. Must be a list of strings.
                  For instance if level 1 is called "Story", it may have the
                  aliases "Task" and "Bug".
                  The aliases are used if a backlog item is converted from a
                  tool that have different names for the same level.
-                 Each alias must not be empty, must not contain whitespace and
-                 must not contain any of the characters , . ; : ( ) [ ] { }.
+                 Each alias must not be empty, must not start or end with
+                 whitespace, and must not contain tabs, newlines or control
+                 characters.
                  Must be unique within the Levels and must not be the same
                  as any name used in the Levels.
     """
@@ -59,19 +60,20 @@ class Level:
 
     def _check_labels(self, stderr_file: TextIO) -> None:
         """Check the name and each alias for valid label syntax."""
-        check_key_syntax('name', self.name, stderr_file, 'Level')
+        check_label_syntax('name', self.name, stderr_file, 'Level')
         if not isinstance(self.aliases, list):
             report_wrong_type('aliases', self.aliases, list, stderr_file,
                               'Level')
         for index, alias in enumerate(self.aliases):
-            check_key_syntax(f'aliases[{index}]', alias, stderr_file, 'Level')
+            check_label_syntax(f'aliases[{index}]', alias, stderr_file,
+                               'Level')
 
     def check_consistency(self, stderr_file: TextIO = sys.stderr) -> None:
         """Check the consistency of the level.
 
         The documented constraints are checked on all member variables.
-        The name and aliases follow the same character rules as a backlog
-        item key. Uniqueness across levels is checked by
+        The name and aliases are checked as human-facing labels.
+        Uniqueness across levels is checked by
         :func:`check_levels_consistency`, not here.
 
         Args:

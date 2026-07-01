@@ -11,7 +11,8 @@ from enum import IntEnum, auto
 from typing import Optional, TextIO
 from backlogops.levels import Levels, DEFAULT_LEVELS, level_number_from_name
 from backlogops.backlog_helpers import build_item_kwargs, check_key_syntax
-from backlogops.backlog_helpers import construct, field_type_hints, find_cycle
+from backlogops.backlog_helpers import check_label_syntax, construct
+from backlogops.backlog_helpers import field_type_hints, find_cycle
 from backlogops.backlog_helpers import report_bad_value, check_field_types
 from backlogops.backlog_helpers import report_unknown_reference
 
@@ -71,8 +72,9 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
                     item starts, and the parent item cannot finish before
                     all its children have finished.
         release: The release of the backlog item. Optional.
-                 Follows the same character rules as the key.
-                 Must not be empty string.
+                 Must not be empty string, must not start or end with
+                 whitespace, and must not contain tabs, newlines or
+                 control characters.
         team: The team responsible for the backlog item. Optional.
               Must not be empty string. Must be a valid team name.
               If None the item can be done by any team. If not None.
@@ -149,7 +151,7 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
         """Check the key, release and dependency keys for valid syntax."""
         check_key_syntax('key', self.key, stderr_file)
         if self.release is not None:
-            check_key_syntax('release', self.release, stderr_file)
+            check_label_syntax('release', self.release, stderr_file)
         for dep_field in DEPENDENCY_FIELDS:
             for index, dep_key in enumerate(getattr(self, dep_field)):
                 check_key_syntax(f'{dep_field}[{index}]', dep_key, stderr_file)

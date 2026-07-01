@@ -38,20 +38,20 @@ FIELDS: list[dict[str, str]] = [
 
 
 def _issue(status: str = 'DONE', issuetype: str = 'Story',
-           points: object = 5.0) -> SimpleNamespace:
+           points: object = 5.0, release: str = 'R1') -> SimpleNamespace:
     """Return a stand-in Jira issue with the default-mapped attributes."""
     fields = SimpleNamespace(summary='Build it',
                              status=SimpleNamespace(name=status),
                              issuetype=SimpleNamespace(name=issuetype),
-                             fixVersions=[SimpleNamespace(name='R1')],
+                             fixVersions=[SimpleNamespace(name=release)],
                              customfield_10016=points,
                              customfield_10001='Alpha')
     return SimpleNamespace(key='S-1', fields=fields)
 
 
-def _version() -> SimpleNamespace:
+def _version(name: str = 'R1') -> SimpleNamespace:
     """Return a stand-in Jira version with a name and a release date."""
-    return SimpleNamespace(name='R1', releaseDate='2026-06-01')
+    return SimpleNamespace(name=name, releaseDate='2026-06-01')
 
 
 def _build(issue: SimpleNamespace, version: SimpleNamespace,
@@ -123,6 +123,15 @@ def test_build() -> None:
     release = data.releases[0]
     assert release.name == 'R1'
     assert release.planned_date == date(2026, 6, 1)
+    data.check_consistency(NO)
+
+
+def test_build_release_label() -> None:
+    """Test Jira release labels with spaces and punctuation are preserved."""
+    release = 'First release (R1.0)'
+    data = _build(_issue(release=release), _version(release))
+    assert data.backlog[0].release == release
+    assert data.releases[0].name == release
     data.check_consistency(NO)
 
 

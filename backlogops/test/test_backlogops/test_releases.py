@@ -143,6 +143,16 @@ def test_internal_only_name() -> None:
     Release(name='R1').check_consistency(NoTextIO())
 
 
+@pytest.mark.parametrize('name', [
+    'First release',
+    'R1.0',
+    'MVP (Phase 1)',
+    'One, Two: Three [A]'])
+def test_internal_name_label(name: str) -> None:
+    """Test release names may contain spaces and punctuation."""
+    Release(name=name).check_consistency(NoTextIO())
+
+
 @pytest.mark.parametrize('field_name, value', [
     ('name', 7),
     ('planned_date', '2026-06-12'),
@@ -155,7 +165,13 @@ def test_internal_type_err(field_name: str, value: object) -> None:
         release.check_consistency(NoTextIO())
 
 
-@pytest.mark.parametrize('value', ['', 'R 1', 'R,1', 'a(b)'])
+@pytest.mark.parametrize('value', [
+    '',
+    ' R1',
+    'R1 ',
+    'R\t1',
+    'R\n1',
+    'R\x1b1'])
 def test_internal_name_err(value: str) -> None:
     """Test an invalid release name is reported as a ValueError."""
     release = Release(name=value)
@@ -185,7 +201,7 @@ def test_check_releases_dup() -> None:
 
 def test_check_releases_bad() -> None:
     """Test an internally invalid release is reported by the check."""
-    releases = [Release(name='R 1')]
+    releases = [Release(name=' R1')]
     with pytest.raises(ValueError):
         check_releases(releases, NoTextIO())
 

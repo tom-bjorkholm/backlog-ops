@@ -21,6 +21,7 @@
   * [format\_releases](#backlogops.apply_format_rules.format_releases)
 * [backlogops.backlog\_helpers](#backlogops.backlog_helpers)
   * [FORBIDDEN\_KEY\_CHARS](#backlogops.backlog_helpers.FORBIDDEN_KEY_CHARS)
+  * [CONTROL\_CHAR\_NAMES](#backlogops.backlog_helpers.CONTROL_CHAR_NAMES)
   * [field\_type\_hints](#backlogops.backlog_helpers.field_type_hints)
   * [is\_mandatory\_field](#backlogops.backlog_helpers.is_mandatory_field)
   * [enum\_class\_of](#backlogops.backlog_helpers.enum_class_of)
@@ -48,6 +49,9 @@
   * [build\_item\_kwargs](#backlogops.backlog_helpers.build_item_kwargs)
   * [construct](#backlogops.backlog_helpers.construct)
   * [check\_key\_syntax](#backlogops.backlog_helpers.check_key_syntax)
+  * [\_char\_text](#backlogops.backlog_helpers._char_text)
+  * [\_bad\_label\_char](#backlogops.backlog_helpers._bad_label_char)
+  * [check\_label\_syntax](#backlogops.backlog_helpers.check_label_syntax)
   * [find\_cycle](#backlogops.backlog_helpers.find_cycle)
 * [backlogops.key\_list\_io](#backlogops.key_list_io)
   * [TEXT\_EXTENSIONS](#backlogops.key_list_io.TEXT_EXTENSIONS)
@@ -974,7 +978,13 @@ import.
 
 #### FORBIDDEN\_KEY\_CHARS
 
-Characters that must never appear in a key, release or dependency.
+Characters that must never appear in a key or dependency.
+
+<a id="backlogops.backlog_helpers.CONTROL_CHAR_NAMES"></a>
+
+#### CONTROL\_CHAR\_NAMES
+
+Readable names for common invisible control characters.
 
 <a id="backlogops.backlog_helpers.field_type_hints"></a>
 
@@ -1605,11 +1615,11 @@ def check_key_syntax(field_name: str,
 
 Check that a value is a well formed backlog key.
 
-A backlog key (used by ``key`` and ``release`` and by the entries of
-the dependency lists) must be a non-empty string that contains no
-whitespace and none of the separator or bracket characters
-``, . ; : ( ) [ ] { }``. All other characters, including letters,
-digits, ``-``, ``_`` and signs such as ``#`` or ``$``, are allowed.
+A backlog key (used by ``key`` and by the entries of the dependency
+lists) must be a non-empty string that contains no whitespace and
+none of the separator or bracket characters ``, . ; : ( ) [ ] { }``.
+All other characters, including letters, digits, ``-``, ``_`` and
+signs such as ``#`` or ``$``, are allowed.
 
 **Arguments**:
 
@@ -1624,6 +1634,58 @@ digits, ``-``, ``_`` and signs such as ``#`` or ``$``, are allowed.
 - `TypeError` - If the value is not a string.
 - `ValueError` - If the string is empty or contains a forbidden
   character.
+
+<a id="backlogops.backlog_helpers._char_text"></a>
+
+#### \_char\_text
+
+```python
+def _char_text(char: str) -> str
+```
+
+Return a readable description of a rejected character.
+
+<a id="backlogops.backlog_helpers._bad_label_char"></a>
+
+#### \_bad\_label\_char
+
+```python
+def _bad_label_char(value: str) -> Optional[str]
+```
+
+Return the first control-like character in the label, or None.
+
+<a id="backlogops.backlog_helpers.check_label_syntax"></a>
+
+#### check\_label\_syntax
+
+```python
+def check_label_syntax(field_name: str,
+                       value: object,
+                       stderr_file: TextIO = sys.stderr,
+                       subject: str = 'Backlog item') -> None
+```
+
+Check that a value is a readable human-facing label.
+
+A label is a non-empty string without leading or trailing whitespace.
+Ordinary spaces and punctuation are allowed inside the label, but
+tabs, newlines, other whitespace characters and control-like Unicode
+characters are rejected with a readable character name.
+
+**Arguments**:
+
+- `field_name` - The name of the field being checked.
+- `value` - The value that should be a valid label.
+- `stderr_file` - The file to report errors to.
+- `subject` - What owns the field, used to start error messages.
+  
+
+**Raises**:
+
+- `TypeError` - If the value is not a string.
+- `ValueError` - If the string is empty, padded, or contains a
+  control-like character.
 
 <a id="backlogops.backlog_helpers.find_cycle"></a>
 
@@ -4266,8 +4328,9 @@ Fields:
                 item starts, and the parent item cannot finish before
                 all its children have finished.
     release: The release of the backlog item. Optional.
-             Follows the same character rules as the key.
-             Must not be empty string.
+             Must not be empty string, must not start or end with
+             whitespace, and must not contain tabs, newlines or
+             control characters.
     team: The team responsible for the backlog item. Optional.
           Must not be empty string. Must be a valid team name.
           If None the item can be done by any team. If not None.
@@ -5566,14 +5629,13 @@ A release of some BacklogItems.
 
 A release groups backlog items that are delivered together. A
 backlog item refers to its release by name through its ``release``
-field, so the release name must follow the same syntax rules as a
-backlog item key.
+field, so the release name is a stable human-facing label.
 
 Fields:
     name: The name of the release. Required. Must be unique among
-          the releases. Must not be empty, must not contain
-          whitespace and must not contain any of the characters
-          , . ; : ( ) [ ] { }.
+          the releases. Must not be empty, must not start or end
+          with whitespace, and must not contain tabs, newlines or
+          control characters.
     planned_date: The planned date of the release. Optional.
                   The date that is communicated to the customer.
     estimated_date: The estimated date of the release. Optional.
@@ -5593,10 +5655,8 @@ def check_consistency(stderr_file: TextIO = sys.stderr) -> None
 Check the internal consistency of the release.
 
 The field types are verified and the name is checked to be a
-well formed key (a non-empty string with no whitespace and none
-of the forbidden separator characters). Uniqueness of the name
-among several releases is not checked here; that is done by
-:func:`check_releases`.
+well formed label. Uniqueness of the name among several releases
+is not checked here; that is done by :func:`check_releases`.
 
 **Arguments**:
 
@@ -5606,7 +5666,7 @@ among several releases is not checked here; that is done by
 **Raises**:
 
 - `TypeError` - If a field has the wrong type.
-- `ValueError` - If the name violates the key syntax constraint.
+- `ValueError` - If the name violates the label syntax constraint.
 
 <a id="backlogops.releases.report_unknown_keys"></a>
 
@@ -7373,16 +7433,17 @@ Fields:
            cases. A higher level means a bigger backlog item.
            A lower level means a smaller, more detailed backlog item.
     name: The name of the level. Required. Must be a string.
-          Must not be empty, must not contain whitespace and must
-          not contain any of the characters , . ; : ( ) [ ] { }.
+          Must not be empty, must not start or end with whitespace,
+          and must not contain tabs, newlines or control characters.
           Must be unique within the Levels.
     aliases: The aliases of the level. Optional. Must be a list of strings.
              For instance if level 1 is called "Story", it may have the
              aliases "Task" and "Bug".
              The aliases are used if a backlog item is converted from a
              tool that have different names for the same level.
-             Each alias must not be empty, must not contain whitespace and
-             must not contain any of the characters , . ; : ( ) [ ] { }.
+             Each alias must not be empty, must not start or end with
+             whitespace, and must not contain tabs, newlines or control
+             characters.
              Must be unique within the Levels and must not be the same
              as any name used in the Levels.
 
@@ -7417,8 +7478,8 @@ def check_consistency(stderr_file: TextIO = sys.stderr) -> None
 Check the consistency of the level.
 
 The documented constraints are checked on all member variables.
-The name and aliases follow the same character rules as a backlog
-item key. Uniqueness across levels is checked by
+The name and aliases are checked as human-facing labels.
+Uniqueness across levels is checked by
 :func:`check_levels_consistency`, not here.
 
 **Arguments**:

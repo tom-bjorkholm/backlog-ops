@@ -190,6 +190,18 @@ def test_internal_ok() -> None:
     item.check_consistency(NoTextIO())
 
 
+@pytest.mark.parametrize('release', [
+    'First release',
+    'R1.0',
+    'MVP (Phase 1)',
+    'One, Two: Three [A]'])
+def test_internal_rel_label(release: str) -> None:
+    """Test item release references may be readable labels."""
+    item = _valid_item()
+    item.release = release
+    item.check_consistency(NoTextIO())
+
+
 @pytest.mark.parametrize('field_name, value', [
     ('story_points', 'three'),
     ('key', 7),
@@ -210,7 +222,11 @@ def test_internal_type_errors(field_name: str, value: object) -> None:
     ('key', 'BI,1'),
     ('key', 'a(b)'),
     ('release', ''),
-    ('release', 'R 1')])
+    ('release', ' R1'),
+    ('release', 'R1 '),
+    ('release', 'R\t1'),
+    ('release', 'R\n1'),
+    ('release', 'R\x1b1')])
 def test_internal_value_err(field_name: str, value: object) -> None:
     """Test invalid key or release syntax is reported as a ValueError."""
     item = _valid_item()

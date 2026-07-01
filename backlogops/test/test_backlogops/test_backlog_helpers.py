@@ -13,7 +13,8 @@ import pytest
 
 from backlogops.backlog import BacklogItem, Status
 from backlogops.backlog_helpers import accepts_none, build_item_kwargs
-from backlogops.backlog_helpers import check_key_syntax, construct
+from backlogops.backlog_helpers import check_key_syntax, check_label_syntax
+from backlogops.backlog_helpers import construct
 from backlogops.backlog_helpers import collect_extra_values
 from backlogops.backlog_helpers import convert_field_value, convert_to_date
 from backlogops.backlog_helpers import convert_to_enum, convert_to_str
@@ -215,6 +216,40 @@ def test_key_type_err() -> None:
     """Test that a non-string key raises a TypeError."""
     with pytest.raises(TypeError):
         check_key_syntax('key', 7, StringIO())
+
+
+@pytest.mark.parametrize('value', [
+    'First release',
+    'R1.0',
+    'MVP (Phase 1)',
+    'One, Two: Three [A]',
+    'Defect Report'])
+def test_label_ok(value: str) -> None:
+    """Test readable labels may contain spaces and punctuation."""
+    check_label_syntax('name', value, StringIO())
+
+
+@pytest.mark.parametrize('value, message', [
+    ('', 'must not be empty'),
+    (' First', 'must not start or end with whitespace'),
+    ('First ', 'must not start or end with whitespace'),
+    ('First\trelease', 'tab (U+0009)'),
+    ('First\nrelease', 'newline (U+000A)'),
+    ('First\rrelease', 'carriage return (U+000D)'),
+    ('First\x1brelease', 'escape (U+001B)'),
+    ('First\u00a0release', 'NO-BREAK SPACE (U+00A0)')])
+def test_label_value_err(value: str, message: str) -> None:
+    """Test invalid labels raise ValueError with readable messages."""
+    stderr_file = StringIO()
+    with pytest.raises(ValueError):
+        check_label_syntax('name', value, stderr_file)
+    assert message in stderr_file.getvalue()
+
+
+def test_label_type_err() -> None:
+    """Test that a non-string label raises a TypeError."""
+    with pytest.raises(TypeError):
+        check_label_syntax('name', 7, StringIO())
 
 
 def test_find_cycle_acyclic() -> None:
