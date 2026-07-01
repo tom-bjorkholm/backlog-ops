@@ -6,8 +6,8 @@ The backlog-ops configuration wizard asks its questions through a
 concrete bridge that overrides every typed ask method of that base class
 with a real Tkinter control: a text entry, a yes/no button pair, a
 single- and a multi-selection list, and an editable table. All questions
-are answered in one reused, fixed-size window, so the whole wizard
-session happens in a single pop-up that does not jump around the display.
+are answered in one reused window, so the whole wizard session happens in
+a single pop-up that does not jump around the display.
 Every prompt also offers back, out-one-level and abort buttons, which
 raise the matching :class:`WizardNavigation` request so the wizard can
 step within the configuration or abandon it.
@@ -102,7 +102,7 @@ class _TableEditor:
     both a minimum and a maximum row count, adds editable rows up to the
     maximum and removes the last row down to the minimum. A variable
     table shows its grid in a scrolling area, so a long table stays
-    usable in the fixed wizard window.
+    usable while the wizard window is resized.
     """
 
     # pylint: disable-next=too-many-arguments,too-many-positional-arguments
@@ -163,9 +163,9 @@ class _TableEditor:
         return self._build_scroll(parent)
 
     def _build_scroll(self, parent: tk.Misc) -> tk.Frame:
-        """Build a fixed-height scrolling area and return its inner frame."""
+        """Build an expanding scrolling area and return its inner frame."""
         box = tk.Frame(parent)
-        box.pack(anchor='w', fill='x', pady=6)
+        box.pack(anchor='w', fill='both', expand=True, pady=6)
         canvas = tk.Canvas(box, height=TABLE_VIEW_HEIGHT, highlightthickness=0)
         scrollbar = tk.Scrollbar(box, orient='vertical', command=canvas.yview)
         canvas.configure(yscrollcommand=scrollbar.set)
@@ -425,14 +425,14 @@ class _WizardWindow:
     def _add_buttons(self, on_ok: Callable[[], None]) -> None:
         """Add the confirm and navigation buttons."""
         box = tk.Frame(self._content)
-        box.pack(anchor='w', pady=10)
+        box.pack(side='bottom', anchor='w', pady=10)
         tk.Button(box, text='OK', command=on_ok).pack(side='left')
         self._add_nav_buttons(box)
 
     def _add_table_buttons(self, editor: _TableEditor) -> None:
         """Add confirm, optional add/remove-row and navigation buttons."""
         box = tk.Frame(self._content)
-        box.pack(anchor='w', pady=10)
+        box.pack(side='bottom', anchor='w', pady=10)
         tk.Button(box, text='OK',
                   command=lambda: self._finish(editor.values())).pack(
                       side='left')

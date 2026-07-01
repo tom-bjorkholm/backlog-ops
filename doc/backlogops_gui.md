@@ -159,8 +159,8 @@ The backlog-ops configuration wizard asks its questions through a
 concrete bridge that overrides every typed ask method of that base class
 with a real Tkinter control: a text entry, a yes/no button pair, a
 single- and a multi-selection list, and an editable table. All questions
-are answered in one reused, fixed-size window, so the whole wizard
-session happens in a single pop-up that does not jump around the display.
+are answered in one reused window, so the whole wizard session happens in
+a single pop-up that does not jump around the display.
 Every prompt also offers back, out-one-level and abort buttons, which
 raise the matching :class:`WizardNavigation` request so the wizard can
 step within the configuration or abandon it.

@@ -434,6 +434,43 @@ def test_window_resizable() -> None:
         root.destroy()
 
 
+def test_buttons_at_bottom() -> None:
+    """Test the wizard button row is anchored to the content bottom."""
+    root = _root_or_skip()
+    try:
+        window = _WizardWindow(tk.Frame(root))
+        # pylint: disable-next=protected-access
+        window._add_buttons(lambda: None)
+        # pylint: disable-next=protected-access
+        button_bar = window._content.winfo_children()[-1]
+        assert isinstance(button_bar, tk.Frame)
+        assert button_bar.pack_info()['side'] == 'bottom'
+        window.close()
+    finally:
+        root.destroy()
+
+
+def test_table_scroll_expands() -> None:
+    """Test a variable table can grow with the wizard window."""
+    root = _root_or_skip()
+    try:
+        parent = tk.Frame(root)
+        columns = [TableColumn(header='X')]
+        cells = [[TableCell(value='v')]]
+        editor = _TableEditor(parent, columns, cells, None, min_rows=0,
+                              max_rows=10)
+        # pylint: disable-next=protected-access
+        assert editor._canvas is not None
+        # pylint: disable-next=protected-access
+        box = editor._canvas.master
+        assert isinstance(box, tk.Frame)
+        info = box.pack_info()
+        assert info['fill'] == 'both'
+        assert str(info['expand']) == '1'
+    finally:
+        root.destroy()
+
+
 def test_pick_one() -> None:
     """Test picking a single choice finishes with its value."""
     root = _root_or_skip()

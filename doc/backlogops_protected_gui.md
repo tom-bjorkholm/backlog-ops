@@ -380,8 +380,8 @@ The backlog-ops configuration wizard asks its questions through a
 concrete bridge that overrides every typed ask method of that base class
 with a real Tkinter control: a text entry, a yes/no button pair, a
 single- and a multi-selection list, and an editable table. All questions
-are answered in one reused, fixed-size window, so the whole wizard
-session happens in a single pop-up that does not jump around the display.
+are answered in one reused window, so the whole wizard session happens in
+a single pop-up that does not jump around the display.
 Every prompt also offers back, out-one-level and abort buttons, which
 raise the matching :class:`WizardNavigation` request so the wizard can
 step within the configuration or abandon it.
@@ -456,7 +456,7 @@ A fixed table fills the seed rows only. A variable table, asked with
 both a minimum and a maximum row count, adds editable rows up to the
 maximum and removes the last row down to the minimum. A variable
 table shows its grid in a scrolling area, so a long table stays
-usable in the fixed wizard window.
+usable while the wizard window is resized.
 
 <a id="backlogops_gui.gui_wizard._TableEditor.__init__"></a>
 
@@ -531,7 +531,7 @@ Return the frame holding the grid, scrolling when variable.
 def _build_scroll(parent: tk.Misc) -> tk.Frame
 ```
 
-Build a fixed-height scrolling area and return its inner frame.
+Build an expanding scrolling area and return its inner frame.
 
 <a id="backlogops_gui.gui_wizard._TableEditor._scroll_to_end"></a>
 
