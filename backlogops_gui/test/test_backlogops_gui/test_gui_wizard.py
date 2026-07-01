@@ -422,6 +422,18 @@ def test_choice_list_shown() -> None:
         root.destroy()
 
 
+def test_window_resizable() -> None:
+    """Test the wizard window can be enlarged for large table questions."""
+    root = _root_or_skip()
+    try:
+        window = _WizardWindow(tk.Frame(root))
+        # pylint: disable-next=protected-access
+        assert window._win.resizable() == (1, 1)
+        window.close()
+    finally:
+        root.destroy()
+
+
 def test_pick_one() -> None:
     """Test picking a single choice finishes with its value."""
     root = _root_or_skip()

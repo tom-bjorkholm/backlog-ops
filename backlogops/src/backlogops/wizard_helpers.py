@@ -223,9 +223,12 @@ class _Navigator:
         assert isinstance(result, dict)
         return result
 
-    def ask_status_map(self, question: str) -> dict[str, Status]:
+    def ask_status_map(self, question: str,
+                       default_map: Optional[dict[str, Status]] = None
+                       ) -> dict[str, Status]:
         """Ask the input status-name map as one variable-row table."""
-        result = self._ask(lambda: _read_status_map(self._ui, question))
+        result = self._ask(lambda: _read_status_map(self._ui, question,
+                                                    default_map))
         assert isinstance(result, dict)
         return result
 
@@ -750,16 +753,44 @@ def _parse_status_map(table: list[list[Optional[str]]]
     return mapping
 
 
-def _read_status_map(ui: WizardUiBridge, question: str) -> dict[str, Status]:
+def _merge_status_defaults(default_map: Optional[dict[str, Status]],
+                           mapping: dict[str, Status]) -> dict[str, Status]:
+    """Return defaults updated with user-entered status map rows."""
+    if default_map is None:
+        return mapping
+    result = dict(default_map)
+    names = {name.lower(): name for name in result}
+    for name, status in mapping.items():
+        old_name = names.get(name.lower())
+        if old_name is not None and old_name != name:
+            del result[old_name]
+        result[name] = status
+        names[name.lower()] = name
+    return result
+
+
+def _status_map_cells(default_map: Optional[dict[str, Status]]
+                      ) -> list[list[TableCell]]:
+    """Return seed rows for a status-name mapping table."""
+    if default_map is None:
+        return []
+    return [[TableCell(value=name), TableCell(value=status.name)]
+            for name, status in default_map.items()]
+
+
+def _read_status_map(ui: WizardUiBridge, question: str,
+                     default_map: Optional[dict[str, Status]] = None
+                     ) -> dict[str, Status]:
     """Ask the input status-name map as one variable-row table.
 
     Each row maps an extra file status name to an internal status. The
-    table starts empty and may be left empty for no extra names. An
-    invalid table is re-asked with the user's own rows kept.
+    table starts with ``default_map`` when one is given and otherwise
+    empty. It may be left empty for no extra names. An invalid table is
+    re-asked with the user's own rows kept.
     """
     columns = [TableColumn(header='File status name'),
                TableColumn(header='Internal status')]
-    cells: list[list[TableCell]] = []
+    cells = _status_map_cells(default_map)
     instruction = f'{question} {_STATUS_TARGETS_HINT}'
     reason: Optional[str] = None
     while True:
@@ -768,7 +799,7 @@ def _read_status_map(ui: WizardUiBridge, question: str) -> dict[str, Status]:
                              max_rows=_MAX_STATUS_MAP)
         mapping = _parse_status_map(table)
         if mapping is not None:
-            return mapping
+            return _merge_status_defaults(default_map, mapping)
         reason = ('Map each file status name once to '
                   + ', '.join(_STATUS_NAMES) + '.')
         cells = _cells_from_table(table)

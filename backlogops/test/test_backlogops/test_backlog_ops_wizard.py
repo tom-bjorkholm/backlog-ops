@@ -14,7 +14,8 @@ from tableio_cfg_json import TableCell, TableColumn, WizardBack, \
 import backlogops
 from backlogops import InputFormatConfig, OutputFormatConfig, Status
 from backlogops.available_teams import AvailableTeams
-from backlogops.backlog_ops_config import BacklogOpsConfig
+from backlogops.backlog_ops_config import BacklogOpsConfig, \
+    DEF_STATUS_INPUT_MAP
 from backlogops.backlog_ops_wizard import (
     available_teams_wizard, backlog_ops_wizard, _WORKFORCE_HEAD,
     _INPUT_PRESETS_HEAD, _OUTPUT_PRESETS_HEAD, _LEVELS_HEAD, _STATUS_MAP_HEAD,
@@ -49,7 +50,7 @@ LEVELS_KEEP = ['']
 """A blank answer that accepts the pre-filled default levels table."""
 
 STATUS_KEEP = ['']
-"""A blank answer that accepts an empty (no extra names) status map."""
+"""A blank answer that accepts the pre-filled default status map."""
 
 SCHED = [''] * 7
 """Blank answers that keep the seven default daily work hours."""
@@ -719,12 +720,21 @@ def test_parse_status_dup() -> None:
 
 
 def test_global_status_wizard() -> None:
-    """Test the wizard captures the global status map from a added row."""
-    add = [':+', 'Testing', 'IN_PROGRESS', '']
+    """Test the wizard captures a global status map with an added row."""
+    add = [':+', 'Reviewing', 'IN_PROGRESS', '']
     answers = (SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP
                + add + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(_bridge(answers))
-    assert config.status_input_map == {'Testing': Status.IN_PROGRESS}
+    expected = {**DEF_STATUS_INPUT_MAP, 'Reviewing': Status.IN_PROGRESS}
+    assert config.status_input_map == expected
+
+
+def test_global_status_def() -> None:
+    """Test accepting the global status table keeps the default map."""
+    answers = (SCHED + ['0', '0', '0', '0', '0'] + LEVELS_KEEP
+               + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
+    config = backlog_ops_wizard(_bridge(answers))
+    assert config.status_input_map == DEF_STATUS_INPUT_MAP
 
 
 def test_in_preset_status() -> None:
@@ -871,12 +881,14 @@ class _TableScript(WizardUiBridge):
         self._tables = tables
         self._index = 0
         self._errors = io.StringIO()
+        self.seen: list[list[list[TableCell]]] = []
 
     def ask_table(self, columns: Sequence[TableColumn],
                   cells: list[list[TableCell]], question: str,
                   **kwargs: object) -> list[list[Optional[str]]]:
         """Return the next queued table, ignoring the prompt details."""
-        _ = (columns, cells, question, kwargs)
+        _ = (columns, question, kwargs)
+        self.seen.append(cells)
         table = self._tables[self._index]
         self._index += 1
         return table
@@ -917,6 +929,15 @@ def test_status_reask() -> None:
     """Test a status table missing its target is re-asked until valid."""
     bridge = _TableScript([[['Name', '']], [['Name', 'TODO']]])
     assert _read_status_map(bridge, 'Q?') == {'Name': Status.TODO}
+
+
+def test_status_default_cells() -> None:
+    """Test a status map question starts with its default rows."""
+    bridge = _TableScript([[['To Do', 'TODO']]])
+    assert _read_status_map(bridge, 'Q?', {'To Do': Status.TODO}) == {
+        'To Do': Status.TODO}
+    assert bridge.seen[0] == [[TableCell(value='To Do'),
+                               TableCell(value='TODO')]]
 
 
 def test_jira_map_reask() -> None:

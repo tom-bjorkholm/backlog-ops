@@ -32,11 +32,11 @@ from backlogops import NoTextIO
 from backlogops_gui.gui_style import focus_first_input, style_input
 
 WIZARD_TITLE = 'Configuration wizard'
-WINDOW_SIZE = '620x520'
+WINDOW_SIZE = '720x620'
 WRAP_LENGTH = 520
 MESSAGE_HEIGHT = 8
 CHOICE_HEIGHT = 10
-TABLE_VIEW_HEIGHT = 240
+TABLE_VIEW_HEIGHT = 210
 HEADER_FONT = ('TkDefaultFont', 10, 'bold')
 
 _V = TypeVar('_V')
@@ -256,7 +256,7 @@ class _WizardWindow:
         self._win = tk.Toplevel(parent)
         self._win.title(WIZARD_TITLE)
         self._win.geometry(WINDOW_SIZE)
-        self._win.resizable(False, False)
+        self._win.resizable(True, True)
         if isinstance(parent, tk.Wm):
             self._win.transient(parent)
         self._win.protocol('WM_DELETE_WINDOW', self._cancel)

@@ -22,7 +22,8 @@ in :mod:`backlogops.io_preset_wizard`.
 from typing import Optional
 from tableio_cfg_json import WizardAbort, WizardUiBridge
 from backlogops.available_teams import AvailableTeams
-from backlogops.backlog_ops_config import BacklogOpsConfig
+from backlogops.backlog_ops_config import BacklogOpsConfig, \
+    DEF_STATUS_INPUT_MAP
 from backlogops.io_config import GuiDisplayConfig
 from backlogops.levels import DEFAULT_LEVELS, Level
 from backlogops.person import Person
@@ -152,7 +153,8 @@ def _collect_config(nav: _Navigator) -> BacklogOpsConfig:
     nav.show(_LEVELS_HEAD)
     config.levels = _levels_or_none(nav.ask_levels())
     nav.show(_STATUS_MAP_HEAD)
-    config.status_input_map = nav.ask_status_map(_GLOBAL_STATUS_QUESTION)
+    config.status_input_map = nav.ask_status_map(_GLOBAL_STATUS_QUESTION,
+                                                 DEF_STATUS_INPUT_MAP)
     nav.show(_GUI_DISPLAY_HEAD)
     config.gui_display = _build_gui_display(nav)
     nav.show(_JIRA_HEAD)

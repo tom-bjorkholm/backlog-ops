@@ -604,6 +604,8 @@
   * [\_status\_target](#backlogops.wizard_helpers._status_target)
   * [\_status\_check](#backlogops.wizard_helpers._status_check)
   * [\_parse\_status\_map](#backlogops.wizard_helpers._parse_status_map)
+  * [\_merge\_status\_defaults](#backlogops.wizard_helpers._merge_status_defaults)
+  * [\_status\_map\_cells](#backlogops.wizard_helpers._status_map_cells)
   * [\_read\_status\_map](#backlogops.wizard_helpers._read_status_map)
   * [\_JIRA\_KINDS](#backlogops.wizard_helpers._JIRA_KINDS)
   * [\_MAX\_JIRA\_EXTRA](#backlogops.wizard_helpers._MAX_JIRA_EXTRA)
@@ -9354,7 +9356,9 @@ input map. Either way the internal field names are pre-filled.
 #### ask\_status\_map
 
 ```python
-def ask_status_map(question: str) -> dict[str, Status]
+def ask_status_map(
+        question: str,
+        default_map: Optional[dict[str, Status]] = None) -> dict[str, Status]
 ```
 
 Ask the input status-name map as one variable-row table.
@@ -9838,19 +9842,45 @@ A row with a blank file status name is ignored. A non-blank file
 status name needs a valid internal status. A file status name that
 repeats (case-insensitively) makes the table invalid.
 
+<a id="backlogops.wizard_helpers._merge_status_defaults"></a>
+
+#### \_merge\_status\_defaults
+
+```python
+def _merge_status_defaults(default_map: Optional[dict[str, Status]],
+                           mapping: dict[str, Status]) -> dict[str, Status]
+```
+
+Return defaults updated with user-entered status map rows.
+
+<a id="backlogops.wizard_helpers._status_map_cells"></a>
+
+#### \_status\_map\_cells
+
+```python
+def _status_map_cells(
+        default_map: Optional[dict[str, Status]]) -> list[list[TableCell]]
+```
+
+Return seed rows for a status-name mapping table.
+
 <a id="backlogops.wizard_helpers._read_status_map"></a>
 
 #### \_read\_status\_map
 
 ```python
-def _read_status_map(ui: WizardUiBridge, question: str) -> dict[str, Status]
+def _read_status_map(
+        ui: WizardUiBridge,
+        question: str,
+        default_map: Optional[dict[str, Status]] = None) -> dict[str, Status]
 ```
 
 Ask the input status-name map as one variable-row table.
 
 Each row maps an extra file status name to an internal status. The
-table starts empty and may be left empty for no extra names. An
-invalid table is re-asked with the user's own rows kept.
+table starts with ``default_map`` when one is given and otherwise
+empty. It may be left empty for no extra names. An invalid table is
+re-asked with the user's own rows kept.
 
 <a id="backlogops.wizard_helpers._JIRA_KINDS"></a>
 
