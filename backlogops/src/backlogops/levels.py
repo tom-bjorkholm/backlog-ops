@@ -89,10 +89,11 @@ type Levels = dict[int, Level]
 """A dictionary of levels by level number."""
 
 DEFAULT_LEVELS: Levels = {
-    0: Level(level=0, name='Sub-Task', aliases=[]),
-    1: Level(level=1, name='Story', aliases=['Task', 'Bug', 'Defect']),
+    0: Level(level=0, name='Sub-Task', aliases=['Deluppgift']),
+    1: Level(level=1, name='Story', aliases=['Task', 'Bug', 'Defect',
+                                             'Uppgift']),
     2: Level(level=2, name='Epic', aliases=[]),
-    3: Level(level=3, name='Initiative', aliases=[]),
+    3: Level(level=3, name='Initiative', aliases=['Initiativ']),
 }
 """The default levels for backlog items."""
 

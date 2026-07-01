@@ -19,7 +19,7 @@ from backlogops import (
     AvailableTeams, BacklogOpsConfig, DEFAULT_LEVELS, JiraConnectConfig,
     Level, LevelDisplay, Status, TokenStorage, make_input_config,
     make_output_config, read_backlog_ops_config, resolve_input_config,
-    resolve_output_config, write_backlog_ops_config)
+    resolve_output_config, write_backlog_ops_config, DEF_STATUS_INPUT_MAP)
 from backlogops.no_text_io import NoTextIO
 from backlogops.work_hours import WeekDay
 
@@ -298,7 +298,7 @@ def test_level_not_dict() -> None:
 
 def test_status_map_default() -> None:
     """Test the global status input map defaults to empty."""
-    assert _empty().get_status_input_map() == {}
+    assert _empty().get_status_input_map() == DEF_STATUS_INPUT_MAP
 
 
 def test_status_map_roundtrip(tmp_path: Path) -> None:

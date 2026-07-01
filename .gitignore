@@ -38,3 +38,4 @@ non_cursor_AGENTS.md
 *.xlsx
 example/result/*
 dep_lib_doc/*
+Jira_testdata*

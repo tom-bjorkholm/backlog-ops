@@ -152,6 +152,20 @@ class _BacklogOpsReadOldConfig(ReadOldConfiguration):
                 ('jira',): {}}
 
 
+DEF_STATUS_INPUT_MAP: dict[str, Status] = {
+    'To Do': Status.TODO,
+    'Backlog': Status.TODO,
+    'In Progress': Status.IN_PROGRESS,
+    'In Review': Status.IN_PROGRESS,
+    'Testing': Status.IN_PROGRESS,
+    'Blocked': Status.IN_PROGRESS,
+    'On Hold': Status.IN_PROGRESS,
+    'Implementing': Status.IN_PROGRESS,
+    'Closed': Status.DONE,
+    'Rejected': Status.REJECTED,
+}
+
+
 class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
     """Top-level backlog-ops configuration stored as config-as-json."""
 
@@ -176,7 +190,7 @@ class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
         self.output_configs: dict[str, OutputFormatConfig] = {}
         self.gui_display: GuiDisplayConfig = GuiDisplayConfig(
             stderr_file=stderr_file)
-        self.status_input_map: dict[str, Status] = {}
+        self.status_input_map: dict[str, Status] = DEF_STATUS_INPUT_MAP
         self.jira: JiraIOConfig = JiraIOConfig(stderr_file=stderr_file)
         self.levels: Optional[list[Level]] = None
         self._unchecked_dicts = ['status_input_map']

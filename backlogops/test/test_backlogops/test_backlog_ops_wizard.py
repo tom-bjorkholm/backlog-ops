@@ -409,7 +409,7 @@ def test_levels_edited_stored() -> None:
     levels = config.get_levels()
     assert levels[0].name == 'Chore'
     assert levels[1].name == 'Story'
-    assert levels[1].aliases == ['Task', 'Bug', 'Defect']
+    assert levels[1].aliases == ['Task', 'Bug', 'Defect', 'Uppgift']
 
 
 def test_levels_added() -> None:
@@ -442,7 +442,7 @@ def test_levels_dup_number() -> None:
     assert 'more than once' in errors
     levels = config.get_levels()
     assert levels[7].name == 'Story'
-    assert levels[7].aliases == ['Task', 'Bug', 'Defect']
+    assert levels[7].aliases == ['Task', 'Bug', 'Defect', 'Uppgift']
 
 
 def test_levels_dup_name() -> None:

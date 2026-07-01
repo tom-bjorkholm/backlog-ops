@@ -29,7 +29,7 @@ from backlogops.available_teams_config import (
     AvailableTeamsConfig, read_available_teams, write_available_teams)
 from backlogops.backlog_ops_config import (
     BacklogOpsConfig, read_backlog_ops_config, write_backlog_ops_config,
-    get_backlog_ops_config)
+    get_backlog_ops_config, DEF_STATUS_INPUT_MAP)
 from backlogops.order_by_dependencies import (
     order_by_dependencies, DependencyMode)
 from backlogops.estimate_ready_date import (
@@ -91,8 +91,8 @@ __all__ = [
     'make_input_config', 'make_output_config',
     'JiraIOConfig', 'JiraConnectConfig', 'JiraPreset', 'JiraType',
     'TokenStorage', 'JiraAttrType', 'JiraAttrPath', 'JiraColumnMap',
-    'DEF_BACKLOG_COLUMN_MAP', 'DEF_RELEASE_COLUMN_MAP', 'CLEAR_TOKEN_WARNING',
-    'default_jira_filter', 'FileExistsCb',
+    'DEF_BACKLOG_COLUMN_MAP', 'DEF_RELEASE_COLUMN_MAP', 'DEF_STATUS_INPUT_MAP',
+    'CLEAR_TOKEN_WARNING', 'default_jira_filter', 'FileExistsCb',
     'allow_overwrite', 'read_backlog_releases', 'write_backlog_releases',
     'LEVEL_COLUMN', 'LEVEL_NAME_COLUMN', 'apply_column_map',
     'map_column_order', 'display_level_order',

@@ -257,10 +257,3 @@ one with the list of releases. You will want to use the menus.
     - Close
 
 ## Test summary
-
-- Test result: 1662 passed in 36s
-- No flake8 warnings.
-- No mypy errors found.
-- No python layout warnings.
-- Built version(s): 0.2.1
-- Build and test using Python 3.14.6
