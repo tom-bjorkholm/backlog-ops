@@ -14,36 +14,9 @@ from backlogops_gui import application
 from backlogops_gui.application import APP_TITLE, BacklogApp
 from backlogops_gui.io_dialogs import ConfigChoice, PresetKind, ReadOptions
 from backlogops_gui._migrate_warn import GuiMigrateWarnHook
+from .gui_test_helpers import MsgRecorder, root_or_skip
 
 DATA = BacklogReleases(backlog=[], releases=[])
-
-
-def _root_or_skip() -> tk.Tk:
-    """Return a withdrawn Tk root, or skip when no display is available."""
-    try:
-        root = tk.Tk()
-    except tk.TclError:
-        pytest.skip('no display available')
-    root.withdraw()
-    return root
-
-
-class _Recorder:
-    """Record the message-box calls made through it."""
-
-    def __init__(self) -> None:
-        """Start with an empty record of calls."""
-        self.calls: list[tuple[str, str]] = []
-
-    def showerror(self, title: str, message: str, parent: object) -> None:
-        """Record a shown error message."""
-        assert parent is not None
-        self.calls.append((title, message))
-
-    def showinfo(self, title: str, message: str, parent: object) -> None:
-        """Record a shown informational message."""
-        assert parent is not None
-        self.calls.append((title, message))
 
 
 # pylint: disable-next=too-few-public-methods
@@ -479,7 +452,7 @@ def test_gui_display_cfg() -> None:
 
 def test_show_messages(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the show helpers forward to the message box."""
-    recorder = _Recorder()
+    recorder = MsgRecorder()
     monkeypatch.setattr(application, 'messagebox', recorder)
     app = _app()
     app.show_error('E', 'err')
@@ -650,7 +623,7 @@ def test_migrate_cancel(monkeypatch: pytest.MonkeyPatch,
 
 def test_migrate_exists(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a refused overwrite reports the captured reason and logs it."""
-    def boom(in_path: str, out_path: str, config_class: object,
+    def boom(_in_path: str, _out_path: str, _config_class: object,
              captured: TextIO) -> None:
         captured.write('output file exists\n')
         raise SystemExit(1)
@@ -742,7 +715,7 @@ def test_build_menu_and_body(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the menu and body build and the log view refreshes."""
     monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
     monkeypatch.setattr(application, 'check_python_version', lambda: None)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         app = BacklogApp(root)
         app.build_menu()
@@ -762,7 +735,7 @@ def test_menu_has_preset_item(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the Configuration menu offers the IO preset file actions."""
     monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
     monkeypatch.setattr(application, 'check_python_version', lambda: None)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         app = BacklogApp(root)
         app.build_menu()
@@ -780,7 +753,7 @@ def test_body_config_warn(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(application, 'check_tcltk_version',
                         lambda root: 'old Tk warning')
     monkeypatch.setattr(application, 'check_python_version', lambda: None)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         app = BacklogApp(root, cast(BacklogOpsConfig, FakeConfig()))
         app.config_source = 'a file'
@@ -793,7 +766,7 @@ def test_body_config_warn(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_refresh_no_view() -> None:
     """Test the log refresh returns at once before the view exists."""
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         # pylint: disable-next=protected-access
         BacklogApp(root)._refresh_log()
@@ -803,7 +776,7 @@ def test_refresh_no_view() -> None:
 
 def test_sched_destroyed() -> None:
     """Test the log refresh stops quietly once the window is gone."""
-    root = _root_or_skip()
+    root = root_or_skip()
     app = BacklogApp(root)
     app.build_body()
     root.destroy()
@@ -939,7 +912,7 @@ def test_body_python_warn(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
     monkeypatch.setattr(application, 'check_python_version',
                         lambda: 'old Python warning')
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         app = BacklogApp(root)
         app.build_body()

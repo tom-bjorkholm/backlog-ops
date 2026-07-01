@@ -63,6 +63,7 @@
   * [format\_value](#backlogops_gui.io_dialogs.format_value)
   * [ReadOptions](#backlogops_gui.io_dialogs.ReadOptions)
   * [WriteOptions](#backlogops_gui.io_dialogs.WriteOptions)
+  * [JiraReadOptions](#backlogops_gui.io_dialogs.JiraReadOptions)
   * [choose\_input\_file](#backlogops_gui.io_dialogs.choose_input_file)
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
@@ -73,6 +74,8 @@
   * [ask\_preset\_kind](#backlogops_gui.io_dialogs.ask_preset_kind)
   * [ask\_read\_options](#backlogops_gui.io_dialogs.ask_read_options)
   * [ask\_write\_options](#backlogops_gui.io_dialogs.ask_write_options)
+  * [ask\_jira\_read\_options](#backlogops_gui.io_dialogs.ask_jira_read_options)
+  * [ask\_jira\_passphrase](#backlogops_gui.io_dialogs.ask_jira_passphrase)
   * [choose\_key\_list\_output](#backlogops_gui.io_dialogs.choose_key_list_output)
   * [choose\_changes\_output](#backlogops_gui.io_dialogs.choose_changes_output)
   * [ask\_buffer\_days](#backlogops_gui.io_dialogs.ask_buffer_days)
@@ -553,7 +556,9 @@ Open a demonstration backlog in a new window.
 #### open\_backlog
 
 ```python
-def open_backlog(data: BacklogReleases, title: str) -> None
+def open_backlog(data: BacklogReleases,
+                 title: str,
+                 warning: Optional[str] = None) -> None
 ```
 
 Open one backlog and its releases in a new window.
@@ -834,16 +839,15 @@ A top-level window showing one backlog and its releases.
 #### \_\_init\_\_
 
 ```python
-def __init__(
-        root: tk.Misc,
-        data: BacklogReleases,
-        title: str,
-        presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
-        teams: Callable[[], Optional[AvailableTeams]],
-        sink: TextIO,
-        levels: Callable[[], Optional[Levels]] = lambda: None,
-        gui_display: Callable[[],
-                              GuiDisplayConfig] = GuiDisplayConfig) -> None
+def __init__(root: tk.Misc,
+             data: BacklogReleases,
+             title: str,
+             presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
+             teams: Callable[[], Optional[AvailableTeams]],
+             sink: TextIO,
+             levels: Callable[[], Optional[Levels]] = lambda: None,
+             gui_display: Callable[[], GuiDisplayConfig] = GuiDisplayConfig,
+             warning: Optional[str] = None) -> None
 ```
 
 Build the window, its menu and the two tables.
@@ -861,6 +865,8 @@ Build the window, its menu and the two tables.
 - `gui_display` - Callable returning the GUI display configuration,
   which decides the level display and the per-table column
   renaming for the tables.
+- `warning` - Warning text to show over the tables. When present,
+  backlog operations are disabled and only saving remains.
 
 <a id="backlogops_gui.io_dialogs"></a>
 
@@ -929,6 +935,17 @@ class WriteOptions()
 ```
 
 The format selection and ordering entered for writing a file.
+
+<a id="backlogops_gui.io_dialogs.JiraReadOptions"></a>
+
+## JiraReadOptions Objects
+
+```python
+@dataclass
+class JiraReadOptions()
+```
+
+The Jira preset and issue filter selected for reading from Jira.
 
 <a id="backlogops_gui.io_dialogs.choose_input_file"></a>
 
@@ -1036,6 +1053,28 @@ def ask_write_options(
 ```
 
 Ask how to write a file, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_jira_read_options"></a>
+
+#### ask\_jira\_read\_options
+
+```python
+def ask_jira_read_options(
+        parent: tk.Misc,
+        preset_filters: Mapping[str, str]) -> Optional[JiraReadOptions]
+```
+
+Ask which Jira preset and filter to read, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_jira_passphrase"></a>
+
+#### ask\_jira\_passphrase
+
+```python
+def ask_jira_passphrase(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for the Jira token pass phrase, or None when cancelled.
 
 <a id="backlogops_gui.io_dialogs.choose_key_list_output"></a>
 

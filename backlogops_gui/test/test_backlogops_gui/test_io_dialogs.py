@@ -12,28 +12,22 @@ from backlogops import DependencyMode
 from backlogops.no_text_io import NoTextIO
 from backlogops_gui.io_dialogs import (
     MODE_FILE, MODE_INFER, MODE_PRESET, ConfigChoice, DepOptions, PresetKind,
-    ReadOptions, ReleaseOrderOptions, StartChoice, WriteOptions, format_value)
+    JiraReadOptions, ReadOptions, ReleaseOrderOptions, StartChoice,
+    WriteOptions, format_value)
 from backlogops_gui.io_dialogs import (
     _BufferDialog, _DateOrderDialog, _DepOptionsDialog, _FormatDialog,
-    _KeysDialog, _LevelsDialog, _ModalDialog, _NoConfigDialog,
-    _PresetKindDialog, _ReleaseOrderDialog, _StartDateDialog)
+    _JiraReadDialog, _KeysDialog, _LevelsDialog, _ModalDialog,
+    _NoConfigDialog, _PassphraseDialog, _PresetKindDialog,
+    _ReleaseOrderDialog, _StartDateDialog)
 from backlogops_gui.io_dialogs import (
-    ask_buffer_days, ask_date_order, ask_dep_options, ask_keys, ask_levels,
-    ask_no_config_choice, ask_preset_kind, ask_read_options,
-    ask_release_order, ask_start_date, ask_write_options,
-    choose_changes_output, choose_config_file, choose_existing_config,
-    choose_input_file, choose_key_list_output, choose_migrated_preset,
-    choose_output_file, choose_preset_to_migrate, show_change_list)
-
-
-def _root_or_skip() -> tk.Tk:
-    """Return a withdrawn Tk root, or skip when no display is available."""
-    try:
-        root = tk.Tk()
-    except tk.TclError:
-        pytest.skip('no display available')
-    root.withdraw()
-    return root
+    ask_buffer_days, ask_date_order, ask_dep_options, ask_jira_passphrase,
+    ask_jira_read_options, ask_keys, ask_levels, ask_no_config_choice,
+    ask_preset_kind, ask_read_options, ask_release_order, ask_start_date,
+    ask_write_options, choose_changes_output, choose_config_file,
+    choose_existing_config, choose_input_file, choose_key_list_output,
+    choose_migrated_preset, choose_output_file, choose_preset_to_migrate,
+    show_change_list)
+from .gui_test_helpers import root_or_skip
 
 
 def _no_wait(self: _ModalDialog) -> None:
@@ -73,6 +67,9 @@ def test_option_dataclasses() -> None:
     write = WriteOptions('preset', True)
     assert write.config_value == 'preset'
     assert write.releases_first is True
+    jira = JiraReadOptions('scrum', 'project = SCRUM')
+    assert jira.preset_name == 'scrum'
+    assert jira.issue_filter == 'project = SCRUM'
 
 
 def test_action_dataclasses() -> None:
@@ -117,7 +114,7 @@ def test_choosers(monkeypatch: pytest.MonkeyPatch,
                   func: Callable[[tk.Misc], Optional[str]],
                   dialog_name: str) -> None:
     """Test a chooser returns the picked name, or None when cancelled."""
-    root = _root_or_skip()
+    root = root_or_skip()
     target = f'backlogops_gui.io_dialogs.filedialog.{dialog_name}'
     try:
         monkeypatch.setattr(target, lambda **kw: 'picked.csv')
@@ -131,7 +128,7 @@ def test_choosers(monkeypatch: pytest.MonkeyPatch,
 def test_fmt_preset(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the format dialog returns a chosen preset and ordering."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _FormatDialog(root, ['p1', 'p2'], True)
         # pylint: disable-next=protected-access
@@ -151,7 +148,7 @@ def test_fmt_preset(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_fmt_file(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the format dialog returns a chosen configuration file."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _FormatDialog(root, ['p1'], False)
         # pylint: disable-next=protected-access
@@ -168,7 +165,7 @@ def test_fmt_file(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_fmt_infer(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the format dialog over a non-window parent infers the format."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         frame = tk.Frame(root)
         dialog = _FormatDialog(frame, [], False)
@@ -184,7 +181,7 @@ def test_fmt_browse(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
     target = 'backlogops_gui.io_dialogs.filedialog.askopenfilename'
     monkeypatch.setattr(target, lambda **kw: 'chosen.cfg')
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _FormatDialog(root, ['p1'], False)
         # pylint: disable-next=protected-access
@@ -202,7 +199,7 @@ def test_fmt_browse_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
     target = 'backlogops_gui.io_dialogs.filedialog.askopenfilename'
     monkeypatch.setattr(target, lambda **kw: '')
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _FormatDialog(root, ['p1'], False)
         # pylint: disable-next=protected-access
@@ -216,7 +213,7 @@ def test_fmt_browse_empty(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_read_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a confirmed read dialog returns read options."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert isinstance(ask_read_options(root, ['p']), ReadOptions)
     finally:
@@ -226,7 +223,7 @@ def test_ask_read_ok(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_read_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled read dialog returns nothing."""
     monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_read_options(root, None) is None
     finally:
@@ -236,7 +233,7 @@ def test_ask_read_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_write_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a confirmed write dialog returns write options."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert isinstance(ask_write_options(root, None), WriteOptions)
     finally:
@@ -246,9 +243,85 @@ def test_ask_write_ok(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_write_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled write dialog returns nothing."""
     monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_write_options(root, None) is None
+    finally:
+        root.destroy()
+
+
+def test_jira_select_filter(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test selecting a Jira preset shows its default filter."""
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    root = root_or_skip()
+    try:
+        dialog = _JiraReadDialog(root, {'a': 'filter a', 'b': 'filter b'})
+        # pylint: disable-next=protected-access
+        dialog._preset.set('b')
+        # pylint: disable-next=protected-access
+        dialog._preset_changed(object())
+        # pylint: disable-next=protected-access
+        assert dialog._filter.get() == 'filter b'
+        # pylint: disable-next=protected-access
+        dialog._filter.set('edited')
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options == JiraReadOptions('b', 'edited')
+    finally:
+        root.destroy()
+
+
+def test_jira_needs_preset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test confirming without a Jira preset keeps the dialog open."""
+    rec = _MsgRec()
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    monkeypatch.setattr('backlogops_gui.io_dialogs.messagebox', rec)
+    root = root_or_skip()
+    try:
+        dialog = _JiraReadDialog(root, {})
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None
+        assert rec.calls == [('No Jira preset', 'Select a Jira preset.')]
+    finally:
+        root.destroy()
+
+
+def test_jira_options_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the Jira read dialog returns nothing."""
+    monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
+    root = root_or_skip()
+    try:
+        assert ask_jira_read_options(root, {'p': 'filter'}) is None
+    finally:
+        root.destroy()
+
+
+def test_passphrase_masked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the pass phrase dialog stores text in a masked entry."""
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    root = root_or_skip()
+    try:
+        dialog = _PassphraseDialog(root)
+        # pylint: disable-next=protected-access
+        entries = [w for w in dialog._win.winfo_children()
+                   if isinstance(w, tk.Entry)]
+        assert entries and entries[0].cget('show') == '*'
+        # pylint: disable-next=protected-access
+        dialog._text.set('secret')
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.passphrase == 'secret'
+    finally:
+        root.destroy()
+
+
+def test_pass_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the pass phrase dialog returns nothing."""
+    monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
+    root = root_or_skip()
+    try:
+        assert ask_jira_passphrase(root) is None
     finally:
         root.destroy()
 
@@ -256,7 +329,7 @@ def test_ask_write_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_buffer_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the buffer dialog returns a valid number of days."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _BufferDialog(root)
         # pylint: disable-next=protected-access
@@ -274,7 +347,7 @@ def test_buffer_bad(monkeypatch: pytest.MonkeyPatch, text: str) -> None:
     rec = _MsgRec()
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
     monkeypatch.setattr('backlogops_gui.io_dialogs.messagebox', rec)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _BufferDialog(root)
         # pylint: disable-next=protected-access
@@ -290,7 +363,7 @@ def test_buffer_bad(monkeypatch: pytest.MonkeyPatch, text: str) -> None:
 def test_ask_buffer_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled buffer dialog returns nothing."""
     monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_buffer_days(root) is None
     finally:
@@ -300,7 +373,7 @@ def test_ask_buffer_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_date_order_est(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the date order dialog stores the estimated choice."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _DateOrderDialog(root)
         # pylint: disable-next=protected-access
@@ -315,7 +388,7 @@ def test_date_order_est(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_date_order_planned(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the date order dialog defaults to the planned date."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _DateOrderDialog(root)
         # pylint: disable-next=protected-access
@@ -328,7 +401,7 @@ def test_date_order_planned(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_date_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the wrapper returns the confirmed planned-date choice."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_date_order(root) is False
     finally:
@@ -338,7 +411,7 @@ def test_ask_date_ok(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_date_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled date order dialog returns nothing."""
     monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_date_order(root) is None
     finally:
@@ -348,7 +421,7 @@ def test_ask_date_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_release_order_honor(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the release-order dialog stores the honor and later choice."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _ReleaseOrderDialog(root)
         # pylint: disable-next=protected-access
@@ -367,7 +440,7 @@ def test_release_order_honor(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_release_order_plain(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the release-order dialog defaults to plain release order."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _ReleaseOrderDialog(root)
         # pylint: disable-next=protected-access
@@ -382,7 +455,7 @@ def test_release_order_plain(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_release_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the wrapper returns the confirmed release-order options."""
     monkeypatch.setattr(_ModalDialog, '_show', _confirm_show)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         options = ask_release_order(root)
         assert options is not None
@@ -395,7 +468,7 @@ def test_ask_release_ok(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_release_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled release-order dialog returns nothing."""
     monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_release_order(root) is None
     finally:
@@ -405,7 +478,7 @@ def test_ask_release_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_wrappers_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test each ask wrapper returns the dialog result when confirmed."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_buffer_days(root) is None
         assert ask_keys(root, NoTextIO()) is None
@@ -420,7 +493,7 @@ def test_ask_wrappers_ok(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_keys_confirm(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the keys dialog splits the entered text into keys."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _KeysDialog(root, NoTextIO())
         # pylint: disable-next=protected-access
@@ -439,7 +512,7 @@ def test_keys_load_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(target, lambda **kw: 'keys.txt')
     reader = 'backlogops_gui.io_dialogs.read_key_list'
     monkeypatch.setattr(reader, lambda name, stderr_file: ['X', 'Y'])
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _KeysDialog(root, NoTextIO())
         # pylint: disable-next=protected-access
@@ -455,7 +528,7 @@ def test_keys_load_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
     target = 'backlogops_gui.io_dialogs.filedialog.askopenfilename'
     monkeypatch.setattr(target, lambda **kw: '')
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _KeysDialog(root, NoTextIO())
         # pylint: disable-next=protected-access
@@ -476,7 +549,7 @@ def test_keys_load_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(target, lambda **kw: 'keys.txt')
     monkeypatch.setattr('backlogops_gui.io_dialogs.read_key_list', boom)
     monkeypatch.setattr('backlogops_gui.io_dialogs.messagebox', rec)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _KeysDialog(root, NoTextIO())
         # pylint: disable-next=protected-access
@@ -491,7 +564,7 @@ def test_keys_load_error(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_keys_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled keys dialog returns nothing."""
     monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_keys(root, NoTextIO()) is None
     finally:
@@ -501,7 +574,7 @@ def test_ask_keys_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_dep_confirm(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the dependency dialog keeps an empty space list as None."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _DepOptionsDialog(root)
         # pylint: disable-next=protected-access
@@ -516,7 +589,7 @@ def test_dep_confirm(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_dep_space(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the dependency dialog captures the later, mode and space keys."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _DepOptionsDialog(root)
         # pylint: disable-next=protected-access
@@ -538,7 +611,7 @@ def test_dep_space(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_dep_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled dependency dialog returns nothing."""
     monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_dep_options(root) is None
     finally:
@@ -548,7 +621,7 @@ def test_ask_dep_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_start_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an empty start date stands for today."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _StartDateDialog(root)
         # pylint: disable-next=protected-access
@@ -564,7 +637,7 @@ def test_start_empty(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_start_valid(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a valid ISO date is captured as the start date."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _StartDateDialog(root)
         # pylint: disable-next=protected-access
@@ -582,7 +655,7 @@ def test_start_bad(monkeypatch: pytest.MonkeyPatch) -> None:
     rec = _MsgRec()
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
     monkeypatch.setattr('backlogops_gui.io_dialogs.messagebox', rec)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _StartDateDialog(root)
         # pylint: disable-next=protected-access
@@ -598,7 +671,7 @@ def test_start_bad(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_start_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled start date dialog returns nothing."""
     monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_start_date(root) is None
     finally:
@@ -608,7 +681,7 @@ def test_ask_start_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_levels_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the levels dialog returns the selected level numbers."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _LevelsDialog(root)
         # pylint: disable-next=protected-access
@@ -627,7 +700,7 @@ def test_levels_none(monkeypatch: pytest.MonkeyPatch) -> None:
     rec = _MsgRec()
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
     monkeypatch.setattr('backlogops_gui.io_dialogs.messagebox', rec)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _LevelsDialog(root)
         # pylint: disable-next=protected-access
@@ -641,7 +714,7 @@ def test_levels_none(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ask_levels_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cancelled levels dialog returns nothing."""
     monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_levels(root) is None
     finally:
@@ -660,7 +733,7 @@ class _AutoBuffer(_BufferDialog):
 
 def test_modal_show_real() -> None:
     """Test the real modal show builds the buttons and waits for a close."""
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _AutoBuffer(root)
         assert dialog.days == 5
@@ -679,7 +752,7 @@ def test_no_config_choice(monkeypatch: pytest.MonkeyPatch,
                           choice: ConfigChoice) -> None:
     """Test each button records its choice in the no-config dialog."""
     monkeypatch.setattr(_NoConfigDialog, '_show', _no_config_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _NoConfigDialog(root)
         # pylint: disable-next=protected-access
@@ -692,7 +765,7 @@ def test_no_config_choice(monkeypatch: pytest.MonkeyPatch,
 def test_no_config_frame(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the no-config dialog over a non-window parent defaults to exit."""
     monkeypatch.setattr(_NoConfigDialog, '_show', _no_config_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         frame = tk.Frame(root)
         assert _NoConfigDialog(frame).choice is ConfigChoice.EXIT
@@ -712,7 +785,7 @@ class _AutoNoConfig(_NoConfigDialog):
 
 def test_no_config_show_real() -> None:
     """Test the real no-config show waits and returns the picked choice."""
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert _AutoNoConfig(root).choice is ConfigChoice.WIZARD
     finally:
@@ -722,7 +795,7 @@ def test_no_config_show_real() -> None:
 def test_ask_no_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the ask wrapper returns the dialog's recorded choice."""
     monkeypatch.setattr(_NoConfigDialog, '_show', _no_config_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_no_config_choice(root) is ConfigChoice.EXIT
     finally:
@@ -739,7 +812,7 @@ def test_preset_kind_choice(monkeypatch: pytest.MonkeyPatch,
                             kind: PresetKind) -> None:
     """Test each button records its kind in the preset-kind dialog."""
     monkeypatch.setattr(_PresetKindDialog, '_show', _kind_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         dialog = _PresetKindDialog(root)
         # pylint: disable-next=protected-access
@@ -752,7 +825,7 @@ def test_preset_kind_choice(monkeypatch: pytest.MonkeyPatch,
 def test_preset_kind_frame(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a closed preset-kind dialog over a frame chooses nothing."""
     monkeypatch.setattr(_PresetKindDialog, '_show', _kind_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         frame = tk.Frame(root)
         assert _PresetKindDialog(frame).kind is None
@@ -772,7 +845,7 @@ class _AutoPresetKind(_PresetKindDialog):
 
 def test_kind_show_real() -> None:
     """Test the real preset-kind show waits and returns the picked kind."""
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert _AutoPresetKind(root).kind is PresetKind.INPUT
     finally:
@@ -782,7 +855,7 @@ def test_kind_show_real() -> None:
 def test_ask_preset_kind(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the ask wrapper returns the dialog's recorded kind."""
     monkeypatch.setattr(_PresetKindDialog, '_show', _kind_wait)
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         assert ask_preset_kind(root) is None
     finally:
@@ -791,7 +864,7 @@ def test_ask_preset_kind(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_change_list_no_wm() -> None:
     """Test the change list builds over a non-window parent."""
-    root = _root_or_skip()
+    root = root_or_skip()
     try:
         frame = tk.Frame(root)
         window = show_change_list(frame, 'Changes', 'body', lambda: None)

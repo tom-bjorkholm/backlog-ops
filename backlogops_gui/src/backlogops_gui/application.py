@@ -29,19 +29,22 @@ from typing import Callable, Optional, TextIO, TypeVar
 import argcomplete
 from config_as_json import Config, migrate_cfg
 from config_as_json.file_extension import fix_file_extension
+from jira.exceptions import JIRAError
 from tableio_cfg_json import WizardUiBridge
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, BacklogReleases, GuiDisplayConfig,
     InputFormatConfig, Levels, OutputFormatConfig, Status, get_demo_backlog,
-    get_backlog_ops_config, backlog_ops_wizard, preset_wizard)
+    get_backlog_ops_config, backlog_ops_wizard, preset_wizard,
+    read_jira_from_config)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 from backlogops_gui.gui_wizard import TkWizardBridge
 from backlogops_gui.io_dialogs import (
     ConfigChoice, PresetKind, ask_no_config_choice, ask_preset_kind,
-    ask_read_options, choose_config_file, choose_existing_config,
-    choose_input_file, choose_migrated_preset, choose_preset_to_migrate)
+    ask_read_options, ask_jira_passphrase, ask_jira_read_options,
+    choose_config_file, choose_existing_config, choose_input_file,
+    choose_migrated_preset, choose_preset_to_migrate)
 from backlogops_gui.log_buffer import LogBuffer
 from backlogops_gui._migrate_warn import GuiMigrateWarnHook
 from backlogops_gui.python_version import check_python_version
@@ -62,7 +65,13 @@ DESCRIPTION = 'Graphical user interface for backlog operations'
 CONFIG_ERRORS = (FileNotFoundError, NotADirectoryError, RuntimeError,
                  ValueError, TypeError, KeyError, OSError)
 IO_ERRORS = (ValueError, TypeError, KeyError, OSError)
+JIRA_ERRORS = (ValueError, TypeError, KeyError, RuntimeError, OSError,
+               JIRAError)
+CONSISTENCY_ERRORS = (ValueError, TypeError, KeyError)
 VERSION_ERRORS = (OSError, RuntimeError, ValueError)
+JIRA_WARNING = (
+    'The data read from Jira is not fully consistent. Backlog operations '
+    'are disabled except save to file. See the main log for details.')
 PRESET_CLASSES: dict[PresetKind, type[Config]] = {
     PresetKind.INPUT: InputFormatConfig,
     PresetKind.OUTPUT: OutputFormatConfig}
@@ -140,6 +149,13 @@ class BacklogApp:
     def status_map(self) -> Optional[dict[str, Status]]:
         """Return the library-wide status input map, or None when absent."""
         return self.config.get_status_input_map() if self.config else None
+
+    def _jira_preset_filters(self) -> Optional[dict[str, str]]:
+        """Return Jira preset names mapped to their default filters."""
+        if self.config is None:
+            return None
+        presets = self.config.get_jira_config().from_jira_presets
+        return {name: preset.def_filter for name, preset in presets.items()}
 
     def gui_display(self) -> GuiDisplayConfig:
         """Return the GUI display configuration (level display and maps)."""
@@ -351,15 +367,111 @@ class BacklogApp:
             return
         self.open_backlog(data, path)
 
+    def _read_jira_backlog(self) -> None:
+        """Read a backlog from Jira into a new window."""
+        if self.config is None:
+            self.show_error('No configuration',
+                            'There is no configuration to read Jira from.')
+            return
+        filters = self._jira_preset_filters()
+        if not filters:
+            self.show_error('No Jira presets',
+                            'There are no Jira presets in the configuration.')
+            return
+        options = ask_jira_read_options(self.root, filters)
+        if options is None:
+            return
+        passphrase = self._jira_passphrase(options.preset_name)
+        if passphrase is None:
+            return
+        self._start_jira_thread(options.preset_name, options.issue_filter,
+                                passphrase)
+
+    def _needs_jira_passphrase(self, preset_name: str) -> bool:
+        """Return whether the selected Jira preset uses an encrypted token."""
+        assert self.config is not None
+        jira_config = self.config.get_jira_config()
+        preset = jira_config.get_preset(preset_name)
+        connection = jira_config.connections[preset.connection_name]
+        return connection.uses_encryption()
+
+    def _jira_passphrase(self, preset_name: str) -> Optional[str]:
+        """Ask for a pass phrase when the Jira connection needs one."""
+        if not self._needs_jira_passphrase(preset_name):
+            return ''
+        return ask_jira_passphrase(self.root)
+
+    def _start_jira_thread(self, preset_name: str, issue_filter: str,
+                           passphrase: str) -> None:
+        """Start the Jira read worker thread."""
+        self.log.write(f"Reading from Jira using preset '{preset_name}'...\n")
+        self._refresh_log()
+        thread = threading.Thread(
+            target=lambda: self._read_jira_worker(preset_name, issue_filter,
+                                                  passphrase),
+            daemon=True)
+        thread.start()
+
+    def _read_jira_worker(self, preset_name: str, issue_filter: str,
+                          passphrase: str) -> None:
+        """Read Jira data on a worker and schedule the GUI update."""
+        assert self.config is not None
+        try:
+            data = read_jira_from_config(self.config, preset_name,
+                                         filter_override=issue_filter,
+                                         passphrase=lambda: passphrase,
+                                         stderr_file=self.log)
+            warning = self._jira_consistency_warning(data)
+        except JIRA_ERRORS as error:
+            message = str(error)
+            self._after(lambda: self._jira_read_failed(preset_name, message))
+            return
+        self._after(lambda: self._jira_read_done(preset_name, data, warning))
+
+    def _jira_consistency_warning(self, data: BacklogReleases
+                                  ) -> Optional[str]:
+        """Return a warning if the Jira data is not fully consistent."""
+        try:
+            data.check_consistency(self.log)
+        except CONSISTENCY_ERRORS:
+            self.log.write(f'{JIRA_WARNING}\n')
+            return JIRA_WARNING
+        return None
+
+    def _after(self, callback: Callable[[], None]) -> None:
+        """Schedule a GUI-thread callback if the main window still exists."""
+        try:
+            self.root.after(0, callback)
+        except tk.TclError:
+            pass
+
+    def _jira_read_failed(self, preset_name: str, message: str) -> None:
+        """Report a failed Jira read on the GUI thread."""
+        self.log.write(f"Could not read from Jira preset '{preset_name}': "
+                       f'{message}\n')
+        self.show_error('Could not read from Jira', message)
+
+    def _jira_read_done(self, preset_name: str, data: BacklogReleases,
+                        warning: Optional[str]) -> None:
+        """Open the Jira backlog and report the completed read."""
+        title = f'Jira: {preset_name}'
+        self.open_backlog(data, title, warning)
+        self.log.write(f"Read {len(data.backlog)} backlog items and "
+                       f"{len(data.releases)} releases from Jira preset "
+                       f"'{preset_name}'.\n")
+        self.show_info('Read from Jira',
+                       f"Finished reading from Jira preset '{preset_name}'.")
+
     def new_demo_backlog(self) -> None:
         """Open a demonstration backlog in a new window."""
         self.open_backlog(get_demo_backlog(), 'Demo backlog')
 
-    def open_backlog(self, data: BacklogReleases, title: str) -> None:
+    def open_backlog(self, data: BacklogReleases, title: str,
+                     warning: Optional[str] = None) -> None:
         """Open one backlog and its releases in a new window."""
         BacklogWindow(self.root, data, title, self.out_presets,
                       self.available_teams, self.log, self.levels,
-                      self.gui_display)
+                      self.gui_display, warning)
 
     def report_versions(self) -> None:
         """Report version information into the log on a worker thread.
@@ -396,7 +508,10 @@ class BacklogApp:
     def _add_file_menu(self, menubar: tk.Menu) -> None:
         """Add the file menu with the backlog and exit actions."""
         menu = tk.Menu(menubar, tearoff=False)
-        menu.add_command(label='Read backlog…', command=self.read_backlog_file)
+        read_command = self.read_backlog_file
+        menu.add_command(label='Read backlog…', command=read_command)
+        menu.add_command(label='Read backlog from Jira…',
+                         command=self._read_jira_backlog)
         menu.add_command(label='New demo backlog',
                          command=self.new_demo_backlog)
         menu.add_separator()

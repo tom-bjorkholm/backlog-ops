@@ -17,6 +17,7 @@ from tkinter import filedialog, messagebox, ttk
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
+from collections.abc import Mapping
 from typing import Callable, Optional, Sequence, TextIO
 from backlogops import DependencyMode, DEFAULT_LEVELS, read_key_list
 from backlogops_gui.gui_style import focus_first_input, style_input
@@ -74,6 +75,14 @@ class WriteOptions:
 
     config_value: Optional[str]
     releases_first: bool
+
+
+@dataclass
+class JiraReadOptions:
+    """The Jira preset and issue filter selected for reading from Jira."""
+
+    preset_name: str
+    issue_filter: str
 
 
 def choose_input_file(parent: tk.Misc) -> Optional[str]:
@@ -137,7 +146,8 @@ class _NoConfigDialog:
                  wraplength=NO_CONFIG_WRAP).pack(anchor='w', padx=12,
                                                  pady=(12, 6))
         self._add_button('Run the configuration wizard', ConfigChoice.WIZARD)
-        self._add_button('Load configuration from a file…', ConfigChoice.LOAD)
+        load_choice = ConfigChoice.LOAD
+        self._add_button('Load configuration from a file…', load_choice)
         self._add_button('Exit the application', ConfigChoice.EXIT)
 
     def _add_button(self, text: str, choice: ConfigChoice) -> None:
@@ -346,6 +356,97 @@ def ask_write_options(parent: tk.Misc, presets: Optional[Sequence[str]]
         return None
     return WriteOptions(config_value=dialog.value,
                         releases_first=dialog.releases_first)
+
+
+# pylint: disable-next=too-few-public-methods
+class _JiraReadDialog(_ModalDialog):
+    """Modal dialog collecting the Jira preset and issue filter."""
+
+    def __init__(self, parent: tk.Misc,
+                 preset_filters: Mapping[str, str]) -> None:
+        """Build, show and wait for the Jira read dialog."""
+        super().__init__(parent, 'Read backlog from Jira')
+        self.options: Optional[JiraReadOptions] = None
+        self._filters = dict(preset_filters)
+        names = sorted(self._filters)
+        first = names[0] if names else ''
+        self._preset = tk.StringVar(self._win, first)
+        self._filter = tk.StringVar(self._win, self._filters.get(first, ''))
+        self._build(names)
+        self._show()
+
+    def _build(self, names: Sequence[str]) -> None:
+        """Add the preset chooser and editable filter field."""
+        tk.Label(self._win, text='Jira preset:').pack(anchor='w', padx=12,
+                                                      pady=(10, 2))
+        box = ttk.Combobox(self._win, textvariable=self._preset,
+                           values=list(names), state='readonly', width=35)
+        box.bind('<<ComboboxSelected>>', self._preset_changed)
+        style_input(box)
+        box.pack(anchor='w', padx=12)
+        tk.Label(self._win, text='Jira issue filter:'
+                 ).pack(anchor='w', padx=12, pady=(8, 2))
+        entry = tk.Entry(self._win, textvariable=self._filter, width=80)
+        style_input(entry)
+        entry.pack(anchor='w', padx=12, fill='x')
+
+    def _preset_changed(self, _event: object) -> None:
+        """Show the selected preset's default issue filter."""
+        self._filter.set(self._filters.get(self._preset.get(), ''))
+
+    def _confirm(self) -> None:
+        """Store the selected preset and filter, requiring a preset."""
+        name = self._preset.get()
+        if not name:
+            messagebox.showerror('No Jira preset', 'Select a Jira preset.',
+                                 parent=self._win)
+            return
+        self.options = JiraReadOptions(name, self._filter.get())
+        super()._confirm()
+
+
+def ask_jira_read_options(parent: tk.Misc, preset_filters: Mapping[str, str]
+                          ) -> Optional[JiraReadOptions]:
+    """Ask which Jira preset and filter to read, or None when cancelled."""
+    dialog = _JiraReadDialog(parent, preset_filters)
+    if dialog.cancelled:
+        return None
+    return dialog.options
+
+
+# pylint: disable-next=too-few-public-methods
+class _PassphraseDialog(_ModalDialog):
+    """Modal dialog collecting a masked pass phrase."""
+
+    def __init__(self, parent: tk.Misc) -> None:
+        """Build, show and wait for the pass phrase dialog."""
+        super().__init__(parent, 'Jira API token pass phrase')
+        self.passphrase: Optional[str] = None
+        self._text = tk.StringVar(self._win)
+        self._build()
+        self._show()
+
+    def _build(self) -> None:
+        """Add the masked pass phrase entry."""
+        tk.Label(self._win, text='Jira API token pass phrase:'
+                 ).pack(anchor='w', padx=12, pady=(10, 2))
+        entry = tk.Entry(self._win, textvariable=self._text, width=40,
+                         show='*')
+        style_input(entry)
+        entry.pack(anchor='w', padx=12)
+
+    def _confirm(self) -> None:
+        """Store the entered pass phrase and close the dialog."""
+        self.passphrase = self._text.get()
+        super()._confirm()
+
+
+def ask_jira_passphrase(parent: tk.Misc) -> Optional[str]:
+    """Ask for the Jira token pass phrase, or None when cancelled."""
+    dialog = _PassphraseDialog(parent)
+    if dialog.cancelled:
+        return None
+    return dialog.passphrase
 
 
 def choose_key_list_output(parent: tk.Misc) -> Optional[str]:

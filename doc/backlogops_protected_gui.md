@@ -79,6 +79,7 @@
     * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
     * [levels](#backlogops_gui.application.BacklogApp.levels)
     * [status\_map](#backlogops_gui.application.BacklogApp.status_map)
+    * [\_jira\_preset\_filters](#backlogops_gui.application.BacklogApp._jira_preset_filters)
     * [gui\_display](#backlogops_gui.application.BacklogApp.gui_display)
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
     * [show\_info](#backlogops_gui.application.BacklogApp.show_info)
@@ -96,6 +97,15 @@
     * [write\_config](#backlogops_gui.application.BacklogApp.write_config)
     * [\_write\_to\_chosen](#backlogops_gui.application.BacklogApp._write_to_chosen)
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
+    * [\_read\_jira\_backlog](#backlogops_gui.application.BacklogApp._read_jira_backlog)
+    * [\_needs\_jira\_passphrase](#backlogops_gui.application.BacklogApp._needs_jira_passphrase)
+    * [\_jira\_passphrase](#backlogops_gui.application.BacklogApp._jira_passphrase)
+    * [\_start\_jira\_thread](#backlogops_gui.application.BacklogApp._start_jira_thread)
+    * [\_read\_jira\_worker](#backlogops_gui.application.BacklogApp._read_jira_worker)
+    * [\_jira\_consistency\_warning](#backlogops_gui.application.BacklogApp._jira_consistency_warning)
+    * [\_after](#backlogops_gui.application.BacklogApp._after)
+    * [\_jira\_read\_failed](#backlogops_gui.application.BacklogApp._jira_read_failed)
+    * [\_jira\_read\_done](#backlogops_gui.application.BacklogApp._jira_read_done)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
     * [open\_backlog](#backlogops_gui.application.BacklogApp.open_backlog)
     * [report\_versions](#backlogops_gui.application.BacklogApp.report_versions)
@@ -143,6 +153,7 @@
     * [\_report\_info](#backlogops_gui.backlog_window.BacklogWindow._report_info)
     * [\_build\_tables](#backlogops_gui.backlog_window.BacklogWindow._build_tables)
     * [\_refresh\_tables](#backlogops_gui.backlog_window.BacklogWindow._refresh_tables)
+    * [\_add\_warning](#backlogops_gui.backlog_window.BacklogWindow._add_warning)
     * [\_add\_menu](#backlogops_gui.backlog_window.BacklogWindow._add_menu)
     * [\_add\_actions](#backlogops_gui.backlog_window.BacklogWindow._add_actions)
     * [\_add\_table](#backlogops_gui.backlog_window.BacklogWindow._add_table)
@@ -163,6 +174,7 @@
   * [format\_value](#backlogops_gui.io_dialogs.format_value)
   * [ReadOptions](#backlogops_gui.io_dialogs.ReadOptions)
   * [WriteOptions](#backlogops_gui.io_dialogs.WriteOptions)
+  * [JiraReadOptions](#backlogops_gui.io_dialogs.JiraReadOptions)
   * [choose\_input\_file](#backlogops_gui.io_dialogs.choose_input_file)
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
@@ -200,6 +212,17 @@
     * [\_selected\_value](#backlogops_gui.io_dialogs._FormatDialog._selected_value)
   * [ask\_read\_options](#backlogops_gui.io_dialogs.ask_read_options)
   * [ask\_write\_options](#backlogops_gui.io_dialogs.ask_write_options)
+  * [\_JiraReadDialog](#backlogops_gui.io_dialogs._JiraReadDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._JiraReadDialog.__init__)
+    * [\_build](#backlogops_gui.io_dialogs._JiraReadDialog._build)
+    * [\_preset\_changed](#backlogops_gui.io_dialogs._JiraReadDialog._preset_changed)
+    * [\_confirm](#backlogops_gui.io_dialogs._JiraReadDialog._confirm)
+  * [ask\_jira\_read\_options](#backlogops_gui.io_dialogs.ask_jira_read_options)
+  * [\_PassphraseDialog](#backlogops_gui.io_dialogs._PassphraseDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._PassphraseDialog.__init__)
+    * [\_build](#backlogops_gui.io_dialogs._PassphraseDialog._build)
+    * [\_confirm](#backlogops_gui.io_dialogs._PassphraseDialog._confirm)
+  * [ask\_jira\_passphrase](#backlogops_gui.io_dialogs.ask_jira_passphrase)
   * [choose\_key\_list\_output](#backlogops_gui.io_dialogs.choose_key_list_output)
   * [choose\_changes\_output](#backlogops_gui.io_dialogs.choose_changes_output)
   * [\_BufferDialog](#backlogops_gui.io_dialogs._BufferDialog)
@@ -1204,6 +1227,16 @@ def status_map() -> Optional[dict[str, Status]]
 
 Return the library-wide status input map, or None when absent.
 
+<a id="backlogops_gui.application.BacklogApp._jira_preset_filters"></a>
+
+#### \_jira\_preset\_filters
+
+```python
+def _jira_preset_filters() -> Optional[dict[str, str]]
+```
+
+Return Jira preset names mapped to their default filters.
+
 <a id="backlogops_gui.application.BacklogApp.gui_display"></a>
 
 #### gui\_display
@@ -1412,6 +1445,99 @@ def read_backlog_file() -> None
 
 Read a backlog from a chosen file into a new window.
 
+<a id="backlogops_gui.application.BacklogApp._read_jira_backlog"></a>
+
+#### \_read\_jira\_backlog
+
+```python
+def _read_jira_backlog() -> None
+```
+
+Read a backlog from Jira into a new window.
+
+<a id="backlogops_gui.application.BacklogApp._needs_jira_passphrase"></a>
+
+#### \_needs\_jira\_passphrase
+
+```python
+def _needs_jira_passphrase(preset_name: str) -> bool
+```
+
+Return whether the selected Jira preset uses an encrypted token.
+
+<a id="backlogops_gui.application.BacklogApp._jira_passphrase"></a>
+
+#### \_jira\_passphrase
+
+```python
+def _jira_passphrase(preset_name: str) -> Optional[str]
+```
+
+Ask for a pass phrase when the Jira connection needs one.
+
+<a id="backlogops_gui.application.BacklogApp._start_jira_thread"></a>
+
+#### \_start\_jira\_thread
+
+```python
+def _start_jira_thread(preset_name: str, issue_filter: str,
+                       passphrase: str) -> None
+```
+
+Start the Jira read worker thread.
+
+<a id="backlogops_gui.application.BacklogApp._read_jira_worker"></a>
+
+#### \_read\_jira\_worker
+
+```python
+def _read_jira_worker(preset_name: str, issue_filter: str,
+                      passphrase: str) -> None
+```
+
+Read Jira data on a worker and schedule the GUI update.
+
+<a id="backlogops_gui.application.BacklogApp._jira_consistency_warning"></a>
+
+#### \_jira\_consistency\_warning
+
+```python
+def _jira_consistency_warning(data: BacklogReleases) -> Optional[str]
+```
+
+Return a warning if the Jira data is not fully consistent.
+
+<a id="backlogops_gui.application.BacklogApp._after"></a>
+
+#### \_after
+
+```python
+def _after(callback: Callable[[], None]) -> None
+```
+
+Schedule a GUI-thread callback if the main window still exists.
+
+<a id="backlogops_gui.application.BacklogApp._jira_read_failed"></a>
+
+#### \_jira\_read\_failed
+
+```python
+def _jira_read_failed(preset_name: str, message: str) -> None
+```
+
+Report a failed Jira read on the GUI thread.
+
+<a id="backlogops_gui.application.BacklogApp._jira_read_done"></a>
+
+#### \_jira\_read\_done
+
+```python
+def _jira_read_done(preset_name: str, data: BacklogReleases,
+                    warning: Optional[str]) -> None
+```
+
+Open the Jira backlog and report the completed read.
+
 <a id="backlogops_gui.application.BacklogApp.new_demo_backlog"></a>
 
 #### new\_demo\_backlog
@@ -1427,7 +1553,9 @@ Open a demonstration backlog in a new window.
 #### open\_backlog
 
 ```python
-def open_backlog(data: BacklogReleases, title: str) -> None
+def open_backlog(data: BacklogReleases,
+                 title: str,
+                 warning: Optional[str] = None) -> None
 ```
 
 Open one backlog and its releases in a new window.
@@ -1929,16 +2057,15 @@ A top-level window showing one backlog and its releases.
 #### \_\_init\_\_
 
 ```python
-def __init__(
-        root: tk.Misc,
-        data: BacklogReleases,
-        title: str,
-        presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
-        teams: Callable[[], Optional[AvailableTeams]],
-        sink: TextIO,
-        levels: Callable[[], Optional[Levels]] = lambda: None,
-        gui_display: Callable[[],
-                              GuiDisplayConfig] = GuiDisplayConfig) -> None
+def __init__(root: tk.Misc,
+             data: BacklogReleases,
+             title: str,
+             presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
+             teams: Callable[[], Optional[AvailableTeams]],
+             sink: TextIO,
+             levels: Callable[[], Optional[Levels]] = lambda: None,
+             gui_display: Callable[[], GuiDisplayConfig] = GuiDisplayConfig,
+             warning: Optional[str] = None) -> None
 ```
 
 Build the window, its menu and the two tables.
@@ -1956,6 +2083,8 @@ Build the window, its menu and the two tables.
 - `gui_display` - Callable returning the GUI display configuration,
   which decides the level display and the per-table column
   renaming for the tables.
+- `warning` - Warning text to show over the tables. When present,
+  backlog operations are disabled and only saving remains.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._report_error"></a>
 
@@ -1996,6 +2125,16 @@ def _refresh_tables() -> None
 ```
 
 Rebuild the tables after the backlog data has changed.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._add_warning"></a>
+
+#### \_add\_warning
+
+```python
+def _add_warning() -> None
+```
+
+Show a highly visible warning over restricted backlog data.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._add_menu"></a>
 
@@ -2211,6 +2350,17 @@ class WriteOptions()
 ```
 
 The format selection and ordering entered for writing a file.
+
+<a id="backlogops_gui.io_dialogs.JiraReadOptions"></a>
+
+## JiraReadOptions Objects
+
+```python
+@dataclass
+class JiraReadOptions()
+```
+
+The Jira preset and issue filter selected for reading from Jira.
 
 <a id="backlogops_gui.io_dialogs.choose_input_file"></a>
 
@@ -2589,6 +2739,118 @@ def ask_write_options(
 ```
 
 Ask how to write a file, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.io_dialogs._JiraReadDialog"></a>
+
+## \_JiraReadDialog Objects
+
+```python
+class _JiraReadDialog(_ModalDialog)
+```
+
+Modal dialog collecting the Jira preset and issue filter.
+
+<a id="backlogops_gui.io_dialogs._JiraReadDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, preset_filters: Mapping[str, str]) -> None
+```
+
+Build, show and wait for the Jira read dialog.
+
+<a id="backlogops_gui.io_dialogs._JiraReadDialog._build"></a>
+
+#### \_build
+
+```python
+def _build(names: Sequence[str]) -> None
+```
+
+Add the preset chooser and editable filter field.
+
+<a id="backlogops_gui.io_dialogs._JiraReadDialog._preset_changed"></a>
+
+#### \_preset\_changed
+
+```python
+def _preset_changed(_event: object) -> None
+```
+
+Show the selected preset's default issue filter.
+
+<a id="backlogops_gui.io_dialogs._JiraReadDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the selected preset and filter, requiring a preset.
+
+<a id="backlogops_gui.io_dialogs.ask_jira_read_options"></a>
+
+#### ask\_jira\_read\_options
+
+```python
+def ask_jira_read_options(
+        parent: tk.Misc,
+        preset_filters: Mapping[str, str]) -> Optional[JiraReadOptions]
+```
+
+Ask which Jira preset and filter to read, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs._PassphraseDialog"></a>
+
+## \_PassphraseDialog Objects
+
+```python
+class _PassphraseDialog(_ModalDialog)
+```
+
+Modal dialog collecting a masked pass phrase.
+
+<a id="backlogops_gui.io_dialogs._PassphraseDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the pass phrase dialog.
+
+<a id="backlogops_gui.io_dialogs._PassphraseDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the masked pass phrase entry.
+
+<a id="backlogops_gui.io_dialogs._PassphraseDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the entered pass phrase and close the dialog.
+
+<a id="backlogops_gui.io_dialogs.ask_jira_passphrase"></a>
+
+#### ask\_jira\_passphrase
+
+```python
+def ask_jira_passphrase(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for the Jira token pass phrase, or None when cancelled.
 
 <a id="backlogops_gui.io_dialogs.choose_key_list_output"></a>
 

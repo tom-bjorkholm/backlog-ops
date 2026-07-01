@@ -16,7 +16,7 @@ module function so it can be tested without a display.
 import tkinter as tk
 from datetime import timedelta
 from tkinter import messagebox, ttk
-from typing import Callable, Optional, TextIO
+from typing import Callable, Literal, Optional, TextIO
 from tableio import ValueFmt
 from backlogops import (
     AvailableTeams, BacklogReleases, GuiDisplayConfig, Levels,
@@ -35,6 +35,7 @@ from backlogops_gui.table_view import (
 WRITE_ERRORS = (ValueError, TypeError, KeyError, OSError)
 ACTION_ERRORS = (ValueError, TypeError, KeyError, RuntimeError, OSError)
 RELEASE_COLUMN_WIDTH = 110
+WARNING_WRAP = 760
 
 
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
@@ -360,7 +361,8 @@ class BacklogWindow:
                  teams: Callable[[], Optional[AvailableTeams]], sink: TextIO,
                  levels: Callable[[], Optional[Levels]] = lambda: None,
                  gui_display: Callable[
-                     [], GuiDisplayConfig] = GuiDisplayConfig) -> None:
+                     [], GuiDisplayConfig] = GuiDisplayConfig,
+                 warning: Optional[str] = None) -> None:
         """Build the window, its menu and the two tables.
 
         Args:
@@ -375,6 +377,8 @@ class BacklogWindow:
             gui_display: Callable returning the GUI display configuration,
                 which decides the level display and the per-table column
                 renaming for the tables.
+            warning: Warning text to show over the tables. When present,
+                backlog operations are disabled and only saving remains.
         """
         self._data = data
         self._presets = presets
@@ -382,10 +386,12 @@ class BacklogWindow:
         self._sink = sink
         self._levels = levels
         self._gui_display = gui_display
+        self._warning = warning
         self._win = tk.Toplevel(root)
         self._win.title(title)
         self._tables: list[tk.Widget] = []
         self._add_menu()
+        self._add_warning()
         self._build_tables()
 
     def _report_error(self, title: str, message: str) -> None:
@@ -415,6 +421,15 @@ class BacklogWindow:
         self._tables = []
         self._build_tables()
 
+    def _add_warning(self) -> None:
+        """Show a highly visible warning over restricted backlog data."""
+        if self._warning is None:
+            return
+        color = 'yellow'
+        label = tk.Label(self._win, text=self._warning, bg=color, fg='black',
+                         justify='left', wraplength=WARNING_WRAP)
+        label.pack(fill='x', padx=8, pady=(8, 2))
+
     def _add_menu(self) -> None:
         """Add the backlog menu with the action, save and close items."""
         menubar = tk.Menu(self._win)
@@ -428,22 +443,26 @@ class BacklogWindow:
 
     def _add_actions(self, menu: tk.Menu) -> None:
         """Add the backlog operation items to the menu."""
-        menu.add_command(label='Order by keys…', command=self._order_by_keys)
+        state: Literal['normal', 'disabled']
+        state = 'disabled' if self._warning is not None else 'normal'
+        menu.add_command(label='Order by keys…', command=self._order_by_keys,
+                         state=state)
         menu.add_command(label='Order by dependencies…',
-                         command=self._order_by_deps)
+                         command=self._order_by_deps, state=state)
         menu.add_command(label='Order by release order…',
-                         command=self._order_by_release)
+                         command=self._order_by_release, state=state)
         menu.add_command(label='Estimate ready date…',
-                         command=self._estimate_date)
+                         command=self._estimate_date, state=state)
         menu.add_command(label='Set planned date from estimated',
-                         command=self._set_plan)
+                         command=self._set_plan, state=state)
         menu.add_command(label='Adjust release content…',
-                         command=self._adjust_content)
+                         command=self._adjust_content, state=state)
         menu.add_command(label='Adjust planned release dates…',
-                         command=self._plan_dates)
+                         command=self._plan_dates, state=state)
         menu.add_command(label='Order releases by date…',
-                         command=self._order_dates)
-        menu.add_command(label='Extract keys…', command=self._extract_keys)
+                         command=self._order_dates, state=state)
+        menu.add_command(label='Extract keys…', command=self._extract_keys,
+                         state=state)
 
     def _add_table(self, heading: str, columns: list[str],
                    rows: list[list[ValueFmt]], narrow: bool) -> tk.Widget:

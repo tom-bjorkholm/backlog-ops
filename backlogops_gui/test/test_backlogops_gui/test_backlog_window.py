@@ -22,24 +22,7 @@ from backlogops_gui.backlog_window import _content_report, _date_report
 from backlogops_gui.io_dialogs import (
     DepOptions, ReleaseOrderOptions, StartChoice, WriteOptions,
     show_change_list)
-
-
-class _MsgRecorder:
-    """Record the message-box calls made over a backlog window."""
-
-    def __init__(self) -> None:
-        """Start with an empty record of calls."""
-        self.calls: list[tuple[str, str]] = []
-
-    def showerror(self, title: str, message: str, parent: object) -> None:
-        """Record a shown error message."""
-        assert parent is not None
-        self.calls.append((title, message))
-
-    def showinfo(self, title: str, message: str, parent: object) -> None:
-        """Record a shown informational message."""
-        assert parent is not None
-        self.calls.append((title, message))
+from .gui_test_helpers import MsgRecorder
 
 
 def _key_write_fail(keys: object, path: object, **_kw: object) -> None:
@@ -673,11 +656,7 @@ def _root() -> tk.Tk:
 
 def _menu_labels(window: BacklogWindow) -> list[str]:
     """Return the labels in the backlog menu of a backlog window."""
-    # pylint: disable-next=protected-access
-    menubar = window._win.nametowidget(window._win.cget('menu'))
-    assert isinstance(menubar, tk.Menu)
-    menu = menubar.nametowidget(menubar.entrycget(0, 'menu'))
-    assert isinstance(menu, tk.Menu)
+    menu = _backlog_menu(window)
     last = menu.index('end')
     assert last is not None
     labels: list[str] = []
@@ -685,6 +664,16 @@ def _menu_labels(window: BacklogWindow) -> list[str]:
         if menu.type(index) != 'separator':
             labels.append(menu.entrycget(index, 'label'))
     return labels
+
+
+def _backlog_menu(window: BacklogWindow) -> tk.Menu:
+    """Return the backlog menu of a backlog window."""
+    # pylint: disable-next=protected-access
+    menubar = window._win.nametowidget(window._win.cget('menu'))
+    assert isinstance(menubar, tk.Menu)
+    menu = menubar.nametowidget(menubar.entrycget(0, 'menu'))
+    assert isinstance(menu, tk.Menu)
+    return menu
 
 
 def test_change_list_build() -> None:
@@ -792,7 +781,7 @@ def test_window_acts(monkeypatch: pytest.MonkeyPatch) -> None:
         calls: list[str] = []
         for name in _DELEGATES:
             monkeypatch.setattr(backlog_window, name, _log_call(name, calls))
-        recorder = _MsgRecorder()
+        recorder = MsgRecorder()
         monkeypatch.setattr(backlog_window, 'messagebox', recorder)
         data = get_demo_backlog()
         window = BacklogWindow(root, data, 'Title', _none, _none, SINK)
@@ -807,5 +796,30 @@ def test_window_acts(monkeypatch: pytest.MonkeyPatch) -> None:
             getattr(window, method)()
         assert sorted(calls) == sorted(_DELEGATES)
         assert recorder.calls == [('E', 'err'), ('I', 'info')]
+    finally:
+        root.destroy()
+
+
+def test_warning_disables_ops() -> None:
+    """Test a warning window disables operations but still allows saving."""
+    root = _root()
+    try:
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
+                               warning='Broken Jira data')
+        menu = _backlog_menu(window)
+        last = menu.index('end')
+        assert last is not None
+        states = {menu.entrycget(index, 'label'):
+                  menu.entrycget(index, 'state')
+                  for index in range(last + 1)
+                  if menu.type(index) != 'separator'}
+        assert states['Order by keys…'] == 'disabled'
+        assert states['Estimate ready date…'] == 'disabled'
+        assert states['Extract keys…'] == 'disabled'
+        assert states['Save to file…'] == 'normal'
+        # pylint: disable-next=protected-access
+        labels = [w for w in window._win.winfo_children()
+                  if isinstance(w, tk.Label)]
+        assert labels and labels[0].cget('text') == 'Broken Jira data'
     finally:
         root.destroy()
