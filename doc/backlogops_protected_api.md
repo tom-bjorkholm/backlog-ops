@@ -328,7 +328,6 @@
   * [order\_releases\_by\_date](#backlogops.releases.order_releases_by_date)
 * [backlogops.jira\_read](#backlogops.jira_read)
   * [\_SINGLE\_VALUE\_FIELDS](#backlogops.jira_read._SINGLE_VALUE_FIELDS)
-  * [\_connect](#backlogops.jira_read._connect)
   * [\_custom\_ids](#backlogops.jira_read._custom_ids)
   * [\_walk](#backlogops.jira_read._walk)
   * [\_dotted](#backlogops.jira_read._dotted)
@@ -428,6 +427,14 @@
     * [get\_app\_support\_expires](#backlogops.blo_version_reporter.BloVersionReporter.get_app_support_expires)
     * [get\_main\_package\_name](#backlogops.blo_version_reporter.BloVersionReporter.get_main_package_name)
     * [recommended\_python](#backlogops.blo_version_reporter.BloVersionReporter.recommended_python)
+* [backlogops.jira\_connect](#backlogops.jira_connect)
+  * [\_connect](#backlogops.jira_connect._connect)
+  * [\_is\_alive](#backlogops.jira_connect._is_alive)
+  * [\_safe\_close](#backlogops.jira_connect._safe_close)
+  * [JiraConnections](#backlogops.jira_connect.JiraConnections)
+    * [\_\_init\_\_](#backlogops.jira_connect.JiraConnections.__init__)
+    * [client](#backlogops.jira_connect.JiraConnections.client)
+    * [close](#backlogops.jira_connect.JiraConnections.close)
 * [backlogops.jira\_wizard](#backlogops.jira_wizard)
   * [\_ask\_enum](#backlogops.jira_wizard._ask_enum)
   * [\_counted\_named](#backlogops.jira_wizard._counted_named)
@@ -469,6 +476,24 @@
   * [levels\_from\_list](#backlogops.levels.levels_from_list)
   * [level\_number\_from\_name](#backlogops.levels.level_number_from_name)
   * [level\_name](#backlogops.levels.level_name)
+* [backlogops.jira\_write](#backlogops.jira_write)
+  * [\_SKIP\_WRITE\_FIELDS](#backlogops.jira_write._SKIP_WRITE_FIELDS)
+  * [\_JIRA\_LIST\_FIELDS](#backlogops.jira_write._JIRA_LIST_FIELDS)
+  * [OnExistingKey](#backlogops.jira_write.OnExistingKey)
+  * [AddedToJira](#backlogops.jira_write.AddedToJira)
+  * [\_WriteContext](#backlogops.jira_write._WriteContext)
+  * [\_nest](#backlogops.jira_write._nest)
+  * [\_field\_payload](#backlogops.jira_write._field_payload)
+  * [\_place\_value](#backlogops.jira_write._place_value)
+  * [\_internal\_value](#backlogops.jira_write._internal_value)
+  * [\_create\_fields](#backlogops.jira_write._create_fields)
+  * [\_issue\_exists](#backlogops.jira_write._issue_exists)
+  * [\_existing\_keys](#backlogops.jira_write._existing_keys)
+  * [\_raise\_existing](#backlogops.jira_write._raise_existing)
+  * [\_issue\_key](#backlogops.jira_write._issue_key)
+  * [\_stored\_copy](#backlogops.jira_write._stored_copy)
+  * [\_write\_new\_items](#backlogops.jira_write._write_new_items)
+  * [add\_backlog\_to\_jira](#backlogops.jira_write.add_backlog_to_jira)
 * [backlogops.backlog\_releases\_io](#backlogops.backlog_releases_io)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
@@ -5999,7 +6024,8 @@ Read a backlog and its releases from Jira into BacklogReleases.
 
 A configured :class:`JiraPreset` names the connection, the backlog and
 release column maps, the default project and the default issue filter.
-:func:`read_backlog_from_jira` connects to Jira, runs the issue
+:func:`read_backlog_from_jira` takes a live client from a
+:class:`backlogops.jira_connect.JiraConnections` pool, runs the issue
 filter (Jira Query Language) to read the backlog items, reads the project
 versions to read the releases, and maps each Jira attribute to an
 internal field through the preset's column maps. Custom field display
@@ -6011,28 +6037,11 @@ is configured at all, the default filter selects every issue in the
 default project, ordered by rank, while the releases always come from the
 default project's versions.
 
-A cloud connection authenticates with the login email and the token; a
-server connection uses the token as a personal access token. The token
-is materialized through :meth:`JiraConnectConfig.get_token`, asking the
-supplied pass phrase provider only when an encrypted storage mode needs
-it.
-
 <a id="backlogops.jira_read._SINGLE_VALUE_FIELDS"></a>
 
 #### \_SINGLE\_VALUE\_FIELDS
 
 Internal fields that hold a single scalar value.
-
-<a id="backlogops.jira_read._connect"></a>
-
-#### \_connect
-
-```python
-def _connect(connection: JiraConnectConfig,
-             passphrase: Optional[Callable[[], str]]) -> JIRA
-```
-
-Return a Jira client connected with the connection's token.
 
 <a id="backlogops.jira_read._custom_ids"></a>
 
@@ -6307,11 +6316,10 @@ empty filter falls back to the default project filter.
 
 ```python
 def read_backlog_from_jira(
-        jira_config: JiraIOConfig,
+        connections: JiraConnections,
         preset_name: str,
         *,
         filter_override: Optional[str] = None,
-        passphrase: Optional[Callable[[], str]] = None,
         levels: Optional[Levels] = None,
         status_map: Optional[dict[str, Status]] = None,
         stderr_file: TextIO = sys.stderr) -> BacklogReleases
@@ -6320,17 +6328,17 @@ def read_backlog_from_jira(
 Read a backlog and its releases from Jira using a named preset.
 
 The preset names the connection and the backlog and release column
-maps, all looked up in ``jira_config``. The issues come from the
-resolved filter and the releases from the default project's versions.
+maps, all looked up in the pool's configuration. The client is taken
+from ``connections``, so repeated reads and writes reuse it. The
+issues come from the resolved filter and the releases from the default
+project's versions.
 
 **Arguments**:
 
-- `jira_config` - The Jira configuration holding the preset, connection
-  and column maps.
+- `connections` - The pool of live Jira clients and the configuration
+  holding the preset, connection and column maps.
 - `preset_name` - The name of the from-Jira preset to use.
 - `filter_override` - A Jira filter to use instead of the preset's.
-- `passphrase` - Called to obtain the pass phrase for an encrypted
-  token; not called for a clear token.
 - `levels` - The levels used to resolve a string level, or None for the
   default levels.
 - `status_map` - Extra status names mapped to Status members, or None.
@@ -6362,6 +6370,11 @@ def read_jira_from_config(config: BacklogOpsConfig,
 ```
 
 Read from Jira using the config's Jira settings, levels and status map.
+
+A fresh :class:`JiraConnections` pool is opened for the read. A caller
+that reads and writes several times should instead build one pool and
+pass it to :func:`read_backlog_from_jira` and
+:func:`backlogops.jira_write.add_backlog_to_jira` to reuse connections.
 
 **Arguments**:
 
@@ -7397,6 +7410,125 @@ def recommended_python(cls) -> Version
 
 Return the Python version this package recommends.
 
+<a id="backlogops.jira_connect"></a>
+
+# backlogops.jira\_connect
+
+A pool of authenticated Jira clients reused across reads and writes.
+
+A :class:`JiraConnections` opens at most one live :class:`jira.JIRA`
+client per named connection of a
+:class:`backlogops.jira_io_config.JiraIOConfig` and hands the same client
+to every read and write that names that connection. Before reusing a
+previously opened client it checks the client is still alive, and
+reconnects when the Jira server has closed an idle connection. A client
+opened in the current call is trusted, so a genuine connection failure is
+reported instead of retried forever.
+
+A cloud connection authenticates with the login email and the token; a
+server connection uses the token as a personal access token. The token is
+materialized through :meth:`JiraConnectConfig.get_token`, asking the
+supplied pass phrase provider only when an encrypted storage mode needs
+it.
+
+<a id="backlogops.jira_connect._connect"></a>
+
+#### \_connect
+
+```python
+def _connect(connection: JiraConnectConfig,
+             passphrase: Optional[Callable[[], str]]) -> JIRA
+```
+
+Return a Jira client connected with the connection's token.
+
+<a id="backlogops.jira_connect._is_alive"></a>
+
+#### \_is\_alive
+
+```python
+def _is_alive(client: JIRA) -> bool
+```
+
+Return whether the client's session still reaches the server.
+
+<a id="backlogops.jira_connect._safe_close"></a>
+
+#### \_safe\_close
+
+```python
+def _safe_close(client: JIRA) -> None
+```
+
+Close a client, ignoring an error from an already-dead session.
+
+<a id="backlogops.jira_connect.JiraConnections"></a>
+
+## JiraConnections Objects
+
+```python
+class JiraConnections()
+```
+
+A reusable pool of live Jira clients keyed by connection name.
+
+The pool is built from a :class:`JiraIOConfig`, so it can resolve any
+connection named by a read or write preset, and from an optional pass
+phrase provider used when a connection stores an encrypted token. The
+same client is reused for repeated reads and writes that name the same
+connection; a client the Jira server has since closed is replaced on
+the next use.
+
+<a id="backlogops.jira_connect.JiraConnections.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(jira_config: JiraIOConfig,
+             passphrase: Optional[Callable[[], str]] = None) -> None
+```
+
+Store the configuration and start with no open clients.
+
+<a id="backlogops.jira_connect.JiraConnections.client"></a>
+
+#### client
+
+```python
+def client(connection_name: str) -> JIRA
+```
+
+Return a live client for the named connection, reconnecting it.
+
+A previously opened client is reused when it is still alive, and
+replaced by a fresh connection when the server has closed it. A
+connection opened in this call is returned without a further live
+check, so a real connection failure raises instead of looping.
+
+**Arguments**:
+
+- `connection_name` - The name of the connection to use.
+  
+
+**Returns**:
+
+  A live Jira client for the connection.
+  
+
+**Raises**:
+
+- `KeyError` - If the configuration has no such connection.
+
+<a id="backlogops.jira_connect.JiraConnections.close"></a>
+
+#### close
+
+```python
+def close() -> None
+```
+
+Close every open client and forget it.
+
 <a id="backlogops.jira_wizard"></a>
 
 # backlogops.jira\_wizard
@@ -8020,6 +8152,241 @@ Return the configured name for a level number, or None when unknown.
 
   The name of the level with that number, or None when no level
   with that number is configured.
+
+<a id="backlogops.jira_write"></a>
+
+# backlogops.jira\_write
+
+Add backlog items to Jira from an internal backlog.
+
+:func:`add_backlog_to_jira` creates one Jira issue per backlog item that
+is not already present. It first looks up every item's key in Jira; in
+``RAISE`` mode it raises before creating anything when a key already
+exists, and in ``SKIP`` mode it leaves the already-present items alone.
+The create payload for each new issue is built by inverting the write
+preset's backlog column map: a plain field such as the summary is set
+directly, a nested field such as the issue type is wrapped by its path
+steps, a list field such as the fix versions is wrapped as named objects,
+and a custom field is set by its resolved field id.
+
+The item key is assigned by Jira, the status needs a workflow transition,
+and the parent and dependency links are updated in a later batch, so
+those fields are not written here. The argument backlog is never modified;
+each added item is copied and the copy carries the key Jira assigned.
+
+<a id="backlogops.jira_write._SKIP_WRITE_FIELDS"></a>
+
+#### \_SKIP\_WRITE\_FIELDS
+
+Internal fields not written when creating an issue in this batch.
+
+The key is assigned by Jira, the status needs a workflow transition, and
+the parent and dependency links are updated in a later batch.
+
+<a id="backlogops.jira_write._JIRA_LIST_FIELDS"></a>
+
+#### \_JIRA\_LIST\_FIELDS
+
+Jira issue fields whose create value is a list of named objects.
+
+<a id="backlogops.jira_write.OnExistingKey"></a>
+
+## OnExistingKey Objects
+
+```python
+class OnExistingKey(Enum)
+```
+
+What to do when a backlog item's key already exists in Jira.
+
+<a id="backlogops.jira_write.AddedToJira"></a>
+
+## AddedToJira Objects
+
+```python
+class AddedToJira(NamedTuple)
+```
+
+The result of adding a backlog to Jira.
+
+Fields:
+    stored: Copies of the added items, each carrying the key Jira
+        assigned to the created issue.
+    already_present: Copies of the items whose key already existed in
+        Jira and were therefore not added, with their original key.
+    key_map: For each stored item, its original key mapped to the key
+        Jira assigned. Used later to update parent and dependency keys.
+
+<a id="backlogops.jira_write._WriteContext"></a>
+
+## \_WriteContext Objects
+
+```python
+@dataclass(frozen=True)
+class _WriteContext()
+```
+
+The resolved Jira target and mapping for creating issues.
+
+<a id="backlogops.jira_write._nest"></a>
+
+#### \_nest
+
+```python
+def _nest(path: tuple[str, ...], value: object) -> dict[str, object]
+```
+
+Return ``value`` wrapped in nested dicts named by the path steps.
+
+<a id="backlogops.jira_write._field_payload"></a>
+
+#### \_field\_payload
+
+```python
+def _field_payload(path: tuple[str, ...], value: object) -> dict[str, object]
+```
+
+Return the create-fields entry for a plain or list issue field.
+
+<a id="backlogops.jira_write._place_value"></a>
+
+#### \_place\_value
+
+```python
+def _place_value(fields: dict[str, object], attr: JiraAttrPath, value: object,
+                 custom_ids: dict[str, str]) -> None
+```
+
+Place one field value into the Jira create-fields dict by kind.
+
+<a id="backlogops.jira_write._internal_value"></a>
+
+#### \_internal\_value
+
+```python
+def _internal_value(name: str, item: BacklogItem, levels: Levels) -> object
+```
+
+Return the value to write for one internal field, or None.
+
+<a id="backlogops.jira_write._create_fields"></a>
+
+#### \_create\_fields
+
+```python
+def _create_fields(ctx: _WriteContext, item: BacklogItem) -> dict[str, object]
+```
+
+Build the Jira create-issue fields for one backlog item.
+
+<a id="backlogops.jira_write._issue_exists"></a>
+
+#### \_issue\_exists
+
+```python
+def _issue_exists(client: JIRA, key: str) -> bool
+```
+
+Return whether an issue with this key exists in Jira.
+
+<a id="backlogops.jira_write._existing_keys"></a>
+
+#### \_existing\_keys
+
+```python
+def _existing_keys(client: JIRA, backlog: Backlog) -> set[str]
+```
+
+Return the backlog item keys that already exist in Jira.
+
+<a id="backlogops.jira_write._raise_existing"></a>
+
+#### \_raise\_existing
+
+```python
+def _raise_existing(existing: set[str], stderr_file: TextIO) -> None
+```
+
+Report and raise for backlog keys that already exist in Jira.
+
+<a id="backlogops.jira_write._issue_key"></a>
+
+#### \_issue\_key
+
+```python
+def _issue_key(issue: object) -> str
+```
+
+Return the key Jira assigned to a created issue.
+
+<a id="backlogops.jira_write._stored_copy"></a>
+
+#### \_stored\_copy
+
+```python
+def _stored_copy(item: BacklogItem, new_key: str) -> BacklogItem
+```
+
+Return a deep copy of the item carrying its new Jira key.
+
+<a id="backlogops.jira_write._write_new_items"></a>
+
+#### \_write\_new\_items
+
+```python
+def _write_new_items(ctx: _WriteContext, backlog: Backlog,
+                     existing: set[str]) -> AddedToJira
+```
+
+Create every not-yet-present item and collect the two backlogs.
+
+<a id="backlogops.jira_write.add_backlog_to_jira"></a>
+
+#### add\_backlog\_to\_jira
+
+```python
+def add_backlog_to_jira(connections: JiraConnections,
+                        preset_name: str,
+                        backlog: Backlog,
+                        *,
+                        on_existing_key: OnExistingKey,
+                        levels: Optional[Levels] = None,
+                        stderr_file: TextIO = sys.stderr) -> AddedToJira
+```
+
+Add the backlog items to Jira, one created issue per new item.
+
+Every item's key is first looked up in Jira. In ``RAISE`` mode, if any
+key already exists the function raises before creating anything. In
+``SKIP`` mode the already-present items are left untouched. Each added
+item is created from the write preset's backlog column map and default
+project, and a copy of it carrying the key Jira assigned is collected.
+The argument backlog is never modified.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients and the configuration
+  holding the write preset, connection and backlog column map.
+- `preset_name` - The name of the to-Jira write preset to use.
+- `backlog` - The backlog items to add. Not modified.
+- `on_existing_key` - Whether to raise or skip when a key already
+  exists in Jira.
+- `levels` - The levels used to resolve the issue type from the item
+  level, or None for the default levels.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The stored items with their Jira keys, the already-present items,
+  and the map from each stored item's original key to its Jira key.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or a referenced connection or map is
+  missing.
+- `ValueError` - In ``RAISE`` mode, if any key already exists in Jira.
 
 <a id="backlogops.backlog_releases_io"></a>
 

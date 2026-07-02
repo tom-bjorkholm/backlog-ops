@@ -12,7 +12,7 @@ connection and orchestration are tested by replacing the client factory.
 import io
 from datetime import date
 from types import SimpleNamespace
-from typing import Optional
+from typing import Callable, Optional
 import pytest
 import backlogops
 from backlogops.available_teams import AvailableTeams
@@ -24,10 +24,11 @@ from backlogops.jira_io_config import (
     JiraConnectConfig, JiraIOConfig, JiraPreset, JiraType, TokenStorage,
     default_jira_filter)
 from backlogops.no_text_io import NoTextIO
-import backlogops.jira_read as jr
+import backlogops.jira_connect as jc
+from backlogops.jira_connect import JiraConnections, _connect
 from backlogops.jira_read import (
     build_backlog_releases, read_backlog_from_jira, read_jira_from_config,
-    resolve_jql, _connect, _coerce, _custom_ids, _resolve)
+    resolve_jql, _coerce, _custom_ids, _resolve)
 
 NO = NoTextIO()
 
@@ -273,7 +274,7 @@ def _connection() -> JiraConnectConfig:
 def test_connect_cloud(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a cloud connection uses basic authentication."""
     captured: dict[str, object] = {}
-    monkeypatch.setattr(jr, 'JIRA', lambda **kwargs: captured.update(kwargs))
+    monkeypatch.setattr(jc, 'JIRA', lambda **kwargs: captured.update(kwargs))
     _connect(_connection(), None)
     assert captured == {'server': 'https://x', 'basic_auth': ('me@x', 'TOK')}
 
@@ -281,7 +282,7 @@ def test_connect_cloud(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_connect_server(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a server connection uses token authentication."""
     captured: dict[str, object] = {}
-    monkeypatch.setattr(jr, 'JIRA', lambda **kwargs: captured.update(kwargs))
+    monkeypatch.setattr(jc, 'JIRA', lambda **kwargs: captured.update(kwargs))
     conn = _connection()
     conn.jira_type = JiraType.SERVER
     _connect(conn, None)
@@ -313,6 +314,13 @@ class _FakeClient:
         """Return the canned field descriptors."""
         return FIELDS
 
+    def myself(self) -> dict[str, str]:
+        """Report a live session for the connection liveness check."""
+        return {'name': 'tester'}
+
+    def close(self) -> None:
+        """Close the stand-in client (nothing to release)."""
+
 
 def _io_config() -> JiraIOConfig:
     """Return a Jira configuration with one connection, maps and preset."""
@@ -324,11 +332,18 @@ def _io_config() -> JiraIOConfig:
     return config
 
 
+def _fake_connect(client: _FakeClient
+                  ) -> Callable[[object, object], _FakeClient]:
+    """Return a stand-in ``_connect`` that always yields ``client``."""
+    return lambda connection, passphrase: client
+
+
 def test_read_orchestration(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the reader wires the default filter and maps the data."""
     client = _FakeClient([_issue()], [_version()])
-    monkeypatch.setattr(jr, '_connect', lambda connection, passphrase: client)
-    data = read_backlog_from_jira(_io_config(), 'p')
+    monkeypatch.setattr(jc, '_connect', _fake_connect(client))
+    connections = JiraConnections(_io_config(), None)
+    data = read_backlog_from_jira(connections, 'p')
     assert client.jql == default_jira_filter('PROJ')
     assert client.project == 'PROJ'
     assert data.backlog[0].key == 'S-1'
@@ -338,9 +353,9 @@ def test_read_orchestration(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_read_override(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a filter override replaces the preset filter."""
     client = _FakeClient([_issue()], [_version()])
-    monkeypatch.setattr(jr, '_connect', lambda connection, passphrase: client)
-    read_backlog_from_jira(_io_config(), 'p',
-                           filter_override='project = OTHER')
+    monkeypatch.setattr(jc, '_connect', _fake_connect(client))
+    connections = JiraConnections(_io_config(), None)
+    read_backlog_from_jira(connections, 'p', filter_override='project = OTHER')
     assert client.jql == 'project = OTHER'
     assert client.project == 'PROJ'
 
@@ -348,7 +363,7 @@ def test_read_override(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_read_from_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the config convenience reads with the config's levels."""
     client = _FakeClient([_issue()], [_version()])
-    monkeypatch.setattr(jr, '_connect', lambda connection, passphrase: client)
+    monkeypatch.setattr(jc, '_connect', _fake_connect(client))
     config = BacklogOpsConfig(
         available_teams=AvailableTeams(persons={}, teams=[]), stderr_file=NO)
     config.jira = _io_config()

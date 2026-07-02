@@ -70,9 +70,12 @@ from backlogops.work_hours import (
 from backlogops.date_ranges import check_date_range, check_no_overlap
 from backlogops.no_text_io import NoTextIO
 from backlogops.backlog_in_release_order import backlog_in_release_order
+from backlogops.jira_connect import JiraConnections
 from backlogops.jira_read import (
     read_backlog_from_jira, read_jira_from_config, build_backlog_releases,
     resolve_jql)
+from backlogops.jira_write import (
+    add_backlog_to_jira, AddedToJira, OnExistingKey)
 
 __all__ = [
     'Backlog', 'BacklogItem', 'Status', 'get_backlog', 'get_backlog_item',
@@ -112,4 +115,5 @@ __all__ = [
     'WeekDay', 'ScheduleWorkHours', 'DEFAULT_WORK_WEEK', 'ExceptionWorkHours',
     'CompanyWorkHours', 'check_date_range', 'check_no_overlap', 'NoTextIO',
     'backlog_in_release_order', 'read_backlog_from_jira',
-    'read_jira_from_config', 'build_backlog_releases', 'resolve_jql']
+    'read_jira_from_config', 'build_backlog_releases', 'resolve_jql',
+    'JiraConnections', 'add_backlog_to_jira', 'AddedToJira', 'OnExistingKey']

@@ -3,7 +3,8 @@
 
 A configured :class:`JiraPreset` names the connection, the backlog and
 release column maps, the default project and the default issue filter.
-:func:`read_backlog_from_jira` connects to Jira, runs the issue
+:func:`read_backlog_from_jira` takes a live client from a
+:class:`backlogops.jira_connect.JiraConnections` pool, runs the issue
 filter (Jira Query Language) to read the backlog items, reads the project
 versions to read the releases, and maps each Jira attribute to an
 internal field through the preset's column maps. Custom field display
@@ -14,12 +15,6 @@ The caller may override the preset's filter for one read. When no filter
 is configured at all, the default filter selects every issue in the
 default project, ordered by rank, while the releases always come from the
 default project's versions.
-
-A cloud connection authenticates with the login email and the token; a
-server connection uses the token as a personal access token. The token
-is materialized through :meth:`JiraConnectConfig.get_token`, asking the
-supplied pass phrase provider only when an encrypted storage mode needs
-it.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -29,13 +24,12 @@ import sys
 from collections.abc import Iterable, Mapping
 from datetime import date
 from typing import Callable, Optional, TextIO
-from jira import JIRA
 from backlogops.backlog import BacklogItem, DEPENDENCY_FIELDS, Status
 from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.backlog_releases import BacklogReleases
+from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
-    JiraColumnMap, JiraConnectConfig, JiraIOConfig, JiraPreset, JiraType, \
-    default_jira_filter
+    JiraColumnMap, JiraPreset, default_jira_filter
 from backlogops.levels import Levels
 from backlogops.releases import Release
 from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS
@@ -43,16 +37,6 @@ from backlogops.table_rows import row_to_item, row_to_release
 
 _SINGLE_VALUE_FIELDS = frozenset(BACKLOG_FIELDS + RELEASE_FIELDS)
 """Internal fields that hold a single scalar value."""
-
-
-def _connect(connection: JiraConnectConfig,
-             passphrase: Optional[Callable[[], str]]) -> JIRA:
-    """Return a Jira client connected with the connection's token."""
-    token = connection.get_token(passphrase)
-    if connection.jira_type is JiraType.SERVER:
-        return JIRA(server=connection.base_url, token_auth=token)
-    return JIRA(server=connection.base_url,
-                basic_auth=(connection.login_email, token))
 
 
 def _custom_ids(fields_list: Iterable[Mapping[str, object]]) -> dict[str, str]:
@@ -310,25 +294,23 @@ def resolve_jql(preset: JiraPreset, filter_override: Optional[str]) -> str:
 
 # pylint: disable-next=too-many-arguments
 def read_backlog_from_jira(
-        jira_config: JiraIOConfig, preset_name: str, *,
-        filter_override: Optional[str] = None,
-        passphrase: Optional[Callable[[], str]] = None,
-        levels: Optional[Levels] = None,
+        connections: JiraConnections, preset_name: str, *,
+        filter_override: Optional[str] = None, levels: Optional[Levels] = None,
         status_map: Optional[dict[str, Status]] = None,
         stderr_file: TextIO = sys.stderr) -> BacklogReleases:
     """Read a backlog and its releases from Jira using a named preset.
 
     The preset names the connection and the backlog and release column
-    maps, all looked up in ``jira_config``. The issues come from the
-    resolved filter and the releases from the default project's versions.
+    maps, all looked up in the pool's configuration. The client is taken
+    from ``connections``, so repeated reads and writes reuse it. The
+    issues come from the resolved filter and the releases from the default
+    project's versions.
 
     Args:
-        jira_config: The Jira configuration holding the preset, connection
-            and column maps.
+        connections: The pool of live Jira clients and the configuration
+            holding the preset, connection and column maps.
         preset_name: The name of the from-Jira preset to use.
         filter_override: A Jira filter to use instead of the preset's.
-        passphrase: Called to obtain the pass phrase for an encrypted
-            token; not called for a clear token.
         levels: The levels used to resolve a string level, or None for the
             default levels.
         status_map: Extra status names mapped to Status members, or None.
@@ -342,14 +324,14 @@ def read_backlog_from_jira(
             missing.
         ValueError: If no filter and no default project are configured.
     """
+    jira_config = connections.jira_config
     preset = jira_config.get_preset(preset_name)
-    connection = jira_config.connections[preset.connection_name]
+    client = connections.client(preset.connection_name)
     backlog_map = jira_config.backlog_column_maps[
         preset.backlog_column_map_name]
     release_map = jira_config.release_column_maps[
         preset.release_column_map_name]
     jql = resolve_jql(preset, filter_override)
-    client = _connect(connection, passphrase)
     issues = client.search_issues(jql, maxResults=False)
     versions = client.project_versions(preset.def_project)
     return build_backlog_releases(issues, versions, client.fields(),
@@ -365,6 +347,11 @@ def read_jira_from_config(config: BacklogOpsConfig, preset_name: str, *,
                           stderr_file: TextIO = sys.stderr) -> BacklogReleases:
     """Read from Jira using the config's Jira settings, levels and status map.
 
+    A fresh :class:`JiraConnections` pool is opened for the read. A caller
+    that reads and writes several times should instead build one pool and
+    pass it to :func:`read_backlog_from_jira` and
+    :func:`backlogops.jira_write.add_backlog_to_jira` to reuse connections.
+
     Args:
         config: The backlog-ops configuration to take the Jira settings,
             levels and status map from.
@@ -377,9 +364,9 @@ def read_jira_from_config(config: BacklogOpsConfig, preset_name: str, *,
     Returns:
         The backlog and releases read from Jira.
     """
-    return read_backlog_from_jira(config.get_jira_config(), preset_name,
+    connections = JiraConnections(config.get_jira_config(), passphrase)
+    return read_backlog_from_jira(connections, preset_name,
                                   filter_override=filter_override,
-                                  passphrase=passphrase,
                                   levels=config.get_levels(),
                                   status_map=config.get_status_input_map(),
                                   stderr_file=stderr_file)
