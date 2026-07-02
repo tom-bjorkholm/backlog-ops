@@ -113,6 +113,7 @@
     * [has\_cached\_token](#backlogops.jira_io_config.JiraConnectConfig.has_cached_token)
     * [get\_token](#backlogops.jira_io_config.JiraConnectConfig.get_token)
     * [set\_token](#backlogops.jira_io_config.JiraConnectConfig.set_token)
+  * [JiraWritePreset](#backlogops.jira_io_config.JiraWritePreset)
   * [JiraPreset](#backlogops.jira_io_config.JiraPreset)
     * [\_\_init\_\_](#backlogops.jira_io_config.JiraPreset.__init__)
     * [get\_validation\_plan](#backlogops.jira_io_config.JiraPreset.get_validation_plan)
@@ -123,6 +124,7 @@
     * [serialize\_converters](#backlogops.jira_io_config.JiraIOConfig.serialize_converters)
     * [check\_consistency](#backlogops.jira_io_config.JiraIOConfig.check_consistency)
     * [get\_preset](#backlogops.jira_io_config.JiraIOConfig.get_preset)
+    * [get\_write\_preset](#backlogops.jira_io_config.JiraIOConfig.get_write_preset)
 * [backlogops.team](#backlogops.team)
   * [FteException](#backlogops.team.FteException)
     * [check\_consistency](#backlogops.team.FteException.check_consistency)
@@ -2333,12 +2335,16 @@ named, reusable parts:
 
 * ``connections`` are named :class:`JiraConnectConfig` objects, each
   describing one Jira server and how its API token is stored;
-* ``column_maps`` are named :data:`JiraColumnMap` maps from an internal
-  field name to the paths that may reach the value on a Jira issue or
-  version;
+* ``backlog_column_maps`` and ``release_column_maps`` are named
+  :data:`JiraColumnMap` maps from an internal field name to the paths
+  that may reach the value on a Jira issue or version, kept apart so a
+  backlog map and a release map are never confused;
 * ``from_jira_presets`` are named :class:`JiraPreset` objects that tie a
   connection, a backlog column map and a release column map together with
-  a default project and a default issue filter for reading from Jira.
+  a default project and a default issue filter for reading from Jira;
+* ``to_jira_presets`` are named :class:`JiraWritePreset` objects that tie
+  a connection, a backlog column map, a release column map and a default
+  project together for writing to Jira.
 
 Keeping the connections and column maps in their own dictionaries lets
 several presets share one connection or one map. A preset refers to them
@@ -2610,22 +2616,36 @@ cached so a following :meth:`get_token` returns it directly.
 
 - `ValueError` - If a needed file path or pass phrase is missing.
 
+<a id="backlogops.jira_io_config.JiraWritePreset"></a>
+
+## JiraWritePreset Objects
+
+```python
+class JiraWritePreset(_JiraPresetBase)
+```
+
+A named preset for writing a backlog and releases to Jira.
+
+The preset names the connection to use, the backlog and release column
+maps that describe how the internal fields map to Jira, and the
+default project key that new issues and versions are created in.
+Writing needs no issue filter, so a write preset carries none; reading
+from Jira uses a :class:`JiraPreset` instead.
+
 <a id="backlogops.jira_io_config.JiraPreset"></a>
 
 ## JiraPreset Objects
 
 ```python
-class JiraPreset(Config)
+class JiraPreset(_JiraPresetBase)
 ```
 
 A named preset for reading a backlog and releases from Jira.
 
-The preset names the connection to use, the backlog and release
-column maps to use, the default project key, and the default issue
-filter (Jira Query Language). The names refer to entries in the
-enclosing :class:`JiraIOConfig`. The default project is used to read
-the releases (versions) even when the caller overrides the issue
-filter.
+In addition to the shared preset members it carries the default issue
+filter (Jira Query Language) that selects the issues to read. The
+default project is used to read the releases (versions) even when the
+caller overrides the issue filter.
 
 <a id="backlogops.jira_io_config.JiraPreset.__init__"></a>
 
@@ -2638,7 +2658,7 @@ def __init__(from_json_data_text: Optional[str] = None,
              stderr_file: TextIO = sys.stderr) -> None
 ```
 
-Create preset defaults, then read them from JSON.
+Create the read-preset defaults, then read them from JSON.
 
 <a id="backlogops.jira_io_config.JiraPreset.get_validation_plan"></a>
 
@@ -2649,7 +2669,7 @@ Create preset defaults, then read them from JSON.
 def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
 ```
 
-Check every preset member is a string.
+Check the shared members and the issue filter are strings.
 
 <a id="backlogops.jira_io_config.JiraIOConfig"></a>
 
@@ -2661,12 +2681,13 @@ class JiraIOConfig(Config)
 
 Jira input and output configuration as the top-level jira member.
 
-Holds the named connections, the named column maps, and the named
-presets for reading from Jira, each indexed by name so that several
-presets can share one connection or one column map. The column maps
-are validated and converted to :class:`JiraAttrPath` values on read
-and written back as lists on write; an old file that omits any
-sub-section loads with that sub-section empty.
+Holds the named connections, the named backlog and release column
+maps, and the named read and write presets, each indexed by name so
+that several presets can share one connection or one column map. The
+column maps are validated and converted to :class:`JiraAttrPath`
+values on read and written back as lists on write; an old file that
+omits any sub-section loads with that sub-section empty, and an old
+combined ``column_maps`` section is dropped.
 
 <a id="backlogops.jira_io_config.JiraIOConfig.__init__"></a>
 
@@ -2690,7 +2711,7 @@ Create empty defaults, then read the jira configuration.
 def nested_configs() -> NestedConfigs
 ```
 
-Declare the connections and presets as nested configurations.
+Declare the connections and read and write presets as nested.
 
 <a id="backlogops.jira_io_config.JiraIOConfig.get_validation_plan"></a>
 
@@ -2724,6 +2745,8 @@ def check_consistency(stderr_file: TextIO = sys.stderr) -> None
 
 Check every preset refers to a defined connection and maps.
 
+Both the read presets and the write presets are checked.
+
 **Arguments**:
 
 - `stderr_file` - The file to report errors to.
@@ -2742,7 +2765,7 @@ Check every preset refers to a defined connection and maps.
 def get_preset(name: str) -> JiraPreset
 ```
 
-Return the named from-Jira preset.
+Return the named from-Jira read preset.
 
 **Arguments**:
 
@@ -2751,12 +2774,36 @@ Return the named from-Jira preset.
 
 **Returns**:
 
-  The named preset.
+  The named read preset.
   
 
 **Raises**:
 
-- `KeyError` - If no preset of that name is configured.
+- `KeyError` - If no read preset of that name is configured.
+
+<a id="backlogops.jira_io_config.JiraIOConfig.get_write_preset"></a>
+
+#### get\_write\_preset
+
+```python
+def get_write_preset(name: str) -> JiraWritePreset
+```
+
+Return the named to-Jira write preset.
+
+**Arguments**:
+
+- `name` - The preset name.
+  
+
+**Returns**:
+
+  The named write preset.
+  
+
+**Raises**:
+
+- `KeyError` - If no write preset of that name is configured.
 
 <a id="backlogops.team"></a>
 

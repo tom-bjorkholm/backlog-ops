@@ -2,11 +2,12 @@
 """Tests for the Jira input and output configuration.
 
 The tests cover the empty default shape, the round trip of connections,
-column maps and presets through a written file, the JSON shapes of the
-attribute paths and the enum members, the rejection of dangling preset
-references and malformed attribute paths, the four token storage modes
-with their clear-text warning and pass-phrase handling, and the loading
-of an old file that omits a sub-section.
+split backlog and release column maps and read and write presets through
+a written file, the JSON shapes of the attribute paths and the enum
+members, the rejection of dangling preset references and malformed
+attribute paths, the four token storage modes with their clear-text
+warning and pass-phrase handling, and the loading of an old file that
+omits a sub-section or still holds the old combined column-map section.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -18,8 +19,8 @@ from pathlib import Path
 import pytest
 from backlogops import (
     DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP, JiraAttrPath,
-    JiraAttrType, JiraConnectConfig, JiraIOConfig, JiraPreset, JiraType,
-    TokenStorage)
+    JiraAttrType, JiraConnectConfig, JiraIOConfig, JiraPreset,
+    JiraWritePreset, JiraType, TokenStorage)
 from backlogops.jira_token import encrypt_token
 from backlogops.no_text_io import NoTextIO
 
@@ -54,18 +55,28 @@ def _json(config: JiraIOConfig) -> dict[str, object]:
 
 
 def _preset(conn: str, cmap: str, rmap: str) -> JiraPreset:
-    """Return a preset naming a connection and two column maps."""
+    """Return a read preset naming a connection and two column maps."""
     preset = JiraPreset(stderr_file=NO)
     preset.connection_name = conn
-    preset.column_map_name = cmap
+    preset.backlog_column_map_name = cmap
     preset.release_column_map_name = rmap
     preset.def_project = 'SCRUM'
     preset.def_filter = 'project = "SCRUM"'
     return preset
 
 
+def _write_preset(conn: str, cmap: str, rmap: str) -> JiraWritePreset:
+    """Return a write preset naming a connection and two column maps."""
+    preset = JiraWritePreset(stderr_file=NO)
+    preset.connection_name = conn
+    preset.backlog_column_map_name = cmap
+    preset.release_column_map_name = rmap
+    preset.def_project = 'SCRUM'
+    return preset
+
+
 def _full() -> JiraIOConfig:
-    """Return a configuration with one connection, two maps and a preset."""
+    """Return a configuration with one connection, two maps and presets."""
     config = _empty()
     conn = JiraConnectConfig(stderr_file=NO)
     conn.base_url = 'https://x.atlassian.net'
@@ -79,15 +90,19 @@ def _full() -> JiraIOConfig:
                'story_points': _paths(_attr(JiraAttrType.CUSTOM_FIELD,
                                             'Story point estimate'))}
     release = {'name': _paths(_attr(JiraAttrType.ATTRIBUTE, 'name'))}
-    config.column_maps = {'bk': backlog, 'rel': release}
+    config.backlog_column_maps = {'bk': backlog}
+    config.release_column_maps = {'rel': release}
     config.from_jira_presets = {'scrum': _preset('main', 'bk', 'rel')}
+    config.to_jira_presets = {'scrumw': _write_preset('main', 'bk', 'rel')}
     return config
 
 
 def test_empty_shape() -> None:
-    """Test a fresh configuration serializes to three empty maps."""
-    assert _json(_empty()) == {'connections': {}, 'column_maps': {},
-                               'from_jira_presets': {}}
+    """Test a fresh configuration serializes to five empty maps."""
+    assert _json(_empty()) == {
+        'connections': {}, 'backlog_column_maps': {},
+        'release_column_maps': {}, 'from_jira_presets': {},
+        'to_jira_presets': {}}
 
 
 def test_round_trip(tmp_path: Path) -> None:
@@ -98,13 +113,18 @@ def test_round_trip(tmp_path: Path) -> None:
     conn = loaded.connections['main']
     assert conn.jira_type is JiraType.SERVER
     assert conn.stored_token == 'TOK'
-    backlog = loaded.column_maps['bk']
+    backlog = loaded.backlog_column_maps['bk']
     assert backlog['status'] == (
         _attr(JiraAttrType.FIELD, 'status', 'name'),)
     assert backlog['story_points'][0].kind is JiraAttrType.CUSTOM_FIELD
+    assert 'name' in loaded.release_column_maps['rel']
     preset = loaded.get_preset('scrum')
     assert preset.def_project == 'SCRUM'
     assert preset.connection_name == 'main'
+    write_preset = loaded.get_write_preset('scrumw')
+    assert write_preset.backlog_column_map_name == 'bk'
+    assert write_preset.release_column_map_name == 'rel'
+    assert not hasattr(write_preset, 'def_filter')
 
 
 def test_stable_write(tmp_path: Path) -> None:
@@ -119,19 +139,22 @@ def test_stable_write(tmp_path: Path) -> None:
 
 def test_attr_path_json() -> None:
     """Test an attribute path is written as a kind and its path steps."""
-    maps = _json(_full())['column_maps']
-    assert isinstance(maps, dict)
-    assert maps['bk']['status'] == ['FIELD', 'status', 'name']
-    assert maps['rel']['name'] == ['ATTRIBUTE', 'name']
+    data = _json(_full())
+    backlog = data['backlog_column_maps']
+    release = data['release_column_maps']
+    assert isinstance(backlog, dict)
+    assert isinstance(release, dict)
+    assert backlog['bk']['status'] == ['FIELD', 'status', 'name']
+    assert release['rel']['name'] == ['ATTRIBUTE', 'name']
 
 
 def test_multi_attr_path_json() -> None:
     """Test several paths for one internal field write as nested lists."""
     config = _full()
-    config.column_maps['bk']['parent_key'] = (
+    config.backlog_column_maps['bk']['parent_key'] = (
         _attr(JiraAttrType.FIELD, 'parent', 'key'),
         _attr(JiraAttrType.CUSTOM_FIELD, 'Epic Link'))
-    maps = _json(config)['column_maps']
+    maps = _json(config)['backlog_column_maps']
     assert isinstance(maps, dict)
     assert maps['bk']['parent_key'] == [
         ['FIELD', 'parent', 'key'], ['CUSTOM_FIELD', 'Epic Link']]
@@ -149,17 +172,18 @@ def test_enum_names_json() -> None:
 def test_bad_connection() -> None:
     """Test a preset naming an unknown connection is rejected."""
     config = _empty()
-    config.column_maps = {'bk': {}, 'rel': {}}
+    config.backlog_column_maps = {'bk': {}}
+    config.release_column_maps = {'rel': {}}
     config.from_jira_presets = {'p': _preset('nope', 'bk', 'rel')}
     with pytest.raises(KeyError):
         config.as_json_string(NO)
 
 
 def test_bad_cmap() -> None:
-    """Test a preset naming an unknown column map is rejected."""
+    """Test a preset naming an unknown backlog column map is rejected."""
     config = _empty()
     config.connections = {'main': JiraConnectConfig(stderr_file=NO)}
-    config.column_maps = {'rel': {}}
+    config.release_column_maps = {'rel': {}}
     config.from_jira_presets = {'p': _preset('main', 'nope', 'rel')}
     with pytest.raises(KeyError):
         config.as_json_string(NO)
@@ -169,16 +193,26 @@ def test_bad_rmap() -> None:
     """Test a preset naming an unknown release column map is rejected."""
     config = _empty()
     config.connections = {'main': JiraConnectConfig(stderr_file=NO)}
-    config.column_maps = {'bk': {}}
+    config.backlog_column_maps = {'bk': {}}
     config.from_jira_presets = {'p': _preset('main', 'bk', 'nope')}
+    with pytest.raises(KeyError):
+        config.as_json_string(NO)
+
+
+def test_bad_write_ref() -> None:
+    """Test a write preset naming an unknown backlog map is rejected."""
+    config = _empty()
+    config.connections = {'main': JiraConnectConfig(stderr_file=NO)}
+    config.release_column_maps = {'rel': {}}
+    config.to_jira_presets = {'w': _write_preset('main', 'nope', 'rel')}
     with pytest.raises(KeyError):
         config.as_json_string(NO)
 
 
 def _cmap_text(path_value: object) -> str:
     """Return jira JSON text with one column map holding a path value."""
-    return json.dumps({'connections': {}, 'from_jira_presets': {},
-                       'column_maps': {'m': {'c': path_value}}})
+    return json.dumps({'connections': {},
+                       'backlog_column_maps': {'m': {'c': path_value}}})
 
 
 @pytest.mark.parametrize('bad', [
@@ -194,7 +228,8 @@ def test_bad_attr_path(bad: object) -> None:
 def test_bad_jira_type() -> None:
     """Test a connection with an unknown jira type is rejected."""
     text = json.dumps({
-        'column_maps': {}, 'from_jira_presets': {},
+        'backlog_column_maps': {}, 'release_column_maps': {},
+        'from_jira_presets': {},
         'connections': {'c': {'jira_type': 'BOGUS', 'base_url': 'u',
                               'login_email': 'e',
                               'token_storage': 'CLEAR_FILE'}}})
@@ -281,15 +316,29 @@ def test_old_empty() -> None:
     """Test an empty jira section loads with every sub-section empty."""
     config = _from_text('{}')
     assert not config.connections
-    assert not config.column_maps
+    assert not config.backlog_column_maps
+    assert not config.release_column_maps
     assert not config.from_jira_presets
+    assert not config.to_jira_presets
 
 
 def test_old_partial() -> None:
     """Test a jira section with only connections defaults the rest."""
     config = _from_text(json.dumps({'connections': {}}))
-    assert not config.column_maps
+    assert not config.backlog_column_maps
+    assert not config.release_column_maps
     assert not config.from_jira_presets
+    assert not config.to_jira_presets
+
+
+def test_old_cmap_dropped() -> None:
+    """Test an old combined column-map section is dropped, not an error."""
+    old = json.dumps({'connections': {},
+                      'column_maps': {'m': {'key': ['ATTRIBUTE', 'key']}}})
+    config = _from_text(old)
+    assert not config.backlog_column_maps
+    assert not config.release_column_maps
+    assert 'column_maps' not in _json(config)
 
 
 def test_def_maps() -> None:

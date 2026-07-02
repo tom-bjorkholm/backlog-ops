@@ -7,12 +7,16 @@ named, reusable parts:
 
 * ``connections`` are named :class:`JiraConnectConfig` objects, each
   describing one Jira server and how its API token is stored;
-* ``column_maps`` are named :data:`JiraColumnMap` maps from an internal
-  field name to the paths that may reach the value on a Jira issue or
-  version;
+* ``backlog_column_maps`` and ``release_column_maps`` are named
+  :data:`JiraColumnMap` maps from an internal field name to the paths
+  that may reach the value on a Jira issue or version, kept apart so a
+  backlog map and a release map are never confused;
 * ``from_jira_presets`` are named :class:`JiraPreset` objects that tie a
   connection, a backlog column map and a release column map together with
-  a default project and a default issue filter for reading from Jira.
+  a default project and a default issue filter for reading from Jira;
+* ``to_jira_presets`` are named :class:`JiraWritePreset` objects that tie
+  a connection, a backlog column map, a release column map and a default
+  project together for writing to Jira.
 
 Keeping the connections and column maps in their own dictionaries lets
 several presets share one connection or one map. A preset refers to them
@@ -468,55 +472,105 @@ class JiraConnectConfig(Config):
         return passphrase()
 
 
-class JiraPreset(Config):
-    """A named preset for reading a backlog and releases from Jira.
+class _JiraPresetBase(Config):
+    """Shared members of a from-Jira read and a to-Jira write preset.
 
-    The preset names the connection to use, the backlog and release
-    column maps to use, the default project key, and the default issue
-    filter (Jira Query Language). The names refer to entries in the
-    enclosing :class:`JiraIOConfig`. The default project is used to read
-    the releases (versions) even when the caller overrides the issue
-    filter.
+    Both preset kinds name the connection to use, the backlog and release
+    column maps to use, and the default project key. The names refer to
+    entries in the enclosing :class:`JiraIOConfig`. A concrete subclass
+    may declare and default further members before calling this
+    constructor.
     """
 
     connection_name: str
-    column_map_name: str
+    backlog_column_map_name: str
     release_column_map_name: str
     def_project: str
-    def_filter: str
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr) -> None:
-        """Create preset defaults, then read them from JSON."""
+        """Create the shared preset defaults, then read them from JSON."""
         self.connection_name = ''
-        self.column_map_name = ''
+        self.backlog_column_map_name = ''
         self.release_column_map_name = ''
         self.def_project = ''
-        self.def_filter = ''
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
                         auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
 
     @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
-        """Check every preset member is a string."""
+        """Check every shared preset member is a string."""
         _ = stderr_file
         return [MemberValidationStep(
-            member_names=['connection_name', 'column_map_name',
-                          'release_column_map_name', 'def_project',
-                          'def_filter'],
+            member_names=['connection_name', 'backlog_column_map_name',
+                          'release_column_map_name', 'def_project'],
             validator=ValueTypeValidator(value_type=str))]
 
 
+class JiraWritePreset(_JiraPresetBase):
+    """A named preset for writing a backlog and releases to Jira.
+
+    The preset names the connection to use, the backlog and release column
+    maps that describe how the internal fields map to Jira, and the
+    default project key that new issues and versions are created in.
+    Writing needs no issue filter, so a write preset carries none; reading
+    from Jira uses a :class:`JiraPreset` instead.
+    """
+
+
+class JiraPreset(_JiraPresetBase):
+    """A named preset for reading a backlog and releases from Jira.
+
+    In addition to the shared preset members it carries the default issue
+    filter (Jira Query Language) that selects the issues to read. The
+    default project is used to read the releases (versions) even when the
+    caller overrides the issue filter.
+    """
+
+    def_filter: str
+
+    def __init__(self, from_json_data_text: Optional[str] = None,
+                 from_json_filename: Optional[PathOrStr] = None,
+                 auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
+                 stderr_file: TextIO = sys.stderr) -> None:
+        """Create the read-preset defaults, then read them from JSON."""
+        self.def_filter = ''
+        _JiraPresetBase.__init__(self, from_json_data_text=from_json_data_text,
+                                 from_json_filename=from_json_filename,
+                                 auto_ch_hook=auto_ch_hook,
+                                 stderr_file=stderr_file)
+
+    @override
+    def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
+        """Check the shared members and the issue filter are strings."""
+        plan = _JiraPresetBase.get_validation_plan(self, stderr_file)
+        step = MemberValidationStep(member_names=['def_filter'],
+                                    validator=ValueTypeValidator(
+                                        value_type=str))
+        return plan + [step]
+
+
 class _JiraReadOldConfig(ReadOldConfiguration):
-    """Default the jira sub-sections when an old file omits them."""
+    """Normalize an older jira section to the current split shape.
+
+    An older file kept the backlog and release column maps together in one
+    ``column_maps`` section and had no ``to_jira_presets``. That combined
+    section is dropped, and the connections, both split column-map sections
+    and both preset sections default to empty when a file omits them.
+    """
+
+    def get_keys_to_remove(self) -> list[ConfigPath]:
+        """Drop the old combined column-map section when it is present."""
+        return [('column_maps',)]
 
     def get_missing_path_values(self) -> dict[ConfigPath, object]:
         """Supply empty connection, column-map and preset maps."""
-        return {('connections',): {}, ('column_maps',): {},
-                ('from_jira_presets',): {}}
+        return {('connections',): {}, ('backlog_column_maps',): {},
+                ('release_column_maps',): {}, ('from_jira_presets',): {},
+                ('to_jira_presets',): {}}
 
 
 def _check_ref(preset_name: str, kind: str, ref: str,
@@ -533,12 +587,13 @@ def _check_ref(preset_name: str, kind: str, ref: str,
 class JiraIOConfig(Config):
     """Jira input and output configuration as the top-level jira member.
 
-    Holds the named connections, the named column maps, and the named
-    presets for reading from Jira, each indexed by name so that several
-    presets can share one connection or one column map. The column maps
-    are validated and converted to :class:`JiraAttrPath` values on read
-    and written back as lists on write; an old file that omits any
-    sub-section loads with that sub-section empty.
+    Holds the named connections, the named backlog and release column
+    maps, and the named read and write presets, each indexed by name so
+    that several presets can share one connection or one column map. The
+    column maps are validated and converted to :class:`JiraAttrPath`
+    values on read and written back as lists on write; an old file that
+    omits any sub-section loads with that sub-section empty, and an old
+    combined ``column_maps`` section is dropped.
     """
 
     def __init__(self, from_json_data_text: Optional[str] = None,
@@ -547,9 +602,11 @@ class JiraIOConfig(Config):
                  stderr_file: TextIO = sys.stderr) -> None:
         """Create empty defaults, then read the jira configuration."""
         self.connections: dict[str, JiraConnectConfig] = {}
-        self.column_maps: dict[str, JiraColumnMap] = {}
+        self.backlog_column_maps: dict[str, JiraColumnMap] = {}
+        self.release_column_maps: dict[str, JiraColumnMap] = {}
         self.from_jira_presets: dict[str, JiraPreset] = {}
-        self._unchecked_dicts = ['column_maps']
+        self.to_jira_presets: dict[str, JiraWritePreset] = {}
+        self._unchecked_dicts = ['backlog_column_maps', 'release_column_maps']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
                         auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
@@ -561,31 +618,39 @@ class JiraIOConfig(Config):
 
     @override
     def nested_configs(self) -> NestedConfigs:
-        """Declare the connections and presets as nested configurations."""
+        """Declare the connections and read and write presets as nested."""
         conn = ConfigNesting(kind=ConfigNestingKind.DICT_VALUE,
                              config_type=JiraConnectConfig)
-        preset = ConfigNesting(kind=ConfigNestingKind.DICT_VALUE,
-                               config_type=JiraPreset)
-        return {'connections': conn, 'from_jira_presets': preset}
+        read_preset = ConfigNesting(kind=ConfigNestingKind.DICT_VALUE,
+                                    config_type=JiraPreset)
+        write_preset = ConfigNesting(kind=ConfigNestingKind.DICT_VALUE,
+                                     config_type=JiraWritePreset)
+        return {'connections': conn, 'from_jira_presets': read_preset,
+                'to_jira_presets': write_preset}
 
     @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
         """Convert the column maps, then check the preset references."""
         _ = stderr_file
         consistency = CallingWholeConfigValidator('check_consistency')
-        return [MemberValidationStep(member_names=['column_maps'],
-                                     validator=_ColumnMapsValidator()),
+        return [MemberValidationStep(
+                    member_names=['backlog_column_maps',
+                                  'release_column_maps'],
+                    validator=_ColumnMapsValidator()),
                 WholeConfigValidationStep(validator=consistency)]
 
     @override
     def serialize_converters(self) -> SerializeConverters:
         """Write the column maps as lists of a kind and path steps."""
-        return {'column_maps': SerializeConverter(value_type=dict,
-                                                  func=_column_maps_to_json,
-                                                  args={})}
+        converter = SerializeConverter(value_type=dict,
+                                       func=_column_maps_to_json, args={})
+        return {'backlog_column_maps': converter,
+                'release_column_maps': converter}
 
     def check_consistency(self, stderr_file: TextIO = sys.stderr) -> None:
         """Check every preset refers to a defined connection and maps.
+
+        Both the read presets and the write presets are checked.
 
         Args:
             stderr_file: The file to report errors to.
@@ -595,24 +660,44 @@ class JiraIOConfig(Config):
                 name that is not defined.
         """
         for name, preset in self.from_jira_presets.items():
-            _check_ref(name, 'connection', preset.connection_name,
-                       self.connections, stderr_file)
-            _check_ref(name, 'column map', preset.column_map_name,
-                       self.column_maps, stderr_file)
-            _check_ref(name, 'release column map',
-                       preset.release_column_map_name, self.column_maps,
-                       stderr_file)
+            self._check_preset_refs(name, preset, stderr_file)
+        for name, write_preset in self.to_jira_presets.items():
+            self._check_preset_refs(name, write_preset, stderr_file)
+
+    def _check_preset_refs(self, name: str, preset: _JiraPresetBase,
+                           stderr_file: TextIO) -> None:
+        """Check one preset's connection and column-map names are defined."""
+        _check_ref(name, 'connection', preset.connection_name,
+                   self.connections, stderr_file)
+        _check_ref(name, 'backlog column map', preset.backlog_column_map_name,
+                   self.backlog_column_maps, stderr_file)
+        _check_ref(name, 'release column map', preset.release_column_map_name,
+                   self.release_column_maps, stderr_file)
 
     def get_preset(self, name: str) -> JiraPreset:
-        """Return the named from-Jira preset.
+        """Return the named from-Jira read preset.
 
         Args:
             name: The preset name.
 
         Returns:
-            The named preset.
+            The named read preset.
 
         Raises:
-            KeyError: If no preset of that name is configured.
+            KeyError: If no read preset of that name is configured.
         """
         return self.from_jira_presets[name]
+
+    def get_write_preset(self, name: str) -> JiraWritePreset:
+        """Return the named to-Jira write preset.
+
+        Args:
+            name: The preset name.
+
+        Returns:
+            The named write preset.
+
+        Raises:
+            KeyError: If no write preset of that name is configured.
+        """
+        return self.to_jira_presets[name]

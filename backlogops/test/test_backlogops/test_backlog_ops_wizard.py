@@ -43,8 +43,9 @@ MAPS_KEEP = ['', '']
 GUI_MAPS_KEEP = MAPS_KEEP + GUI_KEEP
 """Accept both GUI rename tables, then keep the GUI level display."""
 
-JIRA_SKIP = ['0', '0']
-"""Zero Jira connections and zero column maps, which skips presets too."""
+JIRA_SKIP = ['0', '0', '0']
+"""Zero Jira connections and zero backlog and release column maps, which
+skips both the read and write presets too."""
 
 LEVELS_KEEP = ['']
 """A blank answer that accepts the pre-filled default levels table."""

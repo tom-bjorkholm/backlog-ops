@@ -239,7 +239,7 @@ def _preset(def_filter: str = '', def_project: str = 'PROJ') -> JiraPreset:
     """Return a preset with the given default filter and project."""
     preset = JiraPreset(stderr_file=NO)
     preset.connection_name = 'c'
-    preset.column_map_name = 'bk'
+    preset.backlog_column_map_name = 'bk'
     preset.release_column_map_name = 'rel'
     preset.def_project = def_project
     preset.def_filter = def_filter
@@ -318,8 +318,8 @@ def _io_config() -> JiraIOConfig:
     """Return a Jira configuration with one connection, maps and preset."""
     config = JiraIOConfig(stderr_file=NO)
     config.connections = {'c': _connection()}
-    config.column_maps = {'bk': DEF_BACKLOG_COLUMN_MAP,
-                          'rel': DEF_RELEASE_COLUMN_MAP}
+    config.backlog_column_maps = {'bk': DEF_BACKLOG_COLUMN_MAP}
+    config.release_column_maps = {'rel': DEF_RELEASE_COLUMN_MAP}
     config.from_jira_presets = {'p': _preset()}
     return config
 

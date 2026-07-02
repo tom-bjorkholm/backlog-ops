@@ -344,8 +344,10 @@ def read_backlog_from_jira(
     """
     preset = jira_config.get_preset(preset_name)
     connection = jira_config.connections[preset.connection_name]
-    backlog_map = jira_config.column_maps[preset.column_map_name]
-    release_map = jira_config.column_maps[preset.release_column_map_name]
+    backlog_map = jira_config.backlog_column_maps[
+        preset.backlog_column_map_name]
+    release_map = jira_config.release_column_maps[
+        preset.release_column_map_name]
     jql = resolve_jql(preset, filter_override)
     client = _connect(connection, passphrase)
     issues = client.search_issues(jql, maxResults=False)

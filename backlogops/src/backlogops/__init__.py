@@ -46,9 +46,10 @@ from backlogops.io_config import (
     resolve_input_config, resolve_output_config, make_input_config,
     make_output_config)
 from backlogops.jira_io_config import (
-    JiraIOConfig, JiraConnectConfig, JiraPreset, JiraType, TokenStorage,
-    JiraAttrType, JiraAttrPath, JiraColumnMap, DEF_BACKLOG_COLUMN_MAP,
-    DEF_RELEASE_COLUMN_MAP, CLEAR_TOKEN_WARNING, default_jira_filter)
+    JiraIOConfig, JiraConnectConfig, JiraPreset, JiraWritePreset, JiraType,
+    TokenStorage, JiraAttrType, JiraAttrPath, JiraColumnMap,
+    DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP, CLEAR_TOKEN_WARNING,
+    default_jira_filter)
 from backlogops.table_create import FileExistsCb, allow_overwrite
 from backlogops.backlog_releases_io import (
     read_backlog_releases, write_backlog_releases)
@@ -89,9 +90,10 @@ __all__ = [
     'DependencyMode', 'GuiDisplayConfig', 'InputFormatConfig',
     'OutputFormatConfig', 'resolve_input_config', 'resolve_output_config',
     'make_input_config', 'make_output_config',
-    'JiraIOConfig', 'JiraConnectConfig', 'JiraPreset', 'JiraType',
-    'TokenStorage', 'JiraAttrType', 'JiraAttrPath', 'JiraColumnMap',
-    'DEF_BACKLOG_COLUMN_MAP', 'DEF_RELEASE_COLUMN_MAP', 'DEF_STATUS_INPUT_MAP',
+    'JiraIOConfig', 'JiraConnectConfig', 'JiraPreset', 'JiraWritePreset',
+    'JiraType', 'TokenStorage', 'JiraAttrType', 'JiraAttrPath',
+    'JiraColumnMap', 'DEF_BACKLOG_COLUMN_MAP', 'DEF_RELEASE_COLUMN_MAP',
+    'DEF_STATUS_INPUT_MAP',
     'CLEAR_TOKEN_WARNING', 'default_jira_filter', 'FileExistsCb',
     'allow_overwrite', 'read_backlog_releases', 'write_backlog_releases',
     'LEVEL_COLUMN', 'LEVEL_NAME_COLUMN', 'apply_column_map',

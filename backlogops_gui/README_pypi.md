@@ -258,7 +258,7 @@ one with the list of releases. You will want to use the menus.
 
 ## Test summary
 
-- Test result: 1714 passed in 36s
+- Test result: 1717 passed in 39s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

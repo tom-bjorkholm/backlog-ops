@@ -16,9 +16,9 @@ import pytest
 from tableio_cfg_json import WizardUiBridgeConsole
 from backlogops.backlog_ops_wizard import backlog_ops_wizard
 from backlogops.jira_io_config import (
-    JiraAttrPath, JiraAttrType, JiraColumnMap, JiraConnectConfig,
-    default_jira_filter)
-from backlogops.jira_wizard import _build_connections, _build_jira_presets
+    JiraAttrPath, JiraAttrType, default_jira_filter)
+from backlogops.jira_wizard import (
+    _build_connections, _build_from_presets, _build_to_presets)
 from backlogops.wizard_helpers import (
     _Navigator, _attr_from_cells, _jira_map_check, _parse_jira_map)
 
@@ -27,9 +27,12 @@ _PREFIX = [''] * 7 + ['0', '0', '0', '0', '0'] + ['', '', '', '', '']
 
 JIRA_FULL = (['1', 'main', 'cloud', 'https://x.atlassian.net', 'me@x.com',
               'clear_internal', 'TOK']
-             + ['2', 'bk', 'backlog', '', 'rel', 'release', '']
-             + ['1', 'scrum', 'main', 'bk', 'rel', 'SCRUM', 'P = 1'])
-"""Jira-stage answers for one connection, two column maps and one preset."""
+             + ['1', 'bk', '']
+             + ['1', 'rel', '']
+             + ['1', 'scrum', 'main', 'bk', 'rel', 'SCRUM', 'P = 1']
+             + ['1', 'scrumw', 'main', 'bk', 'rel', 'SCRUM'])
+"""Jira-stage answers for a connection, a backlog map, a release map and
+one read and one write preset."""
 
 
 def _console(answers: list[str],
@@ -42,26 +45,32 @@ def _console(answers: list[str],
 
 def test_jira_skip() -> None:
     """Test a run with no Jira connections leaves the Jira config empty."""
-    config = backlog_ops_wizard(_console(_PREFIX + ['0', '0']))
+    config = backlog_ops_wizard(_console(_PREFIX + ['0', '0', '0']))
     jira = config.get_jira_config()
     assert not jira.connections
-    assert not jira.column_maps
+    assert not jira.backlog_column_maps
+    assert not jira.release_column_maps
     assert not jira.from_jira_presets
+    assert not jira.to_jira_presets
 
 
 def test_jira_full() -> None:
-    """Test the wizard builds a connection, column maps and a read preset."""
+    """Test the wizard builds a connection, maps and read/write presets."""
     errors = io.StringIO()
     config = backlog_ops_wizard(_console(_PREFIX + JIRA_FULL, errors))
     jira = config.get_jira_config()
     assert sorted(jira.connections) == ['main']
-    assert sorted(jira.column_maps) == ['bk', 'rel']
+    assert sorted(jira.backlog_column_maps) == ['bk']
+    assert sorted(jira.release_column_maps) == ['rel']
     conn = jira.connections['main']
     assert conn.base_url == 'https://x.atlassian.net'
     assert conn.get_token() == 'TOK'
     status_path = JiraAttrPath(JiraAttrType.FIELD, ('status', 'name'))
-    assert jira.column_maps['bk']['status'] == (status_path,)
+    assert jira.backlog_column_maps['bk']['status'] == (status_path,)
     assert jira.get_preset('scrum').def_project == 'SCRUM'
+    write_preset = jira.get_write_preset('scrumw')
+    assert write_preset.backlog_column_map_name == 'bk'
+    assert write_preset.def_project == 'SCRUM'
     assert 'WARNING' in errors.getvalue()
 
 
@@ -85,15 +94,14 @@ def test_conn_file() -> None:
     assert conn.stored_token is None
 
 
-def test_jira_presets() -> None:
-    """Test the preset collector ties a connection and two maps together."""
-    conns = {'c1': JiraConnectConfig(stderr_file=io.StringIO())}
-    maps: dict[str, JiraColumnMap] = {'m1': {}, 'm2': {}}
+def test_from_preset() -> None:
+    """Test the read-preset collector ties a connection and two maps."""
     answers = ['1', 'p1', 'c1', 'm1', 'm2', 'PROJ', 'filter']
     nav = _Navigator(_console(answers))
-    preset = nav.run(lambda n: _build_jira_presets(n, conns, maps))['p1']
+    presets = nav.run(lambda n: _build_from_presets(n, ['c1'], ['m1'], ['m2']))
+    preset = presets['p1']
     assert preset.connection_name == 'c1'
-    assert preset.column_map_name == 'm1'
+    assert preset.backlog_column_map_name == 'm1'
     assert preset.release_column_map_name == 'm2'
     assert preset.def_project == 'PROJ'
     assert preset.def_filter == 'filter'
@@ -101,12 +109,23 @@ def test_jira_presets() -> None:
 
 def test_preset_def_filter() -> None:
     """Test a blank preset filter defaults to the project rank filter."""
-    conns = {'c1': JiraConnectConfig(stderr_file=io.StringIO())}
-    maps: dict[str, JiraColumnMap] = {'m1': {}, 'm2': {}}
     answers = ['1', 'p1', 'c1', 'm1', 'm2', 'PROJ', '']
     nav = _Navigator(_console(answers))
-    preset = nav.run(lambda n: _build_jira_presets(n, conns, maps))['p1']
-    assert preset.def_filter == default_jira_filter('PROJ')
+    presets = nav.run(lambda n: _build_from_presets(n, ['c1'], ['m1'], ['m2']))
+    assert presets['p1'].def_filter == default_jira_filter('PROJ')
+
+
+def test_to_preset() -> None:
+    """Test the write-preset collector asks no issue filter."""
+    answers = ['1', 'p1', 'c1', 'm1', 'm2', 'PROJ']
+    nav = _Navigator(_console(answers))
+    presets = nav.run(lambda n: _build_to_presets(n, ['c1'], ['m1'], ['m2']))
+    preset = presets['p1']
+    assert preset.connection_name == 'c1'
+    assert preset.backlog_column_map_name == 'm1'
+    assert preset.release_column_map_name == 'm2'
+    assert preset.def_project == 'PROJ'
+    assert not hasattr(preset, 'def_filter')
 
 
 @pytest.mark.parametrize('kind, path, expected', [
