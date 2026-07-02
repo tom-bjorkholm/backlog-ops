@@ -1,5 +1,8 @@
 # Table of Contents
 
+* [backlogops\_cli.jira\_fields](#backlogops_cli.jira_fields)
+  * [build\_parser](#backlogops_cli.jira_fields.build_parser)
+  * [main](#backlogops_cli.jira_fields.main)
 * [backlogops\_cli.adjust\_release\_content](#backlogops_cli.adjust_release_content)
   * [build\_parser](#backlogops_cli.adjust_release_content.build_parser)
   * [main](#backlogops_cli.adjust_release_content.main)
@@ -57,6 +60,51 @@
 * [backlogops\_cli.estimate\_ready\_date](#backlogops_cli.estimate_ready_date)
   * [build\_parser](#backlogops_cli.estimate_ready_date.build_parser)
   * [main](#backlogops_cli.estimate_ready_date.main)
+
+<a id="backlogops_cli.jira_fields"></a>
+
+# backlogops\_cli.jira\_fields
+
+Print Jira field information for a preset, to diagnose write mappings.
+
+The command prints the custom field id to display name map that the reader
+fetches from Jira, so a column-map name such as 'Story point estimate' can
+be matched to its field id. With ``--issue`` it also prints the fields the
+given issue's edit screen offers, which explains why a mapped field cannot
+be set on that issue's type: a field missing from the edit screen cannot be
+set through the issue edit REST endpoint.
+
+An encrypted Jira token is unlocked by a pass phrase asked on the terminal
+only when it is needed.
+
+<a id="backlogops_cli.jira_fields.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the field diagnostic command.
+
+<a id="backlogops_cli.jira_fields.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Print Jira field information for a preset.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the fields cannot be read.
 
 <a id="backlogops_cli.adjust_release_content"></a>
 

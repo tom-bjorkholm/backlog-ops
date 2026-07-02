@@ -76,7 +76,8 @@ from backlogops.jira_read import (
     resolve_jql)
 from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, OnExistingKey,
-    apply_jira_keys, format_add_result)
+    apply_jira_keys, format_add_result, jira_custom_fields,
+    jira_editable_fields)
 
 __all__ = [
     'Backlog', 'BacklogItem', 'Status', 'get_backlog', 'get_backlog_item',
@@ -119,4 +120,4 @@ __all__ = [
     'read_jira_from_config', 'build_backlog_releases', 'resolve_jql',
     'JiraConnections', 'add_backlog_to_jira', 'AddedToJira',
     'ExistsInJiraError', 'OnExistingKey', 'apply_jira_keys',
-    'format_add_result']
+    'format_add_result', 'jira_custom_fields', 'jira_editable_fields']

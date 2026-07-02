@@ -271,6 +271,8 @@
   * [add\_backlog\_to\_jira](#backlogops.jira_write.add_backlog_to_jira)
   * [format\_add\_result](#backlogops.jira_write.format_add_result)
   * [apply\_jira\_keys](#backlogops.jira_write.apply_jira_keys)
+  * [jira\_custom\_fields](#backlogops.jira_write.jira_custom_fields)
+  * [jira\_editable\_fields](#backlogops.jira_write.jira_editable_fields)
 * [backlogops.backlog\_releases\_io](#backlogops.backlog_releases_io)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
@@ -5519,6 +5521,36 @@ An item whose key is a key of ``key_map`` gets that mapped Jira key; an
 item not in the map is left unchanged, and the order is preserved. Only
 the item key is changed; parent and dependency keys are updated in a
 later batch.
+
+<a id="backlogops.jira_write.jira_custom_fields"></a>
+
+#### jira\_custom\_fields
+
+```python
+def jira_custom_fields(connections: JiraConnections,
+                       preset_name: str) -> list[tuple[str, str]]
+```
+
+Return (field id, display name) pairs for the Jira custom fields.
+
+This is the map the reader uses internally to resolve a custom field
+named in a column map (such as 'Story point estimate') to its field
+id. Printing it confirms what a mapped name resolves to.
+
+<a id="backlogops.jira_write.jira_editable_fields"></a>
+
+#### jira\_editable\_fields
+
+```python
+def jira_editable_fields(connections: JiraConnections, preset_name: str,
+                         issue_key: str) -> list[tuple[str, str]]
+```
+
+Return (field id, display name) pairs an issue's edit screen offers.
+
+A field missing from the returned list is not on the issue's edit
+screen for its issue type, so it cannot be set through the issue edit
+REST endpoint. This explains why a mapped field is skipped on write.
 
 <a id="backlogops.backlog_releases_io"></a>
 

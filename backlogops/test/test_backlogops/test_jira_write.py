@@ -12,6 +12,7 @@ closed.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import io
 from types import SimpleNamespace
 from typing import Callable, Optional
 import pytest
@@ -25,7 +26,8 @@ from backlogops.jira_io_config import (
     JiraIOConfig, JiraPreset, TokenStorage)
 from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, OnExistingKey,
-    apply_jira_keys, format_add_result)
+    apply_jira_keys, format_add_result, jira_custom_fields,
+    jira_editable_fields)
 from backlogops.levels import DEFAULT_LEVELS, level_name
 from backlogops.no_text_io import NoTextIO
 
@@ -35,6 +37,12 @@ FIELDS: list[dict[str, str]] = [
     {'id': 'customfield_10016', 'name': 'Story point estimate'},
     {'id': 'customfield_10001', 'name': 'Team'}]
 """Field descriptors resolving the two custom fields used on create."""
+
+_EDITABLE_DEFAULT: dict[str, str] = {
+    'description': 'Description',
+    'customfield_10016': 'Story point estimate',
+    'customfield_10001': 'Team', 'fixVersions': 'Fix versions'}
+"""Fields the fake issue's edit screen offers by default."""
 
 
 def _recorder(record: dict[str, object]
@@ -49,11 +57,12 @@ def _recorder(record: dict[str, object]
 class _WriteClient:
     """A stand-in Jira client for the add-to-Jira tests."""
 
-    def __init__(self, existing: Optional[set[str]] = None,
-                 alive: bool = True) -> None:
-        """Start with the given present keys and liveness, none created."""
+    def __init__(self, existing: Optional[set[str]] = None, alive: bool = True,
+                 editable: Optional[dict[str, str]] = None) -> None:
+        """Start with the present keys, liveness and edit-screen fields."""
         self.existing = set() if existing is None else set(existing)
         self.alive = alive
+        self.editable = _EDITABLE_DEFAULT if editable is None else editable
         self.created: list[dict[str, object]] = []
         self.closed = 0
         self._counter = 0
@@ -86,6 +95,12 @@ class _WriteClient:
         self.created.append(record)
         return SimpleNamespace(key=f'JIRA-{self._counter}',
                                update=_recorder(record))
+
+    def editmeta(self, issue: str) -> dict[str, object]:
+        """Return the edit-screen field metadata for the issue."""
+        _ = issue
+        return {'fields': {fid: {'name': name}
+                           for fid, name in self.editable.items()}}
 
     def close(self) -> None:
         """Count a close of the stand-in client."""
@@ -192,6 +207,20 @@ def test_create_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     assert 'key' not in fields
 
 
+def test_skip_unsettable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a field the edit screen omits is skipped and reported."""
+    client = _WriteClient(editable={'description': 'Description'})
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.story_points = 8
+    errors = io.StringIO()
+    add_backlog_to_jira(connections, 'w', [item],
+                        on_existing_key=OnExistingKey.SKIP, stderr_file=errors)
+    assert 'customfield_10016' not in client.created[0]
+    assert client.created[0]['description'] == 'D'
+    assert 'customfield_10016' in errors.getvalue()
+
+
 def test_input_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test mutating a stored copy leaves the argument item untouched."""
     client = _WriteClient()
@@ -266,6 +295,22 @@ def test_apply_keys() -> None:
     backlog = [_item('A'), _item('B'), _item('C')]
     apply_jira_keys(backlog, {'A': 'P-1', 'C': 'P-3'})
     assert [item.key for item in backlog] == ['P-1', 'B', 'P-3']
+
+
+def test_custom_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the diagnostic returns the custom field id and name pairs."""
+    connections = _connections(monkeypatch, _WriteClient())
+    pairs = jira_custom_fields(connections, 'w')
+    assert ('customfield_10001', 'Team') in pairs
+    assert ('customfield_10016', 'Story point estimate') in pairs
+
+
+def test_editable_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the diagnostic returns an issue's edit-screen fields."""
+    connections = _connections(monkeypatch, _WriteClient())
+    ids = [fid for fid, _ in jira_editable_fields(connections, 'w', 'SCRUM-1')]
+    assert 'customfield_10016' in ids
+    assert 'description' in ids
 
 
 def test_reexport() -> None:

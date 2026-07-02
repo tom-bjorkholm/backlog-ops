@@ -194,6 +194,9 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.extract_keys
      Extract backlog keys at the given levels to a key list
 
+  python3 -m backlogops_cli.jira_fields
+     Print Jira custom fields and an issue's editable fields
+
   python3 -m backlogops_cli.list
      List all commands available in backlogops_cli
 
@@ -228,7 +231,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 1750 passed in 36s
+- Test result: 1759 passed in 36s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

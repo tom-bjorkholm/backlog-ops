@@ -190,26 +190,50 @@ def _stored_copy(item: BacklogItem, new_key: str) -> BacklogItem:
     return copied
 
 
-def _create_issue(client: JIRA, fields: dict[str, object]) -> object:
-    """Create an issue with the create fields, then update the rest.
+def _editable_field_ids(client: JIRA, issue_key: str) -> set[str]:
+    """Return the field ids the issue's edit screen accepts."""
+    meta = client.editmeta(issue_key)
+    fields = meta.get('fields', {})
+    return {str(name) for name in fields}
 
-    The issue is created with only the fields a Jira create screen accepts;
-    the remaining mapped fields are then set through an update, which uses
-    the edit screen. A field the edit screen also rejects makes the update
-    raise, so nothing is silently dropped.
+
+def _create_issue(ctx: _WriteContext,
+                  item: BacklogItem) -> tuple[str, list[str]]:
+    """Create the issue and set the fields its edit screen offers.
+
+    The issue is created with the create-screen fields, then the remaining
+    mapped fields are set through an update, limited to the fields the
+    issue's edit screen offers. Mapped fields the edit screen does not
+    offer (such as story points on an issue type without them) are
+    returned as skipped so the caller can report them.
     """
+    fields = _create_fields(ctx, item)
     create = {name: value for name, value in fields.items()
               if name in _CREATE_FIELD_NAMES}
     update = {name: value for name, value in fields.items()
               if name not in _CREATE_FIELD_NAMES}
-    issue = client.create_issue(fields=create)
-    if update:
-        issue.update(fields=update)
-    return issue
+    issue = ctx.client.create_issue(fields=create)
+    new_key = _issue_key(issue)
+    if not update:
+        return new_key, []
+    editable = _editable_field_ids(ctx.client, new_key)
+    allowed = {name: value for name, value in update.items()
+               if name in editable}
+    if allowed:
+        issue.update(fields=allowed)
+    return new_key, sorted(set(update) - editable)
 
 
-def _write_new_items(ctx: _WriteContext, backlog: Backlog,
-                     existing: set[str]) -> AddedToJira:
+def _report_skipped(orig_key: str, new_key: str, skipped: list[str],
+                    stderr_file: TextIO) -> None:
+    """Report mapped fields the issue's edit screen did not offer."""
+    names = ', '.join(skipped)
+    print(f'WARNING: {new_key} (added from {orig_key}) has no edit-screen '
+          f'field for {names}; those values were not set.', file=stderr_file)
+
+
+def _write_new_items(ctx: _WriteContext, backlog: Backlog, existing: set[str],
+                     stderr_file: TextIO) -> AddedToJira:
     """Create every not-yet-present item and collect the two backlogs."""
     stored: Backlog = []
     already: Backlog = []
@@ -218,8 +242,9 @@ def _write_new_items(ctx: _WriteContext, backlog: Backlog,
         if item.key in existing:
             already.append(copy.deepcopy(item))
             continue
-        new_key = _issue_key(_create_issue(ctx.client,
-                                           _create_fields(ctx, item)))
+        new_key, skipped = _create_issue(ctx, item)
+        if skipped:
+            _report_skipped(item.key, new_key, skipped, stderr_file)
         stored.append(_stored_copy(item, new_key))
         key_map[item.key] = new_key
     return AddedToJira(stored, already, key_map)
@@ -274,7 +299,7 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
     existing = _existing_keys(client, backlog)
     if on_existing_key is OnExistingKey.RAISE and existing:
         _raise_existing(existing, stderr_file)
-    return _write_new_items(ctx, backlog, existing)
+    return _write_new_items(ctx, backlog, existing, stderr_file)
 
 
 def _result_section(heading: str, backlog: Backlog) -> list[str]:
@@ -312,3 +337,33 @@ def apply_jira_keys(backlog: Backlog, key_map: dict[str, str]) -> None:
         new_key = key_map.get(item.key)
         if new_key is not None:
             item.key = new_key
+
+
+def jira_custom_fields(connections: JiraConnections,
+                       preset_name: str) -> list[tuple[str, str]]:
+    """Return (field id, display name) pairs for the Jira custom fields.
+
+    This is the map the reader uses internally to resolve a custom field
+    named in a column map (such as 'Story point estimate') to its field
+    id. Printing it confirms what a mapped name resolves to.
+    """
+    preset = connections.jira_config.get_preset(preset_name)
+    client = connections.client(preset.connection_name)
+    ids = _custom_ids(client.fields())
+    return sorted((field_id, name) for name, field_id in ids.items())
+
+
+def jira_editable_fields(connections: JiraConnections, preset_name: str,
+                         issue_key: str) -> list[tuple[str, str]]:
+    """Return (field id, display name) pairs an issue's edit screen offers.
+
+    A field missing from the returned list is not on the issue's edit
+    screen for its issue type, so it cannot be set through the issue edit
+    REST endpoint. This explains why a mapped field is skipped on write.
+    """
+    preset = connections.jira_config.get_preset(preset_name)
+    client = connections.client(preset.connection_name)
+    meta = client.editmeta(issue_key)
+    fields = meta.get('fields', {})
+    return sorted((str(field_id), str(info.get('name', '')))
+                  for field_id, info in fields.items())

@@ -493,12 +493,16 @@
   * [\_raise\_existing](#backlogops.jira_write._raise_existing)
   * [\_issue\_key](#backlogops.jira_write._issue_key)
   * [\_stored\_copy](#backlogops.jira_write._stored_copy)
+  * [\_editable\_field\_ids](#backlogops.jira_write._editable_field_ids)
   * [\_create\_issue](#backlogops.jira_write._create_issue)
+  * [\_report\_skipped](#backlogops.jira_write._report_skipped)
   * [\_write\_new\_items](#backlogops.jira_write._write_new_items)
   * [add\_backlog\_to\_jira](#backlogops.jira_write.add_backlog_to_jira)
   * [\_result\_section](#backlogops.jira_write._result_section)
   * [format\_add\_result](#backlogops.jira_write.format_add_result)
   * [apply\_jira\_keys](#backlogops.jira_write.apply_jira_keys)
+  * [jira\_custom\_fields](#backlogops.jira_write.jira_custom_fields)
+  * [jira\_editable\_fields](#backlogops.jira_write.jira_editable_fields)
 * [backlogops.backlog\_releases\_io](#backlogops.backlog_releases_io)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
@@ -8326,28 +8330,51 @@ def _stored_copy(item: BacklogItem, new_key: str) -> BacklogItem
 
 Return a deep copy of the item carrying its new Jira key.
 
+<a id="backlogops.jira_write._editable_field_ids"></a>
+
+#### \_editable\_field\_ids
+
+```python
+def _editable_field_ids(client: JIRA, issue_key: str) -> set[str]
+```
+
+Return the field ids the issue's edit screen accepts.
+
 <a id="backlogops.jira_write._create_issue"></a>
 
 #### \_create\_issue
 
 ```python
-def _create_issue(client: JIRA, fields: dict[str, object]) -> object
+def _create_issue(ctx: _WriteContext,
+                  item: BacklogItem) -> tuple[str, list[str]]
 ```
 
-Create an issue with the create fields, then update the rest.
+Create the issue and set the fields its edit screen offers.
 
-The issue is created with only the fields a Jira create screen accepts;
-the remaining mapped fields are then set through an update, which uses
-the edit screen. A field the edit screen also rejects makes the update
-raise, so nothing is silently dropped.
+The issue is created with the create-screen fields, then the remaining
+mapped fields are set through an update, limited to the fields the
+issue's edit screen offers. Mapped fields the edit screen does not
+offer (such as story points on an issue type without them) are
+returned as skipped so the caller can report them.
+
+<a id="backlogops.jira_write._report_skipped"></a>
+
+#### \_report\_skipped
+
+```python
+def _report_skipped(orig_key: str, new_key: str, skipped: list[str],
+                    stderr_file: TextIO) -> None
+```
+
+Report mapped fields the issue's edit screen did not offer.
 
 <a id="backlogops.jira_write._write_new_items"></a>
 
 #### \_write\_new\_items
 
 ```python
-def _write_new_items(ctx: _WriteContext, backlog: Backlog,
-                     existing: set[str]) -> AddedToJira
+def _write_new_items(ctx: _WriteContext, backlog: Backlog, existing: set[str],
+                     stderr_file: TextIO) -> AddedToJira
 ```
 
 Create every not-yet-present item and collect the two backlogs.
@@ -8441,6 +8468,36 @@ An item whose key is a key of ``key_map`` gets that mapped Jira key; an
 item not in the map is left unchanged, and the order is preserved. Only
 the item key is changed; parent and dependency keys are updated in a
 later batch.
+
+<a id="backlogops.jira_write.jira_custom_fields"></a>
+
+#### jira\_custom\_fields
+
+```python
+def jira_custom_fields(connections: JiraConnections,
+                       preset_name: str) -> list[tuple[str, str]]
+```
+
+Return (field id, display name) pairs for the Jira custom fields.
+
+This is the map the reader uses internally to resolve a custom field
+named in a column map (such as 'Story point estimate') to its field
+id. Printing it confirms what a mapped name resolves to.
+
+<a id="backlogops.jira_write.jira_editable_fields"></a>
+
+#### jira\_editable\_fields
+
+```python
+def jira_editable_fields(connections: JiraConnections, preset_name: str,
+                         issue_key: str) -> list[tuple[str, str]]
+```
+
+Return (field id, display name) pairs an issue's edit screen offers.
+
+A field missing from the returned list is not on the issue's edit
+screen for its issue type, so it cannot be set through the issue edit
+REST endpoint. This explains why a mapped field is skipped on write.
 
 <a id="backlogops.backlog_releases_io"></a>
 
