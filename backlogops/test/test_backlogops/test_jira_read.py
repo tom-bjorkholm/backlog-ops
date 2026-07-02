@@ -328,7 +328,7 @@ def _io_config() -> JiraIOConfig:
     config.connections = {'c': _connection()}
     config.backlog_column_maps = {'bk': DEF_BACKLOG_COLUMN_MAP}
     config.release_column_maps = {'rel': DEF_RELEASE_COLUMN_MAP}
-    config.from_jira_presets = {'p': _preset()}
+    config.presets = {'p': _preset()}
     return config
 
 

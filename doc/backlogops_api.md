@@ -113,10 +113,10 @@
     * [has\_cached\_token](#backlogops.jira_io_config.JiraConnectConfig.has_cached_token)
     * [get\_token](#backlogops.jira_io_config.JiraConnectConfig.get_token)
     * [set\_token](#backlogops.jira_io_config.JiraConnectConfig.set_token)
-  * [JiraWritePreset](#backlogops.jira_io_config.JiraWritePreset)
   * [JiraPreset](#backlogops.jira_io_config.JiraPreset)
     * [\_\_init\_\_](#backlogops.jira_io_config.JiraPreset.__init__)
     * [get\_validation\_plan](#backlogops.jira_io_config.JiraPreset.get_validation_plan)
+    * [write\_backlog\_map\_name](#backlogops.jira_io_config.JiraPreset.write_backlog_map_name)
   * [JiraIOConfig](#backlogops.jira_io_config.JiraIOConfig)
     * [\_\_init\_\_](#backlogops.jira_io_config.JiraIOConfig.__init__)
     * [nested\_configs](#backlogops.jira_io_config.JiraIOConfig.nested_configs)
@@ -124,7 +124,6 @@
     * [serialize\_converters](#backlogops.jira_io_config.JiraIOConfig.serialize_converters)
     * [check\_consistency](#backlogops.jira_io_config.JiraIOConfig.check_consistency)
     * [get\_preset](#backlogops.jira_io_config.JiraIOConfig.get_preset)
-    * [get\_write\_preset](#backlogops.jira_io_config.JiraIOConfig.get_write_preset)
 * [backlogops.team](#backlogops.team)
   * [FteException](#backlogops.team.FteException)
     * [check\_consistency](#backlogops.team.FteException.check_consistency)
@@ -2352,12 +2351,11 @@ named, reusable parts:
   :data:`JiraColumnMap` maps from an internal field name to the paths
   that may reach the value on a Jira issue or version, kept apart so a
   backlog map and a release map are never confused;
-* ``from_jira_presets`` are named :class:`JiraPreset` objects that tie a
-  connection, a backlog column map and a release column map together with
-  a default project and a default issue filter for reading from Jira;
-* ``to_jira_presets`` are named :class:`JiraWritePreset` objects that tie
-  a connection, a backlog column map, a release column map and a default
-  project together for writing to Jira.
+* ``presets`` are named :class:`JiraPreset` objects that tie a connection,
+  a backlog column map and a release column map together with a default
+  project and a default issue filter. One preset drives both reading and
+  writing, so the same preset name is used in both directions; a preset
+  may also name a separate backlog column map for writing.
 
 Keeping the connections and column maps in their own dictionaries lets
 several presets share one connection or one map. A preset refers to them
@@ -2629,34 +2627,23 @@ cached so a following :meth:`get_token` returns it directly.
 
 - `ValueError` - If a needed file path or pass phrase is missing.
 
-<a id="backlogops.jira_io_config.JiraWritePreset"></a>
-
-## JiraWritePreset Objects
-
-```python
-class JiraWritePreset(_JiraPresetBase)
-```
-
-A named preset for writing a backlog and releases to Jira.
-
-The preset names the connection to use, the backlog and release column
-maps that describe how the internal fields map to Jira, and the
-default project key that new issues and versions are created in.
-Writing needs no issue filter, so a write preset carries none; reading
-from Jira uses a :class:`JiraPreset` instead.
-
 <a id="backlogops.jira_io_config.JiraPreset"></a>
 
 ## JiraPreset Objects
 
 ```python
-class JiraPreset(_JiraPresetBase)
+class JiraPreset(Config)
 ```
 
-A named preset for reading a backlog and releases from Jira.
+A named preset for reading from and writing to Jira.
 
-In addition to the shared preset members it carries the default issue
-filter (Jira Query Language) that selects the issues to read. The
+One preset drives both directions, so a command that reads and later
+writes uses a single preset name. It names the connection to use, the
+backlog and release column maps used for reading, the default project,
+and the default issue filter (Jira Query Language) used for reading.
+It also names an optional backlog column map used for writing; when
+that is empty the reading backlog map is used for writing too. The
+names refer to entries in the enclosing :class:`JiraIOConfig`. The
 default project is used to read the releases (versions) even when the
 caller overrides the issue filter.
 
@@ -2671,7 +2658,7 @@ def __init__(from_json_data_text: Optional[str] = None,
              stderr_file: TextIO = sys.stderr) -> None
 ```
 
-Create the read-preset defaults, then read them from JSON.
+Create preset defaults, then read them from JSON.
 
 <a id="backlogops.jira_io_config.JiraPreset.get_validation_plan"></a>
 
@@ -2682,7 +2669,20 @@ Create the read-preset defaults, then read them from JSON.
 def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
 ```
 
-Check the shared members and the issue filter are strings.
+Check every preset member is a string.
+
+<a id="backlogops.jira_io_config.JiraPreset.write_backlog_map_name"></a>
+
+#### write\_backlog\_map\_name
+
+```python
+def write_backlog_map_name() -> str
+```
+
+Return the backlog column map to use when writing to Jira.
+
+The dedicated write map is used when configured; otherwise the
+backlog map used for reading is used for writing too.
 
 <a id="backlogops.jira_io_config.JiraIOConfig"></a>
 
@@ -2695,12 +2695,15 @@ class JiraIOConfig(Config)
 Jira input and output configuration as the top-level jira member.
 
 Holds the named connections, the named backlog and release column
-maps, and the named read and write presets, each indexed by name so
-that several presets can share one connection or one column map. The
-column maps are validated and converted to :class:`JiraAttrPath`
-values on read and written back as lists on write; an old file that
-omits any sub-section loads with that sub-section empty, and an old
-combined ``column_maps`` section is dropped.
+maps, and the named presets, each indexed by name so that several
+presets can share one connection or one column map. Each preset drives
+both reading and writing, so a single preset name is used for both
+directions. The column maps are validated and converted to
+:class:`JiraAttrPath` values on read and written back as lists on
+write; an old file that omits any sub-section loads with that
+sub-section empty. An old combined ``column_maps`` section and an old
+``to_jira_presets`` section are dropped, and old ``from_jira_presets``
+are moved to the unified ``presets`` section.
 
 <a id="backlogops.jira_io_config.JiraIOConfig.__init__"></a>
 
@@ -2724,7 +2727,7 @@ Create empty defaults, then read the jira configuration.
 def nested_configs() -> NestedConfigs
 ```
 
-Declare the connections and read and write presets as nested.
+Declare the connections and the presets as nested configs.
 
 <a id="backlogops.jira_io_config.JiraIOConfig.get_validation_plan"></a>
 
@@ -2758,8 +2761,6 @@ def check_consistency(stderr_file: TextIO = sys.stderr) -> None
 
 Check every preset refers to a defined connection and maps.
 
-Both the read presets and the write presets are checked.
-
 **Arguments**:
 
 - `stderr_file` - The file to report errors to.
@@ -2778,7 +2779,7 @@ Both the read presets and the write presets are checked.
 def get_preset(name: str) -> JiraPreset
 ```
 
-Return the named from-Jira read preset.
+Return the named Jira preset, used for reading and writing.
 
 **Arguments**:
 
@@ -2787,36 +2788,12 @@ Return the named from-Jira read preset.
 
 **Returns**:
 
-  The named read preset.
+  The named preset.
   
 
 **Raises**:
 
-- `KeyError` - If no read preset of that name is configured.
-
-<a id="backlogops.jira_io_config.JiraIOConfig.get_write_preset"></a>
-
-#### get\_write\_preset
-
-```python
-def get_write_preset(name: str) -> JiraWritePreset
-```
-
-Return the named to-Jira write preset.
-
-**Arguments**:
-
-- `name` - The preset name.
-  
-
-**Returns**:
-
-  The named write preset.
-  
-
-**Raises**:
-
-- `KeyError` - If no write preset of that name is configured.
+- `KeyError` - If no preset of that name is configured.
 
 <a id="backlogops.team"></a>
 
@@ -5397,11 +5374,14 @@ Add backlog items to Jira from an internal backlog.
 is not already present. It first looks up every item's key in Jira; in
 ``RAISE`` mode it raises before creating anything when a key already
 exists, and in ``SKIP`` mode it leaves the already-present items alone.
-The create payload for each new issue is built by inverting the write
-preset's backlog column map: a plain field such as the summary is set
-directly, a nested field such as the issue type is wrapped by its path
-steps, a list field such as the fix versions is wrapped as named objects,
-and a custom field is set by its resolved field id.
+The payload for each new issue is built by inverting the preset's write
+backlog column map: a plain field such as the summary is set directly, a
+nested field such as the issue type is wrapped by its path steps, a list
+field such as the fix versions is wrapped as named objects, and a custom
+field is set by its resolved field id. The issue is first created with
+the fields a create screen accepts (project, summary, issue type) and the
+remaining fields are then set through an update, because a create screen
+often omits fields such as the story points that an edit screen accepts.
 
 The item key is assigned by Jira, the status needs a workflow transition,
 and the parent and dependency links are updated in a later batch, so
@@ -5479,15 +5459,17 @@ Add the backlog items to Jira, one created issue per new item.
 Every item's key is first looked up in Jira. In ``RAISE`` mode, if any
 key already exists the function raises before creating anything. In
 ``SKIP`` mode the already-present items are left untouched. Each added
-item is created from the write preset's backlog column map and default
+item is created from the preset's write backlog column map and default
 project, and a copy of it carrying the key Jira assigned is collected.
-The argument backlog is never modified.
+Each issue is created with the fields a create screen accepts and the
+remaining mapped fields are then set through an update. The argument
+backlog is never modified.
 
 **Arguments**:
 
 - `connections` - The pool of live Jira clients and the configuration
-  holding the write preset, connection and backlog column map.
-- `preset_name` - The name of the to-Jira write preset to use.
+  holding the preset, connection and backlog column map.
+- `preset_name` - The name of the Jira preset to use.
 - `backlog` - The backlog items to add. Not modified.
 - `on_existing_key` - Whether to raise or skip when a key already
   exists in Jira.

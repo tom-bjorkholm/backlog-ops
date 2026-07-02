@@ -9,8 +9,8 @@ from typing import Callable, Optional, TextIO, cast
 import pytest
 from backlogops import (
     AddedToJira, BacklogItem, BacklogOpsConfig, BacklogReleases,
-    ExistsInJiraError, JiraConnectConfig, JiraIOConfig, JiraPreset,
-    JiraWritePreset, Status, TokenStorage)
+    ExistsInJiraError, JiraConnectConfig, JiraIOConfig, JiraPreset, Status,
+    TokenStorage)
 from backlogops.jira_token import encrypt_token
 from backlogops_gui import application
 from backlogops_gui.application import BacklogApp
@@ -85,12 +85,9 @@ def _jira_config(encrypted: bool = False) -> JiraIOConfig:
     preset = JiraPreset()
     preset.connection_name = 'main'
     preset.def_filter = 'project = SCRUM'
-    write = JiraWritePreset()
-    write.connection_name = 'main'
     config = JiraIOConfig()
     config.connections = {'main': conn}
-    config.from_jira_presets = {'scrum': preset}
-    config.to_jira_presets = {'scrumw': write}
+    config.presets = {'scrum': preset}
     return config
 
 
@@ -311,7 +308,7 @@ def test_read_jira_warning(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _write_opts(_parent: object, _presets: object) -> JiraWriteOptions:
     """Return write options as if the write dialog was confirmed."""
-    return JiraWriteOptions('scrumw', False)
+    return JiraWriteOptions('scrum', False)
 
 
 def _add_result() -> AddedToJira:

@@ -156,7 +156,7 @@ class BacklogApp:
         """Return Jira preset names mapped to their default filters."""
         if self.config is None:
             return None
-        presets = self.config.get_jira_config().from_jira_presets
+        presets = self.config.get_jira_config().presets
         return {name: preset.def_filter for name, preset in presets.items()}
 
     def gui_display(self) -> GuiDisplayConfig:
@@ -388,22 +388,15 @@ class BacklogApp:
         self._start_jira_thread(options.preset_name, options.issue_filter)
 
     def _jira_connection(self, preset_name: str) -> JiraConnectConfig:
-        """Return the Jira connection used by the named read preset."""
+        """Return the Jira connection used by the named preset."""
         assert self.config is not None
         jira_config = self.config.get_jira_config()
         preset = jira_config.get_preset(preset_name)
         return jira_config.connections[preset.connection_name]
 
-    def _jira_write_connection(self, preset_name: str) -> JiraConnectConfig:
-        """Return the Jira connection used by the named write preset."""
-        assert self.config is not None
-        jira_config = self.config.get_jira_config()
-        preset = jira_config.get_write_preset(preset_name)
-        return jira_config.connections[preset.connection_name]
-
-    def _prepare_token(self, connection: JiraConnectConfig,
-                       preset_name: str) -> bool:
+    def _prepare_jira_token(self, preset_name: str) -> bool:
         """Materialize an encrypted Jira token before the worker starts."""
+        connection = self._jira_connection(preset_name)
         if not connection.uses_encryption() or connection.has_cached_token():
             return True
         passphrase = ask_jira_passphrase(self.root)
@@ -418,16 +411,6 @@ class BacklogApp:
             self.show_error('Could not read Jira token', message)
             return False
         return True
-
-    def _prepare_jira_token(self, preset_name: str) -> bool:
-        """Prepare the token of the named read preset's connection."""
-        return self._prepare_token(self._jira_connection(preset_name),
-                                   preset_name)
-
-    def _prepare_jira_write_token(self, preset_name: str) -> bool:
-        """Prepare the token of the named write preset's connection."""
-        return self._prepare_token(self._jira_write_connection(preset_name),
-                                   preset_name)
 
     def _start_jira_thread(self, preset_name: str, issue_filter: str) -> None:
         """Start the Jira read worker thread."""
@@ -491,19 +474,19 @@ class BacklogApp:
         """Return the add-to-Jira handler, or None when it is unavailable."""
         if self.config is None:
             return None
-        if not self.config.get_jira_config().to_jira_presets:
+        if not self.config.get_jira_config().presets:
             return None
         return self._add_backlog_to_jira
 
     def _add_backlog_to_jira(self, data: BacklogReleases,
                              on_done: Callable[[AddedToJira], None]) -> None:
-        """Ask for a write preset and add the shown backlog to Jira."""
+        """Ask for a preset and add the shown backlog to Jira."""
         assert self.config is not None
-        presets = sorted(self.config.get_jira_config().to_jira_presets)
+        presets = sorted(self.config.get_jira_config().presets)
         options = ask_jira_write_options(self.root, presets)
         if options is None:
             return
-        if not self._prepare_jira_write_token(options.preset_name):
+        if not self._prepare_jira_token(options.preset_name):
             return
         self._start_jira_write(data, options, on_done)
 

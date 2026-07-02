@@ -22,7 +22,7 @@ import backlogops.jira_connect as jc
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import (
     DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP, JiraConnectConfig,
-    JiraIOConfig, JiraWritePreset, TokenStorage)
+    JiraIOConfig, JiraPreset, TokenStorage)
 from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, OnExistingKey,
     apply_jira_keys, format_add_result)
@@ -35,6 +35,15 @@ FIELDS: list[dict[str, str]] = [
     {'id': 'customfield_10016', 'name': 'Story point estimate'},
     {'id': 'customfield_10001', 'name': 'Team'}]
 """Field descriptors resolving the two custom fields used on create."""
+
+
+def _recorder(record: dict[str, object]
+              ) -> Callable[[dict[str, object]], None]:
+    """Return an update callback that merges its fields into ``record``."""
+    def update(fields: dict[str, object]) -> None:
+        """Merge the update fields into the created issue's record."""
+        record.update(fields)
+    return update
 
 
 class _WriteClient:
@@ -66,10 +75,17 @@ class _WriteClient:
         raise JIRAError(status_code=404, text='not found')
 
     def create_issue(self, fields: dict[str, object]) -> SimpleNamespace:
-        """Record the payload and return an issue with a fresh key."""
+        """Record the create payload; the issue merges a later update.
+
+        The returned issue's ``update`` merges its fields into the same
+        record, so the recorded payload holds the fields set at create and
+        the fields set by the following update together.
+        """
         self._counter += 1
-        self.created.append(fields)
-        return SimpleNamespace(key=f'JIRA-{self._counter}')
+        record = dict(fields)
+        self.created.append(record)
+        return SimpleNamespace(key=f'JIRA-{self._counter}',
+                               update=_recorder(record))
 
     def close(self) -> None:
         """Count a close of the stand-in client."""
@@ -77,11 +93,11 @@ class _WriteClient:
 
 
 def _config(project: str = 'PROJ') -> JiraIOConfig:
-    """Return a Jira configuration with one connection and a write preset."""
+    """Return a Jira configuration with one connection and one preset."""
     conn = JiraConnectConfig(stderr_file=NO)
     conn.token_storage = TokenStorage.CLEAR_INTERNAL
     conn.stored_token = 'TOK'
-    preset = JiraWritePreset(stderr_file=NO)
+    preset = JiraPreset(stderr_file=NO)
     preset.connection_name = 'c'
     preset.backlog_column_map_name = 'bk'
     preset.release_column_map_name = 'rel'
@@ -90,7 +106,7 @@ def _config(project: str = 'PROJ') -> JiraIOConfig:
     config.connections = {'c': conn}
     config.backlog_column_maps = {'bk': DEF_BACKLOG_COLUMN_MAP}
     config.release_column_maps = {'rel': DEF_RELEASE_COLUMN_MAP}
-    config.to_jira_presets = {'w': preset}
+    config.presets = {'w': preset}
     return config
 
 

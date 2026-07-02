@@ -228,7 +228,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 1748 passed in 38s
+- Test result: 1750 passed in 36s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

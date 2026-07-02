@@ -2,10 +2,10 @@
 """Add a backlog to Jira from an input file, creating one issue per item.
 
 The command reads a backlog (or a backlog and its releases) from the input
-file, then adds the backlog items to Jira using a named to-Jira write
-preset of the backlog-ops configuration. By default it stops with an error
-when an item's key already exists in Jira; ``--skip-existing`` skips those
-items instead.
+file, then adds the backlog items to Jira using a named preset of the
+backlog-ops configuration. By default it stops with an error when an
+item's key already exists in Jira; ``--skip-existing`` skips those items
+instead.
 
 The added items (carrying their new Jira keys) and the items already in
 Jira are printed to stdout as two labelled lists, unless ``-q``/``--quiet``
@@ -41,8 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_input_args(parser)
     add_config_arg(parser)
     parser.add_argument('-p', '--preset', dest='preset', required=True,
-                        help='Name of the to-Jira write preset in the '
-                        'configuration.')
+                        help='Name of the Jira preset in the configuration.')
     parser.add_argument('--skip-existing', dest='skip_existing',
                         action='store_true',
                         help='Skip items whose key already exists in Jira '

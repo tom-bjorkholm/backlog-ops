@@ -46,7 +46,7 @@ from backlogops.io_config import (
     resolve_input_config, resolve_output_config, make_input_config,
     make_output_config)
 from backlogops.jira_io_config import (
-    JiraIOConfig, JiraConnectConfig, JiraPreset, JiraWritePreset, JiraType,
+    JiraIOConfig, JiraConnectConfig, JiraPreset, JiraType,
     TokenStorage, JiraAttrType, JiraAttrPath, JiraColumnMap,
     DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP, CLEAR_TOKEN_WARNING,
     default_jira_filter)
@@ -94,7 +94,7 @@ __all__ = [
     'DependencyMode', 'GuiDisplayConfig', 'InputFormatConfig',
     'OutputFormatConfig', 'resolve_input_config', 'resolve_output_config',
     'make_input_config', 'make_output_config',
-    'JiraIOConfig', 'JiraConnectConfig', 'JiraPreset', 'JiraWritePreset',
+    'JiraIOConfig', 'JiraConnectConfig', 'JiraPreset',
     'JiraType', 'TokenStorage', 'JiraAttrType', 'JiraAttrPath',
     'JiraColumnMap', 'DEF_BACKLOG_COLUMN_MAP', 'DEF_RELEASE_COLUMN_MAP',
     'DEF_STATUS_INPUT_MAP',

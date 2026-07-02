@@ -22,8 +22,7 @@ from enum import Enum
 from typing import Callable, TypeVar
 from backlogops.jira_io_config import DEF_BACKLOG_COLUMN_MAP, \
     DEF_RELEASE_COLUMN_MAP, JiraColumnMap, JiraConnectConfig, JiraIOConfig, \
-    JiraPreset, JiraType, JiraWritePreset, TokenStorage, _JiraPresetBase, \
-    default_jira_filter
+    JiraPreset, JiraType, TokenStorage, default_jira_filter
 from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS
 from backlogops.wizard_helpers import _Navigator
 
@@ -60,7 +59,7 @@ def _counted_named(nav: _Navigator, what: str,
 
 
 def _build_jira_config(nav: _Navigator) -> JiraIOConfig:
-    """Ask for the Jira connections, column maps and read/write presets."""
+    """Ask for the Jira connections, column maps and presets."""
     jira = JiraIOConfig(stderr_file=nav.error_file())
     jira.connections = nav.level(lambda: _build_connections(nav))
     jira.backlog_column_maps = nav.level(lambda: _build_backlog_maps(nav))
@@ -70,7 +69,7 @@ def _build_jira_config(nav: _Navigator) -> JiraIOConfig:
 
 
 def _build_presets(nav: _Navigator, jira: JiraIOConfig) -> None:
-    """Ask the read and write presets when the prerequisites exist.
+    """Ask the Jira presets when the prerequisites exist.
 
     A preset needs a connection, a backlog column map and a release column
     map. When some but not all of these exist the presets are skipped with
@@ -84,10 +83,8 @@ def _build_presets(nav: _Navigator, jira: JiraIOConfig) -> None:
             nav.show('A Jira preset needs a connection, a backlog column '
                      'map and a release column map; skipping presets.')
         return
-    jira.from_jira_presets = nav.level(
-        lambda: _build_from_presets(nav, conn, backlog, release))
-    jira.to_jira_presets = nav.level(
-        lambda: _build_to_presets(nav, conn, backlog, release))
+    jira.presets = nav.level(
+        lambda: _build_preset_list(nav, conn, backlog, release))
 
 
 def _build_connections(nav: _Navigator) -> dict[str, JiraConnectConfig]:
@@ -158,53 +155,37 @@ def _ask_map(nav: _Navigator, used: set[str], label: str, fields: list[str],
     return name, nav.ask_jira_map(fields, default)
 
 
-def _build_from_presets(nav: _Navigator, conn: list[str], backlog: list[str],
-                        release: list[str]) -> dict[str, JiraPreset]:
-    """Ask for a counted list of named from-Jira read presets."""
+def _build_preset_list(nav: _Navigator, conn: list[str], backlog: list[str],
+                       release: list[str]) -> dict[str, JiraPreset]:
+    """Ask for a counted list of named Jira presets."""
     return _counted_named(
-        nav, 'read presets',
-        lambda used: _ask_from_preset(nav, used, conn, backlog, release))
+        nav, 'presets',
+        lambda used: _ask_preset(nav, used, conn, backlog, release))
 
 
-def _build_to_presets(nav: _Navigator, conn: list[str], backlog: list[str],
-                      release: list[str]) -> dict[str, JiraWritePreset]:
-    """Ask for a counted list of named to-Jira write presets."""
-    return _counted_named(
-        nav, 'write presets',
-        lambda used: _ask_to_preset(nav, used, conn, backlog, release))
-
-
-def _ask_from_preset(nav: _Navigator, used: set[str], conn: list[str],
-                     backlog: list[str],
-                     release: list[str]) -> tuple[str, JiraPreset]:
-    """Ask one read preset: name, connection, maps, project and filter."""
-    name = nav.ask_preset_name('Read preset name (letters and digits)', used)
+def _ask_preset(nav: _Navigator, used: set[str], conn: list[str],
+                backlog: list[str],
+                release: list[str]) -> tuple[str, JiraPreset]:
+    """Ask one preset: name, connection, maps, project and filter."""
+    name = nav.ask_preset_name('Preset name (letters and digits)', used)
     preset = JiraPreset(stderr_file=nav.error_file())
-    _fill_base_preset(nav, preset, conn, backlog, release)
+    preset.connection_name = _choice(nav, 'Connection to use', conn)
+    preset.backlog_column_map_name = _choice(nav, 'Backlog column map (read)',
+                                             backlog)
+    preset.backlog_write_map_name = _ask_write_map(nav, backlog)
+    preset.release_column_map_name = _choice(nav, 'Release column map',
+                                             release)
+    preset.def_project = nav.ask_text('Default Jira project key')
     preset.def_filter = _ask_filter(nav, preset.def_project)
     return name, preset
 
 
-def _ask_to_preset(nav: _Navigator, used: set[str], conn: list[str],
-                   backlog: list[str],
-                   release: list[str]) -> tuple[str, JiraWritePreset]:
-    """Ask one write preset: name, connection, maps and project."""
-    name = nav.ask_preset_name('Write preset name (letters and digits)', used)
-    preset = JiraWritePreset(stderr_file=nav.error_file())
-    _fill_base_preset(nav, preset, conn, backlog, release)
-    return name, preset
-
-
-def _fill_base_preset(nav: _Navigator, preset: _JiraPresetBase,
-                      conn: list[str], backlog: list[str],
-                      release: list[str]) -> None:
-    """Fill the shared preset fields: connection, maps and project."""
-    preset.connection_name = _choice(nav, 'Connection to use', conn)
-    preset.backlog_column_map_name = _choice(nav, 'Backlog column map',
-                                             backlog)
-    preset.release_column_map_name = _choice(nav, 'Release column map',
-                                             release)
-    preset.def_project = nav.ask_text('Default Jira project key')
+def _ask_write_map(nav: _Navigator, backlog: list[str]) -> str:
+    """Ask an optional separate backlog column map for writing to Jira."""
+    if not nav.ask_yes_no('Use a separate backlog column map for writing '
+                          '(otherwise the read map is used)?', False):
+        return ''
+    return _choice(nav, 'Backlog column map for writing', backlog)
 
 
 def _choice(nav: _Navigator, question: str, choices: list[str]) -> str:

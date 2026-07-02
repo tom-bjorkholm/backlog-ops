@@ -5,11 +5,14 @@
 is not already present. It first looks up every item's key in Jira; in
 ``RAISE`` mode it raises before creating anything when a key already
 exists, and in ``SKIP`` mode it leaves the already-present items alone.
-The create payload for each new issue is built by inverting the write
-preset's backlog column map: a plain field such as the summary is set
-directly, a nested field such as the issue type is wrapped by its path
-steps, a list field such as the fix versions is wrapped as named objects,
-and a custom field is set by its resolved field id.
+The payload for each new issue is built by inverting the preset's write
+backlog column map: a plain field such as the summary is set directly, a
+nested field such as the issue type is wrapped by its path steps, a list
+field such as the fix versions is wrapped as named objects, and a custom
+field is set by its resolved field id. The issue is first created with
+the fields a create screen accepts (project, summary, issue type) and the
+remaining fields are then set through an update, because a create screen
+often omits fields such as the story points that an edit screen accepts.
 
 The item key is assigned by Jira, the status needs a workflow transition,
 and the parent and dependency links are updated in a later batch, so
@@ -42,6 +45,14 @@ the parent and dependency links are updated in a later batch.
 
 _JIRA_LIST_FIELDS = frozenset({'fixVersions', 'versions', 'components'})
 """Jira issue fields whose create value is a list of named objects."""
+
+_CREATE_FIELD_NAMES = frozenset({'project', 'summary', 'issuetype'})
+"""Jira fields set while creating an issue; the rest are set by an update.
+
+A Jira create screen often omits fields such as the story points, the
+team or the fix versions, so those are set through an update once the
+issue exists, where the edit screen usually accepts them.
+"""
 
 
 class ExistsInJiraError(ValueError):
@@ -179,6 +190,24 @@ def _stored_copy(item: BacklogItem, new_key: str) -> BacklogItem:
     return copied
 
 
+def _create_issue(client: JIRA, fields: dict[str, object]) -> object:
+    """Create an issue with the create fields, then update the rest.
+
+    The issue is created with only the fields a Jira create screen accepts;
+    the remaining mapped fields are then set through an update, which uses
+    the edit screen. A field the edit screen also rejects makes the update
+    raise, so nothing is silently dropped.
+    """
+    create = {name: value for name, value in fields.items()
+              if name in _CREATE_FIELD_NAMES}
+    update = {name: value for name, value in fields.items()
+              if name not in _CREATE_FIELD_NAMES}
+    issue = client.create_issue(fields=create)
+    if update:
+        issue.update(fields=update)
+    return issue
+
+
 def _write_new_items(ctx: _WriteContext, backlog: Backlog,
                      existing: set[str]) -> AddedToJira:
     """Create every not-yet-present item and collect the two backlogs."""
@@ -189,8 +218,8 @@ def _write_new_items(ctx: _WriteContext, backlog: Backlog,
         if item.key in existing:
             already.append(copy.deepcopy(item))
             continue
-        issue = ctx.client.create_issue(fields=_create_fields(ctx, item))
-        new_key = _issue_key(issue)
+        new_key = _issue_key(_create_issue(ctx.client,
+                                           _create_fields(ctx, item)))
         stored.append(_stored_copy(item, new_key))
         key_map[item.key] = new_key
     return AddedToJira(stored, already, key_map)
@@ -206,14 +235,16 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
     Every item's key is first looked up in Jira. In ``RAISE`` mode, if any
     key already exists the function raises before creating anything. In
     ``SKIP`` mode the already-present items are left untouched. Each added
-    item is created from the write preset's backlog column map and default
+    item is created from the preset's write backlog column map and default
     project, and a copy of it carrying the key Jira assigned is collected.
-    The argument backlog is never modified.
+    Each issue is created with the fields a create screen accepts and the
+    remaining mapped fields are then set through an update. The argument
+    backlog is never modified.
 
     Args:
         connections: The pool of live Jira clients and the configuration
-            holding the write preset, connection and backlog column map.
-        preset_name: The name of the to-Jira write preset to use.
+            holding the preset, connection and backlog column map.
+        preset_name: The name of the Jira preset to use.
         backlog: The backlog items to add. Not modified.
         on_existing_key: Whether to raise or skip when a key already
             exists in Jira.
@@ -232,10 +263,10 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
             Jira.
     """
     jira_config = connections.jira_config
-    preset = jira_config.get_write_preset(preset_name)
+    preset = jira_config.get_preset(preset_name)
     client = connections.client(preset.connection_name)
     column_map = jira_config.backlog_column_maps[
-        preset.backlog_column_map_name]
+        preset.write_backlog_map_name()]
     ctx = _WriteContext(client=client, column_map=column_map,
                         project=preset.def_project,
                         custom_ids=_custom_ids(client.fields()),

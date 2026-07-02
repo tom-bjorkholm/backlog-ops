@@ -100,10 +100,7 @@
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
     * [\_read\_jira\_backlog](#backlogops_gui.application.BacklogApp._read_jira_backlog)
     * [\_jira\_connection](#backlogops_gui.application.BacklogApp._jira_connection)
-    * [\_jira\_write\_connection](#backlogops_gui.application.BacklogApp._jira_write_connection)
-    * [\_prepare\_token](#backlogops_gui.application.BacklogApp._prepare_token)
     * [\_prepare\_jira\_token](#backlogops_gui.application.BacklogApp._prepare_jira_token)
-    * [\_prepare\_jira\_write\_token](#backlogops_gui.application.BacklogApp._prepare_jira_write_token)
     * [\_start\_jira\_thread](#backlogops_gui.application.BacklogApp._start_jira_thread)
     * [\_read\_jira\_worker](#backlogops_gui.application.BacklogApp._read_jira_worker)
     * [\_jira\_consistency\_warning](#backlogops_gui.application.BacklogApp._jira_consistency_warning)
@@ -1507,27 +1504,7 @@ Read a backlog from Jira into a new window.
 def _jira_connection(preset_name: str) -> JiraConnectConfig
 ```
 
-Return the Jira connection used by the named read preset.
-
-<a id="backlogops_gui.application.BacklogApp._jira_write_connection"></a>
-
-#### \_jira\_write\_connection
-
-```python
-def _jira_write_connection(preset_name: str) -> JiraConnectConfig
-```
-
-Return the Jira connection used by the named write preset.
-
-<a id="backlogops_gui.application.BacklogApp._prepare_token"></a>
-
-#### \_prepare\_token
-
-```python
-def _prepare_token(connection: JiraConnectConfig, preset_name: str) -> bool
-```
-
-Materialize an encrypted Jira token before the worker starts.
+Return the Jira connection used by the named preset.
 
 <a id="backlogops_gui.application.BacklogApp._prepare_jira_token"></a>
 
@@ -1537,17 +1514,7 @@ Materialize an encrypted Jira token before the worker starts.
 def _prepare_jira_token(preset_name: str) -> bool
 ```
 
-Prepare the token of the named read preset's connection.
-
-<a id="backlogops_gui.application.BacklogApp._prepare_jira_write_token"></a>
-
-#### \_prepare\_jira\_write\_token
-
-```python
-def _prepare_jira_write_token(preset_name: str) -> bool
-```
-
-Prepare the token of the named write preset's connection.
+Materialize an encrypted Jira token before the worker starts.
 
 <a id="backlogops_gui.application.BacklogApp._start_jira_thread"></a>
 
@@ -1630,7 +1597,7 @@ def _add_backlog_to_jira(data: BacklogReleases,
                          on_done: Callable[[AddedToJira], None]) -> None
 ```
 
-Ask for a write preset and add the shown backlog to Jira.
+Ask for a preset and add the shown backlog to Jira.
 
 <a id="backlogops_gui.application.BacklogApp._start_jira_write"></a>
 
