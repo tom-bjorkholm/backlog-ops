@@ -20,6 +20,9 @@
 * [backlogops\_cli.config\_wizard](#backlogops_cli.config_wizard)
   * [build\_parser](#backlogops_cli.config_wizard.build_parser)
   * [main](#backlogops_cli.config_wizard.main)
+* [backlogops\_cli.add\_to\_jira](#backlogops_cli.add_to_jira)
+  * [build\_parser](#backlogops_cli.add_to_jira.build_parser)
+  * [main](#backlogops_cli.add_to_jira.main)
 * [backlogops\_cli.convert](#backlogops_cli.convert)
   * [build\_parser](#backlogops_cli.convert.build_parser)
   * [main](#backlogops_cli.convert.main)
@@ -285,6 +288,55 @@ already present.
 
   ``0`` on success, ``1`` when the entered configuration is rejected
   or cannot be written.
+
+<a id="backlogops_cli.add_to_jira"></a>
+
+# backlogops\_cli.add\_to\_jira
+
+Add a backlog to Jira from an input file, creating one issue per item.
+
+The command reads a backlog (or a backlog and its releases) from the input
+file, then adds the backlog items to Jira using a named to-Jira write
+preset of the backlog-ops configuration. By default it stops with an error
+when an item's key already exists in Jira; ``--skip-existing`` skips those
+items instead.
+
+The added items (carrying their new Jira keys) and the items already in
+Jira are printed to stdout as two labelled lists, unless ``-q``/``--quiet``
+is given. Each list is also written to a file when ``--added-file`` or
+``--existing-file`` names one; without a file name the list is not written.
+An encrypted Jira token is unlocked by a pass phrase asked on the terminal
+only when it is needed.
+
+<a id="backlogops_cli.add_to_jira.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the add-to-Jira command.
+
+<a id="backlogops_cli.add_to_jira.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Add a backlog to Jira and report the added and present items.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the backlog cannot be added or a key
+  already exists in Jira without ``--skip-existing``.
 
 <a id="backlogops_cli.convert"></a>
 

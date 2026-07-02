@@ -10,14 +10,14 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence, TextIO, cast
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogItem, BacklogReleases, DependencyMode,
+    AddedToJira, AvailableTeams, BacklogItem, BacklogReleases, DependencyMode,
     GuiDisplayConfig, NoTextIO, Release, ReleaseChange, ReleaseDateChange,
     Status, get_demo_backlog)
 from backlogops_gui import backlog_window
 from backlogops_gui.backlog_window import (
-    BacklogWindow, adjust_content, estimate_date, extract_keys, order_by_deps,
-    order_by_keys, order_by_release, order_dates, plan_dates, save_backlog,
-    save_changes, set_plan, show_changes)
+    BacklogWindow, adjust_content, apply_add_result, estimate_date,
+    extract_keys, order_by_deps, order_by_keys, order_by_release, order_dates,
+    plan_dates, save_backlog, save_changes, set_plan, show_changes)
 from backlogops_gui.backlog_window import _content_report, _date_report
 from backlogops_gui.io_dialogs import (
     DepOptions, ReleaseOrderOptions, StartChoice, WriteOptions,
@@ -823,3 +823,21 @@ def test_warning_disables_ops() -> None:
         assert labels and labels[0].cget('text') == 'Broken Jira data'
     finally:
         root.destroy()
+
+
+def test_apply_add_result() -> None:
+    """Test rekeying updates the shown backlog and reports the lists."""
+    item = BacklogItem(key='A', level=1, title='First', story_points=5,
+                       status=Status.TODO)
+    data = BacklogReleases(backlog=[item], releases=[])
+    added = BacklogItem(key='PROJ-1', level=1, title='First', story_points=5,
+                        status=Status.TODO)
+    result = AddedToJira(stored=[added], already_present=[],
+                         key_map={'A': 'PROJ-1'})
+    calls: list[str] = []
+    reports: list[str] = []
+    apply_add_result(data, result, lambda: calls.append('refresh'),
+                     reports.append)
+    assert data.backlog[0].key == 'PROJ-1'
+    assert calls == ['refresh']
+    assert 'Added to Jira' in reports[0]

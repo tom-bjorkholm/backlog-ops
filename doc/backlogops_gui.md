@@ -55,6 +55,7 @@
   * [plan\_dates](#backlogops_gui.backlog_window.plan_dates)
   * [order\_dates](#backlogops_gui.backlog_window.order_dates)
   * [extract\_keys](#backlogops_gui.backlog_window.extract_keys)
+  * [apply\_add\_result](#backlogops_gui.backlog_window.apply_add_result)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
@@ -64,6 +65,7 @@
   * [ReadOptions](#backlogops_gui.io_dialogs.ReadOptions)
   * [WriteOptions](#backlogops_gui.io_dialogs.WriteOptions)
   * [JiraReadOptions](#backlogops_gui.io_dialogs.JiraReadOptions)
+  * [JiraWriteOptions](#backlogops_gui.io_dialogs.JiraWriteOptions)
   * [choose\_input\_file](#backlogops_gui.io_dialogs.choose_input_file)
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
@@ -75,11 +77,13 @@
   * [ask\_read\_options](#backlogops_gui.io_dialogs.ask_read_options)
   * [ask\_write\_options](#backlogops_gui.io_dialogs.ask_write_options)
   * [ask\_jira\_read\_options](#backlogops_gui.io_dialogs.ask_jira_read_options)
+  * [ask\_jira\_write\_options](#backlogops_gui.io_dialogs.ask_jira_write_options)
   * [ask\_jira\_passphrase](#backlogops_gui.io_dialogs.ask_jira_passphrase)
   * [choose\_key\_list\_output](#backlogops_gui.io_dialogs.choose_key_list_output)
   * [choose\_changes\_output](#backlogops_gui.io_dialogs.choose_changes_output)
   * [ask\_buffer\_days](#backlogops_gui.io_dialogs.ask_buffer_days)
   * [show\_change\_list](#backlogops_gui.io_dialogs.show_change_list)
+  * [show\_text\_report](#backlogops_gui.io_dialogs.show_text_report)
   * [DepOptions](#backlogops_gui.io_dialogs.DepOptions)
   * [ReleaseOrderOptions](#backlogops_gui.io_dialogs.ReleaseOrderOptions)
   * [StartChoice](#backlogops_gui.io_dialogs.StartChoice)
@@ -202,7 +206,10 @@ Store the parent window and the optional diagnostics log.
 ```python
 def ask_text(question: str,
              re_ask_reason: Optional[str] = None,
-             nullable: bool = False) -> Optional[str]
+             nullable: bool = False,
+             *,
+             default: Optional[str] = None,
+             sensitive: bool = False) -> Optional[str]
 ```
 
 Ask for free text; see WizardUiBridge.ask_text.
@@ -824,6 +831,22 @@ def extract_keys(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for levels and a file, then write the backlog keys to it.
 
+<a id="backlogops_gui.backlog_window.apply_add_result"></a>
+
+#### apply\_add\_result
+
+```python
+def apply_add_result(data: BacklogReleases, result: AddedToJira,
+                     refresh: Callable[[], None],
+                     show_report: Callable[[str], None]) -> None
+```
+
+Rekey the shown backlog, refresh the view and show the two lists.
+
+The added items take their new Jira keys (order preserved), the view
+is rebuilt, and the added and already-present lists are shown to the
+user through ``show_report``.
+
 <a id="backlogops_gui.backlog_window.BacklogWindow"></a>
 
 ## BacklogWindow Objects
@@ -839,15 +862,19 @@ A top-level window showing one backlog and its releases.
 #### \_\_init\_\_
 
 ```python
-def __init__(root: tk.Misc,
-             data: BacklogReleases,
-             title: str,
-             presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
-             teams: Callable[[], Optional[AvailableTeams]],
-             sink: TextIO,
-             levels: Callable[[], Optional[Levels]] = lambda: None,
-             gui_display: Callable[[], GuiDisplayConfig] = GuiDisplayConfig,
-             warning: Optional[str] = None) -> None
+def __init__(
+    root: tk.Misc,
+    data: BacklogReleases,
+    title: str,
+    presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
+    teams: Callable[[], Optional[AvailableTeams]],
+    sink: TextIO,
+    levels: Callable[[], Optional[Levels]] = lambda: None,
+    gui_display: Callable[[], GuiDisplayConfig] = GuiDisplayConfig,
+    warning: Optional[str] = None,
+    add_to_jira: Optional[Callable[
+        [BacklogReleases, Callable[[AddedToJira], None]], None]] = None
+) -> None
 ```
 
 Build the window, its menu and the two tables.
@@ -867,6 +894,9 @@ Build the window, its menu and the two tables.
   renaming for the tables.
 - `warning` - Warning text to show over the tables. When present,
   backlog operations are disabled and only saving remains.
+- `add_to_jira` - Handler that adds the shown backlog to Jira and
+  calls back with the result, or None when adding is
+  unavailable (no configuration or no write presets).
 
 <a id="backlogops_gui.io_dialogs"></a>
 
@@ -946,6 +976,17 @@ class JiraReadOptions()
 ```
 
 The Jira preset and issue filter selected for reading from Jira.
+
+<a id="backlogops_gui.io_dialogs.JiraWriteOptions"></a>
+
+## JiraWriteOptions Objects
+
+```python
+@dataclass
+class JiraWriteOptions()
+```
+
+The Jira write preset and existing-key choice for adding to Jira.
 
 <a id="backlogops_gui.io_dialogs.choose_input_file"></a>
 
@@ -1066,6 +1107,17 @@ def ask_jira_read_options(
 
 Ask which Jira preset and filter to read, or None when cancelled.
 
+<a id="backlogops_gui.io_dialogs.ask_jira_write_options"></a>
+
+#### ask\_jira\_write\_options
+
+```python
+def ask_jira_write_options(
+        parent: tk.Misc, presets: Sequence[str]) -> Optional[JiraWriteOptions]
+```
+
+Ask which write preset and skip choice, or None when cancelled.
+
 <a id="backlogops_gui.io_dialogs.ask_jira_passphrase"></a>
 
 #### ask\_jira\_passphrase
@@ -1120,6 +1172,20 @@ Show a change listing with Save-to-file and Dismiss buttons.
 The listing is shown read-only. The Save button calls ``on_save`` and
 the Dismiss button closes the window. The created window is returned
 so a caller (or a test) can drive or close it.
+
+<a id="backlogops_gui.io_dialogs.show_text_report"></a>
+
+#### show\_text\_report
+
+```python
+def show_text_report(parent: tk.Misc, title: str, text: str) -> tk.Toplevel
+```
+
+Show read-only, copy-pasteable text with a Dismiss button.
+
+The text is shown in a disabled text box, which still lets the user
+select and copy it. The created window is returned so a caller or a
+test can drive or close it.
 
 <a id="backlogops_gui.io_dialogs.DepOptions"></a>
 

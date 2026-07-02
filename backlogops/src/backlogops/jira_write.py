@@ -44,6 +44,21 @@ _JIRA_LIST_FIELDS = frozenset({'fixVersions', 'versions', 'components'})
 """Jira issue fields whose create value is a list of named objects."""
 
 
+class ExistsInJiraError(ValueError):
+    """Raised when a backlog key to add already exists in Jira.
+
+    It carries the sorted keys that already exist, so a caller can report
+    them. It derives from :class:`ValueError`, so a handler that catches
+    ``ValueError`` still catches it.
+    """
+
+    def __init__(self, keys: list[str]) -> None:
+        """Store the already-present keys and build the message."""
+        self.keys = keys
+        super().__init__(
+            'Backlog keys already exist in Jira: ' + ', '.join(keys) + '.')
+
+
 class OnExistingKey(Enum):
     """What to do when a backlog item's key already exists in Jira."""
 
@@ -145,10 +160,9 @@ def _existing_keys(client: JIRA, backlog: Backlog) -> set[str]:
 
 def _raise_existing(existing: set[str], stderr_file: TextIO) -> None:
     """Report and raise for backlog keys that already exist in Jira."""
-    keys = ', '.join(sorted(existing))
-    message = f'Backlog keys already exist in Jira: {keys}.'
-    print(message, file=stderr_file)
-    raise ValueError(message)
+    error = ExistsInJiraError(sorted(existing))
+    print(str(error), file=stderr_file)
+    raise error
 
 
 def _issue_key(issue: object) -> str:
@@ -214,7 +228,8 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
     Raises:
         KeyError: If the preset or a referenced connection or map is
             missing.
-        ValueError: In ``RAISE`` mode, if any key already exists in Jira.
+        ExistsInJiraError: In ``RAISE`` mode, if any key already exists in
+            Jira.
     """
     jira_config = connections.jira_config
     preset = jira_config.get_write_preset(preset_name)
@@ -229,3 +244,40 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
     if on_existing_key is OnExistingKey.RAISE and existing:
         _raise_existing(existing, stderr_file)
     return _write_new_items(ctx, backlog, existing)
+
+
+def _result_section(heading: str, backlog: Backlog) -> list[str]:
+    """Return the heading and the key-and-title lines for one backlog."""
+    lines = [f'{heading} ({len(backlog)}):']
+    if not backlog:
+        lines.append('  (none)')
+    else:
+        lines.extend(f'  {item.key}  {item.title}' for item in backlog)
+    return lines
+
+
+def format_add_result(result: AddedToJira) -> str:
+    """Return a two-section listing of added and already-present items.
+
+    Each section has a heading with its count, then one ``key  title`` line
+    per item, or a ``(none)`` line when the section is empty. The CLI
+    prints this text and the GUI shows it in a copy-pasteable pop-up.
+    """
+    lines = _result_section('Added to Jira', result.stored)
+    lines.append('')
+    lines.extend(_result_section('Already in Jira', result.already_present))
+    return '\n'.join(lines)
+
+
+def apply_jira_keys(backlog: Backlog, key_map: dict[str, str]) -> None:
+    """Rekey each backlog item in place using the original-to-Jira map.
+
+    An item whose key is a key of ``key_map`` gets that mapped Jira key; an
+    item not in the map is left unchanged, and the order is preserved. Only
+    the item key is changed; parent and dependency keys are updated in a
+    later batch.
+    """
+    for item in backlog:
+        new_key = key_map.get(item.key)
+        if new_key is not None:
+            item.key = new_key

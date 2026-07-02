@@ -265,9 +265,13 @@
   * [level\_number\_from\_name](#backlogops.levels.level_number_from_name)
   * [level\_name](#backlogops.levels.level_name)
 * [backlogops.jira\_write](#backlogops.jira_write)
+  * [ExistsInJiraError](#backlogops.jira_write.ExistsInJiraError)
+    * [\_\_init\_\_](#backlogops.jira_write.ExistsInJiraError.__init__)
   * [OnExistingKey](#backlogops.jira_write.OnExistingKey)
   * [AddedToJira](#backlogops.jira_write.AddedToJira)
   * [add\_backlog\_to\_jira](#backlogops.jira_write.add_backlog_to_jira)
+  * [format\_add\_result](#backlogops.jira_write.format_add_result)
+  * [apply\_jira\_keys](#backlogops.jira_write.apply_jira_keys)
 * [backlogops.backlog\_releases\_io](#backlogops.backlog_releases_io)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
@@ -5404,6 +5408,30 @@ and the parent and dependency links are updated in a later batch, so
 those fields are not written here. The argument backlog is never modified;
 each added item is copied and the copy carries the key Jira assigned.
 
+<a id="backlogops.jira_write.ExistsInJiraError"></a>
+
+## ExistsInJiraError Objects
+
+```python
+class ExistsInJiraError(ValueError)
+```
+
+Raised when a backlog key to add already exists in Jira.
+
+It carries the sorted keys that already exist, so a caller can report
+them. It derives from :class:`ValueError`, so a handler that catches
+``ValueError`` still catches it.
+
+<a id="backlogops.jira_write.ExistsInJiraError.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(keys: list[str]) -> None
+```
+
+Store the already-present keys and build the message.
+
 <a id="backlogops.jira_write.OnExistingKey"></a>
 
 ## OnExistingKey Objects
@@ -5478,7 +5506,37 @@ The argument backlog is never modified.
 
 - `KeyError` - If the preset or a referenced connection or map is
   missing.
-- `ValueError` - In ``RAISE`` mode, if any key already exists in Jira.
+- `ExistsInJiraError` - In ``RAISE`` mode, if any key already exists in
+  Jira.
+
+<a id="backlogops.jira_write.format_add_result"></a>
+
+#### format\_add\_result
+
+```python
+def format_add_result(result: AddedToJira) -> str
+```
+
+Return a two-section listing of added and already-present items.
+
+Each section has a heading with its count, then one ``key  title`` line
+per item, or a ``(none)`` line when the section is empty. The CLI
+prints this text and the GUI shows it in a copy-pasteable pop-up.
+
+<a id="backlogops.jira_write.apply_jira_keys"></a>
+
+#### apply\_jira\_keys
+
+```python
+def apply_jira_keys(backlog: Backlog, key_map: dict[str, str]) -> None
+```
+
+Rekey each backlog item in place using the original-to-Jira map.
+
+An item whose key is a key of ``key_map`` gets that mapped Jira key; an
+item not in the map is left unchanged, and the order is preserved. Only
+the item key is changed; parent and dependency keys are updated in a
+later batch.
 
 <a id="backlogops.backlog_releases_io"></a>
 

@@ -284,18 +284,37 @@ class _WizardWindow:
         """Destroy the wizard window."""
         self._win.destroy()
 
-    def ask_text(self, question: str, re_ask: Optional[str],
-                 nullable: bool) -> Optional[str]:
-        """Ask one free-text question and return the entered text."""
+    def ask_text(self, question: str, re_ask: Optional[str], nullable: bool,
+                 default: Optional[str] = None,
+                 sensitive: bool = False) -> Optional[str]:
+        """Ask one free-text question and return the entered text.
+
+        A sensitive question masks the typed text; a default value is
+        pre-filled and returned when the answer is left empty.
+        """
         self._begin(question, re_ask)
         entry = tk.Entry(self._content, width=44)
+        if sensitive:
+            entry.configure(show='*')
+        elif default is not None:
+            entry.insert(0, default)
         style_input(entry)
         entry.pack(anchor='w', pady=6)
         self._add_buttons(lambda: self._finish(entry.get()))
         self._win.bind('<Return>', lambda event: self._finish(entry.get()))
         result = self._wait()
         assert isinstance(result, str)
-        return None if (nullable and result == '') else result
+        return self._text_result(result, nullable, default)
+
+    @staticmethod
+    def _text_result(result: str, nullable: bool,
+                     default: Optional[str]) -> Optional[str]:
+        """Return the answer after the default and nullable rules."""
+        if result != '':
+            return result
+        if default is not None:
+            return default
+        return None if nullable else ''
 
     def ask_yes_no(self, question: str, default: bool,
                    re_ask: Optional[str]) -> bool:
@@ -498,9 +517,11 @@ class TkWizardBridge(WizardUiBridge):
         self._window: Optional[_WizardWindow] = None
 
     def ask_text(self, question: str, re_ask_reason: Optional[str] = None,
-                 nullable: bool = False) -> Optional[str]:
+                 nullable: bool = False, *, default: Optional[str] = None,
+                 sensitive: bool = False) -> Optional[str]:
         """Ask for free text; see WizardUiBridge.ask_text."""
-        return self._window_obj().ask_text(question, re_ask_reason, nullable)
+        return self._window_obj().ask_text(question, re_ask_reason, nullable,
+                                           default, sensitive)
 
     def ask_yes_no(self, question: str, default: bool,
                    re_ask_reason: Optional[str] = None) -> bool:

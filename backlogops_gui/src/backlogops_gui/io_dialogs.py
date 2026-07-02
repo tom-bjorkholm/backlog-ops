@@ -85,6 +85,14 @@ class JiraReadOptions:
     issue_filter: str
 
 
+@dataclass
+class JiraWriteOptions:
+    """The Jira write preset and existing-key choice for adding to Jira."""
+
+    preset_name: str
+    skip_existing: bool
+
+
 def choose_input_file(parent: tk.Misc) -> Optional[str]:
     """Ask for an existing backlog file, or None when cancelled."""
     name = filedialog.askopenfilename(parent=parent, title='Read backlog')
@@ -415,6 +423,53 @@ def ask_jira_read_options(parent: tk.Misc, preset_filters: Mapping[str, str]
 
 
 # pylint: disable-next=too-few-public-methods
+class _JiraWriteDialog(_ModalDialog):
+    """Modal dialog collecting the Jira write preset and skip choice."""
+
+    def __init__(self, parent: tk.Misc, presets: Sequence[str]) -> None:
+        """Build, show and wait for the Jira write dialog."""
+        super().__init__(parent, 'Add backlog to Jira')
+        self.options: Optional[JiraWriteOptions] = None
+        names = sorted(presets)
+        self._preset = tk.StringVar(self._win, names[0] if names else '')
+        self._skip = tk.BooleanVar(self._win, False)
+        self._build(names)
+        self._show()
+
+    def _build(self, names: Sequence[str]) -> None:
+        """Add the preset chooser and the skip-existing checkbox."""
+        tk.Label(self._win, text='Jira write preset:'
+                 ).pack(anchor='w', padx=12, pady=(10, 2))
+        box = ttk.Combobox(self._win, textvariable=self._preset,
+                           values=list(names), state='readonly', width=35)
+        style_input(box)
+        box.pack(anchor='w', padx=12)
+        tk.Checkbutton(self._win, variable=self._skip,
+                       text='Skip items whose key already exists in Jira'
+                       ).pack(anchor='w', padx=12, pady=(8, 2))
+
+    def _confirm(self) -> None:
+        """Store the selected preset and skip choice, requiring a preset."""
+        name = self._preset.get()
+        if not name:
+            messagebox.showerror('No Jira preset',
+                                 'Select a Jira write preset.',
+                                 parent=self._win)
+            return
+        self.options = JiraWriteOptions(name, self._skip.get())
+        super()._confirm()
+
+
+def ask_jira_write_options(parent: tk.Misc, presets: Sequence[str]
+                           ) -> Optional[JiraWriteOptions]:
+    """Ask which write preset and skip choice, or None when cancelled."""
+    dialog = _JiraWriteDialog(parent, presets)
+    if dialog.cancelled:
+        return None
+    return dialog.options
+
+
+# pylint: disable-next=too-few-public-methods
 class _PassphraseDialog(_ModalDialog):
     """Modal dialog collecting a masked pass phrase."""
 
@@ -529,6 +584,25 @@ def show_change_list(parent: tk.Misc, title: str, text: str,
               command=on_save).pack(side='left')
     tk.Button(button_bar, text='Dismiss',
               command=win.destroy).pack(side='right')
+    return win
+
+
+def show_text_report(parent: tk.Misc, title: str, text: str) -> tk.Toplevel:
+    """Show read-only, copy-pasteable text with a Dismiss button.
+
+    The text is shown in a disabled text box, which still lets the user
+    select and copy it. The created window is returned so a caller or a
+    test can drive or close it.
+    """
+    win = tk.Toplevel(parent)
+    win.title(title)
+    if isinstance(parent, tk.Wm):
+        win.transient(parent)
+    box = tk.Text(win, width=50, height=14, wrap='none')
+    box.insert('1.0', text)
+    box.configure(state='disabled')
+    box.pack(padx=12, pady=(10, 4), fill='both', expand=True)
+    tk.Button(win, text='Dismiss', command=win.destroy).pack(padx=12, pady=10)
     return win
 
 

@@ -173,6 +173,9 @@ backlogops_cli serves 2 purposes:
 
 ````text
 
+  python3 -m backlogops_cli.add_to_jira
+     Add a backlog to Jira, creating a new issue per item
+
   python3 -m backlogops_cli.adjust_release_content
      Adjust release content to fit the planned release dates
 
@@ -225,7 +228,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 1729 passed in 39s
+- Test result: 1748 passed in 38s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

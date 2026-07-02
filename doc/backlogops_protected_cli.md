@@ -48,6 +48,14 @@
   * [content\_report](#backlogops_cli._command_io.content_report)
   * [run\_change\_command](#backlogops_cli._command_io.run_change_command)
   * [\_save\_changes](#backlogops_cli._command_io._save_changes)
+* [backlogops\_cli.add\_to\_jira](#backlogops_cli.add_to_jira)
+  * [build\_parser](#backlogops_cli.add_to_jira.build_parser)
+  * [\_passphrase](#backlogops_cli.add_to_jira._passphrase)
+  * [\_add](#backlogops_cli.add_to_jira._add)
+  * [\_write\_backlog\_file](#backlogops_cli.add_to_jira._write_backlog_file)
+  * [\_write\_result\_files](#backlogops_cli.add_to_jira._write_result_files)
+  * [\_run](#backlogops_cli.add_to_jira._run)
+  * [main](#backlogops_cli.add_to_jira.main)
 * [backlogops\_cli.convert](#backlogops_cli.convert)
   * [build\_parser](#backlogops_cli.convert.build_parser)
   * [main](#backlogops_cli.convert.main)
@@ -775,6 +783,108 @@ Save the changes to ``--changes-file`` when one is requested.
 
 A ``write_changes`` of None means there were no changes, so nothing is
 written and a short note is printed instead.
+
+<a id="backlogops_cli.add_to_jira"></a>
+
+# backlogops\_cli.add\_to\_jira
+
+Add a backlog to Jira from an input file, creating one issue per item.
+
+The command reads a backlog (or a backlog and its releases) from the input
+file, then adds the backlog items to Jira using a named to-Jira write
+preset of the backlog-ops configuration. By default it stops with an error
+when an item's key already exists in Jira; ``--skip-existing`` skips those
+items instead.
+
+The added items (carrying their new Jira keys) and the items already in
+Jira are printed to stdout as two labelled lists, unless ``-q``/``--quiet``
+is given. Each list is also written to a file when ``--added-file`` or
+``--existing-file`` names one; without a file name the list is not written.
+An encrypted Jira token is unlocked by a pass phrase asked on the terminal
+only when it is needed.
+
+<a id="backlogops_cli.add_to_jira.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the add-to-Jira command.
+
+<a id="backlogops_cli.add_to_jira._passphrase"></a>
+
+#### \_passphrase
+
+```python
+def _passphrase() -> str
+```
+
+Ask for the Jira token pass phrase on the terminal.
+
+<a id="backlogops_cli.add_to_jira._add"></a>
+
+#### \_add
+
+```python
+def _add(parsed: argparse.Namespace, config: BacklogOpsConfig,
+         data: BacklogReleases) -> AddedToJira
+```
+
+Add the input backlog to Jira using the named write preset.
+
+<a id="backlogops_cli.add_to_jira._write_backlog_file"></a>
+
+#### \_write\_backlog\_file
+
+```python
+def _write_backlog_file(config: BacklogOpsConfig, path: str,
+                        data: BacklogReleases, force: bool) -> None
+```
+
+Write one returned backlog and the input releases to a file.
+
+<a id="backlogops_cli.add_to_jira._write_result_files"></a>
+
+#### \_write\_result\_files
+
+```python
+def _write_result_files(parsed: argparse.Namespace, config: BacklogOpsConfig,
+                        data: BacklogReleases, result: AddedToJira) -> None
+```
+
+Write the added and already-present backlogs to any named files.
+
+<a id="backlogops_cli.add_to_jira._run"></a>
+
+#### \_run
+
+```python
+def _run(parsed: argparse.Namespace) -> int
+```
+
+Read the input, add it to Jira, write files and print the lists.
+
+<a id="backlogops_cli.add_to_jira.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Add a backlog to Jira and report the added and present items.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the backlog cannot be added or a key
+  already exists in Jira without ``--skip-existing``.
 
 <a id="backlogops_cli.convert"></a>
 

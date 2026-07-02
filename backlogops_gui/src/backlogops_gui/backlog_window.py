@@ -19,16 +19,17 @@ from tkinter import messagebox, ttk
 from typing import Callable, Literal, Optional, TextIO
 from tableio import ValueFmt
 from backlogops import (
-    AvailableTeams, BacklogReleases, GuiDisplayConfig, Levels,
+    AddedToJira, AvailableTeams, BacklogReleases, GuiDisplayConfig, Levels,
     OutputFormatConfig, ReleaseChanges, ReleaseDateChanges, allow_overwrite,
-    format_content_changes, format_date_changes, get_keys_in_order,
-    write_content_changes, write_date_changes, write_key_list)
+    apply_jira_keys, format_add_result, format_content_changes,
+    format_date_changes, get_keys_in_order, write_content_changes,
+    write_date_changes, write_key_list)
 from backlogops_gui.backlog_io import write_backlog
 from backlogops_gui.io_dialogs import (
     ask_buffer_days, ask_date_order, ask_dep_options, ask_keys, ask_levels,
     ask_release_order, ask_start_date, ask_write_options,
     choose_changes_output, choose_key_list_output, choose_output_file,
-    show_change_list)
+    show_change_list, show_text_report)
 from backlogops_gui.table_view import (
     backlog_table, make_table, release_table)
 
@@ -350,6 +351,20 @@ def extract_keys(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
     on_info('Wrote keys', f'Wrote {path}')
 
 
+def apply_add_result(data: BacklogReleases, result: AddedToJira,
+                     refresh: Callable[[], None],
+                     show_report: Callable[[str], None]) -> None:
+    """Rekey the shown backlog, refresh the view and show the two lists.
+
+    The added items take their new Jira keys (order preserved), the view
+    is rebuilt, and the added and already-present lists are shown to the
+    user through ``show_report``.
+    """
+    apply_jira_keys(data.backlog, result.key_map)
+    refresh()
+    show_report(format_add_result(result))
+
+
 # pylint: disable-next=too-few-public-methods,too-many-instance-attributes
 class BacklogWindow:
     """A top-level window showing one backlog and its releases."""
@@ -362,7 +377,10 @@ class BacklogWindow:
                  levels: Callable[[], Optional[Levels]] = lambda: None,
                  gui_display: Callable[
                      [], GuiDisplayConfig] = GuiDisplayConfig,
-                 warning: Optional[str] = None) -> None:
+                 warning: Optional[str] = None,
+                 add_to_jira: Optional[Callable[
+                     [BacklogReleases, Callable[[AddedToJira], None]],
+                     None]] = None) -> None:
         """Build the window, its menu and the two tables.
 
         Args:
@@ -379,6 +397,9 @@ class BacklogWindow:
                 renaming for the tables.
             warning: Warning text to show over the tables. When present,
                 backlog operations are disabled and only saving remains.
+            add_to_jira: Handler that adds the shown backlog to Jira and
+                calls back with the result, or None when adding is
+                unavailable (no configuration or no write presets).
         """
         self._data = data
         self._presets = presets
@@ -387,6 +408,7 @@ class BacklogWindow:
         self._levels = levels
         self._gui_display = gui_display
         self._warning = warning
+        self._add_to_jira = add_to_jira
         self._win = tk.Toplevel(root)
         self._win.title(title)
         self._tables: list[tk.Widget] = []
@@ -463,6 +485,11 @@ class BacklogWindow:
                          command=self._order_dates, state=state)
         menu.add_command(label='Extract keys…', command=self._extract_keys,
                          state=state)
+        jira_state: Literal['normal', 'disabled']
+        jira_state = ('normal' if self._add_to_jira is not None
+                      and self._warning is None else 'disabled')
+        menu.add_command(label='Add backlog to Jira…', command=self._jira_add,
+                         state=jira_state)
 
     def _add_table(self, heading: str, columns: list[str],
                    rows: list[list[ValueFmt]], narrow: bool) -> tk.Widget:
@@ -545,3 +572,17 @@ class BacklogWindow:
         """Extract backlog keys at chosen levels to a key list file."""
         extract_keys(self._win, self._data, self._sink, self._report_error,
                      self._report_info)
+
+    def _jira_add(self) -> None:
+        """Add the shown backlog to Jira, adjusting the view on success."""
+        if self._add_to_jira is not None:
+            self._add_to_jira(self._data, self._on_jira_added)
+
+    def _on_jira_added(self, result: AddedToJira) -> None:
+        """Rekey the shown backlog and show the two result lists."""
+        apply_add_result(self._data, result, self._refresh_tables,
+                         self._show_add_report)
+
+    def _show_add_report(self, text: str) -> None:
+        """Show the add result text in a copy-pasteable pop-up."""
+        show_text_report(self._win, 'Added to Jira', text)

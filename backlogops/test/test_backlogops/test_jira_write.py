@@ -24,7 +24,8 @@ from backlogops.jira_io_config import (
     DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP, JiraConnectConfig,
     JiraIOConfig, JiraWritePreset, TokenStorage)
 from backlogops.jira_write import (
-    add_backlog_to_jira, AddedToJira, OnExistingKey)
+    add_backlog_to_jira, AddedToJira, ExistsInJiraError, OnExistingKey,
+    apply_jira_keys, format_add_result)
 from backlogops.levels import DEFAULT_LEVELS, level_name
 from backlogops.no_text_io import NoTextIO
 
@@ -145,10 +146,11 @@ def test_raise_existing(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _WriteClient(existing={'B'})
     connections = _connections(monkeypatch, client)
     backlog = [_item('A'), _item('B')]
-    with pytest.raises(ValueError):
+    with pytest.raises(ExistsInJiraError) as caught:
         add_backlog_to_jira(connections, 'w', backlog,
                             on_existing_key=OnExistingKey.RAISE,
                             stderr_file=NO)
+    assert caught.value.keys == ['B']
     assert not client.created
 
 
@@ -221,9 +223,39 @@ def test_close_clients(monkeypatch: pytest.MonkeyPatch) -> None:
     assert client.closed == 1
 
 
+def test_format_result() -> None:
+    """Test the listing shows both sections with keys and titles."""
+    added = _item('P-1')
+    added.title = 'First'
+    present = _item('X-9')
+    present.title = 'Old'
+    result = AddedToJira(stored=[added], already_present=[present],
+                         key_map={'A': 'P-1'})
+    text = format_add_result(result)
+    assert 'Added to Jira (1):' in text
+    assert '  P-1  First' in text
+    assert 'Already in Jira (1):' in text
+    assert '  X-9  Old' in text
+
+
+def test_format_empty() -> None:
+    """Test an empty section is shown as a count of zero and (none)."""
+    text = format_add_result(AddedToJira([], [], {}))
+    assert 'Added to Jira (0):' in text
+    assert '(none)' in text
+
+
+def test_apply_keys() -> None:
+    """Test rekeying updates mapped items in place and keeps order."""
+    backlog = [_item('A'), _item('B'), _item('C')]
+    apply_jira_keys(backlog, {'A': 'P-1', 'C': 'P-3'})
+    assert [item.key for item in backlog] == ['P-1', 'B', 'P-3']
+
+
 def test_reexport() -> None:
     """Test the package re-exports the add-to-Jira names."""
     assert backlogops.add_backlog_to_jira is add_backlog_to_jira
     assert backlogops.AddedToJira is AddedToJira
+    assert backlogops.ExistsInJiraError is ExistsInJiraError
     assert 'add_backlog_to_jira' in backlogops.__all__
     assert 'JiraConnections' in backlogops.__all__

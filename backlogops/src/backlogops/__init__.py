@@ -75,7 +75,8 @@ from backlogops.jira_read import (
     read_backlog_from_jira, read_jira_from_config, build_backlog_releases,
     resolve_jql)
 from backlogops.jira_write import (
-    add_backlog_to_jira, AddedToJira, OnExistingKey)
+    add_backlog_to_jira, AddedToJira, ExistsInJiraError, OnExistingKey,
+    apply_jira_keys, format_add_result)
 
 __all__ = [
     'Backlog', 'BacklogItem', 'Status', 'get_backlog', 'get_backlog_item',
@@ -116,4 +117,6 @@ __all__ = [
     'CompanyWorkHours', 'check_date_range', 'check_no_overlap', 'NoTextIO',
     'backlog_in_release_order', 'read_backlog_from_jira',
     'read_jira_from_config', 'build_backlog_releases', 'resolve_jql',
-    'JiraConnections', 'add_backlog_to_jira', 'AddedToJira', 'OnExistingKey']
+    'JiraConnections', 'add_backlog_to_jira', 'AddedToJira',
+    'ExistsInJiraError', 'OnExistingKey', 'apply_jira_keys',
+    'format_add_result']

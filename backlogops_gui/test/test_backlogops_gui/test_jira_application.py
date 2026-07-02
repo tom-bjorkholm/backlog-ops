@@ -8,12 +8,13 @@ import tkinter as tk
 from typing import Callable, Optional, TextIO, cast
 import pytest
 from backlogops import (
-    BacklogOpsConfig, BacklogReleases, JiraConnectConfig, JiraIOConfig,
-    JiraPreset, TokenStorage)
+    AddedToJira, BacklogItem, BacklogOpsConfig, BacklogReleases,
+    ExistsInJiraError, JiraConnectConfig, JiraIOConfig, JiraPreset,
+    JiraWritePreset, Status, TokenStorage)
 from backlogops.jira_token import encrypt_token
 from backlogops_gui import application
 from backlogops_gui.application import BacklogApp
-from backlogops_gui.io_dialogs import JiraReadOptions
+from backlogops_gui.io_dialogs import JiraReadOptions, JiraWriteOptions
 
 DATA = BacklogReleases(backlog=[], releases=[])
 
@@ -84,9 +85,12 @@ def _jira_config(encrypted: bool = False) -> JiraIOConfig:
     preset = JiraPreset()
     preset.connection_name = 'main'
     preset.def_filter = 'project = SCRUM'
+    write = JiraWritePreset()
+    write.connection_name = 'main'
     config = JiraIOConfig()
     config.connections = {'main': conn}
     config.from_jira_presets = {'scrum': preset}
+    config.to_jira_presets = {'scrumw': write}
     return config
 
 
@@ -303,3 +307,76 @@ def test_read_jira_warning(monkeypatch: pytest.MonkeyPatch) -> None:
     app._read_jira_backlog()
     assert opened == [(bad_data, 'Jira: scrum', application.JIRA_WARNING)]
     assert 'bad jira reference' in app.log.text()
+
+
+def _write_opts(_parent: object, _presets: object) -> JiraWriteOptions:
+    """Return write options as if the write dialog was confirmed."""
+    return JiraWriteOptions('scrumw', False)
+
+
+def _add_result() -> AddedToJira:
+    """Return a canned add result with one stored item."""
+    added = BacklogItem(key='PROJ-1', level=1, title='First', story_points=5,
+                        status=Status.TODO)
+    return AddedToJira(stored=[added], already_present=[],
+                       key_map={'A': 'PROJ-1'})
+
+
+def _fake_write(result: AddedToJira) -> Callable[..., AddedToJira]:
+    """Return a stand-in add_backlog_to_jira returning ``result``."""
+    def add(*_args: object, **_kwargs: object) -> AddedToJira:
+        """Ignore the arguments and return the canned result."""
+        return result
+    return add
+
+
+def test_write_action_absent() -> None:
+    """Test the add-to-Jira action is absent without write presets."""
+    # pylint: disable-next=protected-access
+    assert _app(BacklogOpsConfig())._jira_write_action() is None
+    # pylint: disable-next=protected-access
+    assert _app(_config())._jira_write_action() is not None
+
+
+def test_write_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the handler adds the backlog and hands back the result."""
+    result = _add_result()
+    monkeypatch.setattr(application, 'ask_jira_write_options', _write_opts)
+    monkeypatch.setattr(application, 'add_backlog_to_jira',
+                        _fake_write(result))
+    monkeypatch.setattr('backlogops_gui.application.threading.Thread',
+                        _make_immediate)
+    app = _app(_config())
+    got: list[AddedToJira] = []
+    # pylint: disable-next=protected-access
+    app._add_backlog_to_jira(DATA, got.append)
+    assert got == [result]
+
+
+def test_write_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the write dialog adds nothing."""
+    monkeypatch.setattr(application, 'ask_jira_write_options', _no_jira_opts)
+    app = _app(_config())
+    got: list[AddedToJira] = []
+    # pylint: disable-next=protected-access
+    app._add_backlog_to_jira(DATA, got.append)
+    assert not got
+
+
+def test_write_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a write failure is reported and nothing is handed back."""
+    def _raise(*_args: object, **_kwargs: object) -> AddedToJira:
+        """Raise as the real add does when a key already exists."""
+        raise ExistsInJiraError(['A'])
+    monkeypatch.setattr(application, 'ask_jira_write_options', _write_opts)
+    monkeypatch.setattr(application, 'add_backlog_to_jira', _raise)
+    monkeypatch.setattr('backlogops_gui.application.threading.Thread',
+                        _make_immediate)
+    app = _app(_config())
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    got: list[AddedToJira] = []
+    # pylint: disable-next=protected-access
+    app._add_backlog_to_jira(DATA, got.append)
+    assert not got
+    assert errors
