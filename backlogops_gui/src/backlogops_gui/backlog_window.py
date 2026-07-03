@@ -473,11 +473,14 @@ class BacklogWindow:
         """Add the backlog menu with the action, save and close items."""
         menubar = tk.Menu(self._win)
         backlog_menu = tk.Menu(menubar, tearoff=False)
+        jira_menu = tk.Menu(menubar, tearoff=False)
         self._add_actions(backlog_menu)
+        self._add_jira_actions(jira_menu)
         backlog_menu.add_separator()
         backlog_menu.add_command(label='Save to file…', command=self._save)
         backlog_menu.add_command(label='Close', command=self._win.destroy)
         menubar.add_cascade(label='Backlog', menu=backlog_menu)
+        menubar.add_cascade(label='Jira', menu=jira_menu)
         self._win.config(menu=menubar)
 
     def _add_actions(self, menu: tk.Menu) -> None:
@@ -502,6 +505,9 @@ class BacklogWindow:
                          command=self._order_dates, state=state)
         menu.add_command(label='Extract keys…', command=self._extract_keys,
                          state=state)
+
+    def _add_jira_actions(self, menu: tk.Menu) -> None:
+        """Add the Jira operation items to the menu."""
         jira_state: Literal['normal', 'disabled']
         jira_state = ('normal' if self._add_to_jira is not None
                       and self._warning is None else 'disabled')

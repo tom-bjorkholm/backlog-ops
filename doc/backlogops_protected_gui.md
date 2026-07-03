@@ -178,6 +178,7 @@
     * [\_add\_warning](#backlogops_gui.backlog_window.BacklogWindow._add_warning)
     * [\_add\_menu](#backlogops_gui.backlog_window.BacklogWindow._add_menu)
     * [\_add\_actions](#backlogops_gui.backlog_window.BacklogWindow._add_actions)
+    * [\_add\_jira\_actions](#backlogops_gui.backlog_window.BacklogWindow._add_jira_actions)
     * [\_add\_table](#backlogops_gui.backlog_window.BacklogWindow._add_table)
     * [\_make\_tree](#backlogops_gui.backlog_window.BacklogWindow._make_tree)
     * [\_save](#backlogops_gui.backlog_window.BacklogWindow._save)
@@ -2478,6 +2479,16 @@ def _add_actions(menu: tk.Menu) -> None
 ```
 
 Add the backlog operation items to the menu.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._add_jira_actions"></a>
+
+#### \_add\_jira\_actions
+
+```python
+def _add_jira_actions(menu: tk.Menu) -> None
+```
+
+Add the Jira operation items to the menu.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._add_table"></a>
 

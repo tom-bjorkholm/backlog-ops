@@ -733,7 +733,7 @@ class BacklogApp:
         """Add the file menu with the backlog and exit actions."""
         menu = tk.Menu(menubar, tearoff=False)
         read_command = self.read_backlog_file
-        menu.add_command(label='Read backlog…', command=read_command)
+        menu.add_command(label='Read backlog from file…', command=read_command)
         menu.add_command(label='Read backlog from Jira…',
                          command=self._read_jira_backlog)
         menu.add_command(label='New demo backlog',
