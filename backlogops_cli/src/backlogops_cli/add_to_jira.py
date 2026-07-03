@@ -79,7 +79,8 @@ def _add(parsed: argparse.Namespace, config: BacklogOpsConfig,
                                  on_existing_key=mode,
                                  levels=config.get_levels())
     print(f'Added {len(result.stored)} items to Jira; '
-          f'{len(result.already_present)} already present.', file=sys.stderr)
+          f'{len(result.already_present)} already present; '
+          f'{len(result.failed)} failed.', file=sys.stderr)
     return result
 
 

@@ -14,9 +14,9 @@ closed.
 
 import io
 from types import SimpleNamespace
-from typing import Callable, Optional
+from typing import Callable, Optional, cast
 import pytest
-from jira import JIRAError
+from jira import JIRA, JIRAError
 import backlogops
 from backlogops.backlog import BacklogItem, Status
 import backlogops.jira_connect as jc
@@ -25,9 +25,9 @@ from backlogops.jira_io_config import (
     DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP, JiraConnectConfig,
     JiraIOConfig, JiraPreset, TokenStorage)
 from backlogops.jira_write import (
-    add_backlog_to_jira, AddedToJira, ExistsInJiraError, OnExistingKey,
-    apply_jira_keys, format_add_result, jira_custom_fields,
-    jira_editable_fields)
+    add_backlog_to_jira, AddedToJira, ExistsInJiraError, FailedItem,
+    OnExistingKey, UnknownIssueTypeError, apply_jira_keys, format_add_result,
+    jira_custom_fields, jira_editable_fields, _valid_issue_types)
 from backlogops.levels import DEFAULT_LEVELS, level_name
 from backlogops.no_text_io import NoTextIO
 
@@ -58,14 +58,18 @@ class _WriteClient:
     """A stand-in Jira client for the add-to-Jira tests."""
 
     def __init__(self, existing: Optional[set[str]] = None, alive: bool = True,
-                 editable: Optional[dict[str, str]] = None) -> None:
-        """Start with the present keys, liveness and edit-screen fields."""
+                 editable: Optional[dict[str, str]] = None,
+                 valid_types: Optional[set[str]] = None,
+                 fail_types: Optional[set[str]] = None) -> None:
+        """Start with the present keys, screens, types and failing types."""
         self.existing = set() if existing is None else set(existing)
         self.alive = alive
         self.editable = _EDITABLE_DEFAULT if editable is None else editable
+        self.valid_types = ({'Story', 'Epic', 'Subtask'}
+                            if valid_types is None else valid_types)
+        self.fail_types = set() if fail_types is None else fail_types
         self.created: list[dict[str, object]] = []
         self.closed = 0
-        self._counter = 0
 
     def myself(self) -> dict[str, str]:
         """Report a live session, or raise when the client is dead."""
@@ -83,17 +87,27 @@ class _WriteClient:
             return SimpleNamespace(key=key)
         raise JIRAError(status_code=404, text='not found')
 
+    def createmeta_issuetypes(self, project: str) -> dict[str, object]:
+        """Return the project's creatable issue types as create metadata."""
+        _ = project
+        return {'values': [{'name': name}
+                           for name in sorted(self.valid_types)]}
+
     def create_issue(self, fields: dict[str, object]) -> SimpleNamespace:
         """Record the create payload; the issue merges a later update.
 
-        The returned issue's ``update`` merges its fields into the same
-        record, so the recorded payload holds the fields set at create and
-        the fields set by the following update together.
+        Raises for an issue type in ``fail_types``, as Jira does when it
+        refuses a create. The returned issue's ``update`` merges its fields
+        into the same record, so the recorded payload holds the fields set
+        at create and the fields set by the following update together.
         """
-        self._counter += 1
+        issuetype = fields.get('issuetype')
+        name = issuetype.get('name') if isinstance(issuetype, dict) else None
+        if name in self.fail_types:
+            raise JIRAError(status_code=400, text='Specify a valid issue type')
         record = dict(fields)
         self.created.append(record)
-        return SimpleNamespace(key=f'JIRA-{self._counter}',
+        return SimpleNamespace(key=f'JIRA-{len(self.created)}',
                                update=_recorder(record))
 
     def editmeta(self, issue: str) -> dict[str, object]:
@@ -269,25 +283,59 @@ def test_close_clients(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_format_result() -> None:
-    """Test the listing shows both sections with keys and titles."""
+    """Test the listing shows the added, present and failed sections."""
     added = _item('P-1')
     added.title = 'First'
     present = _item('X-9')
     present.title = 'Old'
+    bad = _item('E-1')
+    bad.title = 'Epic'
     result = AddedToJira(stored=[added], already_present=[present],
+                         failed=[FailedItem(bad, 'HTTP 400: nope')],
                          key_map={'A': 'P-1'})
     text = format_add_result(result)
     assert 'Added to Jira (1):' in text
     assert '  P-1  First' in text
     assert 'Already in Jira (1):' in text
     assert '  X-9  Old' in text
+    assert 'Failed to add (1):' in text
+    assert 'E-1  Epic  - HTTP 400: nope' in text
 
 
 def test_format_empty() -> None:
     """Test an empty section is shown as a count of zero and (none)."""
-    text = format_add_result(AddedToJira([], [], {}))
+    text = format_add_result(AddedToJira([], [], [], {}))
     assert 'Added to Jira (0):' in text
+    assert 'Failed to add (0):' in text
     assert '(none)' in text
+
+
+def test_failed_continue(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a refused create is reported and the others still added."""
+    client = _WriteClient(fail_types={'Epic'})
+    connections = _connections(monkeypatch, client)
+    story = _item('S')
+    epic = BacklogItem(key='E', level=2, title='Epic 1', story_points=0,
+                       status=Status.TODO)
+    result = add_backlog_to_jira(connections, 'w', [story, epic],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 stderr_file=NO)
+    assert [item.key for item in result.stored] == ['JIRA-1']
+    assert [entry.item.key for entry in result.failed] == ['E']
+    assert 'HTTP 400' in result.failed[0].reason
+
+
+def test_invalid_type(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an unknown issue type raises before anything is created."""
+    client = _WriteClient()
+    connections = _connections(monkeypatch, client)
+    item = BacklogItem(key='I', level=3, title='Init', story_points=0,
+                       status=Status.TODO)
+    with pytest.raises(UnknownIssueTypeError) as caught:
+        add_backlog_to_jira(connections, 'w', [item],
+                            on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
+    assert 'Initiative' in caught.value.bad
+    assert not client.created
 
 
 def test_apply_keys() -> None:
@@ -311,6 +359,27 @@ def test_editable_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     ids = [fid for fid, _ in jira_editable_fields(connections, 'w', 'SCRUM-1')]
     assert 'customfield_10016' in ids
     assert 'description' in ids
+
+
+class _MetaClient:
+    """A client whose issue types are only available via createmeta."""
+
+    def createmeta_issuetypes(self, project: str) -> dict[str, object]:
+        """Refuse the issuetypes API as some Jira versions do."""
+        _ = project
+        raise JIRAError(text='Use createmeta instead')
+
+    def createmeta(self, **kwargs: object) -> dict[str, object]:
+        """Return the creatable issue types via the older createmeta API."""
+        _ = kwargs
+        return {'projects': [{'issuetypes': [{'name': 'Story'},
+                                             {'name': 'Subtask'}]}]}
+
+
+def test_types_via_createmeta() -> None:
+    """Test valid types fall back to createmeta when issuetypes refuses."""
+    client = cast(JIRA, _MetaClient())
+    assert _valid_issue_types(client, 'P') == {'Story', 'Subtask'}
 
 
 def test_reexport() -> None:

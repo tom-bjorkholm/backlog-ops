@@ -315,7 +315,7 @@ def _add_result() -> AddedToJira:
     """Return a canned add result with one stored item."""
     added = BacklogItem(key='PROJ-1', level=1, title='First', story_points=5,
                         status=Status.TODO)
-    return AddedToJira(stored=[added], already_present=[],
+    return AddedToJira(stored=[added], already_present=[], failed=[],
                        key_map={'A': 'PROJ-1'})
 
 

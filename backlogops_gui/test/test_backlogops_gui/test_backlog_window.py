@@ -832,7 +832,7 @@ def test_apply_add_result() -> None:
     data = BacklogReleases(backlog=[item], releases=[])
     added = BacklogItem(key='PROJ-1', level=1, title='First', story_points=5,
                         status=Status.TODO)
-    result = AddedToJira(stored=[added], already_present=[],
+    result = AddedToJira(stored=[added], already_present=[], failed=[],
                          key_map={'A': 'PROJ-1'})
     calls: list[str] = []
     reports: list[str] = []

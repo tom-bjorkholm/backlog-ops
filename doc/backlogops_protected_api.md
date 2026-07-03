@@ -480,7 +480,10 @@
   * [\_CREATE\_FIELD\_NAMES](#backlogops.jira_write._CREATE_FIELD_NAMES)
   * [ExistsInJiraError](#backlogops.jira_write.ExistsInJiraError)
     * [\_\_init\_\_](#backlogops.jira_write.ExistsInJiraError.__init__)
+  * [UnknownIssueTypeError](#backlogops.jira_write.UnknownIssueTypeError)
+    * [\_\_init\_\_](#backlogops.jira_write.UnknownIssueTypeError.__init__)
   * [OnExistingKey](#backlogops.jira_write.OnExistingKey)
+  * [FailedItem](#backlogops.jira_write.FailedItem)
   * [AddedToJira](#backlogops.jira_write.AddedToJira)
   * [\_WriteContext](#backlogops.jira_write._WriteContext)
   * [\_nest](#backlogops.jira_write._nest)
@@ -491,15 +494,22 @@
   * [\_issue\_exists](#backlogops.jira_write._issue_exists)
   * [\_existing\_keys](#backlogops.jira_write._existing_keys)
   * [\_raise\_existing](#backlogops.jira_write._raise_existing)
+  * [\_names\_from\_dicts](#backlogops.jira_write._names_from_dicts)
+  * [\_types\_from\_issuetypes](#backlogops.jira_write._types_from_issuetypes)
+  * [\_types\_from\_createmeta](#backlogops.jira_write._types_from_createmeta)
+  * [\_valid\_issue\_types](#backlogops.jira_write._valid_issue_types)
+  * [\_validate\_issue\_types](#backlogops.jira_write._validate_issue_types)
   * [\_issue\_key](#backlogops.jira_write._issue_key)
   * [\_stored\_copy](#backlogops.jira_write._stored_copy)
   * [\_editable\_field\_ids](#backlogops.jira_write._editable_field_ids)
   * [\_create\_issue](#backlogops.jira_write._create_issue)
   * [\_report\_skipped](#backlogops.jira_write._report_skipped)
+  * [\_jira\_reason](#backlogops.jira_write._jira_reason)
   * [\_write\_new\_items](#backlogops.jira_write._write_new_items)
   * [add\_backlog\_to\_jira](#backlogops.jira_write.add_backlog_to_jira)
   * [\_result\_section](#backlogops.jira_write._result_section)
   * [format\_add\_result](#backlogops.jira_write.format_add_result)
+  * [\_failed\_section](#backlogops.jira_write._failed_section)
   * [apply\_jira\_keys](#backlogops.jira_write.apply_jira_keys)
   * [jira\_custom\_fields](#backlogops.jira_write.jira_custom_fields)
   * [jira\_editable\_fields](#backlogops.jira_write.jira_editable_fields)
@@ -8124,10 +8134,15 @@ Return the configured name for a level number, or None when unknown.
 Add backlog items to Jira from an internal backlog.
 
 :func:`add_backlog_to_jira` creates one Jira issue per backlog item that
-is not already present. It first looks up every item's key in Jira; in
-``RAISE`` mode it raises before creating anything when a key already
-exists, and in ``SKIP`` mode it leaves the already-present items alone.
-The payload for each new issue is built by inverting the preset's write
+is not already present. Before creating anything it checks every item's
+issue type is valid in the project (raising when one is not) and looks up
+every item's key in Jira; in ``RAISE`` mode it raises before creating
+anything when a key already exists, and in ``SKIP`` mode it leaves the
+already-present items alone. An item whose creation Jira refuses (such as
+a sub-task, which needs a parent that is not written yet) is collected in
+the result's ``failed`` list with a concise reason, and the remaining
+items are still added. The payload for each new issue is built by
+inverting the preset's write
 backlog column map: a plain field such as the summary is set directly, a
 nested field such as the issue type is wrapped by its path steps, a list
 field such as the fix versions is wrapped as named objects, and a custom
@@ -8190,6 +8205,30 @@ def __init__(keys: list[str]) -> None
 
 Store the already-present keys and build the message.
 
+<a id="backlogops.jira_write.UnknownIssueTypeError"></a>
+
+## UnknownIssueTypeError Objects
+
+```python
+class UnknownIssueTypeError(ValueError)
+```
+
+Raised when a backlog item's issue type is not valid in the project.
+
+It carries the invalid issue type names mapped to the item keys that
+use them, and the sorted valid type names, so a caller can report
+them. It derives from :class:`ValueError`.
+
+<a id="backlogops.jira_write.UnknownIssueTypeError.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(bad: dict[str, list[str]], valid: list[str]) -> None
+```
+
+Store the bad and valid type names and build the message.
+
 <a id="backlogops.jira_write.OnExistingKey"></a>
 
 ## OnExistingKey Objects
@@ -8199,6 +8238,16 @@ class OnExistingKey(Enum)
 ```
 
 What to do when a backlog item's key already exists in Jira.
+
+<a id="backlogops.jira_write.FailedItem"></a>
+
+## FailedItem Objects
+
+```python
+class FailedItem(NamedTuple)
+```
+
+A backlog item that could not be added, with the failure reason.
 
 <a id="backlogops.jira_write.AddedToJira"></a>
 
@@ -8215,6 +8264,8 @@ Fields:
         assigned to the created issue.
     already_present: Copies of the items whose key already existed in
         Jira and were therefore not added, with their original key.
+    failed: Items whose creation Jira refused, each with a concise
+        reason; the argument backlog is not changed by a failure.
     key_map: For each stored item, its original key mapped to the key
         Jira assigned. Used later to update parent and dependency keys.
 
@@ -8310,6 +8361,66 @@ def _raise_existing(existing: set[str], stderr_file: TextIO) -> None
 
 Report and raise for backlog keys that already exist in Jira.
 
+<a id="backlogops.jira_write._names_from_dicts"></a>
+
+#### \_names\_from\_dicts
+
+```python
+def _names_from_dicts(items: object) -> set[str]
+```
+
+Return the string ``name`` values from a list of dicts.
+
+<a id="backlogops.jira_write._types_from_issuetypes"></a>
+
+#### \_types\_from\_issuetypes
+
+```python
+def _types_from_issuetypes(client: JIRA, project: str) -> set[str]
+```
+
+Return creatable issue type names via the createmeta issuetypes API.
+
+<a id="backlogops.jira_write._types_from_createmeta"></a>
+
+#### \_types\_from\_createmeta
+
+```python
+def _types_from_createmeta(client: JIRA, project: str) -> set[str]
+```
+
+Return creatable issue type names via the older createmeta API.
+
+<a id="backlogops.jira_write._valid_issue_types"></a>
+
+#### \_valid\_issue\_types
+
+```python
+def _valid_issue_types(client: JIRA, project: str) -> set[str]
+```
+
+Return the project's creatable issue type names, best-effort.
+
+Different Jira versions expose the create metadata through different
+endpoints and reject the other, so both are tried; when neither works
+the result is empty and issue-type validation is skipped, leaving each
+issue type to be checked by Jira at create time instead.
+
+<a id="backlogops.jira_write._validate_issue_types"></a>
+
+#### \_validate\_issue\_types
+
+```python
+def _validate_issue_types(client: JIRA, project: str, backlog: Backlog,
+                          levels: Levels) -> None
+```
+
+Raise when an item's issue type is not valid in the project.
+
+The valid type names are read from the project's create metadata. When
+that returns nothing (an unexpected response), the check is skipped and
+each issue type is left to fail at create time instead.
+
 <a id="backlogops.jira_write._issue_key"></a>
 
 #### \_issue\_key
@@ -8368,6 +8479,16 @@ def _report_skipped(orig_key: str, new_key: str, skipped: list[str],
 
 Report mapped fields the issue's edit screen did not offer.
 
+<a id="backlogops.jira_write._jira_reason"></a>
+
+#### \_jira\_reason
+
+```python
+def _jira_reason(error: JIRAError) -> str
+```
+
+Return a concise reason from a Jira error, not the full dump.
+
 <a id="backlogops.jira_write._write_new_items"></a>
 
 #### \_write\_new\_items
@@ -8377,7 +8498,7 @@ def _write_new_items(ctx: _WriteContext, backlog: Backlog, existing: set[str],
                      stderr_file: TextIO) -> AddedToJira
 ```
 
-Create every not-yet-present item and collect the two backlogs.
+Create the not-yet-present items, reporting the ones that fail.
 
 <a id="backlogops.jira_write.add_backlog_to_jira"></a>
 
@@ -8395,13 +8516,16 @@ def add_backlog_to_jira(connections: JiraConnections,
 
 Add the backlog items to Jira, one created issue per new item.
 
-Every item's key is first looked up in Jira. In ``RAISE`` mode, if any
-key already exists the function raises before creating anything. In
-``SKIP`` mode the already-present items are left untouched. Each added
-item is created from the preset's write backlog column map and default
-project, and a copy of it carrying the key Jira assigned is collected.
-Each issue is created with the fields a create screen accepts and the
-remaining mapped fields are then set through an update. The argument
+Before creating anything the issue types are validated against the
+project and every item's key is looked up in Jira. In ``RAISE`` mode,
+if any key already exists the function raises before creating anything.
+In ``SKIP`` mode the already-present items are left untouched. Each
+added item is created from the preset's write backlog column map and
+default project, and a copy of it carrying the key Jira assigned is
+collected. Each issue is created with the fields a create screen
+accepts and the remaining mapped fields are then set through an update.
+An item whose creation Jira refuses is collected in ``failed`` with a
+concise reason, and the other items are still added. The argument
 backlog is never modified.
 
 **Arguments**:
@@ -8420,13 +8544,16 @@ backlog is never modified.
 **Returns**:
 
   The stored items with their Jira keys, the already-present items,
-  and the map from each stored item's original key to its Jira key.
+  the items whose creation failed with a reason, and the map from
+  each stored item's original key to its Jira key.
   
 
 **Raises**:
 
 - `KeyError` - If the preset or a referenced connection or map is
   missing.
+- `UnknownIssueTypeError` - If an item's issue type is not valid in the
+  project.
 - `ExistsInJiraError` - In ``RAISE`` mode, if any key already exists in
   Jira.
 
@@ -8453,6 +8580,16 @@ Return a two-section listing of added and already-present items.
 Each section has a heading with its count, then one ``key  title`` line
 per item, or a ``(none)`` line when the section is empty. The CLI
 prints this text and the GUI shows it in a copy-pasteable pop-up.
+
+<a id="backlogops.jira_write._failed_section"></a>
+
+#### \_failed\_section
+
+```python
+def _failed_section(heading: str, failed: list[FailedItem]) -> list[str]
+```
+
+Return the heading and the key, title and reason of each failure.
 
 <a id="backlogops.jira_write.apply_jira_keys"></a>
 
