@@ -8,9 +8,9 @@ import tkinter as tk
 from typing import Callable, Optional, TextIO, cast
 import pytest
 from backlogops import (
-    AddedToJira, BacklogItem, BacklogOpsConfig, BacklogReleases,
-    ExistsInJiraError, JiraConnectConfig, JiraIOConfig, JiraPreset, Status,
-    TokenStorage)
+    AddedReleasesToJira, AddedToJira, BacklogItem, BacklogOpsConfig,
+    BacklogReleases, ExistsInJiraError, JiraConnectConfig, JiraIOConfig,
+    JiraPreset, Release, ReleaseExistsError, Status, TokenStorage)
 from backlogops.jira_token import encrypt_token
 from backlogops_gui import application
 from backlogops_gui.application import BacklogApp
@@ -375,5 +375,72 @@ def test_write_failed(monkeypatch: pytest.MonkeyPatch) -> None:
     got: list[AddedToJira] = []
     # pylint: disable-next=protected-access
     app._add_backlog_to_jira(DATA, got.append)
+    assert not got
+    assert errors
+
+
+def _add_releases_result() -> AddedReleasesToJira:
+    """Return a canned add result with one stored release."""
+    return AddedReleasesToJira(stored=[Release(name='R1')], already_present=[],
+                               failed=[])
+
+
+def _fake_releases(result: AddedReleasesToJira
+                   ) -> Callable[..., AddedReleasesToJira]:
+    """Return a stand-in add_releases_to_jira returning ``result``."""
+    def add(*_args: object, **_kwargs: object) -> AddedReleasesToJira:
+        """Ignore the arguments and return the canned result."""
+        return result
+    return add
+
+
+def test_rel_action_absent() -> None:
+    """Test the add-releases action is absent without write presets."""
+    # pylint: disable-next=protected-access
+    assert _app(BacklogOpsConfig())._jira_releases_action() is None
+    # pylint: disable-next=protected-access
+    assert _app(_config())._jira_releases_action() is not None
+
+
+def test_rel_write_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the handler adds the releases and hands back the result."""
+    result = _add_releases_result()
+    monkeypatch.setattr(application, 'ask_jira_write_options', _write_opts)
+    monkeypatch.setattr(application, 'add_releases_to_jira',
+                        _fake_releases(result))
+    monkeypatch.setattr('backlogops_gui.application.threading.Thread',
+                        _make_immediate)
+    app = _app(_config())
+    got: list[AddedReleasesToJira] = []
+    # pylint: disable-next=protected-access
+    app._add_releases_to_jira(DATA, got.append)
+    assert got == [result]
+
+
+def test_rel_write_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the releases write dialog adds nothing."""
+    monkeypatch.setattr(application, 'ask_jira_write_options', _no_jira_opts)
+    app = _app(_config())
+    got: list[AddedReleasesToJira] = []
+    # pylint: disable-next=protected-access
+    app._add_releases_to_jira(DATA, got.append)
+    assert not got
+
+
+def test_rel_write_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a releases write failure is reported and nothing handed back."""
+    def _raise(*_args: object, **_kwargs: object) -> AddedReleasesToJira:
+        """Raise as the real add does when a name already exists."""
+        raise ReleaseExistsError(['R1'])
+    monkeypatch.setattr(application, 'ask_jira_write_options', _write_opts)
+    monkeypatch.setattr(application, 'add_releases_to_jira', _raise)
+    monkeypatch.setattr('backlogops_gui.application.threading.Thread',
+                        _make_immediate)
+    app = _app(_config())
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    got: list[AddedReleasesToJira] = []
+    # pylint: disable-next=protected-access
+    app._add_releases_to_jira(DATA, got.append)
     assert not got
     assert errors

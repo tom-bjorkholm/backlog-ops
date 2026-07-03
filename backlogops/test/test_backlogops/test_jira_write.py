@@ -22,18 +22,15 @@ import backlogops
 from backlogops.backlog import BacklogItem, Status
 import backlogops.jira_connect as jc
 from backlogops.jira_connect import JiraConnections
-from backlogops.jira_io_config import (
-    DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP, JiraConnectConfig,
-    JiraIOConfig, JiraPreset, TokenStorage)
+from backlogops.jira_io_config import JiraIOConfig
 from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, FailedItem,
     OnExistingKey, StatusMismatch, UnknownIssueTypeError, apply_jira_keys,
     format_add_result, jira_custom_fields, jira_editable_fields,
     _issue_type_meta, _status_from_name, _transition_target)
 from backlogops.levels import DEFAULT_LEVELS, level_name
-from backlogops.no_text_io import NoTextIO
-
-NO = NoTextIO()
+from .jira_write_helpers import (
+    connections_for as _connections, jira_write_config as _config, NO)
 
 FIELDS: list[dict[str, str]] = [
     {'id': 'customfield_10016', 'name': 'Story point estimate'},
@@ -194,24 +191,6 @@ class _WriteClient:
         self.closed += 1
 
 
-def _config(project: str = 'PROJ') -> JiraIOConfig:
-    """Return a Jira configuration with one connection and one preset."""
-    conn = JiraConnectConfig(stderr_file=NO)
-    conn.token_storage = TokenStorage.CLEAR_INTERNAL
-    conn.stored_token = 'TOK'
-    preset = JiraPreset(stderr_file=NO)
-    preset.connection_name = 'c'
-    preset.backlog_column_map_name = 'bk'
-    preset.release_column_map_name = 'rel'
-    preset.def_project = project
-    config = JiraIOConfig(stderr_file=NO)
-    config.connections = {'c': conn}
-    config.backlog_column_maps = {'bk': DEF_BACKLOG_COLUMN_MAP}
-    config.release_column_maps = {'rel': DEF_RELEASE_COLUMN_MAP}
-    config.presets = {'w': preset}
-    return config
-
-
 def _issue_config(mapping: dict[int, str], project: str = 'PROJ',
                   ref: str = 'im') -> JiraIOConfig:
     """Return a config whose preset names a level-to-issue-type map."""
@@ -219,13 +198,6 @@ def _issue_config(mapping: dict[int, str], project: str = 'PROJ',
     config.issue_type_maps = {ref: mapping}
     config.presets['w'].issue_type_map_name = ref
     return config
-
-
-def _connections(monkeypatch: pytest.MonkeyPatch, client: _WriteClient,
-                 config: Optional[JiraIOConfig] = None) -> JiraConnections:
-    """Return a pool whose connections all yield the given fake client."""
-    monkeypatch.setattr(jc, '_connect', lambda connection, passphrase: client)
-    return JiraConnections(_config() if config is None else config, None)
 
 
 def _connect_each(clients: list[_WriteClient]

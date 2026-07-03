@@ -29,6 +29,9 @@
 * [backlogops\_cli.convert](#backlogops_cli.convert)
   * [build\_parser](#backlogops_cli.convert.build_parser)
   * [main](#backlogops_cli.convert.main)
+* [backlogops\_cli.add\_releases\_to\_jira](#backlogops_cli.add_releases_to_jira)
+  * [build\_parser](#backlogops_cli.add_releases_to_jira.build_parser)
+  * [main](#backlogops_cli.add_releases_to_jira.main)
 * [backlogops\_cli.extract\_keys](#backlogops_cli.extract_keys)
   * [build\_parser](#backlogops_cli.extract_keys.build_parser)
   * [main](#backlogops_cli.extract_keys.main)
@@ -427,6 +430,54 @@ Convert a backlog and releases from the input to the output file.
 
   ``0`` on success, ``1`` when the data cannot be read, validated
   or written.
+
+<a id="backlogops_cli.add_releases_to_jira"></a>
+
+# backlogops\_cli.add\_releases\_to\_jira
+
+Add releases to Jira from an input file, creating one version per name.
+
+The command reads a backlog and its releases from the input file, then
+adds the releases to Jira using a named preset of the backlog-ops
+configuration. By default it stops with an error when a release name
+already exists in Jira; ``--skip-existing`` skips those releases instead.
+
+The added releases and the releases already in Jira are printed to stdout
+as two labelled lists, unless ``-q``/``--quiet`` is given. Each list is
+also written, together with the unchanged input backlog, to a file when
+``--added-file`` or ``--existing-file`` names one; without a file name the
+list is not written. An encrypted Jira token is unlocked by a pass phrase
+asked on the terminal only when it is needed.
+
+<a id="backlogops_cli.add_releases_to_jira.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the add-releases command.
+
+<a id="backlogops_cli.add_releases_to_jira.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Add releases to Jira and report the added and present releases.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the releases cannot be added or a name
+  already exists in Jira without ``--skip-existing``.
 
 <a id="backlogops_cli.extract_keys"></a>
 

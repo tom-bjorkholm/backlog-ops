@@ -113,6 +113,12 @@
     * [\_jira\_write\_worker](#backlogops_gui.application.BacklogApp._jira_write_worker)
     * [\_jira\_write\_failed](#backlogops_gui.application.BacklogApp._jira_write_failed)
     * [\_jira\_write\_done](#backlogops_gui.application.BacklogApp._jira_write_done)
+    * [\_jira\_releases\_action](#backlogops_gui.application.BacklogApp._jira_releases_action)
+    * [\_add\_releases\_to\_jira](#backlogops_gui.application.BacklogApp._add_releases_to_jira)
+    * [\_start\_releases\_write](#backlogops_gui.application.BacklogApp._start_releases_write)
+    * [\_releases\_write\_worker](#backlogops_gui.application.BacklogApp._releases_write_worker)
+    * [\_releases\_write\_failed](#backlogops_gui.application.BacklogApp._releases_write_failed)
+    * [\_releases\_write\_done](#backlogops_gui.application.BacklogApp._releases_write_done)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
     * [open\_backlog](#backlogops_gui.application.BacklogApp.open_backlog)
     * [report\_versions](#backlogops_gui.application.BacklogApp.report_versions)
@@ -181,6 +187,8 @@
     * [\_jira\_add](#backlogops_gui.backlog_window.BacklogWindow._jira_add)
     * [\_on\_jira\_added](#backlogops_gui.backlog_window.BacklogWindow._on_jira_added)
     * [\_show\_add\_report](#backlogops_gui.backlog_window.BacklogWindow._show_add_report)
+    * [\_releases\_add](#backlogops_gui.backlog_window.BacklogWindow._releases_add)
+    * [\_on\_releases\_added](#backlogops_gui.backlog_window.BacklogWindow._on_releases_added)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
   * [ConfigChoice](#backlogops_gui.io_dialogs.ConfigChoice)
   * [PresetKind](#backlogops_gui.io_dialogs.PresetKind)
@@ -1642,6 +1650,75 @@ def _jira_write_done(preset_name: str, result: AddedToJira,
 
 Hand the result to the window and log the completed write.
 
+<a id="backlogops_gui.application.BacklogApp._jira_releases_action"></a>
+
+#### \_jira\_releases\_action
+
+```python
+def _jira_releases_action() -> Optional[Callable[
+    [BacklogReleases, Callable[[AddedReleasesToJira], None]], None]]
+```
+
+Return the add-releases handler, or None when unavailable.
+
+<a id="backlogops_gui.application.BacklogApp._add_releases_to_jira"></a>
+
+#### \_add\_releases\_to\_jira
+
+```python
+def _add_releases_to_jira(
+        data: BacklogReleases, on_done: Callable[[AddedReleasesToJira],
+                                                 None]) -> None
+```
+
+Ask for a preset and add the shown releases to Jira.
+
+<a id="backlogops_gui.application.BacklogApp._start_releases_write"></a>
+
+#### \_start\_releases\_write
+
+```python
+def _start_releases_write(
+        data: BacklogReleases, options: JiraWriteOptions,
+        on_done: Callable[[AddedReleasesToJira], None]) -> None
+```
+
+Start the Jira releases-write worker thread.
+
+<a id="backlogops_gui.application.BacklogApp._releases_write_worker"></a>
+
+#### \_releases\_write\_worker
+
+```python
+def _releases_write_worker(
+        data: BacklogReleases, options: JiraWriteOptions,
+        on_done: Callable[[AddedReleasesToJira], None]) -> None
+```
+
+Add the releases on a worker and schedule the GUI update.
+
+<a id="backlogops_gui.application.BacklogApp._releases_write_failed"></a>
+
+#### \_releases\_write\_failed
+
+```python
+def _releases_write_failed(preset_name: str, message: str) -> None
+```
+
+Report a failed releases write on the GUI thread.
+
+<a id="backlogops_gui.application.BacklogApp._releases_write_done"></a>
+
+#### \_releases\_write\_done
+
+```python
+def _releases_write_done(
+        preset_name: str, result: AddedReleasesToJira,
+        on_done: Callable[[AddedReleasesToJira], None]) -> None
+```
+
+Hand the result to the window and log the completed write.
+
 <a id="backlogops_gui.application.BacklogApp.new_demo_backlog"></a>
 
 #### new\_demo\_backlog
@@ -2208,7 +2285,9 @@ def __init__(
     gui_display: Callable[[], GuiDisplayConfig] = GuiDisplayConfig,
     warning: Optional[str] = None,
     add_to_jira: Optional[Callable[
-        [BacklogReleases, Callable[[AddedToJira], None]], None]] = None
+        [BacklogReleases, Callable[[AddedToJira], None]], None]] = None,
+    add_releases: Optional[Callable[
+        [BacklogReleases, Callable[[AddedReleasesToJira], None]], None]] = None
 ) -> None
 ```
 
@@ -2230,6 +2309,9 @@ Build the window, its menu and the two tables.
 - `warning` - Warning text to show over the tables. When present,
   backlog operations are disabled and only saving remains.
 - `add_to_jira` - Handler that adds the shown backlog to Jira and
+  calls back with the result, or None when adding is
+  unavailable (no configuration or no write presets).
+- `add_releases` - Handler that adds the shown releases to Jira and
   calls back with the result, or None when adding is
   unavailable (no configuration or no write presets).
 
@@ -2459,6 +2541,29 @@ def _show_add_report(text: str) -> None
 ```
 
 Show the add result text in a copy-pasteable pop-up.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._releases_add"></a>
+
+#### \_releases\_add
+
+```python
+def _releases_add() -> None
+```
+
+Add the shown releases to Jira and show the result lists.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._on_releases_added"></a>
+
+#### \_on\_releases\_added
+
+```python
+def _on_releases_added(result: AddedReleasesToJira) -> None
+```
+
+Show the added, present and failed release lists.
+
+A release name never changes, so the shown releases already match
+what was added and no rebuild of the tables is needed.
 
 <a id="backlogops_gui.io_dialogs"></a>
 

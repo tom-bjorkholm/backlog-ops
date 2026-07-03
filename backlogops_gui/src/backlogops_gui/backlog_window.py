@@ -19,11 +19,12 @@ from tkinter import messagebox, ttk
 from typing import Callable, Literal, Optional, TextIO
 from tableio import ValueFmt
 from backlogops import (
-    AddedToJira, AvailableTeams, BacklogReleases, GuiDisplayConfig, Levels,
-    OutputFormatConfig, ReleaseChanges, ReleaseDateChanges, allow_overwrite,
-    apply_jira_keys, format_add_result, format_content_changes,
-    format_date_changes, get_keys_in_order, write_content_changes,
-    write_date_changes, write_key_list)
+    AddedReleasesToJira, AddedToJira, AvailableTeams, BacklogReleases,
+    GuiDisplayConfig, Levels, OutputFormatConfig, ReleaseChanges,
+    ReleaseDateChanges, allow_overwrite, apply_jira_keys, format_add_result,
+    format_content_changes, format_date_changes, format_release_result,
+    get_keys_in_order, write_content_changes, write_date_changes,
+    write_key_list)
 from backlogops_gui.backlog_io import write_backlog
 from backlogops_gui.io_dialogs import (
     ask_buffer_days, ask_date_order, ask_dep_options, ask_keys, ask_levels,
@@ -380,6 +381,9 @@ class BacklogWindow:
                  warning: Optional[str] = None,
                  add_to_jira: Optional[Callable[
                      [BacklogReleases, Callable[[AddedToJira], None]],
+                     None]] = None,
+                 add_releases: Optional[Callable[
+                     [BacklogReleases, Callable[[AddedReleasesToJira], None]],
                      None]] = None) -> None:
         """Build the window, its menu and the two tables.
 
@@ -400,6 +404,9 @@ class BacklogWindow:
             add_to_jira: Handler that adds the shown backlog to Jira and
                 calls back with the result, or None when adding is
                 unavailable (no configuration or no write presets).
+            add_releases: Handler that adds the shown releases to Jira and
+                calls back with the result, or None when adding is
+                unavailable (no configuration or no write presets).
         """
         self._data = data
         self._presets = presets
@@ -409,6 +416,7 @@ class BacklogWindow:
         self._gui_display = gui_display
         self._warning = warning
         self._add_to_jira = add_to_jira
+        self._add_releases = add_releases
         self._win = tk.Toplevel(root)
         self._win.title(title)
         self._tables: list[tk.Widget] = []
@@ -490,6 +498,11 @@ class BacklogWindow:
                       and self._warning is None else 'disabled')
         menu.add_command(label='Add backlog to Jira…', command=self._jira_add,
                          state=jira_state)
+        rel_state: Literal['normal', 'disabled']
+        rel_state = ('normal' if self._add_releases is not None
+                     and self._warning is None else 'disabled')
+        menu.add_command(label='Add releases to Jira…',
+                         command=self._releases_add, state=rel_state)
 
     def _add_table(self, heading: str, columns: list[str],
                    rows: list[list[ValueFmt]], narrow: bool) -> tk.Widget:
@@ -586,3 +599,17 @@ class BacklogWindow:
     def _show_add_report(self, text: str) -> None:
         """Show the add result text in a copy-pasteable pop-up."""
         show_text_report(self._win, 'Added to Jira', text)
+
+    def _releases_add(self) -> None:
+        """Add the shown releases to Jira and show the result lists."""
+        if self._add_releases is not None:
+            self._add_releases(self._data, self._on_releases_added)
+
+    def _on_releases_added(self, result: AddedReleasesToJira) -> None:
+        """Show the added, present and failed release lists.
+
+        A release name never changes, so the shown releases already match
+        what was added and no rebuild of the tables is needed.
+        """
+        show_text_report(self._win, 'Add releases to Jira',
+                         format_release_result(result))

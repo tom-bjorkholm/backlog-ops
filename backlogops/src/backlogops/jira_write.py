@@ -760,14 +760,20 @@ def _build_ctx(connections: JiraConnections, preset_name: str,
     return ctx, set(type_meta)
 
 
+def _labeled_lines(heading: str, count: int, body: list[str]) -> list[str]:
+    """Return a heading with its count then the body, or a (none) line.
+
+    An empty body becomes a single ``  (none)`` line, so every section
+    shows either its items or that it has none. This is shared by the
+    add-backlog and add-releases result listings.
+    """
+    return [f'{heading} ({count}):', *(body or ['  (none)'])]
+
+
 def _result_section(heading: str, backlog: Backlog) -> list[str]:
     """Return the heading and the key-and-title lines for one backlog."""
-    lines = [f'{heading} ({len(backlog)}):']
-    if not backlog:
-        lines.append('  (none)')
-    else:
-        lines.extend(f'  {item.key}  {item.title}' for item in backlog)
-    return lines
+    return _labeled_lines(heading, len(backlog),
+                          [f'  {item.key}  {item.title}' for item in backlog])
 
 
 def format_add_result(result: AddedToJira) -> str:
@@ -790,25 +796,17 @@ def format_add_result(result: AddedToJira) -> str:
 
 def _failed_section(heading: str, failed: list[FailedItem]) -> list[str]:
     """Return the heading and the key, title and reason of each failure."""
-    lines = [f'{heading} ({len(failed)}):']
-    if not failed:
-        lines.append('  (none)')
-    else:
-        lines.extend(f'  {entry.item.key}  {entry.item.title}  - '
-                     f'{entry.reason}' for entry in failed)
-    return lines
+    body = [f'  {entry.item.key}  {entry.item.title}  - {entry.reason}'
+            for entry in failed]
+    return _labeled_lines(heading, len(failed), body)
 
 
 def _status_section(heading: str, mismatch: list[StatusMismatch]) -> list[str]:
     """Return the heading and the key, title and status of each mismatch."""
-    lines = [f'{heading} ({len(mismatch)}):']
-    if not mismatch:
-        lines.append('  (none)')
-    else:
-        lines.extend(f'  {bad.item.key}  {bad.item.title}  - expected '
-                     f'{bad.expected.name}, Jira status {bad.actual!r}'
-                     for bad in mismatch)
-    return lines
+    body = [f'  {bad.item.key}  {bad.item.title}  - expected '
+            f'{bad.expected.name}, Jira status {bad.actual!r}'
+            for bad in mismatch]
+    return _labeled_lines(heading, len(mismatch), body)
 
 
 def apply_jira_keys(backlog: Backlog, key_map: dict[str, str]) -> None:

@@ -873,7 +873,9 @@ def __init__(
     gui_display: Callable[[], GuiDisplayConfig] = GuiDisplayConfig,
     warning: Optional[str] = None,
     add_to_jira: Optional[Callable[
-        [BacklogReleases, Callable[[AddedToJira], None]], None]] = None
+        [BacklogReleases, Callable[[AddedToJira], None]], None]] = None,
+    add_releases: Optional[Callable[
+        [BacklogReleases, Callable[[AddedReleasesToJira], None]], None]] = None
 ) -> None
 ```
 
@@ -895,6 +897,9 @@ Build the window, its menu and the two tables.
 - `warning` - Warning text to show over the tables. When present,
   backlog operations are disabled and only saving remains.
 - `add_to_jira` - Handler that adds the shown backlog to Jira and
+  calls back with the result, or None when adding is
+  unavailable (no configuration or no write presets).
+- `add_releases` - Handler that adds the shown releases to Jira and
   calls back with the result, or None when adding is
   unavailable (no configuration or no write presets).
 

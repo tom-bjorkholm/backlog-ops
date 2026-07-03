@@ -78,6 +78,9 @@ from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, FailedItem,
     OnExistingKey, StatusMismatch, UnknownIssueTypeError, apply_jira_keys,
     format_add_result, jira_custom_fields, jira_editable_fields)
+from backlogops.jira_write_releases import (
+    add_releases_to_jira, AddedReleasesToJira, FailedRelease,
+    ReleaseExistsError, format_release_result)
 
 __all__ = [
     'Backlog', 'BacklogItem', 'Status', 'get_backlog', 'get_backlog_item',
@@ -121,4 +124,6 @@ __all__ = [
     'JiraConnections', 'add_backlog_to_jira', 'AddedToJira',
     'ExistsInJiraError', 'FailedItem', 'OnExistingKey', 'StatusMismatch',
     'UnknownIssueTypeError', 'apply_jira_keys', 'format_add_result',
-    'jira_custom_fields', 'jira_editable_fields']
+    'jira_custom_fields', 'jira_editable_fields',
+    'add_releases_to_jira', 'AddedReleasesToJira', 'FailedRelease',
+    'ReleaseExistsError', 'format_release_result']

@@ -247,6 +247,13 @@
     * [\_\_init\_\_](#backlogops.jira_connect.JiraConnections.__init__)
     * [client](#backlogops.jira_connect.JiraConnections.client)
     * [close](#backlogops.jira_connect.JiraConnections.close)
+* [backlogops.jira\_write\_releases](#backlogops.jira_write_releases)
+  * [ReleaseExistsError](#backlogops.jira_write_releases.ReleaseExistsError)
+    * [\_\_init\_\_](#backlogops.jira_write_releases.ReleaseExistsError.__init__)
+  * [FailedRelease](#backlogops.jira_write_releases.FailedRelease)
+  * [AddedReleasesToJira](#backlogops.jira_write_releases.AddedReleasesToJira)
+  * [add\_releases\_to\_jira](#backlogops.jira_write_releases.add_releases_to_jira)
+  * [format\_release\_result](#backlogops.jira_write_releases.format_release_result)
 * [backlogops.date\_ranges](#backlogops.date_ranges)
   * [check\_date\_range](#backlogops.date_ranges.check_date_range)
   * [check\_no\_overlap](#backlogops.date_ranges.check_no_overlap)
@@ -5025,6 +5032,151 @@ def close() -> None
 ```
 
 Close every open client and forget it.
+
+<a id="backlogops.jira_write_releases"></a>
+
+# backlogops.jira\_write\_releases
+
+Add releases to Jira from internal releases.
+
+:func:`add_releases_to_jira` creates one Jira version per internal
+release whose name is not already present in the preset's default
+project. Before creating anything it reads the project's version names
+once; in ``RAISE`` mode it raises when any release name already exists,
+and in ``SKIP`` mode it leaves the already-present releases alone. A
+release whose creation Jira still refuses is collected in the result's
+``failed`` list with a concise reason, and the remaining releases are
+still added.
+
+The create payload for each new version is built by inverting the
+preset's release column map: the version keeps the release's own name
+(the identity the presence check uses), and every other mapped internal
+field is written to the Jira version create field its path names, such as
+the planned date to ``releaseDate``. A date is written as ISO text. A
+mapped field whose target is not a Jira version create field (name,
+description, releaseDate, startDate, archived, released) is skipped and
+reported. The internal ``estimated_date`` has no Jira analogue and is not
+in the default release map, so it is not written unless a map targets a
+version create field with it.
+
+Each added release is copied into the result, so a caller can build a
+consistent backlog-and-releases view; a version name never changes, so no
+remapping is needed. The argument releases are never modified.
+
+<a id="backlogops.jira_write_releases.ReleaseExistsError"></a>
+
+## ReleaseExistsError Objects
+
+```python
+class ReleaseExistsError(ValueError)
+```
+
+Raised when a release name to add already exists in Jira.
+
+It carries the sorted names that already exist, so a caller can report
+them. It derives from :class:`ValueError`, so a handler that catches
+``ValueError`` still catches it.
+
+<a id="backlogops.jira_write_releases.ReleaseExistsError.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(names: list[str]) -> None
+```
+
+Store the already-present names and build the message.
+
+<a id="backlogops.jira_write_releases.FailedRelease"></a>
+
+## FailedRelease Objects
+
+```python
+class FailedRelease(NamedTuple)
+```
+
+A release that could not be added, with the failure reason.
+
+<a id="backlogops.jira_write_releases.AddedReleasesToJira"></a>
+
+## AddedReleasesToJira Objects
+
+```python
+class AddedReleasesToJira(NamedTuple)
+```
+
+The result of adding releases to Jira.
+
+Fields:
+    stored: Copies of the added releases; a version name never
+        changes, so each copy carries its original name.
+    already_present: Copies of the releases whose name already existed
+        in Jira and were therefore not added.
+    failed: Releases whose creation Jira refused, each with a concise
+        reason; the argument releases are not changed by a failure.
+
+<a id="backlogops.jira_write_releases.add_releases_to_jira"></a>
+
+#### add\_releases\_to\_jira
+
+```python
+def add_releases_to_jira(
+        connections: JiraConnections,
+        preset_name: str,
+        releases: Releases,
+        *,
+        on_existing_key: OnExistingKey,
+        stderr_file: TextIO = sys.stderr) -> AddedReleasesToJira
+```
+
+Add the releases to Jira, one created version per new release.
+
+Before creating anything the project's existing version names are read.
+In ``RAISE`` mode, if any release name already exists the function
+raises before creating anything. In ``SKIP`` mode the already-present
+releases are left untouched. Each added release is created from the
+preset's release column map and default project, and a copy of it is
+collected. A release whose creation Jira refuses is collected in
+``failed`` with a concise reason, and the other releases are still
+added. The argument releases are never modified.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients and the configuration
+  holding the preset, connection and release column map.
+- `preset_name` - The name of the Jira preset to use.
+- `releases` - The releases to add. Not modified.
+- `on_existing_key` - Whether to raise or skip when a release name
+  already exists in Jira.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The stored releases, the already-present releases, and the releases
+  whose creation failed with a reason.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or a referenced connection or map is
+  missing.
+- `ReleaseExistsError` - In ``RAISE`` mode, if any release name already
+  exists in Jira.
+
+<a id="backlogops.jira_write_releases.format_release_result"></a>
+
+#### format\_release\_result
+
+```python
+def format_release_result(result: AddedReleasesToJira) -> str
+```
+
+Return a listing of the added, present and failed releases.
+
+Each section has a heading with its count, then one line per release,
+or a ``(none)`` line when the section is empty. The CLI prints this
+text and the GUI shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.date_ranges"></a>
 
