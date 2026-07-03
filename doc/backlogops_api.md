@@ -270,6 +270,7 @@
     * [\_\_init\_\_](#backlogops.jira_write.UnknownIssueTypeError.__init__)
   * [OnExistingKey](#backlogops.jira_write.OnExistingKey)
   * [FailedItem](#backlogops.jira_write.FailedItem)
+  * [StatusMismatch](#backlogops.jira_write.StatusMismatch)
   * [AddedToJira](#backlogops.jira_write.AddedToJira)
   * [add\_backlog\_to\_jira](#backlogops.jira_write.add_backlog_to_jira)
   * [format\_add\_result](#backlogops.jira_write.format_add_result)
@@ -5406,12 +5407,15 @@ issue type) and the remaining fields are then set through an update,
 because a create screen often omits fields such as the story points that
 an edit screen accepts.
 
-The item key is assigned by Jira and the status needs a workflow
-transition, so those fields are not written here. A sub-task's parent is
-set at create time as above; the parent and dependency links of the other
-items are updated in a later batch. The argument backlog is never
-modified; each added item is copied and the copy carries the key Jira
-assigned.
+The item key is assigned by Jira, so it is not written; instead each
+added item is copied and the copy carries the key Jira assigned. Once
+every issue exists, the parent and dependency keys of the stored copies
+are remapped from the internal keys to the assigned Jira keys, so the
+returned backlog of stored items is internally consistent. The status of
+a created issue is set by a workflow transition to a Jira status that
+maps to the item's status, trying the matching transitions in turn; when
+none succeeds the remaining mismatch is reported. A sub-task's parent is
+set at create time as above. The argument backlog is never modified.
 
 <a id="backlogops.jira_write.ExistsInJiraError"></a>
 
@@ -5481,6 +5485,22 @@ class FailedItem(NamedTuple)
 
 A backlog item that could not be added, with the failure reason.
 
+<a id="backlogops.jira_write.StatusMismatch"></a>
+
+## StatusMismatch Objects
+
+```python
+class StatusMismatch(NamedTuple)
+```
+
+A created issue whose Jira status could not be matched.
+
+Fields:
+    item: The stored copy of the item, carrying its new Jira key.
+    expected: The internal status the item carries.
+    actual: The Jira status name the created issue ended up in, or
+        None when the status could not be read.
+
 <a id="backlogops.jira_write.AddedToJira"></a>
 
 ## AddedToJira Objects
@@ -5493,13 +5513,16 @@ The result of adding a backlog to Jira.
 
 Fields:
     stored: Copies of the added items, each carrying the key Jira
-        assigned to the created issue.
+        assigned to the created issue, with parent and dependency
+        keys remapped to the assigned Jira keys.
     already_present: Copies of the items whose key already existed in
         Jira and were therefore not added, with their original key.
     failed: Items whose creation Jira refused, each with a concise
         reason; the argument backlog is not changed by a failure.
     key_map: For each stored item, its original key mapped to the key
-        Jira assigned. Used later to update parent and dependency keys.
+        Jira assigned.
+    status_mismatch: The stored items whose created issue could not be
+        transitioned to a Jira status matching the item's status.
 
 <a id="backlogops.jira_write.add_backlog_to_jira"></a>
 
@@ -5512,6 +5535,7 @@ def add_backlog_to_jira(connections: JiraConnections,
                         *,
                         on_existing_key: OnExistingKey,
                         levels: Optional[Levels] = None,
+                        status_map: Optional[dict[str, Status]] = None,
                         stderr_file: TextIO = sys.stderr) -> AddedToJira
 ```
 
@@ -5528,7 +5552,11 @@ accepts and the remaining mapped fields are then set through an update.
 Sub-tasks are created last, after their parents exist, and each is
 created with its parent issue key. An item whose creation Jira refuses
 is collected in ``failed`` with a concise reason, and the other items
-are still added. The argument backlog is never modified.
+are still added. Once every issue exists, each stored copy's parent
+and dependency keys are remapped to the assigned Jira keys, and each
+created issue is transitioned to a Jira status matching the item's
+status; an issue that cannot be matched is collected in
+``status_mismatch``. The argument backlog is never modified.
 
 **Arguments**:
 
@@ -5540,14 +5568,18 @@ are still added. The argument backlog is never modified.
   exists in Jira.
 - `levels` - The levels used to resolve the issue type from the item
   level, or None for the default levels.
+- `status_map` - Extra Jira status names mapped to internal statuses,
+  used to reconcile a created issue's status, or None for the
+  built-in status-name matching only.
 - `stderr_file` - Stream used for user-facing diagnostics.
   
 
 **Returns**:
 
-  The stored items with their Jira keys, the already-present items,
-  the items whose creation failed with a reason, and the map from
-  each stored item's original key to its Jira key.
+  The stored items with their Jira keys and remapped references, the
+  already-present items, the items whose creation failed with a
+  reason, the map from each stored item's original key to its Jira
+  key, and the created issues whose status could not be matched.
   
 
 **Raises**:
@@ -5567,7 +5599,7 @@ are still added. The argument backlog is never modified.
 def format_add_result(result: AddedToJira) -> str
 ```
 
-Return a two-section listing of added and already-present items.
+Return a listing of the added, present, failed and unmatched items.
 
 Each section has a heading with its count, then one ``key  title`` line
 per item, or a ``(none)`` line when the section is empty. The CLI
@@ -5583,10 +5615,10 @@ def apply_jira_keys(backlog: Backlog, key_map: dict[str, str]) -> None
 
 Rekey each backlog item in place using the original-to-Jira map.
 
-An item whose key is a key of ``key_map`` gets that mapped Jira key; an
-item not in the map is left unchanged, and the order is preserved. Only
-the item key is changed; parent and dependency keys are updated in a
-later batch.
+Every item's own key, parent key and dependency keys are remapped: a
+key present in ``key_map`` gets its mapped Jira key, a key not in the
+map is left unchanged, and the order is preserved. This keeps a shown
+backlog consistent with the stored copies the add returns.
 
 <a id="backlogops.jira_write.jira_custom_fields"></a>
 

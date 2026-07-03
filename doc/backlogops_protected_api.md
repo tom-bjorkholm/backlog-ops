@@ -493,7 +493,9 @@
     * [\_\_init\_\_](#backlogops.jira_write.UnknownIssueTypeError.__init__)
   * [OnExistingKey](#backlogops.jira_write.OnExistingKey)
   * [FailedItem](#backlogops.jira_write.FailedItem)
+  * [StatusMismatch](#backlogops.jira_write.StatusMismatch)
   * [AddedToJira](#backlogops.jira_write.AddedToJira)
+  * [\_TypeInfo](#backlogops.jira_write._TypeInfo)
   * [\_WriteContext](#backlogops.jira_write._WriteContext)
   * [\_nest](#backlogops.jira_write._nest)
   * [\_field\_payload](#backlogops.jira_write._field_payload)
@@ -520,11 +522,25 @@
   * [\_skipped\_names](#backlogops.jira_write._skipped_names)
   * [\_report\_skipped](#backlogops.jira_write._report_skipped)
   * [\_jira\_reason](#backlogops.jira_write._jira_reason)
+  * [\_remap\_refs](#backlogops.jira_write._remap_refs)
+  * [\_status\_from\_name](#backlogops.jira_write._status_from_name)
+  * [\_maps\_to](#backlogops.jira_write._maps_to)
+  * [\_jira\_status\_name](#backlogops.jira_write._jira_status_name)
+  * [\_transition\_target](#backlogops.jira_write._transition_target)
+  * [\_available\_transitions](#backlogops.jira_write._available_transitions)
+  * [\_matching\_transitions](#backlogops.jira_write._matching_transitions)
+  * [\_try\_transitions](#backlogops.jira_write._try_transitions)
+  * [\_report\_status\_mismatch](#backlogops.jira_write._report_status_mismatch)
+  * [\_reconcile\_status](#backlogops.jira_write._reconcile_status)
+  * [\_Added](#backlogops.jira_write._Added)
+  * [\_add\_item](#backlogops.jira_write._add_item)
   * [\_write\_new\_items](#backlogops.jira_write._write_new_items)
   * [add\_backlog\_to\_jira](#backlogops.jira_write.add_backlog_to_jira)
+  * [\_build\_ctx](#backlogops.jira_write._build_ctx)
   * [\_result\_section](#backlogops.jira_write._result_section)
   * [format\_add\_result](#backlogops.jira_write.format_add_result)
   * [\_failed\_section](#backlogops.jira_write._failed_section)
+  * [\_status\_section](#backlogops.jira_write._status_section)
   * [apply\_jira\_keys](#backlogops.jira_write.apply_jira_keys)
   * [jira\_custom\_fields](#backlogops.jira_write.jira_custom_fields)
   * [jira\_editable\_fields](#backlogops.jira_write.jira_editable_fields)
@@ -8295,12 +8311,15 @@ issue type) and the remaining fields are then set through an update,
 because a create screen often omits fields such as the story points that
 an edit screen accepts.
 
-The item key is assigned by Jira and the status needs a workflow
-transition, so those fields are not written here. A sub-task's parent is
-set at create time as above; the parent and dependency links of the other
-items are updated in a later batch. The argument backlog is never
-modified; each added item is copied and the copy carries the key Jira
-assigned.
+The item key is assigned by Jira, so it is not written; instead each
+added item is copied and the copy carries the key Jira assigned. Once
+every issue exists, the parent and dependency keys of the stored copies
+are remapped from the internal keys to the assigned Jira keys, so the
+returned backlog of stored items is internally consistent. The status of
+a created issue is set by a workflow transition to a Jira status that
+maps to the item's status, trying the matching transitions in turn; when
+none succeeds the remaining mismatch is reported. A sub-task's parent is
+set at create time as above. The argument backlog is never modified.
 
 <a id="backlogops.jira_write._SKIP_WRITE_FIELDS"></a>
 
@@ -8398,6 +8417,22 @@ class FailedItem(NamedTuple)
 
 A backlog item that could not be added, with the failure reason.
 
+<a id="backlogops.jira_write.StatusMismatch"></a>
+
+## StatusMismatch Objects
+
+```python
+class StatusMismatch(NamedTuple)
+```
+
+A created issue whose Jira status could not be matched.
+
+Fields:
+    item: The stored copy of the item, carrying its new Jira key.
+    expected: The internal status the item carries.
+    actual: The Jira status name the created issue ended up in, or
+        None when the status could not be read.
+
 <a id="backlogops.jira_write.AddedToJira"></a>
 
 ## AddedToJira Objects
@@ -8410,13 +8445,31 @@ The result of adding a backlog to Jira.
 
 Fields:
     stored: Copies of the added items, each carrying the key Jira
-        assigned to the created issue.
+        assigned to the created issue, with parent and dependency
+        keys remapped to the assigned Jira keys.
     already_present: Copies of the items whose key already existed in
         Jira and were therefore not added, with their original key.
     failed: Items whose creation Jira refused, each with a concise
         reason; the argument backlog is not changed by a failure.
     key_map: For each stored item, its original key mapped to the key
-        Jira assigned. Used later to update parent and dependency keys.
+        Jira assigned.
+    status_mismatch: The stored items whose created issue could not be
+        transitioned to a Jira status matching the item's status.
+
+<a id="backlogops.jira_write._TypeInfo"></a>
+
+## \_TypeInfo Objects
+
+```python
+@dataclass(frozen=True)
+class _TypeInfo()
+```
+
+The level and issue-type resolution used when creating issues.
+
+``subtask_types`` holds the Jira issue type names that are sub-tasks,
+or None when the create metadata did not reveal them, in which case a
+sub-task is detected by the lowest configured level instead.
 
 <a id="backlogops.jira_write._WriteContext"></a>
 
@@ -8429,9 +8482,11 @@ class _WriteContext()
 
 The resolved Jira target and mapping for creating issues.
 
-``subtask_types`` holds the Jira issue type names that are sub-tasks,
-or None when the create metadata did not reveal them, in which case a
-sub-task is detected by the lowest configured level instead.
+``custom_ids`` maps a custom field display name to its id and
+``custom_names`` is its inverse, used to report a skipped custom field
+by name. ``types`` resolves an item's level to its Jira issue type.
+``status_map`` maps a Jira status name to an internal status when
+reconciling a created issue's status.
 
 <a id="backlogops.jira_write._nest"></a>
 
@@ -8684,7 +8739,7 @@ is created first; the original order within each group is kept.
 
 ```python
 def _create_issue(ctx: _WriteContext, item: BacklogItem,
-                  parent_key: Optional[str]) -> tuple[str, list[str]]
+                  parent_key: Optional[str]) -> tuple[str, list[str], object]
 ```
 
 Create the issue and set the fields its edit screen offers.
@@ -8694,7 +8749,8 @@ mapped fields are set through an update, limited to the fields the
 issue's edit screen offers. Mapped fields the edit screen does not
 offer (such as story points on an issue type without them) are
 returned as skipped so the caller can report them. A sub-task's
-``parent_key`` is set at create time, which Jira requires.
+``parent_key`` is set at create time, which Jira requires. The created
+issue object is returned too, so its status can be reconciled.
 
 <a id="backlogops.jira_write._skipped_names"></a>
 
@@ -8732,6 +8788,154 @@ def _jira_reason(error: JIRAError) -> str
 
 Return a concise reason from a Jira error, not the full dump.
 
+<a id="backlogops.jira_write._remap_refs"></a>
+
+#### \_remap\_refs
+
+```python
+def _remap_refs(item: BacklogItem, key_map: dict[str, str]) -> None
+```
+
+Remap the item's parent and dependency keys via the key map.
+
+A key present in ``key_map`` is replaced by its assigned Jira key; a
+key not in the map is left unchanged, because it already refers to an
+issue in Jira or to an item outside this write.
+
+<a id="backlogops.jira_write._status_from_name"></a>
+
+#### \_status\_from\_name
+
+```python
+def _status_from_name(
+        name: str, status_map: Optional[dict[str,
+                                             Status]]) -> Optional[Status]
+```
+
+Return the internal status a Jira status name maps to, or None.
+
+A configured ``status_map`` is matched case-insensitively first, as
+when reading; otherwise the built-in status-name matching is used. A
+name that matches neither returns None.
+
+<a id="backlogops.jira_write._maps_to"></a>
+
+#### \_maps\_to
+
+```python
+def _maps_to(name: Optional[str], target: Status,
+             status_map: Optional[dict[str, Status]]) -> bool
+```
+
+Return whether a Jira status name maps to the target status.
+
+<a id="backlogops.jira_write._jira_status_name"></a>
+
+#### \_jira\_status\_name
+
+```python
+def _jira_status_name(ctx: _WriteContext, issue: object) -> Optional[str]
+```
+
+Return the created issue's Jira status name via the column map.
+
+<a id="backlogops.jira_write._transition_target"></a>
+
+#### \_transition\_target
+
+```python
+def _transition_target(trans: dict[str, object]) -> Optional[str]
+```
+
+Return the target status name of a workflow transition, or None.
+
+<a id="backlogops.jira_write._available_transitions"></a>
+
+#### \_available\_transitions
+
+```python
+def _available_transitions(client: JIRA,
+                           issue: object) -> list[dict[str, object]]
+```
+
+Return the issue's available workflow transitions, or empty.
+
+<a id="backlogops.jira_write._matching_transitions"></a>
+
+#### \_matching\_transitions
+
+```python
+def _matching_transitions(ctx: _WriteContext, target: Status,
+                          issue: object) -> list[str]
+```
+
+Return ids of transitions whose target maps to the target status.
+
+<a id="backlogops.jira_write._try_transitions"></a>
+
+#### \_try\_transitions
+
+```python
+def _try_transitions(ctx: _WriteContext, target: Status,
+                     issue: object) -> bool
+```
+
+Transition the issue to a matching status; True on the first success.
+
+A direct transition to the target status is assumed to reach it, so
+the first transition that Jira accepts is treated as a success.
+
+<a id="backlogops.jira_write._report_status_mismatch"></a>
+
+#### \_report\_status\_mismatch
+
+```python
+def _report_status_mismatch(bad: StatusMismatch, stderr_file: TextIO) -> None
+```
+
+Warn that a created issue's status could not be matched.
+
+<a id="backlogops.jira_write._reconcile_status"></a>
+
+#### \_reconcile\_status
+
+```python
+def _reconcile_status(ctx: _WriteContext, item: BacklogItem, issue: object,
+                      stderr_file: TextIO) -> Optional[StatusMismatch]
+```
+
+Match the created issue's status to the item, or report a mismatch.
+
+When the created issue's status already maps to the item's status
+nothing is done. Otherwise a workflow transition to a matching status
+is attempted; if none succeeds the mismatch is reported and returned.
+
+<a id="backlogops.jira_write._Added"></a>
+
+## \_Added Objects
+
+```python
+@dataclass
+class _Added()
+```
+
+Mutable accumulator of the add-to-Jira results being built.
+
+<a id="backlogops.jira_write._add_item"></a>
+
+#### \_add\_item
+
+```python
+def _add_item(ctx: _WriteContext, item: BacklogItem, existing: set[str],
+              acc: _Added, stderr_file: TextIO) -> None
+```
+
+Create one not-yet-present item and record it in the accumulator.
+
+An already-present item is copied into ``already``. A refused create is
+recorded in ``failed``. A created item is copied with its Jira key,
+recorded in ``stored`` and ``key_map``, and its status is reconciled.
+
 <a id="backlogops.jira_write._write_new_items"></a>
 
 #### \_write\_new\_items
@@ -8744,7 +8948,9 @@ def _write_new_items(ctx: _WriteContext, backlog: Backlog, existing: set[str],
 Create the not-yet-present items, reporting the ones that fail.
 
 Sub-tasks are created last, after their parents exist, and each is
-created with its parent key.
+created with its parent key. Once every issue exists, each stored
+copy's parent and dependency keys are remapped to the assigned Jira
+keys, so the returned backlog of stored items is internally consistent.
 
 <a id="backlogops.jira_write.add_backlog_to_jira"></a>
 
@@ -8757,6 +8963,7 @@ def add_backlog_to_jira(connections: JiraConnections,
                         *,
                         on_existing_key: OnExistingKey,
                         levels: Optional[Levels] = None,
+                        status_map: Optional[dict[str, Status]] = None,
                         stderr_file: TextIO = sys.stderr) -> AddedToJira
 ```
 
@@ -8773,7 +8980,11 @@ accepts and the remaining mapped fields are then set through an update.
 Sub-tasks are created last, after their parents exist, and each is
 created with its parent issue key. An item whose creation Jira refuses
 is collected in ``failed`` with a concise reason, and the other items
-are still added. The argument backlog is never modified.
+are still added. Once every issue exists, each stored copy's parent
+and dependency keys are remapped to the assigned Jira keys, and each
+created issue is transitioned to a Jira status matching the item's
+status; an issue that cannot be matched is collected in
+``status_mismatch``. The argument backlog is never modified.
 
 **Arguments**:
 
@@ -8785,14 +8996,18 @@ are still added. The argument backlog is never modified.
   exists in Jira.
 - `levels` - The levels used to resolve the issue type from the item
   level, or None for the default levels.
+- `status_map` - Extra Jira status names mapped to internal statuses,
+  used to reconcile a created issue's status, or None for the
+  built-in status-name matching only.
 - `stderr_file` - Stream used for user-facing diagnostics.
   
 
 **Returns**:
 
-  The stored items with their Jira keys, the already-present items,
-  the items whose creation failed with a reason, and the map from
-  each stored item's original key to its Jira key.
+  The stored items with their Jira keys and remapped references, the
+  already-present items, the items whose creation failed with a
+  reason, the map from each stored item's original key to its Jira
+  key, and the created issues whose status could not be matched.
   
 
 **Raises**:
@@ -8803,6 +9018,26 @@ are still added. The argument backlog is never modified.
   project.
 - `ExistsInJiraError` - In ``RAISE`` mode, if any key already exists in
   Jira.
+
+<a id="backlogops.jira_write._build_ctx"></a>
+
+#### \_build\_ctx
+
+```python
+def _build_ctx(
+        connections: JiraConnections, preset_name: str,
+        levels: Optional[Levels],
+        status_map: Optional[dict[str,
+                                  Status]]) -> tuple[_WriteContext, set[str]]
+```
+
+Return the write context and the project's valid issue-type names.
+
+The preset names the connection, the backlog write map, the default
+project and an optional level-to-issue-type map, all looked up in the
+pool's configuration. The valid issue-type names come from the
+project's create metadata and are used to validate the items before
+anything is created.
 
 <a id="backlogops.jira_write._result_section"></a>
 
@@ -8822,7 +9057,7 @@ Return the heading and the key-and-title lines for one backlog.
 def format_add_result(result: AddedToJira) -> str
 ```
 
-Return a two-section listing of added and already-present items.
+Return a listing of the added, present, failed and unmatched items.
 
 Each section has a heading with its count, then one ``key  title`` line
 per item, or a ``(none)`` line when the section is empty. The CLI
@@ -8838,6 +9073,16 @@ def _failed_section(heading: str, failed: list[FailedItem]) -> list[str]
 
 Return the heading and the key, title and reason of each failure.
 
+<a id="backlogops.jira_write._status_section"></a>
+
+#### \_status\_section
+
+```python
+def _status_section(heading: str, mismatch: list[StatusMismatch]) -> list[str]
+```
+
+Return the heading and the key, title and status of each mismatch.
+
 <a id="backlogops.jira_write.apply_jira_keys"></a>
 
 #### apply\_jira\_keys
@@ -8848,10 +9093,10 @@ def apply_jira_keys(backlog: Backlog, key_map: dict[str, str]) -> None
 
 Rekey each backlog item in place using the original-to-Jira map.
 
-An item whose key is a key of ``key_map`` gets that mapped Jira key; an
-item not in the map is left unchanged, and the order is preserved. Only
-the item key is changed; parent and dependency keys are updated in a
-later batch.
+Every item's own key, parent key and dependency keys are remapped: a
+key present in ``key_map`` gets its mapped Jira key, a key not in the
+map is left unchanged, and the order is preserved. This keeps a shown
+backlog consistent with the stored copies the add returns.
 
 <a id="backlogops.jira_write.jira_custom_fields"></a>
 

@@ -13,6 +13,7 @@ closed.
 # MIT License
 
 import io
+from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Callable, Optional, cast
 import pytest
@@ -26,8 +27,9 @@ from backlogops.jira_io_config import (
     JiraIOConfig, JiraPreset, TokenStorage)
 from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, FailedItem,
-    OnExistingKey, UnknownIssueTypeError, apply_jira_keys, format_add_result,
-    jira_custom_fields, jira_editable_fields, _issue_type_meta)
+    OnExistingKey, StatusMismatch, UnknownIssueTypeError, apply_jira_keys,
+    format_add_result, jira_custom_fields, jira_editable_fields,
+    _issue_type_meta, _status_from_name, _transition_target)
 from backlogops.levels import DEFAULT_LEVELS, level_name
 from backlogops.no_text_io import NoTextIO
 
@@ -62,6 +64,24 @@ def _recorder(record: dict[str, object]
     return update
 
 
+@dataclass
+class _Behavior:
+    """How the fake Jira answers create, edit and transition calls.
+
+    The create and edit knobs are set from the constructor; the status
+    and transition knobs default to a status matching a fresh TODO item
+    and no transitions, and a status test sets the ones it needs.
+    """
+
+    editable: dict[str, str]
+    issue_types: dict[str, bool]
+    fail_types: set[str]
+    init_status: str = 'TODO'
+    transitions: list[dict[str, object]] = field(default_factory=list)
+    fail_transition: bool = False
+    transitioned: list[tuple[str, str]] = field(default_factory=list)
+
+
 class _WriteClient:
     """A stand-in Jira client for the add-to-Jira tests."""
 
@@ -73,13 +93,16 @@ class _WriteClient:
 
         ``issue_types`` maps each creatable issue type name to whether it
         is a sub-task; an empty map models unavailable create metadata.
+        The status and transition behaviour lives in ``behavior`` and a
+        status test sets the fields it needs.
         """
         self.existing = set() if existing is None else set(existing)
         self.alive = alive
-        self.editable = _EDITABLE_DEFAULT if editable is None else editable
-        self.issue_types = (_ISSUE_TYPES_DEFAULT if issue_types is None
-                            else issue_types)
-        self.fail_types = set() if fail_types is None else fail_types
+        self.behavior = _Behavior(
+            editable=_EDITABLE_DEFAULT if editable is None else editable,
+            issue_types=(_ISSUE_TYPES_DEFAULT if issue_types is None
+                         else issue_types),
+            fail_types=set() if fail_types is None else fail_types)
         self.created: list[dict[str, object]] = []
         self.closed = 0
 
@@ -102,7 +125,7 @@ class _WriteClient:
     def _issue_type_values(self) -> list[dict[str, object]]:
         """Return the issue types with their sub-task flags for metadata."""
         return [{'name': name, 'subtask': subtask}
-                for name, subtask in sorted(self.issue_types.items())]
+                for name, subtask in sorted(self.behavior.issue_types.items())]
 
     def createmeta_issuetypes(self, project: str) -> dict[str, object]:
         """Return the project's creatable issue types as create metadata."""
@@ -120,27 +143,51 @@ class _WriteClient:
         Raises for an issue type in ``fail_types``, and for a sub-task
         without a ``parent``, as Jira does when it refuses a create. The
         returned issue's ``update`` merges its fields into the same record,
-        so the recorded payload holds the fields set at create and the
-        fields set by the following update together.
+        and it carries a ``fields.status`` set to the initial status, so
+        the status reconciliation can read and transition it.
         """
         issuetype = fields.get('issuetype')
         name = issuetype.get('name') if isinstance(issuetype, dict) else None
-        if name in self.fail_types:
+        if name in self.behavior.fail_types:
             raise JIRAError(status_code=400, text='Specify a valid issue type')
-        if name is not None and self.issue_types.get(name) \
+        if name is not None and self.behavior.issue_types.get(name) \
                 and 'parent' not in fields:
             raise JIRAError(status_code=400, text='Issue type is a sub-task '
                             'but parent issue key or id not specified.')
         record = dict(fields)
         self.created.append(record)
+        status = SimpleNamespace(name=self.behavior.init_status)
         return SimpleNamespace(key=f'JIRA-{len(self.created)}',
-                               update=_recorder(record))
+                               update=_recorder(record),
+                               fields=SimpleNamespace(status=status))
 
     def editmeta(self, issue: str) -> dict[str, object]:
         """Return the edit-screen field metadata for the issue."""
         _ = issue
         return {'fields': {fid: {'name': name}
-                           for fid, name in self.editable.items()}}
+                           for fid, name in self.behavior.editable.items()}}
+
+    def transitions(self, issue: SimpleNamespace) -> list[dict[str, object]]:
+        """Return the configured available workflow transitions."""
+        _ = issue
+        return list(self.behavior.transitions)
+
+    def transition_issue(self, issue: SimpleNamespace,
+                         transition: str) -> None:
+        """Apply a transition, updating the status, or raise when set to."""
+        if self.behavior.fail_transition:
+            raise JIRAError(status_code=400, text='transition rejected')
+        target = self._target_of(transition)
+        if target is not None:
+            issue.fields.status.name = target
+        self.behavior.transitioned.append((issue.key, transition))
+
+    def _target_of(self, transition: str) -> Optional[str]:
+        """Return the target status name of a transition id, or None."""
+        for trans in self.behavior.transitions:
+            if trans.get('id') == transition:
+                return _transition_target(trans)
+        return None
 
     def close(self) -> None:
         """Count a close of the stand-in client."""
@@ -199,6 +246,17 @@ def _leveled(key: str, level: int,
     """Return a backlog item at a level, optionally with a parent key."""
     return BacklogItem(key=key, level=level, title=f'T {key}', story_points=0,
                        status=Status.TODO, parent_key=parent)
+
+
+SMAP: dict[str, Status] = {
+    'To Do': Status.TODO, 'In Progress': Status.IN_PROGRESS,
+    'Done': Status.DONE, 'Rejected': Status.REJECTED}
+"""A status map from Jira status names to internal statuses."""
+
+
+def _trans(trans_id: str, target: str) -> dict[str, object]:
+    """Return a fake workflow transition leading to a target status."""
+    return {'id': trans_id, 'to': {'name': target}}
 
 
 def test_add_all_new(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -345,16 +403,19 @@ def test_close_clients(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_format_result() -> None:
-    """Test the listing shows the added, present and failed sections."""
+    """Test the listing shows added, present, failed and status sections."""
     added = _item('P-1')
     added.title = 'First'
     present = _item('X-9')
     present.title = 'Old'
     bad = _item('E-1')
     bad.title = 'Epic'
-    result = AddedToJira(stored=[added], already_present=[present],
-                         failed=[FailedItem(bad, 'HTTP 400: nope')],
-                         key_map={'A': 'P-1'})
+    late = _item('P-2')
+    late.title = 'Late'
+    result = AddedToJira(
+        stored=[added], already_present=[present],
+        failed=[FailedItem(bad, 'HTTP 400: nope')], key_map={'A': 'P-1'},
+        status_mismatch=[StatusMismatch(late, Status.DONE, 'To Do')])
     text = format_add_result(result)
     assert 'Added to Jira (1):' in text
     assert '  P-1  First' in text
@@ -362,13 +423,16 @@ def test_format_result() -> None:
     assert '  X-9  Old' in text
     assert 'Failed to add (1):' in text
     assert 'E-1  Epic  - HTTP 400: nope' in text
+    assert 'Status not set in Jira (1):' in text
+    assert "P-2  Late  - expected DONE, Jira status 'To Do'" in text
 
 
 def test_format_empty() -> None:
     """Test an empty section is shown as a count of zero and (none)."""
-    text = format_add_result(AddedToJira([], [], [], {}))
+    text = format_add_result(AddedToJira([], [], [], {}, []))
     assert 'Added to Jira (0):' in text
     assert 'Failed to add (0):' in text
+    assert 'Status not set in Jira (0):' in text
     assert '(none)' in text
 
 
@@ -551,5 +615,113 @@ def test_reexport() -> None:
     assert backlogops.add_backlog_to_jira is add_backlog_to_jira
     assert backlogops.AddedToJira is AddedToJira
     assert backlogops.ExistsInJiraError is ExistsInJiraError
+    assert backlogops.StatusMismatch is StatusMismatch
     assert 'add_backlog_to_jira' in backlogops.__all__
+    assert 'StatusMismatch' in backlogops.__all__
     assert 'JiraConnections' in backlogops.__all__
+
+
+def test_stored_refs_remap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test stored copies get parent and dependency keys remapped.
+
+    A dependency on an item created in the same run is remapped to its
+    Jira key, while a dependency on an item outside the run is kept.
+    """
+    client = _WriteClient(issue_types={'Story': False, 'Epic': False})
+    connections = _connections(monkeypatch, client)
+    child = _leveled('C', 1, 'P')
+    child.depends_on_f2s = ['P']
+    child.depends_on_s2s = ['EXT']
+    result = add_backlog_to_jira(connections, 'w', [_leveled('P', 2), child],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 status_map=SMAP, stderr_file=NO)
+    stored_child = result.stored[1]
+    assert stored_child.key == 'JIRA-2'
+    assert stored_child.parent_key == 'JIRA-1'
+    assert stored_child.depends_on_f2s == ['JIRA-1']
+    assert stored_child.depends_on_s2s == ['EXT']
+    assert child.parent_key == 'P'
+    assert child.depends_on_f2s == ['P']
+
+
+def test_apply_keys_refs() -> None:
+    """Test rekeying also remaps parent and dependency keys in place."""
+    child = _leveled('C', 1, 'P')
+    child.depends_on_f2s = ['P', 'EXT']
+    backlog = [_leveled('P', 2), child]
+    apply_jira_keys(backlog, {'P': 'J-1', 'C': 'J-2'})
+    assert [item.key for item in backlog] == ['J-1', 'J-2']
+    assert backlog[1].parent_key == 'J-1'
+    assert backlog[1].depends_on_f2s == ['J-1', 'EXT']
+
+
+def test_status_match(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a created status matching the item needs no transition."""
+    client = _WriteClient()
+    client.behavior.init_status = 'To Do'
+    client.behavior.transitions = [_trans('11', 'Done')]
+    connections = _connections(monkeypatch, client)
+    result = add_backlog_to_jira(connections, 'w', [_item('A')],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 status_map=SMAP, stderr_file=NO)
+    assert result.status_mismatch == []
+    assert not client.behavior.transitioned
+
+
+def test_status_transition(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a mismatching status is fixed by a matching transition."""
+    client = _WriteClient()
+    client.behavior.init_status = 'To Do'
+    client.behavior.transitions = [_trans('21', 'Done')]
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.status = Status.DONE
+    result = add_backlog_to_jira(connections, 'w', [item],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 status_map=SMAP, stderr_file=NO)
+    assert result.status_mismatch == []
+    assert client.behavior.transitioned == [('JIRA-1', '21')]
+
+
+def test_status_no_match(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an unreachable status is reported as a mismatch."""
+    client = _WriteClient()
+    client.behavior.init_status = 'To Do'
+    client.behavior.transitions = [_trans('11', 'In Progress')]
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.status = Status.DONE
+    errors = io.StringIO()
+    result = add_backlog_to_jira(connections, 'w', [item],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 status_map=SMAP, stderr_file=errors)
+    assert [bad.item.key for bad in result.status_mismatch] == ['JIRA-1']
+    bad = result.status_mismatch[0]
+    assert bad.expected is Status.DONE
+    assert bad.actual == 'To Do'
+    assert not client.behavior.transitioned
+    assert 'JIRA-1' in errors.getvalue()
+
+
+def test_status_trans_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a rejected transition leaves a reported status mismatch."""
+    client = _WriteClient()
+    client.behavior.init_status = 'To Do'
+    client.behavior.transitions = [_trans('31', 'Done')]
+    client.behavior.fail_transition = True
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.status = Status.DONE
+    result = add_backlog_to_jira(connections, 'w', [item],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 status_map=SMAP, stderr_file=NO)
+    assert [bad.item.key for bad in result.status_mismatch] == ['JIRA-1']
+    assert result.status_mismatch[0].actual == 'To Do'
+
+
+@pytest.mark.parametrize('name,expected', [
+    ('To Do', Status.TODO), ('IN_PROGRESS', Status.IN_PROGRESS),
+    ('Done', Status.DONE), ('nope', None)])
+def test_status_from_name(name: str, expected: Optional[Status]) -> None:
+    """Test a status map match wins over the built-in name matching."""
+    assert _status_from_name(name, {'To Do': Status.TODO}) is expected

@@ -511,10 +511,11 @@ class BacklogApp:
         mode = (OnExistingKey.SKIP if options.skip_existing
                 else OnExistingKey.RAISE)
         try:
-            result = add_backlog_to_jira(connections, options.preset_name,
-                                         data.backlog, on_existing_key=mode,
-                                         levels=self.config.get_levels(),
-                                         stderr_file=self.log)
+            result = add_backlog_to_jira(
+                connections, options.preset_name, data.backlog,
+                on_existing_key=mode, levels=self.config.get_levels(),
+                status_map=self.config.get_status_input_map(),
+                stderr_file=self.log)
         except JIRA_ERRORS as error:
             message = str(error)
             self._after(

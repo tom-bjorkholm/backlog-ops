@@ -77,7 +77,8 @@ def _add(parsed: argparse.Namespace, config: BacklogOpsConfig,
             else OnExistingKey.RAISE)
     result = add_backlog_to_jira(connections, parsed.preset, data.backlog,
                                  on_existing_key=mode,
-                                 levels=config.get_levels())
+                                 levels=config.get_levels(),
+                                 status_map=config.get_status_input_map())
     print(f'Added {len(result.stored)} items to Jira; '
           f'{len(result.already_present)} already present; '
           f'{len(result.failed)} failed.', file=sys.stderr)
