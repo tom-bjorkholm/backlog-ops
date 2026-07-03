@@ -183,7 +183,7 @@ def _write_installing(mft: MultiFormat, readme_type: ReadmeType) -> None:
                          programming_language='sh')
 
 
-DOCS_ROOT = 'https://bitbucket.org/tom-bjorkholm/backlog-ops/src/master/doc/'
+DOCS_ROOT = 'https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/'
 UL1 = DOCS_ROOT + 'backlogops_api.md'
 UL2 = DOCS_ROOT + 'backlogops_protected_api.md'
 UC1 = DOCS_ROOT + 'backlogops_cli.md'

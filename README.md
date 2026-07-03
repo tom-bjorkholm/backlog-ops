@@ -26,7 +26,7 @@ Early adopters are welcome. If you want to use it, install it using pip from
 
 [https://pypi.org/project/backlogops](https://pypi.org/project/backlogops).
 
-There is no need to download anything from Bitbucket to use the application
+There is no need to download anything from GitHub to use the application
 or to base your code on the library.
 
 ### Installing on macOS and Linux
@@ -56,8 +56,7 @@ or [backlogops/README_pypi.md](backlogops/README_pypi.md).
 This repository uses submodules. Clone it with:
 
 ```sh
-git clone --recurse-submodules \
-  git@bitbucket.org:tom-bjorkholm/backlog-ops.git
+git clone --recurse-submodules git@github.com:tom-bjorkholm/backlog-ops.git
 ```
 
 If you already cloned without submodules, initialize them with:
