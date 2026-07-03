@@ -158,7 +158,7 @@ def _collect_config(nav: _Navigator) -> BacklogOpsConfig:
     nav.show(_GUI_DISPLAY_HEAD)
     config.gui_display = _build_gui_display(nav)
     nav.show(_JIRA_HEAD)
-    config.jira = _build_jira_config(nav)
+    config.jira = _build_jira_config(nav, config.get_levels())
     return config
 
 

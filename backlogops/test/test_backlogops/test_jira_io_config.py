@@ -89,10 +89,10 @@ def _full() -> JiraIOConfig:
 
 
 def test_empty_shape() -> None:
-    """Test a fresh configuration serializes to four empty maps."""
+    """Test a fresh configuration serializes to five empty maps."""
     assert _json(_empty()) == {
         'connections': {}, 'backlog_column_maps': {},
-        'release_column_maps': {}, 'presets': {}}
+        'release_column_maps': {}, 'issue_type_maps': {}, 'presets': {}}
 
 
 def test_round_trip(tmp_path: Path) -> None:
@@ -207,6 +207,88 @@ def test_write_map() -> None:
     config.as_json_string(NO)
     assert config.presets['p'].write_backlog_map_name() == 'wr'
     assert _preset('main', 'bk', 'rel').write_backlog_map_name() == 'bk'
+
+
+def _issue_config(mapping: dict[int, str], ref: str = 'it') -> JiraIOConfig:
+    """Return a full config whose preset names an issue-type map."""
+    config = _full()
+    config.issue_type_maps = {ref: mapping}
+    config.presets['scrum'].issue_type_map_name = ref
+    return config
+
+
+def test_itmap_round_trip(tmp_path: Path) -> None:
+    """Test a level-to-issue-type map survives a write and read as ints."""
+    path = tmp_path / 'jira.cfg'
+    _issue_config({0: 'Deluppgift'}).write(to_json_filename=path,
+                                           stderr_file=NO)
+    loaded = JiraIOConfig(from_json_filename=path, stderr_file=NO)
+    assert loaded.issue_type_maps['it'] == {0: 'Deluppgift'}
+    assert loaded.get_preset('scrum').issue_type_map_name == 'it'
+
+
+def test_itmap_json_keys() -> None:
+    """Test the level number keys are written as JSON string keys."""
+    data = _json(_issue_config({0: 'Deluppgift', 2: 'Epos'}))
+    maps = data['issue_type_maps']
+    assert isinstance(maps, dict)
+    assert maps['it'] == {'0': 'Deluppgift', '2': 'Epos'}
+
+
+def test_itmap_parse_keys() -> None:
+    """Test JSON string keys parse back to integer level numbers."""
+    text = json.dumps({'connections': {}, 'backlog_column_maps': {},
+                       'release_column_maps': {},
+                       'issue_type_maps': {'m': {'0': 'Deluppgift'}}})
+    config = _from_text(text)
+    assert config.issue_type_maps['m'] == {0: 'Deluppgift'}
+
+
+def test_itmap_optional() -> None:
+    """Test a preset with no issue-type map writes an empty map name."""
+    presets = _json(_full())['presets']
+    assert isinstance(presets, dict)
+    assert presets['scrum']['issue_type_map_name'] == ''
+
+
+def test_itmap_bad_ref() -> None:
+    """Test a preset naming an unknown issue type map is rejected."""
+    config = _empty()
+    config.connections = {'main': JiraConnectConfig(stderr_file=NO)}
+    config.backlog_column_maps = {'bk': {}}
+    config.release_column_maps = {'rel': {}}
+    preset = _preset('main', 'bk', 'rel')
+    preset.issue_type_map_name = 'nope'
+    config.presets = {'p': preset}
+    with pytest.raises(KeyError):
+        config.as_json_string(NO)
+
+
+@pytest.mark.parametrize('bad_map', [
+    {'x': 'Deluppgift'}, {'0': 5}, {'0': ['Deluppgift']}, 'notadict'])
+def test_itmap_bad_value(bad_map: object) -> None:
+    """Test a non-integer key or non-string value is rejected on read."""
+    text = json.dumps({'connections': {}, 'backlog_column_maps': {},
+                       'release_column_maps': {},
+                       'issue_type_maps': {'m': bad_map}})
+    with pytest.raises((TypeError, ValueError)):
+        _from_text(text)
+
+
+def test_itmap_old_none() -> None:
+    """Test a preset from an old file gets an empty issue-type map name."""
+    conn = {'jira_type': 'CLOUD', 'base_url': 'u', 'login_email': 'e',
+            'token_storage': 'CLEAR_FILE'}
+    preset = {'connection_name': 'c', 'backlog_column_map_name': 'bk',
+              'release_column_map_name': 'rel', 'def_project': 'P',
+              'def_filter': 'f'}
+    old = json.dumps({'connections': {'c': conn},
+                      'backlog_column_maps': {'bk': {}},
+                      'release_column_maps': {'rel': {}},
+                      'presets': {'p': preset}})
+    config = _from_text(old)
+    assert not config.issue_type_maps
+    assert config.get_preset('p').issue_type_map_name == ''
 
 
 def _cmap_text(path_value: object) -> str:

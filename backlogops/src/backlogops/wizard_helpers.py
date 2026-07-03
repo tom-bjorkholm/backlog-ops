@@ -28,8 +28,8 @@ from tableio_cfg_json import TableCell, TableColumn, TioJsonConfig, \
 from backlogops.backlog import Status
 from backlogops.io_config import PRESET_NAME_RE
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
-    JiraColumnMap
-from backlogops.levels import DEFAULT_LEVELS, Level, LevelDisplay, \
+    JiraColumnMap, JiraIssueTypeMap
+from backlogops.levels import DEFAULT_LEVELS, Level, LevelDisplay, Levels, \
     levels_from_list
 from backlogops.person import Person
 from backlogops.table_rows import BACKLOG_FIELDS, LEVEL_COLUMN, \
@@ -241,6 +241,17 @@ class _Navigator:
         """
         result = self._ask(lambda: _read_jira_map(self._ui, fields,
                                                   default_map))
+        assert isinstance(result, dict)
+        return result
+
+    def ask_issue_type_map(self, levels: Levels) -> JiraIssueTypeMap:
+        """Ask the level-to-issue-type write map as one fixed-row table.
+
+        Each level is shown with its number and name and an editable Jira
+        issue type pre-filled to the level name, so the defaults are
+        visible and only real overrides are kept.
+        """
+        result = self._ask(lambda: _read_issue_type_map(self._ui, levels))
         assert isinstance(result, dict)
         return result
 
@@ -600,6 +611,12 @@ def _read_renames(ui: WizardUiBridge, fields: list[str], allow_extra: bool,
 _MAX_LEVELS = 99
 """Upper bound on the number of backlog item levels the wizard accepts."""
 
+_LEVELS_INSTRUCTION = (
+    'Backlog item levels (a level name and its aliases are also matched '
+    'against Jira issue types when reading from Jira, so include every '
+    'Jira issue type you read as the level name or one of its aliases):')
+"""Instruction shown above the backlog item levels table."""
+
 
 def _parse_level_int(text: Optional[str]) -> Optional[int]:
     """Return ``text`` as an int (sign allowed), or None when invalid."""
@@ -684,7 +701,7 @@ def _read_levels(ui: WizardUiBridge) -> list[Level]:
     cells = _default_level_cells()
     reason: Optional[str] = None
     while True:
-        table = ui.ask_table(columns, cells, 'Backlog item levels:',
+        table = ui.ask_table(columns, cells, _LEVELS_INSTRUCTION,
                              re_ask_reason=reason, partial_check=_levels_check,
                              min_rows=1, max_rows=_MAX_LEVELS)
         levels = _parse_levels(table)
@@ -696,6 +713,54 @@ def _read_levels(ui: WizardUiBridge) -> list[Level]:
             reason = ('Enter a whole-number level and a non-empty name in '
                       'every row.')
         cells = _cells_from_table(table)
+
+
+_ISSUE_TYPE_INSTRUCTION = (
+    'Jira issue type to create for each level when writing to Jira (blank '
+    'or the level name keeps the level name; used only when writing, not '
+    'when reading):')
+"""Instruction shown above a level-to-issue-type write map table."""
+
+
+def _issue_type_cells(levels: Levels) -> list[list[TableCell]]:
+    """Return table rows pre-filled from the levels for the issue map."""
+    return [[TableCell(value=str(level.level)), TableCell(value=level.name),
+             TableCell(value=level.name)] for level in levels.values()]
+
+
+def _parse_issue_types(table: list[list[Optional[str]]]) -> JiraIssueTypeMap:
+    """Return the level-to-issue-type map, keeping only real overrides.
+
+    A blank issue type, or one equal to the level name, keeps the level
+    name and is omitted, so only levels whose Jira issue type differs from
+    the level name are stored.
+    """
+    result: JiraIssueTypeMap = {}
+    for row in table:
+        number = _parse_level_int(row[0])
+        name = row[1]
+        issue_type = (row[2] or '').strip()
+        if number is not None and issue_type and issue_type != name:
+            result[number] = issue_type
+    return result
+
+
+def _read_issue_type_map(ui: WizardUiBridge,
+                         levels: Levels) -> JiraIssueTypeMap:
+    """Ask the level-to-issue-type write map as one fixed-row table.
+
+    Each level is a read-only number and name with an editable Jira issue
+    type pre-filled to the level name, so the defaults are visible and
+    leaving the table unchanged writes each level's own name.
+    """
+    columns = [TableColumn(header='Level', read_only=True),
+               TableColumn(header='Internal name', read_only=True),
+               TableColumn(header='Jira issue type')]
+    cells = _issue_type_cells(levels)
+    count = len(cells)
+    table = ui.ask_table(columns, cells, _ISSUE_TYPE_INSTRUCTION,
+                         min_rows=count, max_rows=count)
+    return _parse_issue_types(table)
 
 
 _STATUS_NAMES = [status.name for status in Status]

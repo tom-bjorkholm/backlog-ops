@@ -14,10 +14,14 @@ inverting the preset's write
 backlog column map: a plain field such as the summary is set directly, a
 nested field such as the issue type is wrapped by its path steps, a list
 field such as the fix versions is wrapped as named objects, and a custom
-field is set by its resolved field id. The issue is first created with
-the fields a create screen accepts (project, summary, issue type) and the
-remaining fields are then set through an update, because a create screen
-often omits fields such as the story points that an edit screen accepts.
+field is set by its resolved field id. The issue type written for an item
+comes from the preset's level-to-issue-type map (falling back to the
+level name), so a Jira that renamed a type (such as a Swedish
+``Deluppgift`` sub-task) still gets a valid issue type. The issue is
+first created with the fields a create screen accepts (project, summary,
+issue type) and the remaining fields are then set through an update,
+because a create screen often omits fields such as the story points that
+an edit screen accepts.
 
 The item key is assigned by Jira, the status needs a workflow transition,
 and the parent and dependency links are updated in a later batch, so
@@ -36,7 +40,8 @@ from typing import NamedTuple, Optional, TextIO
 from jira import JIRA, JIRAError
 from backlogops.backlog import Backlog, BacklogItem, DEPENDENCY_FIELDS
 from backlogops.jira_connect import JiraConnections
-from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, JiraColumnMap
+from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
+    JiraColumnMap, JiraIssueTypeMap
 from backlogops.jira_read import _custom_ids, _field_id
 from backlogops.levels import DEFAULT_LEVELS, Levels, level_name
 
@@ -136,6 +141,7 @@ class _WriteContext:
     project: str
     custom_ids: dict[str, str]
     levels: Levels
+    issue_type_map: JiraIssueTypeMap
 
 
 def _nest(path: tuple[str, ...], value: object) -> dict[str, object]:
@@ -166,10 +172,24 @@ def _place_value(fields: dict[str, object], attr: JiraAttrPath, value: object,
         fields.update(_field_payload(attr.path, value))
 
 
-def _internal_value(name: str, item: BacklogItem, levels: Levels) -> object:
+def _issue_type(level: int, issue_type_map: JiraIssueTypeMap,
+                levels: Levels) -> Optional[str]:
+    """Return the Jira issue type to write for one internal level.
+
+    The preset's level-to-issue-type map wins when it names the level;
+    otherwise the level's own name is used, as before.
+    """
+    mapped = issue_type_map.get(level)
+    if mapped is not None:
+        return mapped
+    return level_name(level, levels)
+
+
+def _internal_value(name: str, item: BacklogItem, levels: Levels,
+                    issue_type_map: JiraIssueTypeMap) -> object:
     """Return the value to write for one internal field, or None."""
     if name == 'level':
-        return level_name(item.level, levels)
+        return _issue_type(item.level, issue_type_map, levels)
     try:
         return item[name]
     except KeyError:
@@ -182,7 +202,7 @@ def _create_fields(ctx: _WriteContext, item: BacklogItem) -> dict[str, object]:
     for name, attrs in ctx.column_map.items():
         if name in _SKIP_WRITE_FIELDS or not attrs:
             continue
-        value = _internal_value(name, item, ctx.levels)
+        value = _internal_value(name, item, ctx.levels, ctx.issue_type_map)
         if value not in (None, ''):
             _place_value(fields, attrs[0], value, ctx.custom_ids)
     return fields
@@ -257,11 +277,14 @@ def _valid_issue_types(client: JIRA, project: str) -> set[str]:
 
 
 def _validate_issue_types(client: JIRA, project: str, backlog: Backlog,
-                          levels: Levels) -> None:
+                          levels: Levels,
+                          issue_type_map: JiraIssueTypeMap) -> None:
     """Raise when an item's issue type is not valid in the project.
 
-    The valid type names are read from the project's create metadata. When
-    that returns nothing (an unexpected response), the check is skipped and
+    The issue type written for each item is resolved through the preset's
+    level-to-issue-type map, falling back to the level name. The valid
+    type names are read from the project's create metadata. When that
+    returns nothing (an unexpected response), the check is skipped and
     each issue type is left to fail at create time instead.
     """
     valid = _valid_issue_types(client, project)
@@ -269,7 +292,8 @@ def _validate_issue_types(client: JIRA, project: str, backlog: Backlog,
         return
     bad: dict[str, list[str]] = {}
     for item in backlog:
-        name = level_name(item.level, levels) or f'level {item.level}'
+        name = _issue_type(item.level, issue_type_map, levels) \
+            or f'level {item.level}'
         if name not in valid:
             bad.setdefault(name, []).append(item.key)
     if bad:
@@ -410,11 +434,15 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
     client = connections.client(preset.connection_name)
     column_map = jira_config.backlog_column_maps[
         preset.write_backlog_map_name()]
+    issue_type_map: JiraIssueTypeMap = jira_config.issue_type_maps.get(
+        preset.issue_type_map_name, {})
     ctx = _WriteContext(client=client, column_map=column_map,
                         project=preset.def_project,
                         custom_ids=_custom_ids(client.fields()),
-                        levels=DEFAULT_LEVELS if levels is None else levels)
-    _validate_issue_types(client, ctx.project, backlog, ctx.levels)
+                        levels=DEFAULT_LEVELS if levels is None else levels,
+                        issue_type_map=issue_type_map)
+    _validate_issue_types(client, ctx.project, backlog, ctx.levels,
+                          ctx.issue_type_map)
     existing = _existing_keys(client, backlog)
     if on_existing_key is OnExistingKey.RAISE and existing:
         _raise_existing(existing, stderr_file)

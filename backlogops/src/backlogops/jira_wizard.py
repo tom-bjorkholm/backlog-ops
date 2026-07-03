@@ -3,9 +3,10 @@
 
 The :func:`_build_jira_config` helper drives any ``WizardUiBridge`` to ask
 for the named Jira connections, the named backlog and release column maps,
-and the named from-Jira read presets and to-Jira write presets, returning
-a :class:`JiraIOConfig`. It is used by the full configuration wizard in
-:mod:`backlogops.backlog_ops_wizard`.
+the named level-to-issue-type write maps, and the named presets that tie
+them together, returning a :class:`JiraIOConfig`. It is used by the full
+configuration wizard in :mod:`backlogops.backlog_ops_wizard`, which passes
+in the configured levels so the issue-type map can be seeded from them.
 
 The API token is captured in the wizard only for an internal storage mode,
 where the token must live in the configuration; for a file storage mode
@@ -18,16 +19,28 @@ visible while typed.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, TypeVar
 from backlogops.jira_io_config import DEF_BACKLOG_COLUMN_MAP, \
     DEF_RELEASE_COLUMN_MAP, JiraColumnMap, JiraConnectConfig, JiraIOConfig, \
-    JiraPreset, JiraType, TokenStorage, default_jira_filter
+    JiraIssueTypeMap, JiraPreset, JiraType, TokenStorage, default_jira_filter
+from backlogops.levels import Levels
 from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS
 from backlogops.wizard_helpers import _Navigator
 
 _E = TypeVar('_E', bound=Enum)
 _T = TypeVar('_T')
+
+
+@dataclass(frozen=True)
+class _PresetChoices:
+    """The named connections and maps a Jira preset may choose among."""
+
+    connections: list[str]
+    backlog_maps: list[str]
+    release_maps: list[str]
+    issue_type_maps: list[str]
 
 
 def _ask_enum(nav: _Navigator, question: str, enum_cls: type[_E],
@@ -58,33 +71,53 @@ def _counted_named(nav: _Navigator, what: str,
     return result
 
 
-def _build_jira_config(nav: _Navigator) -> JiraIOConfig:
-    """Ask for the Jira connections, column maps and presets."""
+def _build_jira_config(nav: _Navigator, levels: Levels) -> JiraIOConfig:
+    """Ask for the Jira connections, maps, issue types and presets."""
     jira = JiraIOConfig(stderr_file=nav.error_file())
     jira.connections = nav.level(lambda: _build_connections(nav))
     jira.backlog_column_maps = nav.level(lambda: _build_backlog_maps(nav))
     jira.release_column_maps = nav.level(lambda: _build_release_maps(nav))
+    jira.issue_type_maps = nav.level(
+        lambda: _build_issue_type_maps(nav, levels))
     _build_presets(nav, jira)
     return jira
+
+
+def _build_issue_type_maps(nav: _Navigator,
+                           levels: Levels) -> dict[str, JiraIssueTypeMap]:
+    """Ask for a counted list of named level-to-issue-type write maps."""
+    return _counted_named(nav, 'issue type maps',
+                          lambda used: _ask_issue_type_map(nav, used, levels))
+
+
+def _ask_issue_type_map(nav: _Navigator, used: set[str],
+                        levels: Levels) -> tuple[str, JiraIssueTypeMap]:
+    """Ask one named level-to-issue-type write map, seeded from levels."""
+    name = nav.ask_preset_name('Issue type map name (letters and digits)',
+                               used)
+    return name, nav.ask_issue_type_map(levels)
 
 
 def _build_presets(nav: _Navigator, jira: JiraIOConfig) -> None:
     """Ask the Jira presets when the prerequisites exist.
 
     A preset needs a connection, a backlog column map and a release column
-    map. When some but not all of these exist the presets are skipped with
-    a note; when none exist the Jira section stays empty.
+    map; a level-to-issue-type map is optional. When some but not all of
+    the required parts exist the presets are skipped with a note; when none
+    exist the Jira section stays empty.
     """
-    conn = sorted(jira.connections)
-    backlog = sorted(jira.backlog_column_maps)
-    release = sorted(jira.release_column_maps)
-    if not (conn and backlog and release):
-        if conn or backlog or release:
+    choices = _PresetChoices(connections=sorted(jira.connections),
+                             backlog_maps=sorted(jira.backlog_column_maps),
+                             release_maps=sorted(jira.release_column_maps),
+                             issue_type_maps=sorted(jira.issue_type_maps))
+    if not (choices.connections and choices.backlog_maps
+            and choices.release_maps):
+        if (choices.connections or choices.backlog_maps
+                or choices.release_maps):
             nav.show('A Jira preset needs a connection, a backlog column '
                      'map and a release column map; skipping presets.')
         return
-    jira.presets = nav.level(
-        lambda: _build_preset_list(nav, conn, backlog, release))
+    jira.presets = nav.level(lambda: _build_preset_list(nav, choices))
 
 
 def _build_connections(nav: _Navigator) -> dict[str, JiraConnectConfig]:
@@ -155,26 +188,27 @@ def _ask_map(nav: _Navigator, used: set[str], label: str, fields: list[str],
     return name, nav.ask_jira_map(fields, default)
 
 
-def _build_preset_list(nav: _Navigator, conn: list[str], backlog: list[str],
-                       release: list[str]) -> dict[str, JiraPreset]:
+def _build_preset_list(nav: _Navigator,
+                       choices: _PresetChoices) -> dict[str, JiraPreset]:
     """Ask for a counted list of named Jira presets."""
-    return _counted_named(
-        nav, 'presets',
-        lambda used: _ask_preset(nav, used, conn, backlog, release))
+    return _counted_named(nav, 'presets',
+                          lambda used: _ask_preset(nav, used, choices))
 
 
-def _ask_preset(nav: _Navigator, used: set[str], conn: list[str],
-                backlog: list[str],
-                release: list[str]) -> tuple[str, JiraPreset]:
+def _ask_preset(nav: _Navigator, used: set[str],
+                choices: _PresetChoices) -> tuple[str, JiraPreset]:
     """Ask one preset: name, connection, maps, project and filter."""
     name = nav.ask_preset_name('Preset name (letters and digits)', used)
     preset = JiraPreset(stderr_file=nav.error_file())
-    preset.connection_name = _choice(nav, 'Connection to use', conn)
+    preset.connection_name = _choice(nav, 'Connection to use',
+                                     choices.connections)
     preset.backlog_column_map_name = _choice(nav, 'Backlog column map (read)',
-                                             backlog)
-    preset.backlog_write_map_name = _ask_write_map(nav, backlog)
+                                             choices.backlog_maps)
+    preset.backlog_write_map_name = _ask_write_map(nav, choices.backlog_maps)
     preset.release_column_map_name = _choice(nav, 'Release column map',
-                                             release)
+                                             choices.release_maps)
+    preset.issue_type_map_name = _ask_issue_type_choice(
+        nav, choices.issue_type_maps)
     preset.def_project = nav.ask_text('Default Jira project key')
     preset.def_filter = _ask_filter(nav, preset.def_project)
     return name, preset
@@ -186,6 +220,17 @@ def _ask_write_map(nav: _Navigator, backlog: list[str]) -> str:
                           '(otherwise the read map is used)?', False):
         return ''
     return _choice(nav, 'Backlog column map for writing', backlog)
+
+
+def _ask_issue_type_choice(nav: _Navigator, issue_type_maps: list[str]) -> str:
+    """Ask an optional level-to-issue-type map for writing to Jira."""
+    if not issue_type_maps:
+        return ''
+    if not nav.ask_yes_no('Use a level-to-issue-type map when writing '
+                          '(otherwise the level name is the issue type)?',
+                          False):
+        return ''
+    return _choice(nav, 'Level-to-issue-type map for writing', issue_type_maps)
 
 
 def _choice(nav: _Navigator, question: str, choices: list[str]) -> str:

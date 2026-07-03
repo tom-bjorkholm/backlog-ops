@@ -2647,7 +2647,9 @@ writes uses a single preset name. It names the connection to use, the
 backlog and release column maps used for reading, the default project,
 and the default issue filter (Jira Query Language) used for reading.
 It also names an optional backlog column map used for writing; when
-that is empty the reading backlog map is used for writing too. The
+that is empty the reading backlog map is used for writing too. It may
+name an optional level-to-issue-type map used for writing; when that
+is empty each level's own name is written as the Jira issue type. The
 names refer to entries in the enclosing :class:`JiraIOConfig`. The
 default project is used to read the releases (versions) even when the
 caller overrides the issue filter.
@@ -2700,15 +2702,18 @@ class JiraIOConfig(Config)
 Jira input and output configuration as the top-level jira member.
 
 Holds the named connections, the named backlog and release column
-maps, and the named presets, each indexed by name so that several
-presets can share one connection or one column map. Each preset drives
-both reading and writing, so a single preset name is used for both
-directions. The column maps are validated and converted to
-:class:`JiraAttrPath` values on read and written back as lists on
-write; an old file that omits any sub-section loads with that
-sub-section empty. An old combined ``column_maps`` section and an old
-``to_jira_presets`` section are dropped, and old ``from_jira_presets``
-are moved to the unified ``presets`` section.
+maps, the named level-to-issue-type write maps, and the named presets,
+each indexed by name so that several presets can share one connection,
+one column map or one issue-type map. Each preset drives both reading
+and writing, so a single preset name is used for both directions. The
+column maps are validated and converted to :class:`JiraAttrPath`
+values on read and written back as lists on write; the issue-type maps
+are keyed by level number, whose JSON string keys are parsed to
+integers on read and written back as strings. An old file that omits
+any sub-section loads with that sub-section empty. An old combined
+``column_maps`` section and an old ``to_jira_presets`` section are
+dropped, and old ``from_jira_presets`` are moved to the unified
+``presets`` section.
 
 <a id="backlogops.jira_io_config.JiraIOConfig.__init__"></a>
 
@@ -2754,7 +2759,7 @@ Convert the column maps, then check the preset references.
 def serialize_converters() -> SerializeConverters
 ```
 
-Write the column maps as lists of a kind and path steps.
+Write the column and issue-type maps in their stored shapes.
 
 <a id="backlogops.jira_io_config.JiraIOConfig.check_consistency"></a>
 
@@ -5388,10 +5393,14 @@ inverting the preset's write
 backlog column map: a plain field such as the summary is set directly, a
 nested field such as the issue type is wrapped by its path steps, a list
 field such as the fix versions is wrapped as named objects, and a custom
-field is set by its resolved field id. The issue is first created with
-the fields a create screen accepts (project, summary, issue type) and the
-remaining fields are then set through an update, because a create screen
-often omits fields such as the story points that an edit screen accepts.
+field is set by its resolved field id. The issue type written for an item
+comes from the preset's level-to-issue-type map (falling back to the
+level name), so a Jira that renamed a type (such as a Swedish
+``Deluppgift`` sub-task) still gets a valid issue type. The issue is
+first created with the fields a create screen accepts (project, summary,
+issue type) and the remaining fields are then set through an update,
+because a create screen often omits fields such as the story points that
+an edit screen accepts.
 
 The item key is assigned by Jira, the status needs a workflow transition,
 and the parent and dependency links are updated in a later batch, so

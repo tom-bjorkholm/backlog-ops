@@ -31,6 +31,8 @@ from backlogops.wizard_helpers import (
     _read_end_date, _read_levels, _read_preset_name, _read_renames,
     _read_schedule, _read_status_map, _read_unique_name, _rename_check,
     _sched_check, _split_aliases, _status_check)
+from backlogops.wizard_helpers import (
+    _issue_type_cells, _parse_issue_types, _read_issue_type_map)
 from backlogops.levels import DEFAULT_LEVELS, LevelDisplay
 from backlogops.work_hours import DEFAULT_WORK_WEEK, WeekDay
 
@@ -43,9 +45,9 @@ MAPS_KEEP = ['', '']
 GUI_MAPS_KEEP = MAPS_KEEP + GUI_KEEP
 """Accept both GUI rename tables, then keep the GUI level display."""
 
-JIRA_SKIP = ['0', '0', '0']
-"""Zero Jira connections and zero backlog and release column maps, which
-skips both the read and write presets too."""
+JIRA_SKIP = ['0', '0', '0', '0']
+"""Zero Jira connections, backlog and release column maps and issue-type
+maps, which skips the presets too."""
 
 LEVELS_KEEP = ['']
 """A blank answer that accepts the pre-filled default levels table."""
@@ -948,3 +950,30 @@ def test_jira_map_reask() -> None:
     result = _read_jira_map(bridge, ['key'], {})
     assert result == {
         'key': (JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',)),)}
+
+
+def test_itmap_cells() -> None:
+    """Test the issue-type table seeds a row per level, name as default."""
+    cells = _issue_type_cells(DEFAULT_LEVELS)
+    assert cells[0] == [TableCell(value='0'), TableCell(value='Sub-Task'),
+                        TableCell(value='Sub-Task')]
+    assert [row[0].value for row in cells] == ['0', '1', '2', '3']
+
+
+def test_itmap_read() -> None:
+    """Test an edited issue type overrides the level name for that level."""
+    bridge = _TableScript([[['0', 'Sub-Task', 'Deluppgift'],
+                            ['1', 'Story', 'Story']]])
+    assert _read_issue_type_map(bridge, DEFAULT_LEVELS) == {0: 'Deluppgift'}
+
+
+@pytest.mark.parametrize('table, expected', [
+    ([['0', 'Sub-Task', 'Deluppgift']], {0: 'Deluppgift'}),
+    ([['1', 'Story', 'Story']], {}),
+    ([['2', 'Epic', '']], {}),
+    ([['2', 'Epic', '  Epos  ']], {2: 'Epos'}),
+    ([['x', 'Bad', 'Type']], {})])
+def test_itmap_parse(table: list[list[Optional[str]]],
+                     expected: dict[int, str]) -> None:
+    """Test only real overrides are kept and identity rows are dropped."""
+    assert _parse_issue_types(table) == expected

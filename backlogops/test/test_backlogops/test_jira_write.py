@@ -139,6 +139,15 @@ def _config(project: str = 'PROJ') -> JiraIOConfig:
     return config
 
 
+def _issue_config(mapping: dict[int, str], project: str = 'PROJ',
+                  ref: str = 'im') -> JiraIOConfig:
+    """Return a config whose preset names a level-to-issue-type map."""
+    config = _config(project)
+    config.issue_type_maps = {ref: mapping}
+    config.presets['w'].issue_type_map_name = ref
+    return config
+
+
 def _connections(monkeypatch: pytest.MonkeyPatch, client: _WriteClient,
                  config: Optional[JiraIOConfig] = None) -> JiraConnections:
     """Return a pool whose connections all yield the given fake client."""
@@ -335,6 +344,46 @@ def test_invalid_type(monkeypatch: pytest.MonkeyPatch) -> None:
         add_backlog_to_jira(connections, 'w', [item],
                             on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
     assert 'Initiative' in caught.value.bad
+    assert not client.created
+
+
+def test_itmap_on_write(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a mapped level writes the Jira issue type from the map."""
+    client = _WriteClient(valid_types={'Deluppgift', 'Story'})
+    connections = _connections(monkeypatch, client,
+                               _issue_config({0: 'Deluppgift'}))
+    item = BacklogItem(key='T', level=0, title='Sub', story_points=0,
+                       status=Status.TODO)
+    add_backlog_to_jira(connections, 'w', [item],
+                        on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
+    assert client.created[0]['issuetype'] == {'name': 'Deluppgift'}
+
+
+def test_itmap_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a level absent from the map writes the level name."""
+    client = _WriteClient(valid_types={'Deluppgift', 'Story'})
+    connections = _connections(monkeypatch, client,
+                               _issue_config({0: 'Deluppgift'}))
+    add_backlog_to_jira(connections, 'w', [_item('S')],
+                        on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
+    assert client.created[0]['issuetype'] == {'name': 'Story'}
+
+
+def test_itmap_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the bare level name is rejected when no map renames it.
+
+    This is the reported failure: a Jira that renamed the sub-task type
+    rejects the level name 'Sub-Task', and without a map the write is
+    refused before anything is created.
+    """
+    client = _WriteClient(valid_types={'Deluppgift', 'Story', 'Epic'})
+    connections = _connections(monkeypatch, client)
+    item = BacklogItem(key='T', level=0, title='Sub', story_points=0,
+                       status=Status.TODO)
+    with pytest.raises(UnknownIssueTypeError) as caught:
+        add_backlog_to_jira(connections, 'w', [item],
+                            on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
+    assert 'Sub-Task' in caught.value.bad
     assert not client.created
 
 

@@ -184,6 +184,11 @@
     * [validate\_member](#backlogops.jira_io_config._ColumnMapsValidator.validate_member)
     * [\_one\_map](#backlogops.jira_io_config._ColumnMapsValidator._one_map)
   * [\_column\_maps\_to\_json](#backlogops.jira_io_config._column_maps_to_json)
+  * [\_issue\_type\_level](#backlogops.jira_io_config._issue_type_level)
+  * [\_issue\_type\_map\_from\_obj](#backlogops.jira_io_config._issue_type_map_from_obj)
+  * [\_IssueTypeMapsValidator](#backlogops.jira_io_config._IssueTypeMapsValidator)
+    * [validate\_member](#backlogops.jira_io_config._IssueTypeMapsValidator.validate_member)
+  * [\_issue\_type\_maps\_to\_json](#backlogops.jira_io_config._issue_type_maps_to_json)
   * [JiraConnectConfig](#backlogops.jira_io_config.JiraConnectConfig)
     * [\_\_init\_\_](#backlogops.jira_io_config.JiraConnectConfig.__init__)
     * [\_omit\_none\_from\_json](#backlogops.jira_io_config.JiraConnectConfig._omit_none_from_json)
@@ -436,9 +441,12 @@
     * [client](#backlogops.jira_connect.JiraConnections.client)
     * [close](#backlogops.jira_connect.JiraConnections.close)
 * [backlogops.jira\_wizard](#backlogops.jira_wizard)
+  * [\_PresetChoices](#backlogops.jira_wizard._PresetChoices)
   * [\_ask\_enum](#backlogops.jira_wizard._ask_enum)
   * [\_counted\_named](#backlogops.jira_wizard._counted_named)
   * [\_build\_jira\_config](#backlogops.jira_wizard._build_jira_config)
+  * [\_build\_issue\_type\_maps](#backlogops.jira_wizard._build_issue_type_maps)
+  * [\_ask\_issue\_type\_map](#backlogops.jira_wizard._ask_issue_type_map)
   * [\_build\_presets](#backlogops.jira_wizard._build_presets)
   * [\_build\_connections](#backlogops.jira_wizard._build_connections)
   * [\_ask\_connection](#backlogops.jira_wizard._ask_connection)
@@ -451,6 +459,7 @@
   * [\_build\_preset\_list](#backlogops.jira_wizard._build_preset_list)
   * [\_ask\_preset](#backlogops.jira_wizard._ask_preset)
   * [\_ask\_write\_map](#backlogops.jira_wizard._ask_write_map)
+  * [\_ask\_issue\_type\_choice](#backlogops.jira_wizard._ask_issue_type_choice)
   * [\_choice](#backlogops.jira_wizard._choice)
   * [\_ask\_filter](#backlogops.jira_wizard._ask_filter)
 * [backlogops.date\_ranges](#backlogops.date_ranges)
@@ -489,6 +498,7 @@
   * [\_nest](#backlogops.jira_write._nest)
   * [\_field\_payload](#backlogops.jira_write._field_payload)
   * [\_place\_value](#backlogops.jira_write._place_value)
+  * [\_issue\_type](#backlogops.jira_write._issue_type)
   * [\_internal\_value](#backlogops.jira_write._internal_value)
   * [\_create\_fields](#backlogops.jira_write._create_fields)
   * [\_issue\_exists](#backlogops.jira_write._issue_exists)
@@ -620,6 +630,7 @@
     * [ask\_renames](#backlogops.wizard_helpers._Navigator.ask_renames)
     * [ask\_status\_map](#backlogops.wizard_helpers._Navigator.ask_status_map)
     * [ask\_jira\_map](#backlogops.wizard_helpers._Navigator.ask_jira_map)
+    * [ask\_issue\_type\_map](#backlogops.wizard_helpers._Navigator.ask_issue_type_map)
     * [\_ask](#backlogops.wizard_helpers._Navigator._ask)
     * [\_replaying](#backlogops.wizard_helpers._Navigator._replaying)
   * [\_parse\_date](#backlogops.wizard_helpers._parse_date)
@@ -650,6 +661,7 @@
   * [\_rename\_cells](#backlogops.wizard_helpers._rename_cells)
   * [\_read\_renames](#backlogops.wizard_helpers._read_renames)
   * [\_MAX\_LEVELS](#backlogops.wizard_helpers._MAX_LEVELS)
+  * [\_LEVELS\_INSTRUCTION](#backlogops.wizard_helpers._LEVELS_INSTRUCTION)
   * [\_parse\_level\_int](#backlogops.wizard_helpers._parse_level_int)
   * [\_split\_aliases](#backlogops.wizard_helpers._split_aliases)
   * [\_levels\_check](#backlogops.wizard_helpers._levels_check)
@@ -658,6 +670,10 @@
   * [\_levels\_problem](#backlogops.wizard_helpers._levels_problem)
   * [\_cells\_from\_table](#backlogops.wizard_helpers._cells_from_table)
   * [\_read\_levels](#backlogops.wizard_helpers._read_levels)
+  * [\_ISSUE\_TYPE\_INSTRUCTION](#backlogops.wizard_helpers._ISSUE_TYPE_INSTRUCTION)
+  * [\_issue\_type\_cells](#backlogops.wizard_helpers._issue_type_cells)
+  * [\_parse\_issue\_types](#backlogops.wizard_helpers._parse_issue_types)
+  * [\_read\_issue\_type\_map](#backlogops.wizard_helpers._read_issue_type_map)
   * [\_STATUS\_NAMES](#backlogops.wizard_helpers._STATUS_NAMES)
   * [\_MAX\_STATUS\_MAP](#backlogops.wizard_helpers._MAX_STATUS_MAP)
   * [\_STATUS\_TARGETS\_HINT](#backlogops.wizard_helpers._STATUS_TARGETS_HINT)
@@ -3766,6 +3782,72 @@ def _column_maps_to_json(value: object, *, path_text: str, stderr_file: TextIO,
 
 Convert the column maps of JiraAttrPath values to JSON lists.
 
+<a id="backlogops.jira_io_config._issue_type_level"></a>
+
+#### \_issue\_type\_level
+
+```python
+def _issue_type_level(name: str, key: object, stderr_file: TextIO) -> int
+```
+
+Return a Jira issue-type map key as a level number.
+
+A JSON object key arrives as a string and is parsed to an integer; a
+key that is already an integer, from an in-memory map, is kept.
+
+<a id="backlogops.jira_io_config._issue_type_map_from_obj"></a>
+
+#### \_issue\_type\_map\_from\_obj
+
+```python
+def _issue_type_map_from_obj(name: str, mapping: object,
+                             stderr_file: TextIO) -> JiraIssueTypeMap
+```
+
+Return one issue-type map with integer keys and string values.
+
+<a id="backlogops.jira_io_config._IssueTypeMapsValidator"></a>
+
+## \_IssueTypeMapsValidator Objects
+
+```python
+class _IssueTypeMapsValidator(MemberValidator)
+```
+
+Validate and convert the named level-to-issue-type maps member.
+
+The member maps each map name to a map from an internal level number
+to the Jira issue type name written for that level. JSON object keys
+are strings, so each inner key is parsed to an integer; a map whose
+keys are already integers is kept, so the validator is safe to run
+again before writing.
+
+<a id="backlogops.jira_io_config._IssueTypeMapsValidator.validate_member"></a>
+
+#### validate\_member
+
+```python
+@override
+def validate_member(config: Config,
+                    member_name: str,
+                    member_value: object,
+                    stderr_file: TextIO = sys.stderr) -> object
+```
+
+Return the issue-type maps with integer level keys.
+
+<a id="backlogops.jira_io_config._issue_type_maps_to_json"></a>
+
+#### \_issue\_type\_maps\_to\_json
+
+```python
+def _issue_type_maps_to_json(value: object, *, path_text: str,
+                             stderr_file: TextIO,
+                             **_extra: object) -> JsonType
+```
+
+Convert the level-to-issue-type maps to JSON with string keys.
+
 <a id="backlogops.jira_io_config.JiraConnectConfig"></a>
 
 ## JiraConnectConfig Objects
@@ -3999,7 +4081,7 @@ Return the pass phrase from the provider, or raise when absent.
 class _JiraPresetReadOldConfig(ReadOldConfiguration)
 ```
 
-Supply the write map member older preset files did not store.
+Supply the map members older preset files did not store.
 
 <a id="backlogops.jira_io_config._JiraPresetReadOldConfig.get_missing_path_values"></a>
 
@@ -4009,7 +4091,7 @@ Supply the write map member older preset files did not store.
 def get_missing_path_values() -> dict[ConfigPath, object]
 ```
 
-Supply an empty write map when an old preset omits it.
+Supply empty write and issue-type map names for an old preset.
 
 <a id="backlogops.jira_io_config.JiraPreset"></a>
 
@@ -4026,7 +4108,9 @@ writes uses a single preset name. It names the connection to use, the
 backlog and release column maps used for reading, the default project,
 and the default issue filter (Jira Query Language) used for reading.
 It also names an optional backlog column map used for writing; when
-that is empty the reading backlog map is used for writing too. The
+that is empty the reading backlog map is used for writing too. It may
+name an optional level-to-issue-type map used for writing; when that
+is empty each level's own name is written as the Jira issue type. The
 names refer to entries in the enclosing :class:`JiraIOConfig`. The
 default project is used to read the releases (versions) even when the
 caller overrides the issue filter.
@@ -4123,7 +4207,7 @@ Move the old read-preset section to the unified preset section.
 def get_missing_path_values() -> dict[ConfigPath, object]
 ```
 
-Supply empty connection, column-map and preset maps.
+Supply empty connection, column-map, issue-type and preset maps.
 
 <a id="backlogops.jira_io_config._check_ref"></a>
 
@@ -4147,15 +4231,18 @@ class JiraIOConfig(Config)
 Jira input and output configuration as the top-level jira member.
 
 Holds the named connections, the named backlog and release column
-maps, and the named presets, each indexed by name so that several
-presets can share one connection or one column map. Each preset drives
-both reading and writing, so a single preset name is used for both
-directions. The column maps are validated and converted to
-:class:`JiraAttrPath` values on read and written back as lists on
-write; an old file that omits any sub-section loads with that
-sub-section empty. An old combined ``column_maps`` section and an old
-``to_jira_presets`` section are dropped, and old ``from_jira_presets``
-are moved to the unified ``presets`` section.
+maps, the named level-to-issue-type write maps, and the named presets,
+each indexed by name so that several presets can share one connection,
+one column map or one issue-type map. Each preset drives both reading
+and writing, so a single preset name is used for both directions. The
+column maps are validated and converted to :class:`JiraAttrPath`
+values on read and written back as lists on write; the issue-type maps
+are keyed by level number, whose JSON string keys are parsed to
+integers on read and written back as strings. An old file that omits
+any sub-section loads with that sub-section empty. An old combined
+``column_maps`` section and an old ``to_jira_presets`` section are
+dropped, and old ``from_jira_presets`` are moved to the unified
+``presets`` section.
 
 <a id="backlogops.jira_io_config.JiraIOConfig.__init__"></a>
 
@@ -4212,7 +4299,7 @@ Convert the column maps, then check the preset references.
 def serialize_converters() -> SerializeConverters
 ```
 
-Write the column maps as lists of a kind and path steps.
+Write the column and issue-type maps in their stored shapes.
 
 <a id="backlogops.jira_io_config.JiraIOConfig.check_consistency"></a>
 
@@ -4243,7 +4330,7 @@ def _check_preset_refs(name: str, preset: JiraPreset,
                        stderr_file: TextIO) -> None
 ```
 
-Check one preset's connection and column-map names are defined.
+Check one preset's connection and map names are defined.
 
 <a id="backlogops.jira_io_config.JiraIOConfig.get_preset"></a>
 
@@ -7536,9 +7623,10 @@ Interactively collect the Jira input and output configuration.
 
 The :func:`_build_jira_config` helper drives any ``WizardUiBridge`` to ask
 for the named Jira connections, the named backlog and release column maps,
-and the named from-Jira read presets and to-Jira write presets, returning
-a :class:`JiraIOConfig`. It is used by the full configuration wizard in
-:mod:`backlogops.backlog_ops_wizard`.
+the named level-to-issue-type write maps, and the named presets that tie
+them together, returning a :class:`JiraIOConfig`. It is used by the full
+configuration wizard in :mod:`backlogops.backlog_ops_wizard`, which passes
+in the configured levels so the issue-type map can be seeded from them.
 
 The API token is captured in the wizard only for an internal storage mode,
 where the token must live in the configuration; for a file storage mode
@@ -7546,6 +7634,17 @@ only the token file path is asked and the user places the file. An
 encrypted internal token is encrypted with a pass phrase entered in the
 wizard. Wizard input is not masked, so the token and pass phrase are
 visible while typed.
+
+<a id="backlogops.jira_wizard._PresetChoices"></a>
+
+## \_PresetChoices Objects
+
+```python
+@dataclass(frozen=True)
+class _PresetChoices()
+```
+
+The named connections and maps a Jira preset may choose among.
 
 <a id="backlogops.jira_wizard._ask_enum"></a>
 
@@ -7580,10 +7679,32 @@ next name must differ.
 #### \_build\_jira\_config
 
 ```python
-def _build_jira_config(nav: _Navigator) -> JiraIOConfig
+def _build_jira_config(nav: _Navigator, levels: Levels) -> JiraIOConfig
 ```
 
-Ask for the Jira connections, column maps and presets.
+Ask for the Jira connections, maps, issue types and presets.
+
+<a id="backlogops.jira_wizard._build_issue_type_maps"></a>
+
+#### \_build\_issue\_type\_maps
+
+```python
+def _build_issue_type_maps(nav: _Navigator,
+                           levels: Levels) -> dict[str, JiraIssueTypeMap]
+```
+
+Ask for a counted list of named level-to-issue-type write maps.
+
+<a id="backlogops.jira_wizard._ask_issue_type_map"></a>
+
+#### \_ask\_issue\_type\_map
+
+```python
+def _ask_issue_type_map(nav: _Navigator, used: set[str],
+                        levels: Levels) -> tuple[str, JiraIssueTypeMap]
+```
+
+Ask one named level-to-issue-type write map, seeded from levels.
 
 <a id="backlogops.jira_wizard._build_presets"></a>
 
@@ -7596,8 +7717,9 @@ def _build_presets(nav: _Navigator, jira: JiraIOConfig) -> None
 Ask the Jira presets when the prerequisites exist.
 
 A preset needs a connection, a backlog column map and a release column
-map. When some but not all of these exist the presets are skipped with
-a note; when none exist the Jira section stays empty.
+map; a level-to-issue-type map is optional. When some but not all of
+the required parts exist the presets are skipped with a note; when none
+exist the Jira section stays empty.
 
 <a id="backlogops.jira_wizard._build_connections"></a>
 
@@ -7688,8 +7810,8 @@ Ask one named Jira column map, seeded from ``default``.
 #### \_build\_preset\_list
 
 ```python
-def _build_preset_list(nav: _Navigator, conn: list[str], backlog: list[str],
-                       release: list[str]) -> dict[str, JiraPreset]
+def _build_preset_list(nav: _Navigator,
+                       choices: _PresetChoices) -> dict[str, JiraPreset]
 ```
 
 Ask for a counted list of named Jira presets.
@@ -7699,9 +7821,8 @@ Ask for a counted list of named Jira presets.
 #### \_ask\_preset
 
 ```python
-def _ask_preset(nav: _Navigator, used: set[str], conn: list[str],
-                backlog: list[str],
-                release: list[str]) -> tuple[str, JiraPreset]
+def _ask_preset(nav: _Navigator, used: set[str],
+                choices: _PresetChoices) -> tuple[str, JiraPreset]
 ```
 
 Ask one preset: name, connection, maps, project and filter.
@@ -7715,6 +7836,16 @@ def _ask_write_map(nav: _Navigator, backlog: list[str]) -> str
 ```
 
 Ask an optional separate backlog column map for writing to Jira.
+
+<a id="backlogops.jira_wizard._ask_issue_type_choice"></a>
+
+#### \_ask\_issue\_type\_choice
+
+```python
+def _ask_issue_type_choice(nav: _Navigator, issue_type_maps: list[str]) -> str
+```
+
+Ask an optional level-to-issue-type map for writing to Jira.
 
 <a id="backlogops.jira_wizard._choice"></a>
 
@@ -8146,10 +8277,14 @@ inverting the preset's write
 backlog column map: a plain field such as the summary is set directly, a
 nested field such as the issue type is wrapped by its path steps, a list
 field such as the fix versions is wrapped as named objects, and a custom
-field is set by its resolved field id. The issue is first created with
-the fields a create screen accepts (project, summary, issue type) and the
-remaining fields are then set through an update, because a create screen
-often omits fields such as the story points that an edit screen accepts.
+field is set by its resolved field id. The issue type written for an item
+comes from the preset's level-to-issue-type map (falling back to the
+level name), so a Jira that renamed a type (such as a Swedish
+``Deluppgift`` sub-task) still gets a valid issue type. The issue is
+first created with the fields a create screen accepts (project, summary,
+issue type) and the remaining fields are then set through an update,
+because a create screen often omits fields such as the story points that
+an edit screen accepts.
 
 The item key is assigned by Jira, the status needs a workflow transition,
 and the parent and dependency links are updated in a later batch, so
@@ -8311,12 +8446,27 @@ def _place_value(fields: dict[str, object], attr: JiraAttrPath, value: object,
 
 Place one field value into the Jira create-fields dict by kind.
 
+<a id="backlogops.jira_write._issue_type"></a>
+
+#### \_issue\_type
+
+```python
+def _issue_type(level: int, issue_type_map: JiraIssueTypeMap,
+                levels: Levels) -> Optional[str]
+```
+
+Return the Jira issue type to write for one internal level.
+
+The preset's level-to-issue-type map wins when it names the level;
+otherwise the level's own name is used, as before.
+
 <a id="backlogops.jira_write._internal_value"></a>
 
 #### \_internal\_value
 
 ```python
-def _internal_value(name: str, item: BacklogItem, levels: Levels) -> object
+def _internal_value(name: str, item: BacklogItem, levels: Levels,
+                    issue_type_map: JiraIssueTypeMap) -> object
 ```
 
 Return the value to write for one internal field, or None.
@@ -8412,13 +8562,16 @@ issue type to be checked by Jira at create time instead.
 
 ```python
 def _validate_issue_types(client: JIRA, project: str, backlog: Backlog,
-                          levels: Levels) -> None
+                          levels: Levels,
+                          issue_type_map: JiraIssueTypeMap) -> None
 ```
 
 Raise when an item's issue type is not valid in the project.
 
-The valid type names are read from the project's create metadata. When
-that returns nothing (an unexpected response), the check is skipped and
+The issue type written for each item is resolved through the preset's
+level-to-issue-type map, falling back to the level name. The valid
+type names are read from the project's create metadata. When that
+returns nothing (an unexpected response), the check is skipped and
 each issue type is left to fail at create time instead.
 
 <a id="backlogops.jira_write._issue_key"></a>
@@ -10228,6 +10381,20 @@ Ask one Jira column map as one variable-row table.
 Each internal field is shown pre-filled with the kind and path of
 the default map, or blank when the default leaves it unmapped.
 
+<a id="backlogops.wizard_helpers._Navigator.ask_issue_type_map"></a>
+
+#### ask\_issue\_type\_map
+
+```python
+def ask_issue_type_map(levels: Levels) -> JiraIssueTypeMap
+```
+
+Ask the level-to-issue-type write map as one fixed-row table.
+
+Each level is shown with its number and name and an editable Jira
+issue type pre-filled to the level name, so the defaults are
+visible and only real overrides are kept.
+
 <a id="backlogops.wizard_helpers._Navigator._ask"></a>
 
 #### \_ask
@@ -10550,6 +10717,12 @@ input map, otherwise as an internal-to-external output map.
 
 Upper bound on the number of backlog item levels the wizard accepts.
 
+<a id="backlogops.wizard_helpers._LEVELS_INSTRUCTION"></a>
+
+#### \_LEVELS\_INSTRUCTION
+
+Instruction shown above the backlog item levels table.
+
 <a id="backlogops.wizard_helpers._parse_level_int"></a>
 
 #### \_parse\_level\_int
@@ -10638,6 +10811,51 @@ Ask the backlog item levels as one variable-row table question.
 Each cell is checked as it is entered, and the whole table is then
 checked for consistency. An inconsistent table is re-asked with the
 user's own rows kept, so the reported duplicate can be corrected.
+
+<a id="backlogops.wizard_helpers._ISSUE_TYPE_INSTRUCTION"></a>
+
+#### \_ISSUE\_TYPE\_INSTRUCTION
+
+Instruction shown above a level-to-issue-type write map table.
+
+<a id="backlogops.wizard_helpers._issue_type_cells"></a>
+
+#### \_issue\_type\_cells
+
+```python
+def _issue_type_cells(levels: Levels) -> list[list[TableCell]]
+```
+
+Return table rows pre-filled from the levels for the issue map.
+
+<a id="backlogops.wizard_helpers._parse_issue_types"></a>
+
+#### \_parse\_issue\_types
+
+```python
+def _parse_issue_types(table: list[list[Optional[str]]]) -> JiraIssueTypeMap
+```
+
+Return the level-to-issue-type map, keeping only real overrides.
+
+A blank issue type, or one equal to the level name, keeps the level
+name and is omitted, so only levels whose Jira issue type differs from
+the level name are stored.
+
+<a id="backlogops.wizard_helpers._read_issue_type_map"></a>
+
+#### \_read\_issue\_type\_map
+
+```python
+def _read_issue_type_map(ui: WizardUiBridge,
+                         levels: Levels) -> JiraIssueTypeMap
+```
+
+Ask the level-to-issue-type write map as one fixed-row table.
+
+Each level is a read-only number and name with an editable Jira issue
+type pre-filled to the level name, so the defaults are visible and
+leaving the table unchanged writes each level's own name.
 
 <a id="backlogops.wizard_helpers._STATUS_NAMES"></a>
 

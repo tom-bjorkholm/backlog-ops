@@ -137,6 +137,18 @@ read.
 """
 
 
+type JiraIssueTypeMap = dict[int, str]
+"""Map from an internal level number to the Jira issue type to write.
+
+The key is the internal backlog level number and the value is the Jira
+issue type name to create for that level, such as ``Deluppgift`` for a
+Swedish sub-task. Only levels whose Jira issue type differs from the
+level name need an entry; a level without an entry is written using its
+level name. This map is used only when writing to Jira; reading resolves
+a Jira issue type to a level through the level names and aliases.
+"""
+
+
 DEF_BACKLOG_COLUMN_MAP: JiraColumnMap = {
     'key': (JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',)),),
     'level': (JiraAttrPath(JiraAttrType.FIELD, ('issuetype', 'name')),),
@@ -302,6 +314,82 @@ def _column_maps_to_json(value: object, *, path_text: str, stderr_file: TextIO,
                 paths.append([attr.kind.name, *attr.path])
             columns[column] = paths[0] if len(paths) == 1 else paths
         maps[map_name] = columns
+    return maps
+
+
+def _issue_type_level(name: str, key: object, stderr_file: TextIO) -> int:
+    """Return a Jira issue-type map key as a level number.
+
+    A JSON object key arrives as a string and is parsed to an integer; a
+    key that is already an integer, from an in-memory map, is kept.
+    """
+    if isinstance(key, bool):
+        report_wrong_type(name, key, int, stderr_file, 'Jira issue type map')
+    if isinstance(key, int):
+        return key
+    if isinstance(key, str):
+        try:
+            return int(key)
+        except ValueError:
+            report_bad_value(name, key, 'level key must be a whole number',
+                             stderr_file, 'Jira issue type map')
+    report_wrong_type(name, key, int, stderr_file, 'Jira issue type map')
+
+
+def _issue_type_map_from_obj(name: str, mapping: object,
+                             stderr_file: TextIO) -> JiraIssueTypeMap:
+    """Return one issue-type map with integer keys and string values."""
+    if not isinstance(mapping, dict):
+        report_wrong_type(name, mapping, dict, stderr_file,
+                          'Jira issue type map')
+    result: JiraIssueTypeMap = {}
+    for key, value in mapping.items():
+        level = _issue_type_level(f'{name}[{key}]', key, stderr_file)
+        if not isinstance(value, str):
+            report_wrong_type(f'{name}[{key}]', value, str, stderr_file,
+                              'Jira issue type map')
+        result[level] = value
+    return result
+
+
+# pylint: disable-next=too-few-public-methods
+class _IssueTypeMapsValidator(MemberValidator):
+    """Validate and convert the named level-to-issue-type maps member.
+
+    The member maps each map name to a map from an internal level number
+    to the Jira issue type name written for that level. JSON object keys
+    are strings, so each inner key is parsed to an integer; a map whose
+    keys are already integers is kept, so the validator is safe to run
+    again before writing.
+    """
+
+    @override
+    def validate_member(self, config: Config, member_name: str,
+                        member_value: object,
+                        stderr_file: TextIO = sys.stderr) -> object:
+        """Return the issue-type maps with integer level keys."""
+        _ = config
+        if not isinstance(member_value, dict):
+            report_wrong_type(member_name, member_value, dict, stderr_file,
+                              'Jira issue type maps')
+        result: dict[str, JiraIssueTypeMap] = {}
+        for map_name, mapping in member_value.items():
+            result[map_name] = _issue_type_map_from_obj(
+                f'{member_name}[{map_name}]', mapping, stderr_file)
+        return result
+
+
+def _issue_type_maps_to_json(value: object, *, path_text: str,
+                             stderr_file: TextIO,
+                             **_extra: object) -> JsonType:
+    """Convert the level-to-issue-type maps to JSON with string keys."""
+    _ = path_text, stderr_file
+    assert isinstance(value, dict)
+    maps: dict[str, JsonType] = {}
+    for map_name, mapping in value.items():
+        assert isinstance(mapping, dict)
+        maps[map_name] = {str(level): issue_type
+                          for level, issue_type in mapping.items()}
     return maps
 
 
@@ -472,11 +560,12 @@ class JiraConnectConfig(Config):
 
 
 class _JiraPresetReadOldConfig(ReadOldConfiguration):
-    """Supply the write map member older preset files did not store."""
+    """Supply the map members older preset files did not store."""
 
     def get_missing_path_values(self) -> dict[ConfigPath, object]:
-        """Supply an empty write map when an old preset omits it."""
-        return {('backlog_write_map_name',): ''}
+        """Supply empty write and issue-type map names for an old preset."""
+        return {('backlog_write_map_name',): '',
+                ('issue_type_map_name',): ''}
 
 
 class JiraPreset(Config):
@@ -487,7 +576,9 @@ class JiraPreset(Config):
     backlog and release column maps used for reading, the default project,
     and the default issue filter (Jira Query Language) used for reading.
     It also names an optional backlog column map used for writing; when
-    that is empty the reading backlog map is used for writing too. The
+    that is empty the reading backlog map is used for writing too. It may
+    name an optional level-to-issue-type map used for writing; when that
+    is empty each level's own name is written as the Jira issue type. The
     names refer to entries in the enclosing :class:`JiraIOConfig`. The
     default project is used to read the releases (versions) even when the
     caller overrides the issue filter.
@@ -497,6 +588,7 @@ class JiraPreset(Config):
     backlog_column_map_name: str
     release_column_map_name: str
     backlog_write_map_name: str
+    issue_type_map_name: str
     def_project: str
     def_filter: str
 
@@ -509,6 +601,7 @@ class JiraPreset(Config):
         self.backlog_column_map_name = ''
         self.release_column_map_name = ''
         self.backlog_write_map_name = ''
+        self.issue_type_map_name = ''
         self.def_project = ''
         self.def_filter = ''
         Config.__init__(self, from_json_data_text=from_json_data_text,
@@ -527,7 +620,7 @@ class JiraPreset(Config):
         return [MemberValidationStep(
             member_names=['connection_name', 'backlog_column_map_name',
                           'release_column_map_name', 'backlog_write_map_name',
-                          'def_project', 'def_filter'],
+                          'issue_type_map_name', 'def_project', 'def_filter'],
             validator=ValueTypeValidator(value_type=str))]
 
     def write_backlog_map_name(self) -> str:
@@ -559,9 +652,10 @@ class _JiraReadOldConfig(ReadOldConfiguration):
                             new_path=('presets',))]
 
     def get_missing_path_values(self) -> dict[ConfigPath, object]:
-        """Supply empty connection, column-map and preset maps."""
+        """Supply empty connection, column-map, issue-type and preset maps."""
         return {('connections',): {}, ('backlog_column_maps',): {},
-                ('release_column_maps',): {}, ('presets',): {}}
+                ('release_column_maps',): {}, ('issue_type_maps',): {},
+                ('presets',): {}}
 
 
 def _check_ref(preset_name: str, kind: str, ref: str,
@@ -579,15 +673,18 @@ class JiraIOConfig(Config):
     """Jira input and output configuration as the top-level jira member.
 
     Holds the named connections, the named backlog and release column
-    maps, and the named presets, each indexed by name so that several
-    presets can share one connection or one column map. Each preset drives
-    both reading and writing, so a single preset name is used for both
-    directions. The column maps are validated and converted to
-    :class:`JiraAttrPath` values on read and written back as lists on
-    write; an old file that omits any sub-section loads with that
-    sub-section empty. An old combined ``column_maps`` section and an old
-    ``to_jira_presets`` section are dropped, and old ``from_jira_presets``
-    are moved to the unified ``presets`` section.
+    maps, the named level-to-issue-type write maps, and the named presets,
+    each indexed by name so that several presets can share one connection,
+    one column map or one issue-type map. Each preset drives both reading
+    and writing, so a single preset name is used for both directions. The
+    column maps are validated and converted to :class:`JiraAttrPath`
+    values on read and written back as lists on write; the issue-type maps
+    are keyed by level number, whose JSON string keys are parsed to
+    integers on read and written back as strings. An old file that omits
+    any sub-section loads with that sub-section empty. An old combined
+    ``column_maps`` section and an old ``to_jira_presets`` section are
+    dropped, and old ``from_jira_presets`` are moved to the unified
+    ``presets`` section.
     """
 
     def __init__(self, from_json_data_text: Optional[str] = None,
@@ -598,8 +695,10 @@ class JiraIOConfig(Config):
         self.connections: dict[str, JiraConnectConfig] = {}
         self.backlog_column_maps: dict[str, JiraColumnMap] = {}
         self.release_column_maps: dict[str, JiraColumnMap] = {}
+        self.issue_type_maps: dict[str, JiraIssueTypeMap] = {}
         self.presets: dict[str, JiraPreset] = {}
-        self._unchecked_dicts = ['backlog_column_maps', 'release_column_maps']
+        self._unchecked_dicts = ['backlog_column_maps', 'release_column_maps',
+                                 'issue_type_maps']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
                         auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
@@ -627,15 +726,21 @@ class JiraIOConfig(Config):
                     member_names=['backlog_column_maps',
                                   'release_column_maps'],
                     validator=_ColumnMapsValidator()),
+                MemberValidationStep(member_names=['issue_type_maps'],
+                                     validator=_IssueTypeMapsValidator()),
                 WholeConfigValidationStep(validator=consistency)]
 
     @override
     def serialize_converters(self) -> SerializeConverters:
-        """Write the column maps as lists of a kind and path steps."""
+        """Write the column and issue-type maps in their stored shapes."""
         converter = SerializeConverter(value_type=dict,
                                        func=_column_maps_to_json, args={})
+        issue_types = SerializeConverter(value_type=dict,
+                                         func=_issue_type_maps_to_json,
+                                         args={})
         return {'backlog_column_maps': converter,
-                'release_column_maps': converter}
+                'release_column_maps': converter,
+                'issue_type_maps': issue_types}
 
     def check_consistency(self, stderr_file: TextIO = sys.stderr) -> None:
         """Check every preset refers to a defined connection and maps.
@@ -652,7 +757,7 @@ class JiraIOConfig(Config):
 
     def _check_preset_refs(self, name: str, preset: JiraPreset,
                            stderr_file: TextIO) -> None:
-        """Check one preset's connection and column-map names are defined."""
+        """Check one preset's connection and map names are defined."""
         _check_ref(name, 'connection', preset.connection_name,
                    self.connections, stderr_file)
         _check_ref(name, 'backlog column map', preset.backlog_column_map_name,
@@ -663,6 +768,9 @@ class JiraIOConfig(Config):
             _check_ref(name, 'backlog write map',
                        preset.backlog_write_map_name, self.backlog_column_maps,
                        stderr_file)
+        if preset.issue_type_map_name:
+            _check_ref(name, 'issue type map', preset.issue_type_map_name,
+                       self.issue_type_maps, stderr_file)
 
     def get_preset(self, name: str) -> JiraPreset:
         """Return the named Jira preset, used for reading and writing.

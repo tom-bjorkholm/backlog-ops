@@ -17,7 +17,10 @@ from tableio_cfg_json import WizardUiBridgeConsole
 from backlogops.backlog_ops_wizard import backlog_ops_wizard
 from backlogops.jira_io_config import (
     JiraAttrPath, JiraAttrType, default_jira_filter)
-from backlogops.jira_wizard import _build_connections, _build_preset_list
+from backlogops.jira_wizard import (
+    _PresetChoices, _build_connections, _build_issue_type_maps,
+    _build_preset_list)
+from backlogops.levels import DEFAULT_LEVELS
 from backlogops.wizard_helpers import (
     _Navigator, _attr_from_cells, _jira_map_check, _parse_jira_map)
 
@@ -28,9 +31,28 @@ JIRA_FULL = (['1', 'main', 'cloud', 'https://x.atlassian.net', 'me@x.com',
               'clear_internal', 'TOK']
              + ['1', 'bk', '']
              + ['1', 'rel', '']
+             + ['0']
              + ['1', 'scrum', 'main', 'bk', 'no', 'rel', 'SCRUM', 'P = 1'])
-"""Jira-stage answers for a connection, a backlog map, a release map and
-one preset that reuses the read map for writing."""
+"""Jira-stage answers for a connection, a backlog map, a release map, no
+issue-type map and one preset that reuses the read map for writing."""
+
+JIRA_WITH_ISSUE = (['1', 'main', 'cloud', 'https://x.atlassian.net',
+                    'me@x.com', 'clear_internal', 'TOK']
+                   + ['1', 'bk', '']
+                   + ['1', 'rel', '']
+                   + ['1', 'im', '']
+                   + ['1', 'scrum', 'main', 'bk', 'no', 'rel', 'yes', 'im',
+                      'SCRUM', 'P = 1'])
+"""Jira-stage answers that also add one issue-type map named 'im' and a
+preset that selects it for writing."""
+
+
+def _choices(conn: list[str], backlog: list[str], release: list[str],
+             issue: Optional[list[str]] = None) -> _PresetChoices:
+    """Return preset choices, defaulting to no issue-type maps."""
+    return _PresetChoices(connections=conn, backlog_maps=backlog,
+                          release_maps=release,
+                          issue_type_maps=[] if issue is None else issue)
 
 
 def _console(answers: list[str],
@@ -43,11 +65,12 @@ def _console(answers: list[str],
 
 def test_jira_skip() -> None:
     """Test a run with no Jira connections leaves the Jira config empty."""
-    config = backlog_ops_wizard(_console(_PREFIX + ['0', '0', '0']))
+    config = backlog_ops_wizard(_console(_PREFIX + ['0', '0', '0', '0']))
     jira = config.get_jira_config()
     assert not jira.connections
     assert not jira.backlog_column_maps
     assert not jira.release_column_maps
+    assert not jira.issue_type_maps
     assert not jira.presets
 
 
@@ -94,12 +117,14 @@ def test_preset() -> None:
     """Test the preset collector ties a connection, maps and filter."""
     answers = ['1', 'p1', 'c1', 'm1', 'no', 'm2', 'PROJ', 'filter']
     nav = _Navigator(_console(answers))
-    presets = nav.run(lambda n: _build_preset_list(n, ['c1'], ['m1'], ['m2']))
+    presets = nav.run(
+        lambda n: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2'])))
     preset = presets['p1']
     assert preset.connection_name == 'c1'
     assert preset.backlog_column_map_name == 'm1'
     assert preset.release_column_map_name == 'm2'
     assert preset.write_backlog_map_name() == 'm1'
+    assert preset.issue_type_map_name == ''
     assert preset.def_project == 'PROJ'
     assert preset.def_filter == 'filter'
 
@@ -108,7 +133,8 @@ def test_preset_def_filter() -> None:
     """Test a blank preset filter defaults to the project rank filter."""
     answers = ['1', 'p1', 'c1', 'm1', 'no', 'm2', 'PROJ', '']
     nav = _Navigator(_console(answers))
-    presets = nav.run(lambda n: _build_preset_list(n, ['c1'], ['m1'], ['m2']))
+    presets = nav.run(
+        lambda n: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2'])))
     assert presets['p1'].def_filter == default_jira_filter('PROJ')
 
 
@@ -117,11 +143,48 @@ def test_preset_write_map() -> None:
     answers = ['1', 'p1', 'c1', 'm1', 'yes', 'wr', 'm2', 'PROJ', 'filter']
     nav = _Navigator(_console(answers))
     presets = nav.run(
-        lambda n: _build_preset_list(n, ['c1'], ['m1', 'wr'], ['m2']))
+        lambda n: _build_preset_list(n, _choices(['c1'], ['m1', 'wr'],
+                                                 ['m2'])))
     preset = presets['p1']
     assert preset.backlog_column_map_name == 'm1'
     assert preset.backlog_write_map_name == 'wr'
     assert preset.write_backlog_map_name() == 'wr'
+
+
+def test_preset_itmap() -> None:
+    """Test selecting a level-to-issue-type map for a preset."""
+    answers = ['1', 'p1', 'c1', 'm1', 'no', 'm2', 'yes', 'im', 'PROJ', 'f']
+    nav = _Navigator(_console(answers))
+    presets = nav.run(
+        lambda n: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2'],
+                                                 ['im'])))
+    assert presets['p1'].issue_type_map_name == 'im'
+
+
+def test_preset_no_itmap() -> None:
+    """Test declining the issue-type map leaves the preset without one."""
+    answers = ['1', 'p1', 'c1', 'm1', 'no', 'm2', 'no', 'PROJ', 'f']
+    nav = _Navigator(_console(answers))
+    presets = nav.run(
+        lambda n: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2'],
+                                                 ['im'])))
+    assert presets['p1'].issue_type_map_name == ''
+
+
+def test_itmap_collect() -> None:
+    """Test the issue-type map collector names a map seeded from levels."""
+    nav = _Navigator(_console(['1', 'im', '']))
+    maps = nav.run(lambda n: _build_issue_type_maps(n, DEFAULT_LEVELS))
+    assert sorted(maps) == ['im']
+    assert maps['im'] == {}
+
+
+def test_full_itmap() -> None:
+    """Test the full wizard collects an issue-type map and its preset."""
+    config = backlog_ops_wizard(_console(_PREFIX + JIRA_WITH_ISSUE))
+    jira = config.get_jira_config()
+    assert sorted(jira.issue_type_maps) == ['im']
+    assert jira.get_preset('scrum').issue_type_map_name == 'im'
 
 
 @pytest.mark.parametrize('kind, path, expected', [
