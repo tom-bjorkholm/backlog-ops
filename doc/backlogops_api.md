@@ -5385,10 +5385,14 @@ is not already present. Before creating anything it checks every item's
 issue type is valid in the project (raising when one is not) and looks up
 every item's key in Jira; in ``RAISE`` mode it raises before creating
 anything when a key already exists, and in ``SKIP`` mode it leaves the
-already-present items alone. An item whose creation Jira refuses (such as
-a sub-task, which needs a parent that is not written yet) is collected in
-the result's ``failed`` list with a concise reason, and the remaining
-items are still added. The payload for each new issue is built by
+already-present items alone. Sub-tasks are created last, after their
+parents exist, and each sub-task is created with its parent issue key,
+which Jira requires at create time; the parent key is the one Jira
+assigned to a parent created in this run, or the item's parent key when
+the parent already exists in Jira. An item whose creation Jira still
+refuses is collected in the result's ``failed`` list with a concise
+reason, and the remaining items are still added. The payload for each
+new issue is built by
 inverting the preset's write
 backlog column map: a plain field such as the summary is set directly, a
 nested field such as the issue type is wrapped by its path steps, a list
@@ -5402,10 +5406,12 @@ issue type) and the remaining fields are then set through an update,
 because a create screen often omits fields such as the story points that
 an edit screen accepts.
 
-The item key is assigned by Jira, the status needs a workflow transition,
-and the parent and dependency links are updated in a later batch, so
-those fields are not written here. The argument backlog is never modified;
-each added item is copied and the copy carries the key Jira assigned.
+The item key is assigned by Jira and the status needs a workflow
+transition, so those fields are not written here. A sub-task's parent is
+set at create time as above; the parent and dependency links of the other
+items are updated in a later batch. The argument backlog is never
+modified; each added item is copied and the copy carries the key Jira
+assigned.
 
 <a id="backlogops.jira_write.ExistsInJiraError"></a>
 
@@ -5519,9 +5525,10 @@ added item is created from the preset's write backlog column map and
 default project, and a copy of it carrying the key Jira assigned is
 collected. Each issue is created with the fields a create screen
 accepts and the remaining mapped fields are then set through an update.
-An item whose creation Jira refuses is collected in ``failed`` with a
-concise reason, and the other items are still added. The argument
-backlog is never modified.
+Sub-tasks are created last, after their parents exist, and each is
+created with its parent issue key. An item whose creation Jira refuses
+is collected in ``failed`` with a concise reason, and the other items
+are still added. The argument backlog is never modified.
 
 **Arguments**:
 

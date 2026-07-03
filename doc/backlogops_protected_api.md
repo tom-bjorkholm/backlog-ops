@@ -504,15 +504,20 @@
   * [\_issue\_exists](#backlogops.jira_write._issue_exists)
   * [\_existing\_keys](#backlogops.jira_write._existing_keys)
   * [\_raise\_existing](#backlogops.jira_write._raise_existing)
-  * [\_names\_from\_dicts](#backlogops.jira_write._names_from_dicts)
+  * [\_types\_from\_dicts](#backlogops.jira_write._types_from_dicts)
   * [\_types\_from\_issuetypes](#backlogops.jira_write._types_from_issuetypes)
   * [\_types\_from\_createmeta](#backlogops.jira_write._types_from_createmeta)
-  * [\_valid\_issue\_types](#backlogops.jira_write._valid_issue_types)
+  * [\_issue\_type\_meta](#backlogops.jira_write._issue_type_meta)
+  * [\_subtask\_types](#backlogops.jira_write._subtask_types)
   * [\_validate\_issue\_types](#backlogops.jira_write._validate_issue_types)
   * [\_issue\_key](#backlogops.jira_write._issue_key)
   * [\_stored\_copy](#backlogops.jira_write._stored_copy)
   * [\_editable\_field\_ids](#backlogops.jira_write._editable_field_ids)
+  * [\_is\_subtask](#backlogops.jira_write._is_subtask)
+  * [\_subtask\_parent](#backlogops.jira_write._subtask_parent)
+  * [\_subtasks\_last](#backlogops.jira_write._subtasks_last)
   * [\_create\_issue](#backlogops.jira_write._create_issue)
+  * [\_skipped\_names](#backlogops.jira_write._skipped_names)
   * [\_report\_skipped](#backlogops.jira_write._report_skipped)
   * [\_jira\_reason](#backlogops.jira_write._jira_reason)
   * [\_write\_new\_items](#backlogops.jira_write._write_new_items)
@@ -8269,10 +8274,14 @@ is not already present. Before creating anything it checks every item's
 issue type is valid in the project (raising when one is not) and looks up
 every item's key in Jira; in ``RAISE`` mode it raises before creating
 anything when a key already exists, and in ``SKIP`` mode it leaves the
-already-present items alone. An item whose creation Jira refuses (such as
-a sub-task, which needs a parent that is not written yet) is collected in
-the result's ``failed`` list with a concise reason, and the remaining
-items are still added. The payload for each new issue is built by
+already-present items alone. Sub-tasks are created last, after their
+parents exist, and each sub-task is created with its parent issue key,
+which Jira requires at create time; the parent key is the one Jira
+assigned to a parent created in this run, or the item's parent key when
+the parent already exists in Jira. An item whose creation Jira still
+refuses is collected in the result's ``failed`` list with a concise
+reason, and the remaining items are still added. The payload for each
+new issue is built by
 inverting the preset's write
 backlog column map: a plain field such as the summary is set directly, a
 nested field such as the issue type is wrapped by its path steps, a list
@@ -8286,19 +8295,23 @@ issue type) and the remaining fields are then set through an update,
 because a create screen often omits fields such as the story points that
 an edit screen accepts.
 
-The item key is assigned by Jira, the status needs a workflow transition,
-and the parent and dependency links are updated in a later batch, so
-those fields are not written here. The argument backlog is never modified;
-each added item is copied and the copy carries the key Jira assigned.
+The item key is assigned by Jira and the status needs a workflow
+transition, so those fields are not written here. A sub-task's parent is
+set at create time as above; the parent and dependency links of the other
+items are updated in a later batch. The argument backlog is never
+modified; each added item is copied and the copy carries the key Jira
+assigned.
 
 <a id="backlogops.jira_write._SKIP_WRITE_FIELDS"></a>
 
 #### \_SKIP\_WRITE\_FIELDS
 
-Internal fields not written when creating an issue in this batch.
+Internal fields not set from the column map when creating an issue.
 
 The key is assigned by Jira, the status needs a workflow transition, and
-the parent and dependency links are updated in a later batch.
+the parent and dependency links are updated in a later batch. A
+sub-task's parent is the exception: it is set at create time by a
+dedicated path, because Jira requires it, not from the column map.
 
 <a id="backlogops.jira_write._JIRA_LIST_FIELDS"></a>
 
@@ -8314,7 +8327,8 @@ Jira fields set while creating an issue; the rest are set by an update.
 
 A Jira create screen often omits fields such as the story points, the
 team or the fix versions, so those are set through an update once the
-issue exists, where the edit screen usually accepts them.
+issue exists, where the edit screen usually accepts them. The ``parent``
+of a sub-task is set here because Jira requires it at create time.
 
 <a id="backlogops.jira_write.ExistsInJiraError"></a>
 
@@ -8415,6 +8429,10 @@ class _WriteContext()
 
 The resolved Jira target and mapping for creating issues.
 
+``subtask_types`` holds the Jira issue type names that are sub-tasks,
+or None when the create metadata did not reveal them, in which case a
+sub-task is detected by the lowest configured level instead.
+
 <a id="backlogops.jira_write._nest"></a>
 
 #### \_nest
@@ -8511,58 +8529,71 @@ def _raise_existing(existing: set[str], stderr_file: TextIO) -> None
 
 Report and raise for backlog keys that already exist in Jira.
 
-<a id="backlogops.jira_write._names_from_dicts"></a>
+<a id="backlogops.jira_write._types_from_dicts"></a>
 
-#### \_names\_from\_dicts
+#### \_types\_from\_dicts
 
 ```python
-def _names_from_dicts(items: object) -> set[str]
+def _types_from_dicts(items: object) -> dict[str, bool]
 ```
 
-Return the string ``name`` values from a list of dicts.
+Return each issue type ``name`` mapped to its ``subtask`` flag.
 
 <a id="backlogops.jira_write._types_from_issuetypes"></a>
 
 #### \_types\_from\_issuetypes
 
 ```python
-def _types_from_issuetypes(client: JIRA, project: str) -> set[str]
+def _types_from_issuetypes(client: JIRA, project: str) -> dict[str, bool]
 ```
 
-Return creatable issue type names via the createmeta issuetypes API.
+Return issue type name to subtask flag via the issuetypes API.
 
 <a id="backlogops.jira_write._types_from_createmeta"></a>
 
 #### \_types\_from\_createmeta
 
 ```python
-def _types_from_createmeta(client: JIRA, project: str) -> set[str]
+def _types_from_createmeta(client: JIRA, project: str) -> dict[str, bool]
 ```
 
-Return creatable issue type names via the older createmeta API.
+Return issue type name to subtask flag via the older createmeta API.
 
-<a id="backlogops.jira_write._valid_issue_types"></a>
+<a id="backlogops.jira_write._issue_type_meta"></a>
 
-#### \_valid\_issue\_types
+#### \_issue\_type\_meta
 
 ```python
-def _valid_issue_types(client: JIRA, project: str) -> set[str]
+def _issue_type_meta(client: JIRA, project: str) -> dict[str, bool]
 ```
 
-Return the project's creatable issue type names, best-effort.
+Return the project's creatable issue types with subtask flags.
 
-Different Jira versions expose the create metadata through different
-endpoints and reject the other, so both are tried; when neither works
-the result is empty and issue-type validation is skipped, leaving each
-issue type to be checked by Jira at create time instead.
+Each creatable issue type name is mapped to whether Jira marks it a
+sub-task. Different Jira versions expose the create metadata through
+different endpoints and reject the other, so both are tried; when
+neither works the result is empty, issue-type validation is skipped
+and sub-task detection falls back to the lowest configured level.
+
+<a id="backlogops.jira_write._subtask_types"></a>
+
+#### \_subtask\_types
+
+```python
+def _subtask_types(type_meta: dict[str, bool]) -> Optional[frozenset[str]]
+```
+
+Return the sub-task issue type names, or None when unknown.
+
+None means the create metadata was unavailable, so the caller detects
+a sub-task by the lowest configured level instead.
 
 <a id="backlogops.jira_write._validate_issue_types"></a>
 
 #### \_validate\_issue\_types
 
 ```python
-def _validate_issue_types(client: JIRA, project: str, backlog: Backlog,
-                          levels: Levels,
+def _validate_issue_types(valid: set[str], backlog: Backlog, levels: Levels,
                           issue_type_map: JiraIssueTypeMap) -> None
 ```
 
@@ -8570,9 +8601,9 @@ Raise when an item's issue type is not valid in the project.
 
 The issue type written for each item is resolved through the preset's
 level-to-issue-type map, falling back to the level name. The valid
-type names are read from the project's create metadata. When that
-returns nothing (an unexpected response), the check is skipped and
-each issue type is left to fail at create time instead.
+type names come from the project's create metadata. When that is
+empty (an unexpected response), the check is skipped and each issue
+type is left to fail at create time instead.
 
 <a id="backlogops.jira_write._issue_key"></a>
 
@@ -8604,13 +8635,56 @@ def _editable_field_ids(client: JIRA, issue_key: str) -> set[str]
 
 Return the field ids the issue's edit screen accepts.
 
+<a id="backlogops.jira_write._is_subtask"></a>
+
+#### \_is\_subtask
+
+```python
+def _is_subtask(item: BacklogItem, ctx: _WriteContext) -> bool
+```
+
+Return whether the item is created as a Jira sub-task.
+
+The create metadata decides it when the sub-task type names are known;
+otherwise the lowest configured level is treated as the sub-task
+level, matching the default levels where level 0 is the sub-task.
+
+<a id="backlogops.jira_write._subtask_parent"></a>
+
+#### \_subtask\_parent
+
+```python
+def _subtask_parent(item: BacklogItem, ctx: _WriteContext,
+                    key_map: dict[str, str]) -> Optional[str]
+```
+
+Return the Jira parent key to set for a sub-task, or None.
+
+A sub-task's parent must exist in Jira before it is created, so the
+parent's Jira key is taken from the keys assigned in this run, falling
+back to the item's parent key when the parent already exists in Jira.
+A non-sub-task, or a sub-task without a parent, gets None.
+
+<a id="backlogops.jira_write._subtasks_last"></a>
+
+#### \_subtasks\_last
+
+```python
+def _subtasks_last(ctx: _WriteContext, backlog: Backlog) -> Backlog
+```
+
+Return the backlog reordered with sub-tasks after non-sub-tasks.
+
+A sub-task's parent must already exist in Jira, so every non-sub-task
+is created first; the original order within each group is kept.
+
 <a id="backlogops.jira_write._create_issue"></a>
 
 #### \_create\_issue
 
 ```python
-def _create_issue(ctx: _WriteContext,
-                  item: BacklogItem) -> tuple[str, list[str]]
+def _create_issue(ctx: _WriteContext, item: BacklogItem,
+                  parent_key: Optional[str]) -> tuple[str, list[str]]
 ```
 
 Create the issue and set the fields its edit screen offers.
@@ -8619,7 +8693,18 @@ The issue is created with the create-screen fields, then the remaining
 mapped fields are set through an update, limited to the fields the
 issue's edit screen offers. Mapped fields the edit screen does not
 offer (such as story points on an issue type without them) are
-returned as skipped so the caller can report them.
+returned as skipped so the caller can report them. A sub-task's
+``parent_key`` is set at create time, which Jira requires.
+
+<a id="backlogops.jira_write._skipped_names"></a>
+
+#### \_skipped\_names
+
+```python
+def _skipped_names(skipped: list[str], custom_names: dict[str, str]) -> str
+```
+
+Return the skipped field ids, each with its display name if custom.
 
 <a id="backlogops.jira_write._report_skipped"></a>
 
@@ -8627,10 +8712,15 @@ returned as skipped so the caller can report them.
 
 ```python
 def _report_skipped(orig_key: str, new_key: str, skipped: list[str],
-                    stderr_file: TextIO) -> None
+                    custom_names: dict[str, str], stderr_file: TextIO) -> None
 ```
 
 Report mapped fields the issue's edit screen did not offer.
+
+A custom field also shows its display name, so a bare field id such as
+``customfield_10016`` is reported as ``customfield_10016 (Story point
+estimate)``. A plain field, which has no separate display name, is
+reported by its field name alone.
 
 <a id="backlogops.jira_write._jira_reason"></a>
 
@@ -8652,6 +8742,9 @@ def _write_new_items(ctx: _WriteContext, backlog: Backlog, existing: set[str],
 ```
 
 Create the not-yet-present items, reporting the ones that fail.
+
+Sub-tasks are created last, after their parents exist, and each is
+created with its parent key.
 
 <a id="backlogops.jira_write.add_backlog_to_jira"></a>
 
@@ -8677,9 +8770,10 @@ added item is created from the preset's write backlog column map and
 default project, and a copy of it carrying the key Jira assigned is
 collected. Each issue is created with the fields a create screen
 accepts and the remaining mapped fields are then set through an update.
-An item whose creation Jira refuses is collected in ``failed`` with a
-concise reason, and the other items are still added. The argument
-backlog is never modified.
+Sub-tasks are created last, after their parents exist, and each is
+created with its parent issue key. An item whose creation Jira refuses
+is collected in ``failed`` with a concise reason, and the other items
+are still added. The argument backlog is never modified.
 
 **Arguments**:
 

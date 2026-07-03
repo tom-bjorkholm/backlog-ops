@@ -27,7 +27,7 @@ from backlogops.jira_io_config import (
 from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, FailedItem,
     OnExistingKey, UnknownIssueTypeError, apply_jira_keys, format_add_result,
-    jira_custom_fields, jira_editable_fields, _valid_issue_types)
+    jira_custom_fields, jira_editable_fields, _issue_type_meta)
 from backlogops.levels import DEFAULT_LEVELS, level_name
 from backlogops.no_text_io import NoTextIO
 
@@ -44,6 +44,14 @@ _EDITABLE_DEFAULT: dict[str, str] = {
     'customfield_10001': 'Team', 'fixVersions': 'Fix versions'}
 """Fields the fake issue's edit screen offers by default."""
 
+_ISSUE_TYPES_DEFAULT: dict[str, bool] = {
+    'Story': False, 'Epic': False, 'Subtask': True}
+"""Creatable issue types of the fake Jira, mapped to their subtask flag.
+
+An empty issue-type map instead models a Jira whose create metadata is
+unavailable, so that sub-task detection falls back to the lowest level.
+"""
+
 
 def _recorder(record: dict[str, object]
               ) -> Callable[[dict[str, object]], None]:
@@ -59,14 +67,18 @@ class _WriteClient:
 
     def __init__(self, existing: Optional[set[str]] = None, alive: bool = True,
                  editable: Optional[dict[str, str]] = None,
-                 valid_types: Optional[set[str]] = None,
+                 issue_types: Optional[dict[str, bool]] = None,
                  fail_types: Optional[set[str]] = None) -> None:
-        """Start with the present keys, screens, types and failing types."""
+        """Start with the present keys, screens, types and failing types.
+
+        ``issue_types`` maps each creatable issue type name to whether it
+        is a sub-task; an empty map models unavailable create metadata.
+        """
         self.existing = set() if existing is None else set(existing)
         self.alive = alive
         self.editable = _EDITABLE_DEFAULT if editable is None else editable
-        self.valid_types = ({'Story', 'Epic', 'Subtask'}
-                            if valid_types is None else valid_types)
+        self.issue_types = (_ISSUE_TYPES_DEFAULT if issue_types is None
+                            else issue_types)
         self.fail_types = set() if fail_types is None else fail_types
         self.created: list[dict[str, object]] = []
         self.closed = 0
@@ -87,24 +99,38 @@ class _WriteClient:
             return SimpleNamespace(key=key)
         raise JIRAError(status_code=404, text='not found')
 
+    def _issue_type_values(self) -> list[dict[str, object]]:
+        """Return the issue types with their sub-task flags for metadata."""
+        return [{'name': name, 'subtask': subtask}
+                for name, subtask in sorted(self.issue_types.items())]
+
     def createmeta_issuetypes(self, project: str) -> dict[str, object]:
         """Return the project's creatable issue types as create metadata."""
         _ = project
-        return {'values': [{'name': name}
-                           for name in sorted(self.valid_types)]}
+        return {'values': self._issue_type_values()}
+
+    def createmeta(self, **kwargs: object) -> dict[str, object]:
+        """Return the creatable issue types via the older createmeta API."""
+        _ = kwargs
+        return {'projects': [{'issuetypes': self._issue_type_values()}]}
 
     def create_issue(self, fields: dict[str, object]) -> SimpleNamespace:
         """Record the create payload; the issue merges a later update.
 
-        Raises for an issue type in ``fail_types``, as Jira does when it
-        refuses a create. The returned issue's ``update`` merges its fields
-        into the same record, so the recorded payload holds the fields set
-        at create and the fields set by the following update together.
+        Raises for an issue type in ``fail_types``, and for a sub-task
+        without a ``parent``, as Jira does when it refuses a create. The
+        returned issue's ``update`` merges its fields into the same record,
+        so the recorded payload holds the fields set at create and the
+        fields set by the following update together.
         """
         issuetype = fields.get('issuetype')
         name = issuetype.get('name') if isinstance(issuetype, dict) else None
         if name in self.fail_types:
             raise JIRAError(status_code=400, text='Specify a valid issue type')
+        if name is not None and self.issue_types.get(name) \
+                and 'parent' not in fields:
+            raise JIRAError(status_code=400, text='Issue type is a sub-task '
+                            'but parent issue key or id not specified.')
         record = dict(fields)
         self.created.append(record)
         return SimpleNamespace(key=f'JIRA-{len(self.created)}',
@@ -166,6 +192,13 @@ def _item(key: str) -> BacklogItem:
     """Return a default backlog item with a description extra field."""
     return BacklogItem(key=key, level=1, title='T', story_points=5,
                        status=Status.TODO, extra_fields={'description': 'D'})
+
+
+def _leveled(key: str, level: int,
+             parent: Optional[str] = None) -> BacklogItem:
+    """Return a backlog item at a level, optionally with a parent key."""
+    return BacklogItem(key=key, level=level, title=f'T {key}', story_points=0,
+                       status=Status.TODO, parent_key=parent)
 
 
 def test_add_all_new(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -242,6 +275,26 @@ def test_skip_unsettable(monkeypatch: pytest.MonkeyPatch) -> None:
     assert 'customfield_10016' not in client.created[0]
     assert client.created[0]['description'] == 'D'
     assert 'customfield_10016' in errors.getvalue()
+
+
+def test_skipped_custom_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a skipped custom field also shows its display name.
+
+    A custom field is reported as ``id (Display Name)`` while a plain
+    field, which has no separate display name, keeps just its field name.
+    """
+    client = _WriteClient(editable={'description': 'Description'})
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.story_points = 8
+    item.release = 'R1'
+    errors = io.StringIO()
+    add_backlog_to_jira(connections, 'w', [item],
+                        on_existing_key=OnExistingKey.SKIP, stderr_file=errors)
+    text = errors.getvalue()
+    assert 'customfield_10016 (Story point estimate)' in text
+    assert 'fixVersions' in text
+    assert 'fixVersions (' not in text
 
 
 def test_input_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -349,7 +402,7 @@ def test_invalid_type(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_itmap_on_write(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a mapped level writes the Jira issue type from the map."""
-    client = _WriteClient(valid_types={'Deluppgift', 'Story'})
+    client = _WriteClient(issue_types={'Deluppgift': False, 'Story': False})
     connections = _connections(monkeypatch, client,
                                _issue_config({0: 'Deluppgift'}))
     item = BacklogItem(key='T', level=0, title='Sub', story_points=0,
@@ -361,7 +414,7 @@ def test_itmap_on_write(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_itmap_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a level absent from the map writes the level name."""
-    client = _WriteClient(valid_types={'Deluppgift', 'Story'})
+    client = _WriteClient(issue_types={'Deluppgift': False, 'Story': False})
     connections = _connections(monkeypatch, client,
                                _issue_config({0: 'Deluppgift'}))
     add_backlog_to_jira(connections, 'w', [_item('S')],
@@ -376,7 +429,8 @@ def test_itmap_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     rejects the level name 'Sub-Task', and without a map the write is
     refused before anything is created.
     """
-    client = _WriteClient(valid_types={'Deluppgift', 'Story', 'Epic'})
+    client = _WriteClient(issue_types={'Deluppgift': False, 'Story': False,
+                                       'Epic': False})
     connections = _connections(monkeypatch, client)
     item = BacklogItem(key='T', level=0, title='Sub', story_points=0,
                        status=Status.TODO)
@@ -385,6 +439,67 @@ def test_itmap_missing(monkeypatch: pytest.MonkeyPatch) -> None:
                             on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
     assert 'Sub-Task' in caught.value.bad
     assert not client.created
+
+
+def test_subtask_last_parent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a sub-task is created last with its parent's new Jira key.
+
+    The sub-task is listed before its parent in the input, yet the parent
+    is created first so the sub-task can carry the parent's assigned key.
+    """
+    client = _WriteClient(issue_types={'Story': False, 'Sub-Task': True})
+    connections = _connections(monkeypatch, client)
+    backlog = [_leveled('T', 0, 'P'), _leveled('P', 1)]
+    result = add_backlog_to_jira(connections, 'w', backlog,
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 stderr_file=NO)
+    assert [item.key for item in result.stored] == ['JIRA-1', 'JIRA-2']
+    assert result.key_map == {'P': 'JIRA-1', 'T': 'JIRA-2'}
+    assert 'parent' not in client.created[0]
+    assert client.created[0]['issuetype'] == {'name': 'Story'}
+    assert client.created[1]['issuetype'] == {'name': 'Sub-Task'}
+    assert client.created[1]['parent'] == {'key': 'JIRA-1'}
+    assert not result.failed
+
+
+def test_subtask_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a sub-task attaches to a parent already present in Jira."""
+    client = _WriteClient(existing={'EX'},
+                          issue_types={'Story': False, 'Sub-Task': True})
+    connections = _connections(monkeypatch, client)
+    backlog = [_leveled('EX', 1), _leveled('T', 0, 'EX')]
+    result = add_backlog_to_jira(connections, 'w', backlog,
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 stderr_file=NO)
+    assert [item.key for item in result.already_present] == ['EX']
+    assert [item.key for item in result.stored] == ['JIRA-1']
+    assert client.created[0]['parent'] == {'key': 'EX'}
+    assert not result.failed
+
+
+def test_subtask_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the lowest level marks a sub-task when metadata is missing."""
+    client = _WriteClient(issue_types={})
+    connections = _connections(monkeypatch, client)
+    backlog = [_leveled('T', 0, 'P'), _leveled('P', 1)]
+    result = add_backlog_to_jira(connections, 'w', backlog,
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 stderr_file=NO)
+    assert [item.key for item in result.stored] == ['JIRA-1', 'JIRA-2']
+    assert client.created[1]['parent'] == {'key': 'JIRA-1'}
+    assert not result.failed
+
+
+def test_subtask_no_parent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a sub-task without a parent is refused as Jira refuses it."""
+    client = _WriteClient(issue_types={'Sub-Task': True})
+    connections = _connections(monkeypatch, client)
+    result = add_backlog_to_jira(connections, 'w', [_leveled('T', 0)],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 stderr_file=NO)
+    assert not result.stored
+    assert [entry.item.key for entry in result.failed] == ['T']
+    assert 'sub-task' in result.failed[0].reason
 
 
 def test_apply_keys() -> None:
@@ -421,14 +536,14 @@ class _MetaClient:
     def createmeta(self, **kwargs: object) -> dict[str, object]:
         """Return the creatable issue types via the older createmeta API."""
         _ = kwargs
-        return {'projects': [{'issuetypes': [{'name': 'Story'},
-                                             {'name': 'Subtask'}]}]}
+        return {'projects': [{'issuetypes': [
+            {'name': 'Story'}, {'name': 'Subtask', 'subtask': True}]}]}
 
 
 def test_types_via_createmeta() -> None:
-    """Test valid types fall back to createmeta when issuetypes refuses."""
+    """Test issue-type metadata falls back to createmeta when refused."""
     client = cast(JIRA, _MetaClient())
-    assert _valid_issue_types(client, 'P') == {'Story', 'Subtask'}
+    assert _issue_type_meta(client, 'P') == {'Story': False, 'Subtask': True}
 
 
 def test_reexport() -> None:
