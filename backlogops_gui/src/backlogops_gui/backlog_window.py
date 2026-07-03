@@ -21,8 +21,9 @@ from tableio import ValueFmt
 from backlogops import (
     AddedReleasesToJira, AddedToJira, AvailableTeams, BacklogReleases,
     GuiDisplayConfig, Levels, OutputFormatConfig, ReleaseChanges,
-    ReleaseDateChanges, allow_overwrite, apply_jira_keys, format_add_result,
-    format_content_changes, format_date_changes, format_release_result,
+    ReleaseDateChanges, UpdatedReleasesInJira, allow_overwrite,
+    apply_jira_keys, format_add_result, format_content_changes,
+    format_date_changes, format_release_result, format_release_updates,
     get_keys_in_order, write_content_changes, write_date_changes,
     write_key_list)
 from backlogops_gui.backlog_io import write_backlog
@@ -384,6 +385,10 @@ class BacklogWindow:
                      None]] = None,
                  add_releases: Optional[Callable[
                      [BacklogReleases, Callable[[AddedReleasesToJira], None]],
+                     None]] = None,
+                 update_releases: Optional[Callable[
+                     [BacklogReleases,
+                      Callable[[UpdatedReleasesInJira], None]],
                      None]] = None) -> None:
         """Build the window, its menu and the two tables.
 
@@ -407,6 +412,9 @@ class BacklogWindow:
             add_releases: Handler that adds the shown releases to Jira and
                 calls back with the result, or None when adding is
                 unavailable (no configuration or no write presets).
+            update_releases: Handler that updates the shown releases in Jira
+                and calls back with the result, or None when updating is
+                unavailable (no configuration or no write presets).
         """
         self._data = data
         self._presets = presets
@@ -417,6 +425,7 @@ class BacklogWindow:
         self._warning = warning
         self._add_to_jira = add_to_jira
         self._add_releases = add_releases
+        self._update_releases = update_releases
         self._win = tk.Toplevel(root)
         self._win.title(title)
         self._tables: list[tk.Widget] = []
@@ -503,6 +512,11 @@ class BacklogWindow:
                      and self._warning is None else 'disabled')
         menu.add_command(label='Add releases to Jira…',
                          command=self._releases_add, state=rel_state)
+        upd_state: Literal['normal', 'disabled']
+        upd_state = ('normal' if self._update_releases is not None
+                     and self._warning is None else 'disabled')
+        menu.add_command(label='Update releases in Jira…',
+                         command=self._releases_update, state=upd_state)
 
     def _add_table(self, heading: str, columns: list[str],
                    rows: list[list[ValueFmt]], narrow: bool) -> tk.Widget:
@@ -613,3 +627,17 @@ class BacklogWindow:
         """
         show_text_report(self._win, 'Add releases to Jira',
                          format_release_result(result))
+
+    def _releases_update(self) -> None:
+        """Update the shown releases in Jira and show the result lists."""
+        if self._update_releases is not None:
+            self._update_releases(self._data, self._on_releases_updated)
+
+    def _on_releases_updated(self, result: UpdatedReleasesInJira) -> None:
+        """Show the updated, ignored, added and failed release lists.
+
+        An update changes only the Jira versions, not the shown releases,
+        so no rebuild of the tables is needed.
+        """
+        show_text_report(self._win, 'Update releases in Jira',
+                         format_release_updates(result))

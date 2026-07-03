@@ -35,19 +35,19 @@ from backlogops import (
     AddedReleasesToJira, AddedToJira, AvailableTeams, BacklogOpsConfig,
     BacklogReleases, GuiDisplayConfig, InputFormatConfig, JiraConnectConfig,
     JiraConnections, Levels, OnExistingKey, OutputFormatConfig, Status,
-    add_backlog_to_jira, add_releases_to_jira, get_demo_backlog,
-    get_backlog_ops_config, backlog_ops_wizard, preset_wizard,
-    read_jira_from_config)
+    UpdatedReleasesInJira, add_backlog_to_jira, add_releases_to_jira,
+    get_demo_backlog, get_backlog_ops_config, backlog_ops_wizard,
+    preset_wizard, read_jira_from_config, update_releases_in_jira)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 from backlogops_gui.gui_wizard import TkWizardBridge
 from backlogops_gui.io_dialogs import (
-    ConfigChoice, PresetKind, ask_no_config_choice, ask_preset_kind,
-    JiraWriteOptions, ask_read_options, ask_jira_passphrase,
-    ask_jira_read_options, ask_jira_write_options, choose_config_file,
-    choose_existing_config, choose_input_file, choose_migrated_preset,
-    choose_preset_to_migrate)
+    ConfigChoice, JiraReleaseUpdateOptions, PresetKind, ask_no_config_choice,
+    ask_preset_kind, JiraWriteOptions, ask_read_options, ask_jira_passphrase,
+    ask_jira_read_options, ask_jira_write_options, ask_release_update,
+    choose_config_file, choose_existing_config, choose_input_file,
+    choose_migrated_preset, choose_preset_to_migrate)
 from backlogops_gui.log_buffer import LogBuffer
 from backlogops_gui._migrate_warn import GuiMigrateWarnHook
 from backlogops_gui.python_version import check_python_version
@@ -610,6 +610,81 @@ class BacklogApp:
                        f"{len(result.already_present)} already present "
                        f"(preset '{preset_name}').\n")
 
+    def _jira_update_action(self) -> Optional[Callable[
+            [BacklogReleases, Callable[[UpdatedReleasesInJira], None]],
+            None]]:
+        """Return the update-releases handler, or None when unavailable."""
+        if self.config is None:
+            return None
+        if not self.config.get_jira_config().presets:
+            return None
+        return self._update_releases_in_jira
+
+    def _update_releases_in_jira(
+            self, data: BacklogReleases,
+            on_done: Callable[[UpdatedReleasesInJira], None]) -> None:
+        """Ask for a preset, mode and releases, then update them in Jira."""
+        assert self.config is not None
+        presets = sorted(self.config.get_jira_config().presets)
+        names = [release.name for release in data.releases]
+        options = ask_release_update(self.root, presets, names)
+        if options is None:
+            return
+        if not self._prepare_jira_token(options.preset_name):
+            return
+        self._start_releases_update(data, options, on_done)
+
+    def _start_releases_update(
+            self, data: BacklogReleases, options: JiraReleaseUpdateOptions,
+            on_done: Callable[[UpdatedReleasesInJira], None]) -> None:
+        """Start the Jira releases-update worker thread."""
+        self.log.write(f"Updating releases in Jira using preset "
+                       f"'{options.preset_name}'...\n")
+        self._refresh_log()
+        thread = threading.Thread(
+            target=lambda: self._releases_update_worker(data, options,
+                                                        on_done),
+            daemon=True)
+        thread.start()
+
+    def _releases_update_worker(
+            self, data: BacklogReleases, options: JiraReleaseUpdateOptions,
+            on_done: Callable[[UpdatedReleasesInJira], None]) -> None:
+        """Update the releases on a worker and schedule the GUI update."""
+        assert self.config is not None
+        connections = JiraConnections(self.config.get_jira_config())
+        chosen = set(options.selected)
+        selected = [release for release in data.releases
+                    if release.name in chosen]
+        try:
+            result = update_releases_in_jira(connections, options.preset_name,
+                                             selected,
+                                             on_missing_key=options.on_missing,
+                                             stderr_file=self.log)
+        except JIRA_ERRORS as error:
+            message = str(error)
+            self._after(lambda: self._releases_update_failed(
+                options.preset_name, message))
+            return
+        self._after(
+            lambda: self._releases_update_done(options.preset_name, result,
+                                               on_done))
+
+    def _releases_update_failed(self, preset_name: str, message: str) -> None:
+        """Report a failed releases update on the GUI thread."""
+        self.log.write(f"Could not update releases in Jira preset "
+                       f"'{preset_name}': {message}\n")
+        self.show_error('Could not update releases in Jira', message)
+
+    def _releases_update_done(
+            self, preset_name: str, result: UpdatedReleasesInJira,
+            on_done: Callable[[UpdatedReleasesInJira], None]) -> None:
+        """Hand the result to the window and log the completed update."""
+        on_done(result)
+        self.log.write(f"Updated {len(result.updated)} releases in Jira; "
+                       f"{len(result.ignored)} ignored; {len(result.added)} "
+                       f"added (preset '{preset_name}').\n")
+
     def new_demo_backlog(self) -> None:
         """Open a demonstration backlog in a new window."""
         self.open_backlog(get_demo_backlog(), 'Demo backlog')
@@ -620,7 +695,7 @@ class BacklogApp:
         BacklogWindow(self.root, data, title, self.out_presets,
                       self.available_teams, self.log, self.levels,
                       self.gui_display, warning, self._jira_write_action(),
-                      self._jira_releases_action())
+                      self._jira_releases_action(), self._jira_update_action())
 
     def report_versions(self) -> None:
         """Report version information into the log on a worker thread.

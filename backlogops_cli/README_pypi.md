@@ -227,6 +227,9 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.read_jira
      Read a backlog and releases from Jira and store to a file
 
+  python3 -m backlogops_cli.update_releases_in_jira
+     Update releases in Jira, setting dates to the planned dates
+
   python3 -m backlogops_cli.version
      Print version information for the backlogops_cli package
 
@@ -234,7 +237,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 1832 passed in 38s
+- Test result: 1866 passed in 41s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

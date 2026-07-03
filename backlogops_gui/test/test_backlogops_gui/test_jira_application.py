@@ -9,12 +9,14 @@ from typing import Callable, Optional, TextIO, cast
 import pytest
 from backlogops import (
     AddedReleasesToJira, AddedToJira, BacklogItem, BacklogOpsConfig,
-    BacklogReleases, ExistsInJiraError, JiraConnectConfig, JiraIOConfig,
-    JiraPreset, Release, ReleaseExistsError, Status, TokenStorage)
+    BacklogReleases, ExistsInJiraError, ItemNotInJiraError, JiraConnectConfig,
+    JiraIOConfig, JiraPreset, OnMissingKey, Release, ReleaseExistsError,
+    Status, TokenStorage, UpdatedReleasesInJira)
 from backlogops.jira_token import encrypt_token
 from backlogops_gui import application
 from backlogops_gui.application import BacklogApp
-from backlogops_gui.io_dialogs import JiraReadOptions, JiraWriteOptions
+from backlogops_gui.io_dialogs import (
+    JiraReadOptions, JiraReleaseUpdateOptions, JiraWriteOptions)
 
 DATA = BacklogReleases(backlog=[], releases=[])
 
@@ -442,5 +444,83 @@ def test_rel_write_failed(monkeypatch: pytest.MonkeyPatch) -> None:
     got: list[AddedReleasesToJira] = []
     # pylint: disable-next=protected-access
     app._add_releases_to_jira(DATA, got.append)
+    assert not got
+    assert errors
+
+
+def _update_opts(_parent: object, _presets: object,
+                 _names: object) -> JiraReleaseUpdateOptions:
+    """Return update options as if the update dialog was confirmed."""
+    return JiraReleaseUpdateOptions('scrum', OnMissingKey.RAISE, [])
+
+
+def _no_update_opts(_parent: object, _presets: object, _names: object) -> None:
+    """Return None as if the release-update dialog was cancelled."""
+    return None
+
+
+def _update_result() -> UpdatedReleasesInJira:
+    """Return a canned update result with one updated release."""
+    return UpdatedReleasesInJira(updated=['R1'], ignored=[], added=[],
+                                 failed=[])
+
+
+def _fake_update(result: UpdatedReleasesInJira
+                 ) -> Callable[..., UpdatedReleasesInJira]:
+    """Return a stand-in update_releases_in_jira returning ``result``."""
+    def update(*_args: object, **_kwargs: object) -> UpdatedReleasesInJira:
+        """Ignore the arguments and return the canned result."""
+        return result
+    return update
+
+
+def test_upd_action_absent() -> None:
+    """Test the update-releases action is absent without write presets."""
+    # pylint: disable-next=protected-access
+    assert _app(BacklogOpsConfig())._jira_update_action() is None
+    # pylint: disable-next=protected-access
+    assert _app(_config())._jira_update_action() is not None
+
+
+def test_upd_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the handler updates the releases and hands back the result."""
+    result = _update_result()
+    monkeypatch.setattr(application, 'ask_release_update', _update_opts)
+    monkeypatch.setattr(application, 'update_releases_in_jira',
+                        _fake_update(result))
+    monkeypatch.setattr('backlogops_gui.application.threading.Thread',
+                        _make_immediate)
+    app = _app(_config())
+    got: list[UpdatedReleasesInJira] = []
+    # pylint: disable-next=protected-access
+    app._update_releases_in_jira(DATA, got.append)
+    assert got == [result]
+
+
+def test_upd_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the update dialog updates nothing."""
+    monkeypatch.setattr(application, 'ask_release_update', _no_update_opts)
+    app = _app(_config())
+    got: list[UpdatedReleasesInJira] = []
+    # pylint: disable-next=protected-access
+    app._update_releases_in_jira(DATA, got.append)
+    assert not got
+
+
+def test_upd_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an update failure is reported and nothing is handed back."""
+    def _raise(*_args: object, **_kwargs: object) -> UpdatedReleasesInJira:
+        """Raise as the real update does when a name is missing."""
+        raise ItemNotInJiraError(['R1'], 'Release names')
+    monkeypatch.setattr(application, 'ask_release_update', _update_opts)
+    monkeypatch.setattr(application, 'update_releases_in_jira', _raise)
+    monkeypatch.setattr('backlogops_gui.application.threading.Thread',
+                        _make_immediate)
+    app = _app(_config())
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    got: list[UpdatedReleasesInJira] = []
+    # pylint: disable-next=protected-access
+    app._update_releases_in_jira(DATA, got.append)
     assert not got
     assert errors

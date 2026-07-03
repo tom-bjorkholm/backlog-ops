@@ -19,7 +19,8 @@ from datetime import date
 from enum import Enum
 from collections.abc import Mapping
 from typing import Callable, Optional, Sequence, TextIO
-from backlogops import DependencyMode, DEFAULT_LEVELS, read_key_list
+from backlogops import (
+    DependencyMode, DEFAULT_LEVELS, OnMissingKey, read_key_list)
 from backlogops_gui.gui_style import focus_first_input, style_input
 
 MODE_INFER = 0
@@ -91,6 +92,15 @@ class JiraWriteOptions:
 
     preset_name: str
     skip_existing: bool
+
+
+@dataclass
+class JiraReleaseUpdateOptions:
+    """The preset, missing-name mode and selected names for updating."""
+
+    preset_name: str
+    on_missing: OnMissingKey
+    selected: list[str]
 
 
 def choose_input_file(parent: tk.Misc) -> Optional[str]:
@@ -464,6 +474,87 @@ def ask_jira_write_options(parent: tk.Misc, presets: Sequence[str]
                            ) -> Optional[JiraWriteOptions]:
     """Ask which write preset and skip choice, or None when cancelled."""
     dialog = _JiraWriteDialog(parent, presets)
+    if dialog.cancelled:
+        return None
+    return dialog.options
+
+
+MISSING_MODE_TEXT = {
+    OnMissingKey.RAISE: 'Stop with an error',
+    OnMissingKey.IGNORE: 'Ignore it',
+    OnMissingKey.ADD: 'Add it to Jira'}
+"""Label shown for each missing-name mode in the release-update dialog."""
+
+
+# pylint: disable-next=too-few-public-methods
+class _JiraReleaseUpdateDialog(_ModalDialog):
+    """Modal dialog for the release-update preset, mode and selection."""
+
+    def __init__(self, parent: tk.Misc, presets: Sequence[str],
+                 release_names: Sequence[str]) -> None:
+        """Build, show and wait for the release-update dialog."""
+        super().__init__(parent, 'Update releases in Jira')
+        self.options: Optional[JiraReleaseUpdateOptions] = None
+        names = sorted(presets)
+        self._preset = tk.StringVar(self._win, names[0] if names else '')
+        self._mode = tk.StringVar(self._win, OnMissingKey.RAISE.name)
+        self._picks: dict[str, tk.BooleanVar] = {}
+        self._build(names, release_names)
+        self._show()
+
+    def _build(self, names: Sequence[str],
+               release_names: Sequence[str]) -> None:
+        """Add the preset chooser, the mode radios and the release picks."""
+        self._build_preset(names)
+        self._build_mode()
+        self._build_releases(release_names)
+
+    def _build_preset(self, names: Sequence[str]) -> None:
+        """Add the Jira preset label and read-only chooser."""
+        tk.Label(self._win, text='Jira preset:').pack(anchor='w', padx=12,
+                                                      pady=(10, 2))
+        box = ttk.Combobox(self._win, textvariable=self._preset,
+                           values=list(names), state='readonly', width=35)
+        style_input(box)
+        box.pack(anchor='w', padx=12)
+
+    def _build_mode(self) -> None:
+        """Add the radios choosing what to do with a missing release."""
+        tk.Label(self._win, text='If a release name is not in Jira:'
+                 ).pack(anchor='w', padx=12, pady=(8, 2))
+        for mode, text in MISSING_MODE_TEXT.items():
+            tk.Radiobutton(self._win, variable=self._mode, value=mode.name,
+                           text=text).pack(anchor='w', padx=24)
+
+    def _build_releases(self, release_names: Sequence[str]) -> None:
+        """Add a checkbox per release, all selected by default."""
+        tk.Label(self._win, text='Releases to update:').pack(anchor='w',
+                                                             padx=12,
+                                                             pady=(8, 2))
+        for name in release_names:
+            var = tk.BooleanVar(self._win, True)
+            self._picks[name] = var
+            check = tk.Checkbutton(self._win, variable=var, text=name)
+            check.pack(anchor='w', padx=24)
+
+    def _confirm(self) -> None:
+        """Store the preset, mode and picks, requiring a preset."""
+        name = self._preset.get()
+        if not name:
+            messagebox.showerror('No Jira preset', 'Select a Jira preset.',
+                                 parent=self._win)
+            return
+        selected = [pick for pick, var in self._picks.items() if var.get()]
+        mode = OnMissingKey[self._mode.get()]
+        self.options = JiraReleaseUpdateOptions(name, mode, selected)
+        super()._confirm()
+
+
+def ask_release_update(parent: tk.Misc, presets: Sequence[str],
+                       release_names: Sequence[str]
+                       ) -> Optional[JiraReleaseUpdateOptions]:
+    """Ask the preset, missing-name mode and releases, None when cancelled."""
+    dialog = _JiraReleaseUpdateDialog(parent, presets, release_names)
     if dialog.cancelled:
         return None
     return dialog.options

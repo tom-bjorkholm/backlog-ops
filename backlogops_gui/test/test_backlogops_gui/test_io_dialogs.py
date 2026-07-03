@@ -8,25 +8,25 @@ import tkinter as tk
 from datetime import date
 from typing import Callable, Optional
 import pytest
-from backlogops import DependencyMode
+from backlogops import DependencyMode, OnMissingKey
 from backlogops.no_text_io import NoTextIO
 from backlogops_gui.io_dialogs import (
-    MODE_FILE, MODE_INFER, MODE_PRESET, ConfigChoice, DepOptions, PresetKind,
-    JiraReadOptions, ReadOptions, ReleaseOrderOptions, StartChoice,
-    WriteOptions, format_value)
+    MODE_FILE, MODE_INFER, MODE_PRESET, ConfigChoice, DepOptions,
+    JiraReleaseUpdateOptions, PresetKind, JiraReadOptions, ReadOptions,
+    ReleaseOrderOptions, StartChoice, WriteOptions, format_value)
 from backlogops_gui.io_dialogs import (
     _BufferDialog, _DateOrderDialog, _DepOptionsDialog, _FormatDialog,
-    _JiraReadDialog, _KeysDialog, _LevelsDialog, _ModalDialog,
-    _NoConfigDialog, _PassphraseDialog, _PresetKindDialog,
+    _JiraReadDialog, _JiraReleaseUpdateDialog, _KeysDialog, _LevelsDialog,
+    _ModalDialog, _NoConfigDialog, _PassphraseDialog, _PresetKindDialog,
     _ReleaseOrderDialog, _StartDateDialog)
 from backlogops_gui.io_dialogs import (
     ask_buffer_days, ask_date_order, ask_dep_options, ask_jira_passphrase,
     ask_jira_read_options, ask_keys, ask_levels, ask_no_config_choice,
-    ask_preset_kind, ask_read_options, ask_release_order, ask_start_date,
-    ask_write_options, choose_changes_output, choose_config_file,
-    choose_existing_config, choose_input_file, choose_key_list_output,
-    choose_migrated_preset, choose_output_file, choose_preset_to_migrate,
-    show_change_list)
+    ask_preset_kind, ask_read_options, ask_release_order, ask_release_update,
+    ask_start_date, ask_write_options, choose_changes_output,
+    choose_config_file, choose_existing_config, choose_input_file,
+    choose_key_list_output, choose_migrated_preset, choose_output_file,
+    choose_preset_to_migrate, show_change_list)
 from .gui_test_helpers import root_or_skip
 
 
@@ -70,6 +70,10 @@ def test_option_dataclasses() -> None:
     jira = JiraReadOptions('scrum', 'project = SCRUM')
     assert jira.preset_name == 'scrum'
     assert jira.issue_filter == 'project = SCRUM'
+    update = JiraReleaseUpdateOptions('scrum', OnMissingKey.ADD, ['R1'])
+    assert update.preset_name == 'scrum'
+    assert update.on_missing is OnMissingKey.ADD
+    assert update.selected == ['R1']
 
 
 def test_action_dataclasses() -> None:
@@ -293,6 +297,50 @@ def test_jira_options_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     root = root_or_skip()
     try:
         assert ask_jira_read_options(root, {'p': 'filter'}) is None
+    finally:
+        root.destroy()
+
+
+def test_rel_update_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the release-update dialog stores the preset, mode and picks."""
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    root = root_or_skip()
+    try:
+        dialog = _JiraReleaseUpdateDialog(root, ['p', 'q'], ['R1', 'R2'])
+        # pylint: disable-next=protected-access
+        dialog._mode.set(OnMissingKey.ADD.name)
+        # pylint: disable-next=protected-access
+        dialog._picks['R2'].set(False)
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        expected = JiraReleaseUpdateOptions('p', OnMissingKey.ADD, ['R1'])
+        assert dialog.options == expected
+    finally:
+        root.destroy()
+
+
+def test_rel_update_needs_p(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test confirming without a preset keeps the update dialog open."""
+    rec = _MsgRec()
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    monkeypatch.setattr('backlogops_gui.io_dialogs.messagebox', rec)
+    root = root_or_skip()
+    try:
+        dialog = _JiraReleaseUpdateDialog(root, [], ['R1'])
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None
+        assert rec.calls == [('No Jira preset', 'Select a Jira preset.')]
+    finally:
+        root.destroy()
+
+
+def test_rel_update_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the release-update dialog returns nothing."""
+    monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
+    root = root_or_skip()
+    try:
+        assert ask_release_update(root, ['p'], ['R1']) is None
     finally:
         root.destroy()
 

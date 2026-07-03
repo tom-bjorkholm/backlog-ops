@@ -119,6 +119,12 @@
     * [\_releases\_write\_worker](#backlogops_gui.application.BacklogApp._releases_write_worker)
     * [\_releases\_write\_failed](#backlogops_gui.application.BacklogApp._releases_write_failed)
     * [\_releases\_write\_done](#backlogops_gui.application.BacklogApp._releases_write_done)
+    * [\_jira\_update\_action](#backlogops_gui.application.BacklogApp._jira_update_action)
+    * [\_update\_releases\_in\_jira](#backlogops_gui.application.BacklogApp._update_releases_in_jira)
+    * [\_start\_releases\_update](#backlogops_gui.application.BacklogApp._start_releases_update)
+    * [\_releases\_update\_worker](#backlogops_gui.application.BacklogApp._releases_update_worker)
+    * [\_releases\_update\_failed](#backlogops_gui.application.BacklogApp._releases_update_failed)
+    * [\_releases\_update\_done](#backlogops_gui.application.BacklogApp._releases_update_done)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
     * [open\_backlog](#backlogops_gui.application.BacklogApp.open_backlog)
     * [report\_versions](#backlogops_gui.application.BacklogApp.report_versions)
@@ -189,6 +195,8 @@
     * [\_show\_add\_report](#backlogops_gui.backlog_window.BacklogWindow._show_add_report)
     * [\_releases\_add](#backlogops_gui.backlog_window.BacklogWindow._releases_add)
     * [\_on\_releases\_added](#backlogops_gui.backlog_window.BacklogWindow._on_releases_added)
+    * [\_releases\_update](#backlogops_gui.backlog_window.BacklogWindow._releases_update)
+    * [\_on\_releases\_updated](#backlogops_gui.backlog_window.BacklogWindow._on_releases_updated)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
   * [ConfigChoice](#backlogops_gui.io_dialogs.ConfigChoice)
   * [PresetKind](#backlogops_gui.io_dialogs.PresetKind)
@@ -197,6 +205,7 @@
   * [WriteOptions](#backlogops_gui.io_dialogs.WriteOptions)
   * [JiraReadOptions](#backlogops_gui.io_dialogs.JiraReadOptions)
   * [JiraWriteOptions](#backlogops_gui.io_dialogs.JiraWriteOptions)
+  * [JiraReleaseUpdateOptions](#backlogops_gui.io_dialogs.JiraReleaseUpdateOptions)
   * [choose\_input\_file](#backlogops_gui.io_dialogs.choose_input_file)
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
@@ -245,6 +254,15 @@
     * [\_build](#backlogops_gui.io_dialogs._JiraWriteDialog._build)
     * [\_confirm](#backlogops_gui.io_dialogs._JiraWriteDialog._confirm)
   * [ask\_jira\_write\_options](#backlogops_gui.io_dialogs.ask_jira_write_options)
+  * [MISSING\_MODE\_TEXT](#backlogops_gui.io_dialogs.MISSING_MODE_TEXT)
+  * [\_JiraReleaseUpdateDialog](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog.__init__)
+    * [\_build](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build)
+    * [\_build\_preset](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_preset)
+    * [\_build\_mode](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_mode)
+    * [\_build\_releases](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_releases)
+    * [\_confirm](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._confirm)
+  * [ask\_release\_update](#backlogops_gui.io_dialogs.ask_release_update)
   * [\_PassphraseDialog](#backlogops_gui.io_dialogs._PassphraseDialog)
     * [\_\_init\_\_](#backlogops_gui.io_dialogs._PassphraseDialog.__init__)
     * [\_build](#backlogops_gui.io_dialogs._PassphraseDialog._build)
@@ -1719,6 +1737,75 @@ def _releases_write_done(
 
 Hand the result to the window and log the completed write.
 
+<a id="backlogops_gui.application.BacklogApp._jira_update_action"></a>
+
+#### \_jira\_update\_action
+
+```python
+def _jira_update_action() -> Optional[Callable[
+    [BacklogReleases, Callable[[UpdatedReleasesInJira], None]], None]]
+```
+
+Return the update-releases handler, or None when unavailable.
+
+<a id="backlogops_gui.application.BacklogApp._update_releases_in_jira"></a>
+
+#### \_update\_releases\_in\_jira
+
+```python
+def _update_releases_in_jira(
+        data: BacklogReleases, on_done: Callable[[UpdatedReleasesInJira],
+                                                 None]) -> None
+```
+
+Ask for a preset, mode and releases, then update them in Jira.
+
+<a id="backlogops_gui.application.BacklogApp._start_releases_update"></a>
+
+#### \_start\_releases\_update
+
+```python
+def _start_releases_update(
+        data: BacklogReleases, options: JiraReleaseUpdateOptions,
+        on_done: Callable[[UpdatedReleasesInJira], None]) -> None
+```
+
+Start the Jira releases-update worker thread.
+
+<a id="backlogops_gui.application.BacklogApp._releases_update_worker"></a>
+
+#### \_releases\_update\_worker
+
+```python
+def _releases_update_worker(
+        data: BacklogReleases, options: JiraReleaseUpdateOptions,
+        on_done: Callable[[UpdatedReleasesInJira], None]) -> None
+```
+
+Update the releases on a worker and schedule the GUI update.
+
+<a id="backlogops_gui.application.BacklogApp._releases_update_failed"></a>
+
+#### \_releases\_update\_failed
+
+```python
+def _releases_update_failed(preset_name: str, message: str) -> None
+```
+
+Report a failed releases update on the GUI thread.
+
+<a id="backlogops_gui.application.BacklogApp._releases_update_done"></a>
+
+#### \_releases\_update\_done
+
+```python
+def _releases_update_done(
+        preset_name: str, result: UpdatedReleasesInJira,
+        on_done: Callable[[UpdatedReleasesInJira], None]) -> None
+```
+
+Hand the result to the window and log the completed update.
+
 <a id="backlogops_gui.application.BacklogApp.new_demo_backlog"></a>
 
 #### new\_demo\_backlog
@@ -2286,8 +2373,12 @@ def __init__(
     warning: Optional[str] = None,
     add_to_jira: Optional[Callable[
         [BacklogReleases, Callable[[AddedToJira], None]], None]] = None,
-    add_releases: Optional[Callable[
-        [BacklogReleases, Callable[[AddedReleasesToJira], None]], None]] = None
+    add_releases: Optional[
+        Callable[[BacklogReleases, Callable[[AddedReleasesToJira], None]],
+                 None]] = None,
+    update_releases: Optional[
+        Callable[[BacklogReleases, Callable[[UpdatedReleasesInJira], None]],
+                 None]] = None
 ) -> None
 ```
 
@@ -2313,6 +2404,9 @@ Build the window, its menu and the two tables.
   unavailable (no configuration or no write presets).
 - `add_releases` - Handler that adds the shown releases to Jira and
   calls back with the result, or None when adding is
+  unavailable (no configuration or no write presets).
+- `update_releases` - Handler that updates the shown releases in Jira
+  and calls back with the result, or None when updating is
   unavailable (no configuration or no write presets).
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._report_error"></a>
@@ -2565,6 +2659,29 @@ Show the added, present and failed release lists.
 A release name never changes, so the shown releases already match
 what was added and no rebuild of the tables is needed.
 
+<a id="backlogops_gui.backlog_window.BacklogWindow._releases_update"></a>
+
+#### \_releases\_update
+
+```python
+def _releases_update() -> None
+```
+
+Update the shown releases in Jira and show the result lists.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._on_releases_updated"></a>
+
+#### \_on\_releases\_updated
+
+```python
+def _on_releases_updated(result: UpdatedReleasesInJira) -> None
+```
+
+Show the updated, ignored, added and failed release lists.
+
+An update changes only the Jira versions, not the shown releases,
+so no rebuild of the tables is needed.
+
 <a id="backlogops_gui.io_dialogs"></a>
 
 # backlogops\_gui.io\_dialogs
@@ -2654,6 +2771,17 @@ class JiraWriteOptions()
 ```
 
 The Jira write preset and existing-key choice for adding to Jira.
+
+<a id="backlogops_gui.io_dialogs.JiraReleaseUpdateOptions"></a>
+
+## JiraReleaseUpdateOptions Objects
+
+```python
+@dataclass
+class JiraReleaseUpdateOptions()
+```
+
+The preset, missing-name mode and selected names for updating.
 
 <a id="backlogops_gui.io_dialogs.choose_input_file"></a>
 
@@ -3145,6 +3273,95 @@ def ask_jira_write_options(
 ```
 
 Ask which write preset and skip choice, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.MISSING_MODE_TEXT"></a>
+
+#### MISSING\_MODE\_TEXT
+
+Label shown for each missing-name mode in the release-update dialog.
+
+<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog"></a>
+
+## \_JiraReleaseUpdateDialog Objects
+
+```python
+class _JiraReleaseUpdateDialog(_ModalDialog)
+```
+
+Modal dialog for the release-update preset, mode and selection.
+
+<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, presets: Sequence[str],
+             release_names: Sequence[str]) -> None
+```
+
+Build, show and wait for the release-update dialog.
+
+<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build"></a>
+
+#### \_build
+
+```python
+def _build(names: Sequence[str], release_names: Sequence[str]) -> None
+```
+
+Add the preset chooser, the mode radios and the release picks.
+
+<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_preset"></a>
+
+#### \_build\_preset
+
+```python
+def _build_preset(names: Sequence[str]) -> None
+```
+
+Add the Jira preset label and read-only chooser.
+
+<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_mode"></a>
+
+#### \_build\_mode
+
+```python
+def _build_mode() -> None
+```
+
+Add the radios choosing what to do with a missing release.
+
+<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_releases"></a>
+
+#### \_build\_releases
+
+```python
+def _build_releases(release_names: Sequence[str]) -> None
+```
+
+Add a checkbox per release, all selected by default.
+
+<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the preset, mode and picks, requiring a preset.
+
+<a id="backlogops_gui.io_dialogs.ask_release_update"></a>
+
+#### ask\_release\_update
+
+```python
+def ask_release_update(
+        parent: tk.Misc, presets: Sequence[str],
+        release_names: Sequence[str]) -> Optional[JiraReleaseUpdateOptions]
+```
+
+Ask the preset, missing-name mode and releases, None when cancelled.
 
 <a id="backlogops_gui.io_dialogs._PassphraseDialog"></a>
 

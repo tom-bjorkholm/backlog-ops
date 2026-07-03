@@ -66,6 +66,7 @@
   * [WriteOptions](#backlogops_gui.io_dialogs.WriteOptions)
   * [JiraReadOptions](#backlogops_gui.io_dialogs.JiraReadOptions)
   * [JiraWriteOptions](#backlogops_gui.io_dialogs.JiraWriteOptions)
+  * [JiraReleaseUpdateOptions](#backlogops_gui.io_dialogs.JiraReleaseUpdateOptions)
   * [choose\_input\_file](#backlogops_gui.io_dialogs.choose_input_file)
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
@@ -78,6 +79,8 @@
   * [ask\_write\_options](#backlogops_gui.io_dialogs.ask_write_options)
   * [ask\_jira\_read\_options](#backlogops_gui.io_dialogs.ask_jira_read_options)
   * [ask\_jira\_write\_options](#backlogops_gui.io_dialogs.ask_jira_write_options)
+  * [MISSING\_MODE\_TEXT](#backlogops_gui.io_dialogs.MISSING_MODE_TEXT)
+  * [ask\_release\_update](#backlogops_gui.io_dialogs.ask_release_update)
   * [ask\_jira\_passphrase](#backlogops_gui.io_dialogs.ask_jira_passphrase)
   * [choose\_key\_list\_output](#backlogops_gui.io_dialogs.choose_key_list_output)
   * [choose\_changes\_output](#backlogops_gui.io_dialogs.choose_changes_output)
@@ -874,8 +877,12 @@ def __init__(
     warning: Optional[str] = None,
     add_to_jira: Optional[Callable[
         [BacklogReleases, Callable[[AddedToJira], None]], None]] = None,
-    add_releases: Optional[Callable[
-        [BacklogReleases, Callable[[AddedReleasesToJira], None]], None]] = None
+    add_releases: Optional[
+        Callable[[BacklogReleases, Callable[[AddedReleasesToJira], None]],
+                 None]] = None,
+    update_releases: Optional[
+        Callable[[BacklogReleases, Callable[[UpdatedReleasesInJira], None]],
+                 None]] = None
 ) -> None
 ```
 
@@ -901,6 +908,9 @@ Build the window, its menu and the two tables.
   unavailable (no configuration or no write presets).
 - `add_releases` - Handler that adds the shown releases to Jira and
   calls back with the result, or None when adding is
+  unavailable (no configuration or no write presets).
+- `update_releases` - Handler that updates the shown releases in Jira
+  and calls back with the result, or None when updating is
   unavailable (no configuration or no write presets).
 
 <a id="backlogops_gui.io_dialogs"></a>
@@ -992,6 +1002,17 @@ class JiraWriteOptions()
 ```
 
 The Jira write preset and existing-key choice for adding to Jira.
+
+<a id="backlogops_gui.io_dialogs.JiraReleaseUpdateOptions"></a>
+
+## JiraReleaseUpdateOptions Objects
+
+```python
+@dataclass
+class JiraReleaseUpdateOptions()
+```
+
+The preset, missing-name mode and selected names for updating.
 
 <a id="backlogops_gui.io_dialogs.choose_input_file"></a>
 
@@ -1122,6 +1143,24 @@ def ask_jira_write_options(
 ```
 
 Ask which write preset and skip choice, or None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.MISSING_MODE_TEXT"></a>
+
+#### MISSING\_MODE\_TEXT
+
+Label shown for each missing-name mode in the release-update dialog.
+
+<a id="backlogops_gui.io_dialogs.ask_release_update"></a>
+
+#### ask\_release\_update
+
+```python
+def ask_release_update(
+        parent: tk.Misc, presets: Sequence[str],
+        release_names: Sequence[str]) -> Optional[JiraReleaseUpdateOptions]
+```
+
+Ask the preset, missing-name mode and releases, None when cancelled.
 
 <a id="backlogops_gui.io_dialogs.ask_jira_passphrase"></a>
 

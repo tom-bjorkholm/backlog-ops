@@ -93,6 +93,23 @@ class ExistsInJiraError(ValueError):
             'Backlog keys already exist in Jira: ' + ', '.join(keys) + '.')
 
 
+class ItemNotInJiraError(RuntimeError):
+    """Raised when an item to update is not present in Jira.
+
+    It carries the sorted identifiers that are missing (release names or
+    backlog keys) so a caller can report them, and a noun naming what they
+    are. It derives from :class:`RuntimeError`, so a handler that catches
+    ``RuntimeError`` still catches it. It is shared by the release-update
+    and backlog-update paths.
+    """
+
+    def __init__(self, names: list[str], noun: str = 'Items') -> None:
+        """Store the missing identifiers and build the message."""
+        self.names = names
+        super().__init__(f'{noun} not present in Jira: '
+                         + ', '.join(names) + '.')
+
+
 class UnknownIssueTypeError(ValueError):
     """Raised when a backlog item's issue type is not valid in the project.
 
@@ -116,6 +133,14 @@ class OnExistingKey(Enum):
 
     RAISE = auto()
     SKIP = auto()
+
+
+class OnMissingKey(Enum):
+    """What to do when an item to update is not present in Jira."""
+
+    RAISE = auto()
+    IGNORE = auto()
+    ADD = auto()
 
 
 class FailedItem(NamedTuple):

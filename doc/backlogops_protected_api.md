@@ -476,6 +476,8 @@
   * [\_version\_kwargs](#backlogops.jira_write_releases._version_kwargs)
   * [\_report\_skipped](#backlogops.jira_write_releases._report_skipped)
   * [\_raise\_existing](#backlogops.jira_write_releases._raise_existing)
+  * [\_run\_version\_write](#backlogops.jira_write_releases._run_version_write)
+  * [\_try\_create\_version](#backlogops.jira_write_releases._try_create_version)
   * [\_add\_version](#backlogops.jira_write_releases._add_version)
   * [\_create\_versions](#backlogops.jira_write_releases._create_versions)
   * [add\_releases\_to\_jira](#backlogops.jira_write_releases.add_releases_to_jira)
@@ -510,9 +512,12 @@
   * [\_CREATE\_FIELD\_NAMES](#backlogops.jira_write._CREATE_FIELD_NAMES)
   * [ExistsInJiraError](#backlogops.jira_write.ExistsInJiraError)
     * [\_\_init\_\_](#backlogops.jira_write.ExistsInJiraError.__init__)
+  * [ItemNotInJiraError](#backlogops.jira_write.ItemNotInJiraError)
+    * [\_\_init\_\_](#backlogops.jira_write.ItemNotInJiraError.__init__)
   * [UnknownIssueTypeError](#backlogops.jira_write.UnknownIssueTypeError)
     * [\_\_init\_\_](#backlogops.jira_write.UnknownIssueTypeError.__init__)
   * [OnExistingKey](#backlogops.jira_write.OnExistingKey)
+  * [OnMissingKey](#backlogops.jira_write.OnMissingKey)
   * [FailedItem](#backlogops.jira_write.FailedItem)
   * [StatusMismatch](#backlogops.jira_write.StatusMismatch)
   * [AddedToJira](#backlogops.jira_write.AddedToJira)
@@ -566,6 +571,18 @@
   * [apply\_jira\_keys](#backlogops.jira_write.apply_jira_keys)
   * [jira\_custom\_fields](#backlogops.jira_write.jira_custom_fields)
   * [jira\_editable\_fields](#backlogops.jira_write.jira_editable_fields)
+* [backlogops.jira\_update\_releases](#backlogops.jira_update_releases)
+  * [UpdatedReleasesInJira](#backlogops.jira_update_releases.UpdatedReleasesInJira)
+  * [\_UpdatedRel](#backlogops.jira_update_releases._UpdatedRel)
+  * [\_UpdateCtx](#backlogops.jira_update_releases._UpdateCtx)
+  * [\_versions\_by\_name](#backlogops.jira_update_releases._versions_by_name)
+  * [\_raise\_missing](#backlogops.jira_update_releases._raise_missing)
+  * [\_updated\_or\_failed](#backlogops.jira_update_releases._updated_or_failed)
+  * [\_record](#backlogops.jira_update_releases._record)
+  * [\_apply\_one](#backlogops.jira_update_releases._apply_one)
+  * [update\_releases\_in\_jira](#backlogops.jira_update_releases.update_releases_in_jira)
+  * [\_name\_section](#backlogops.jira_update_releases._name_section)
+  * [format\_release\_updates](#backlogops.jira_update_releases.format_release_updates)
 * [backlogops.backlog\_releases\_io](#backlogops.backlog_releases_io)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
@@ -8094,6 +8111,38 @@ def _raise_existing(names: list[str], stderr_file: TextIO) -> None
 
 Report and raise for release names that already exist in Jira.
 
+<a id="backlogops.jira_write_releases._run_version_write"></a>
+
+#### \_run\_version\_write
+
+```python
+def _run_version_write(release: Release, skipped: list[str],
+                       stderr_file: TextIO,
+                       write: Callable[[], None]) -> Optional[FailedRelease]
+```
+
+Run one version write, returning a FailedRelease when Jira refuses.
+
+``write`` performs the create or update and raises ``JIRAError`` when
+Jira refuses it. On success any mapped field the write could not accept
+(``skipped``) is reported and None is returned; on a refusal a copy of
+the release and a concise reason are returned. This is shared by
+creating a version and by updating a version.
+
+<a id="backlogops.jira_write_releases._try_create_version"></a>
+
+#### \_try\_create\_version
+
+```python
+def _try_create_version(ctx: _ReleaseCtx, release: Release,
+                        stderr_file: TextIO) -> Optional[FailedRelease]
+```
+
+Create one version, returning a FailedRelease when Jira refuses.
+
+The create payload is the inverted release map. This create step is
+shared by adding releases and by adding a missing release on update.
+
 <a id="backlogops.jira_write_releases._add_version"></a>
 
 #### \_add\_version
@@ -8106,8 +8155,7 @@ def _add_version(ctx: _ReleaseCtx, release: Release, existing: set[str],
 Create one not-yet-present release and record it in the accumulator.
 
 An already-present release is copied into ``already``. A refused create
-is recorded in ``failed``. A created release is copied into ``stored``,
-and any mapped field the create-version call cannot accept is reported.
+is recorded in ``failed``. A created release is copied into ``stored``.
 
 <a id="backlogops.jira_write_releases._create_versions"></a>
 
@@ -8698,6 +8746,32 @@ def __init__(keys: list[str]) -> None
 
 Store the already-present keys and build the message.
 
+<a id="backlogops.jira_write.ItemNotInJiraError"></a>
+
+## ItemNotInJiraError Objects
+
+```python
+class ItemNotInJiraError(RuntimeError)
+```
+
+Raised when an item to update is not present in Jira.
+
+It carries the sorted identifiers that are missing (release names or
+backlog keys) so a caller can report them, and a noun naming what they
+are. It derives from :class:`RuntimeError`, so a handler that catches
+``RuntimeError`` still catches it. It is shared by the release-update
+and backlog-update paths.
+
+<a id="backlogops.jira_write.ItemNotInJiraError.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(names: list[str], noun: str = 'Items') -> None
+```
+
+Store the missing identifiers and build the message.
+
 <a id="backlogops.jira_write.UnknownIssueTypeError"></a>
 
 ## UnknownIssueTypeError Objects
@@ -8731,6 +8805,16 @@ class OnExistingKey(Enum)
 ```
 
 What to do when a backlog item's key already exists in Jira.
+
+<a id="backlogops.jira_write.OnMissingKey"></a>
+
+## OnMissingKey Objects
+
+```python
+class OnMissingKey(Enum)
+```
+
+What to do when an item to update is not present in Jira.
 
 <a id="backlogops.jira_write.FailedItem"></a>
 
@@ -9466,6 +9550,206 @@ Return (field id, display name) pairs an issue's edit screen offers.
 A field missing from the returned list is not on the issue's edit
 screen for its issue type, so it cannot be set through the issue edit
 REST endpoint. This explains why a mapped field is skipped on write.
+
+<a id="backlogops.jira_update_releases"></a>
+
+# backlogops.jira\_update\_releases
+
+Update releases in Jira from internal releases.
+
+:func:`update_releases_in_jira` changes each Jira version whose name
+matches an internal release so that its mapped fields match the release,
+most importantly the release date. The fields written are the inverse of
+the preset's release column map, exactly as when adding a release, but the
+version name is the identity used to find the version and is never
+changed. A mapped value that is empty (such as a release with no planned
+date) is left unset, so an empty internal value never clears a Jira field.
+
+A release whose name is not present in Jira is handled by the chosen
+:class:`OnMissingKey` policy: ``RAISE`` raises :class:`ItemNotInJiraError`
+before anything is changed, ``IGNORE`` leaves the missing release alone,
+and ``ADD`` creates it exactly as :func:`add_releases_to_jira` would. A
+release whose update or creation Jira refuses is collected in the result's
+``failed`` list with a concise reason, and the remaining releases are
+still processed. The argument releases are never modified.
+
+<a id="backlogops.jira_update_releases.UpdatedReleasesInJira"></a>
+
+## UpdatedReleasesInJira Objects
+
+```python
+class UpdatedReleasesInJira(NamedTuple)
+```
+
+The result of updating releases in Jira.
+
+Fields:
+    updated: Names of the releases whose matching Jira version was
+        updated. A release with nothing to change (an empty mapped
+        value) is a no-op update and is still counted here.
+    ignored: Names of the releases not present in Jira and left
+        untouched under the ``IGNORE`` policy.
+    added: Names of the releases not present in Jira and created under
+        the ``ADD`` policy.
+    failed: Releases whose update or creation Jira refused, each with a
+        concise reason; the argument releases are not changed by a
+        failure.
+
+<a id="backlogops.jira_update_releases._UpdatedRel"></a>
+
+## \_UpdatedRel Objects
+
+```python
+@dataclass
+class _UpdatedRel()
+```
+
+Mutable accumulator of the update-releases results being built.
+
+<a id="backlogops.jira_update_releases._UpdateCtx"></a>
+
+## \_UpdateCtx Objects
+
+```python
+@dataclass(frozen=True)
+class _UpdateCtx()
+```
+
+The resolved target, the existing versions and the missing mode.
+
+<a id="backlogops.jira_update_releases._versions_by_name"></a>
+
+#### \_versions\_by\_name
+
+```python
+def _versions_by_name(ctx: _ReleaseCtx) -> dict[str, Resource]
+```
+
+Return the project's versions indexed by their name.
+
+<a id="backlogops.jira_update_releases._raise_missing"></a>
+
+#### \_raise\_missing
+
+```python
+def _raise_missing(names: list[str], stderr_file: TextIO) -> None
+```
+
+Report and raise for release names not present in Jira.
+
+<a id="backlogops.jira_update_releases._updated_or_failed"></a>
+
+#### \_updated\_or\_failed
+
+```python
+def _updated_or_failed(ctx: _ReleaseCtx, release: Release, version: Resource,
+                       stderr_file: TextIO) -> Optional[FailedRelease]
+```
+
+Update one matched version, returning a FailedRelease if refused.
+
+The update payload is the inverted release map without the version
+name, which is the identity and never changes. When nothing is left to
+set (an empty internal value) no update call is made.
+
+<a id="backlogops.jira_update_releases._record"></a>
+
+#### \_record
+
+```python
+def _record(acc: _UpdatedRel, done: list[str], name: str,
+            failed: Optional[FailedRelease]) -> None
+```
+
+Add a refusal to ``failed``, else the name to the ``done`` list.
+
+<a id="backlogops.jira_update_releases._apply_one"></a>
+
+#### \_apply\_one
+
+```python
+def _apply_one(ctx: _UpdateCtx, release: Release, acc: _UpdatedRel) -> None
+```
+
+Update, add or ignore one release per the missing-key mode.
+
+A release matched by name is updated. A missing release is created
+under ``ADD`` and left alone under ``IGNORE``; the ``RAISE`` mode has
+already raised before the loop, so a missing release is not seen here.
+
+<a id="backlogops.jira_update_releases.update_releases_in_jira"></a>
+
+#### update\_releases\_in\_jira
+
+```python
+def update_releases_in_jira(
+        connections: JiraConnections,
+        preset_name: str,
+        releases: Releases,
+        *,
+        on_missing_key: OnMissingKey,
+        stderr_file: TextIO = sys.stderr) -> UpdatedReleasesInJira
+```
+
+Update the releases in Jira, matching a Jira version by its name.
+
+The project's versions are read once and indexed by name. In ``RAISE``
+mode, if any release name is not present the function raises before
+changing anything. Each matched version is updated from the preset's
+release column map, so its mapped fields (most importantly the release
+date) match the internal release; an empty internal value is left
+unset. A release whose name is not present is added in ``ADD`` mode and
+left alone in ``IGNORE`` mode. A release whose update or creation Jira
+refuses is collected in ``failed`` with a concise reason, and the other
+releases are still processed. The argument releases are never modified.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients and the configuration
+  holding the preset, connection and release column map.
+- `preset_name` - The name of the Jira preset to use.
+- `releases` - The releases to update. Not modified.
+- `on_missing_key` - Whether to raise, ignore or add when a release name
+  is not present in Jira.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The names of the updated, ignored and added releases, and the
+  releases whose update or creation failed with a reason.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or a referenced connection or map is
+  missing.
+- `ItemNotInJiraError` - In ``RAISE`` mode, if any release name is not
+  present in Jira.
+
+<a id="backlogops.jira_update_releases._name_section"></a>
+
+#### \_name\_section
+
+```python
+def _name_section(heading: str, names: list[str]) -> list[str]
+```
+
+Return the heading with its count and one line per release name.
+
+<a id="backlogops.jira_update_releases.format_release_updates"></a>
+
+#### format\_release\_updates
+
+```python
+def format_release_updates(result: UpdatedReleasesInJira) -> str
+```
+
+Return a listing of the updated, ignored, added and failed releases.
+
+Each section has a heading with its count, then one line per release
+name, or a ``(none)`` line when the section is empty. The CLI prints
+this text and the GUI shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.backlog_releases_io"></a>
 

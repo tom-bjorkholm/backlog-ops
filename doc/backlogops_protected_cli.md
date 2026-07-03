@@ -121,6 +121,13 @@
   * [\_warn\_if\_inconsistent](#backlogops_cli.read_jira._warn_if_inconsistent)
   * [\_read\_jira](#backlogops_cli.read_jira._read_jira)
   * [main](#backlogops_cli.read_jira.main)
+* [backlogops\_cli.update\_releases\_in\_jira](#backlogops_cli.update_releases_in_jira)
+  * [build\_parser](#backlogops_cli.update_releases_in_jira.build_parser)
+  * [\_passphrase](#backlogops_cli.update_releases_in_jira._passphrase)
+  * [\_select](#backlogops_cli.update_releases_in_jira._select)
+  * [\_update](#backlogops_cli.update_releases_in_jira._update)
+  * [\_run](#backlogops_cli.update_releases_in_jira._run)
+  * [main](#backlogops_cli.update_releases_in_jira.main)
 * [backlogops\_cli.estimate\_ready\_date](#backlogops_cli.estimate_ready_date)
   * [build\_parser](#backlogops_cli.estimate_ready_date.build_parser)
   * [\_start\_date](#backlogops_cli.estimate_ready_date._start_date)
@@ -1774,6 +1781,101 @@ Read a backlog and releases from Jira and write them to a file.
 **Returns**:
 
   ``0`` on success, ``1`` when the data cannot be read or written.
+
+<a id="backlogops_cli.update_releases_in_jira"></a>
+
+# backlogops\_cli.update\_releases\_in\_jira
+
+Update releases in Jira from an input file, matching versions by name.
+
+The command reads a backlog and its releases from the input file, then
+updates the matching Jira versions using a named preset of the backlog-ops
+configuration, changing each version's mapped fields (most importantly the
+release date) to match the internal release. ``--on-missing`` chooses what
+to do with a release whose name is not present in Jira: ``raise`` (the
+default) stops with an error, ``ignore`` leaves it alone, and ``add``
+creates it. ``--release`` names releases and may be given several times;
+``--only-listed`` limits the update to just those named releases, while
+without it every input release is updated.
+
+The updated, ignored, added and failed releases are printed to stdout as
+labelled lists, unless ``-q``/``--quiet`` is given. An encrypted Jira token
+is unlocked by a pass phrase asked on the terminal only when it is needed.
+
+<a id="backlogops_cli.update_releases_in_jira.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the update-releases command.
+
+<a id="backlogops_cli.update_releases_in_jira._passphrase"></a>
+
+#### \_passphrase
+
+```python
+def _passphrase() -> str
+```
+
+Ask for the Jira token pass phrase on the terminal.
+
+<a id="backlogops_cli.update_releases_in_jira._select"></a>
+
+#### \_select
+
+```python
+def _select(parsed: argparse.Namespace, releases: Releases) -> Releases
+```
+
+Return the releases to update, limited to --release when asked.
+
+Without ``--only-listed`` every input release is returned. With it,
+only the releases whose name was named with ``--release`` are kept, and
+any named release missing from the input is reported.
+
+<a id="backlogops_cli.update_releases_in_jira._update"></a>
+
+#### \_update
+
+```python
+def _update(parsed: argparse.Namespace, config: BacklogOpsConfig,
+            releases: Releases) -> UpdatedReleasesInJira
+```
+
+Update the selected releases in Jira using the named preset.
+
+<a id="backlogops_cli.update_releases_in_jira._run"></a>
+
+#### \_run
+
+```python
+def _run(parsed: argparse.Namespace) -> int
+```
+
+Read the input, update the releases and print the result lists.
+
+<a id="backlogops_cli.update_releases_in_jira.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Update releases in Jira and report the outcome per release.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the releases cannot be updated or a
+  name is not present in Jira with the raise policy.
 
 <a id="backlogops_cli.estimate_ready_date"></a>
 

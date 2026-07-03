@@ -13,57 +13,19 @@ server.
 
 import io
 from datetime import date
-from types import SimpleNamespace
 from typing import Optional
 import pytest
-from jira import JIRAError
 import backlogops
 from backlogops.jira_connect import JiraConnections
-from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, JiraColumnMap
+from backlogops.jira_io_config import JiraColumnMap
 from backlogops.jira_write import OnExistingKey
 from backlogops.jira_write_releases import (
     add_releases_to_jira, AddedReleasesToJira, FailedRelease,
     ReleaseExistsError, format_release_result)
 from backlogops.releases import Release
 from .jira_write_helpers import (
+    FakeJiraClient as _RelClient, attr_path as _attr,
     connections_for as _connections, jira_write_config as _config, NO)
-
-
-class _RelClient:
-    """A stand-in Jira client for the add-releases-to-Jira tests."""
-
-    def __init__(self, existing: Optional[list[str]] = None,
-                 fail_names: Optional[set[str]] = None) -> None:
-        """Start with the present version names and the failing names."""
-        self.existing = [] if existing is None else list(existing)
-        self.fail_names = set() if fail_names is None else set(fail_names)
-        self.created: list[dict[str, object]] = []
-
-    def project_versions(self, project: str) -> list[SimpleNamespace]:
-        """Return the project's versions as name-carrying resources."""
-        _ = project
-        return [SimpleNamespace(name=name) for name in self.existing]
-
-    def create_version(self, name: str, project: str,
-                       **kwargs: object) -> SimpleNamespace:
-        """Record the create payload, or raise for a failing name."""
-        if name in self.fail_names:
-            raise JIRAError(status_code=400, text='bad version')
-        record: dict[str, object] = {'name': name, 'project': project}
-        record.update(kwargs)
-        self.created.append(record)
-        return SimpleNamespace(name=name)
-
-
-def _rel(name: str, planned: Optional[date] = None,
-         estimated: Optional[date] = None) -> Release:
-    """Return a release with optional planned and estimated dates."""
-    return Release(name=name, planned_date=planned, estimated_date=estimated)
-
-
-def _attr(step: str) -> tuple[JiraAttrPath, ...]:
-    """Return a one-step attribute path targeting a version attribute."""
-    return (JiraAttrPath(JiraAttrType.ATTRIBUTE, (step,)),)
 
 
 def _add(connections: JiraConnections, releases: list[Release],
@@ -79,7 +41,7 @@ def test_add_all_new(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test every release is created and copied when none are present."""
     client = _RelClient()
     connections = _connections(monkeypatch, client)
-    releases = [_rel('R1', date(2026, 1, 1)), _rel('R2')]
+    releases = [Release('R1', date(2026, 1, 1)), Release('R2')]
     result = _add(connections, releases, OnExistingKey.RAISE)
     assert [rel.name for rel in result.stored] == ['R1', 'R2']
     assert not result.already_present
@@ -91,7 +53,7 @@ def test_skip_existing(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test present names are skipped and the rest are created."""
     client = _RelClient(existing=['R2'])
     connections = _connections(monkeypatch, client)
-    releases = [_rel('R1'), _rel('R2'), _rel('R3')]
+    releases = [Release('R1'), Release('R2'), Release('R3')]
     result = _add(connections, releases, OnExistingKey.SKIP)
     assert [rel.name for rel in result.stored] == ['R1', 'R3']
     assert [rel.name for rel in result.already_present] == ['R2']
@@ -103,7 +65,7 @@ def test_raise_existing(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _RelClient(existing=['R2'])
     connections = _connections(monkeypatch, client)
     with pytest.raises(ReleaseExistsError) as caught:
-        _add(connections, [_rel('R1'), _rel('R2')], OnExistingKey.RAISE)
+        _add(connections, [Release('R1'), Release('R2')], OnExistingKey.RAISE)
     assert caught.value.names == ['R2']
     assert not client.created
 
@@ -112,7 +74,7 @@ def test_create_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the inverted release map builds the create-version payload."""
     client = _RelClient()
     connections = _connections(monkeypatch, client)
-    _add(connections, [_rel('R1', date(2026, 6, 12))])
+    _add(connections, [Release('R1', date(2026, 6, 12))])
     record = client.created[0]
     assert record == {'name': 'R1', 'project': 'PROJ',
                       'releaseDate': '2026-06-12'}
@@ -122,7 +84,7 @@ def test_no_planned_date(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a release without a planned date writes no release date."""
     client = _RelClient()
     connections = _connections(monkeypatch, client)
-    _add(connections, [_rel('R1')])
+    _add(connections, [Release('R1')])
     assert client.created[0] == {'name': 'R1', 'project': 'PROJ'}
 
 
@@ -132,7 +94,7 @@ def test_estimated_via_map(monkeypatch: pytest.MonkeyPatch) -> None:
                                   'estimated_date': _attr('startDate')}
     client = _RelClient()
     connections = _connections(monkeypatch, client, _config('P', release_map))
-    _add(connections, [_rel('R1', estimated=date(2026, 3, 4))])
+    _add(connections, [Release('R1', estimated_date=date(2026, 3, 4))])
     assert client.created[0] == {'name': 'R1', 'project': 'P',
                                  'startDate': '2026-03-04'}
 
@@ -144,7 +106,7 @@ def test_skipped_field(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _RelClient()
     connections = _connections(monkeypatch, client, _config('P', release_map))
     errors = io.StringIO()
-    _add(connections, [_rel('R1', date(2026, 1, 1))], stderr=errors)
+    _add(connections, [Release('R1', date(2026, 1, 1))], stderr=errors)
     assert client.created[0] == {'name': 'R1', 'project': 'P'}
     assert 'userReleaseDate' in errors.getvalue()
 
@@ -153,7 +115,7 @@ def test_input_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the stored copy is distinct and the argument is untouched."""
     client = _RelClient()
     connections = _connections(monkeypatch, client)
-    release = _rel('R1', date(2026, 1, 1))
+    release = Release('R1', date(2026, 1, 1))
     result = _add(connections, [release])
     stored = result.stored[0]
     stored.name = 'CHANGED'
@@ -164,9 +126,9 @@ def test_input_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_failed_continue(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a refused create is reported and the others still added."""
-    client = _RelClient(fail_names={'R1'})
+    client = _RelClient(fail_create={'R1'})
     connections = _connections(monkeypatch, client)
-    result = _add(connections, [_rel('R1'), _rel('R2')])
+    result = _add(connections, [Release('R1'), Release('R2')])
     assert [rel.name for rel in result.stored] == ['R2']
     assert [entry.release.name for entry in result.failed] == ['R1']
     assert 'HTTP 400' in result.failed[0].reason
@@ -184,8 +146,9 @@ def test_empty_releases(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_format_result() -> None:
     """Test the listing shows the added, present and failed sections."""
     result = AddedReleasesToJira(
-        stored=[_rel('R1', date(2026, 1, 1))], already_present=[_rel('R2')],
-        failed=[FailedRelease(_rel('R3'), 'HTTP 400: nope')])
+        stored=[Release('R1', date(2026, 1, 1))],
+        already_present=[Release('R2')],
+        failed=[FailedRelease(Release('R3'), 'HTTP 400: nope')])
     text = format_release_result(result)
     assert 'Added to Jira (1):' in text
     assert '  R1  2026-01-01' in text

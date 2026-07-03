@@ -33,7 +33,7 @@ import copy
 import sys
 from dataclasses import dataclass
 from datetime import date
-from typing import NamedTuple, TextIO
+from typing import Callable, NamedTuple, Optional, TextIO
 from jira import JIRA, JIRAError
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap
@@ -173,26 +173,55 @@ def _raise_existing(names: list[str], stderr_file: TextIO) -> None:
     raise error
 
 
+def _run_version_write(release: Release, skipped: list[str],
+                       stderr_file: TextIO,
+                       write: Callable[[], None]) -> Optional[FailedRelease]:
+    """Run one version write, returning a FailedRelease when Jira refuses.
+
+    ``write`` performs the create or update and raises ``JIRAError`` when
+    Jira refuses it. On success any mapped field the write could not accept
+    (``skipped``) is reported and None is returned; on a refusal a copy of
+    the release and a concise reason are returned. This is shared by
+    creating a version and by updating a version.
+    """
+    try:
+        write()
+    except JIRAError as error:
+        return FailedRelease(copy.deepcopy(release), _jira_reason(error))
+    if skipped:
+        _report_skipped(release.name, skipped, stderr_file)
+    return None
+
+
+def _try_create_version(ctx: _ReleaseCtx, release: Release,
+                        stderr_file: TextIO) -> Optional[FailedRelease]:
+    """Create one version, returning a FailedRelease when Jira refuses.
+
+    The create payload is the inverted release map. This create step is
+    shared by adding releases and by adding a missing release on update.
+    """
+    kwargs, skipped = _version_kwargs(release, ctx.column_map)
+
+    def write() -> None:
+        """Create the version with the inverted release map payload."""
+        ctx.client.create_version(project=ctx.project, **kwargs)
+    return _run_version_write(release, skipped, stderr_file, write)
+
+
 def _add_version(ctx: _ReleaseCtx, release: Release, existing: set[str],
                  acc: _AddedRel, stderr_file: TextIO) -> None:
     """Create one not-yet-present release and record it in the accumulator.
 
     An already-present release is copied into ``already``. A refused create
-    is recorded in ``failed``. A created release is copied into ``stored``,
-    and any mapped field the create-version call cannot accept is reported.
+    is recorded in ``failed``. A created release is copied into ``stored``.
     """
     if release.name in existing:
         acc.already.append(copy.deepcopy(release))
         return
-    kwargs, skipped = _version_kwargs(release, ctx.column_map)
-    try:
-        ctx.client.create_version(project=ctx.project, **kwargs)
-    except JIRAError as error:
-        acc.failed.append(
-            FailedRelease(copy.deepcopy(release), _jira_reason(error)))
+    failed = _try_create_version(ctx, release, stderr_file)
+    if failed is not None:
+        acc.failed.append(failed)
         return
-    if skipped:
-        _report_skipped(release.name, skipped, stderr_file)
     acc.stored.append(copy.deepcopy(release))
 
 
