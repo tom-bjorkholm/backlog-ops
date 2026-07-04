@@ -90,6 +90,7 @@
     * [\_adopt\_loaded\_config](#backlogops_gui.application.BacklogApp._adopt_loaded_config)
     * [\_run\_bridge\_wizard](#backlogops_gui.application.BacklogApp._run_bridge_wizard)
     * [run\_wizard](#backlogops_gui.application.BacklogApp.run_wizard)
+    * [\_load\_config\_file](#backlogops_gui.application.BacklogApp._load_config_file)
     * [run\_config\_wizard](#backlogops_gui.application.BacklogApp.run_config_wizard)
     * [create\_preset\_file](#backlogops_gui.application.BacklogApp.create_preset_file)
     * [migrate\_preset\_file](#backlogops_gui.application.BacklogApp.migrate_preset_file)
@@ -1171,7 +1172,8 @@ Return the graphical interface preset migration instructions.
 Tkinter application for backlog operations.
 
 The application opens a main window whose menu reads a backlog from a file,
-runs the teams configuration wizard, creates a stand-alone input or output
+loads or replaces the active configuration from a file, runs the teams
+configuration wizard, creates a stand-alone input or output
 preset file, migrates a stand-alone preset file to the current format,
 writes the running configuration to a file, and creates a
 demonstration backlog. Each backlog opens in its own
@@ -1418,6 +1420,21 @@ def run_wizard() -> Optional[BacklogOpsConfig]
 ```
 
 Run the config wizard and return its configuration, or None.
+
+<a id="backlogops_gui.application.BacklogApp._load_config_file"></a>
+
+#### \_load\_config\_file
+
+```python
+def _load_config_file() -> None
+```
+
+Load a chosen configuration file and make it the active config.
+
+Opens a file chooser; if the user cancels nothing changes. On a
+successful load the in-RAM configuration is replaced, the status
+line is updated, and a confirmation dialog is shown. On failure
+the current configuration is kept and an error is reported.
 
 <a id="backlogops_gui.application.BacklogApp.run_config_wizard"></a>
 

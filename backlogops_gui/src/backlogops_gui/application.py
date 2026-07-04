@@ -2,7 +2,8 @@
 """Tkinter application for backlog operations.
 
 The application opens a main window whose menu reads a backlog from a file,
-runs the teams configuration wizard, creates a stand-alone input or output
+loads or replaces the active configuration from a file, runs the teams
+configuration wizard, creates a stand-alone input or output
 preset file, migrates a stand-alone preset file to the current format,
 writes the running configuration to a file, and creates a
 demonstration backlog. Each backlog opens in its own
@@ -261,6 +262,28 @@ class BacklogApp:
     def run_wizard(self) -> Optional[BacklogOpsConfig]:
         """Run the config wizard and return its configuration, or None."""
         return self._run_bridge_wizard(backlog_ops_wizard, 'Wizard error')
+
+    def _load_config_file(self) -> None:
+        """Load a chosen configuration file and make it the active config.
+
+        Opens a file chooser; if the user cancels nothing changes. On a
+        successful load the in-RAM configuration is replaced, the status
+        line is updated, and a confirmation dialog is shown. On failure
+        the current configuration is kept and an error is reported.
+        """
+        path = choose_existing_config(self.root)
+        if path is None:
+            return
+        config, error = initial_config(path, self.log)
+        if config is None:
+            self.show_error('Configuration error',
+                            error or 'Could not load the configuration.')
+            return
+        self.config = config
+        self.config_source = path
+        self._update_status()
+        self.show_info('Configuration loaded',
+                       f'Loaded configuration from {path}.')
 
     def run_config_wizard(self) -> None:
         """Run the wizard and make a new configuration active on success."""
@@ -745,6 +768,9 @@ class BacklogApp:
     def _add_config_menu(self, menubar: tk.Menu) -> None:
         """Add the configuration menu with the wizard and write actions."""
         menu = tk.Menu(menubar, tearoff=False)
+        menu.add_command(label='Load configuration file…',
+                         command=self._load_config_file)
+        menu.add_separator()
         menu.add_command(label='Run configuration wizard…',
                          command=self.run_config_wizard)
         menu.add_command(label='Create IO preset file…',
