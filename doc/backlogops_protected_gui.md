@@ -126,6 +126,13 @@
     * [\_releases\_update\_worker](#backlogops_gui.application.BacklogApp._releases_update_worker)
     * [\_releases\_update\_failed](#backlogops_gui.application.BacklogApp._releases_update_failed)
     * [\_releases\_update\_done](#backlogops_gui.application.BacklogApp._releases_update_done)
+    * [\_backlog\_update\_action](#backlogops_gui.application.BacklogApp._backlog_update_action)
+    * [\_preset\_update\_fields](#backlogops_gui.application.BacklogApp._preset_update_fields)
+    * [\_update\_backlog\_in\_jira](#backlogops_gui.application.BacklogApp._update_backlog_in_jira)
+    * [\_start\_backlog\_update](#backlogops_gui.application.BacklogApp._start_backlog_update)
+    * [\_backlog\_update\_worker](#backlogops_gui.application.BacklogApp._backlog_update_worker)
+    * [\_backlog\_update\_failed](#backlogops_gui.application.BacklogApp._backlog_update_failed)
+    * [\_backlog\_update\_done](#backlogops_gui.application.BacklogApp._backlog_update_done)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
     * [open\_backlog](#backlogops_gui.application.BacklogApp.open_backlog)
     * [report\_versions](#backlogops_gui.application.BacklogApp.report_versions)
@@ -170,6 +177,7 @@
   * [order\_dates](#backlogops_gui.backlog_window.order_dates)
   * [extract\_keys](#backlogops_gui.backlog_window.extract_keys)
   * [apply\_add\_result](#backlogops_gui.backlog_window.apply_add_result)
+  * [apply\_update\_result](#backlogops_gui.backlog_window.apply_update_result)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
     * [\_report\_error](#backlogops_gui.backlog_window.BacklogWindow._report_error)
@@ -199,6 +207,9 @@
     * [\_on\_releases\_added](#backlogops_gui.backlog_window.BacklogWindow._on_releases_added)
     * [\_releases\_update](#backlogops_gui.backlog_window.BacklogWindow._releases_update)
     * [\_on\_releases\_updated](#backlogops_gui.backlog_window.BacklogWindow._on_releases_updated)
+    * [\_backlog\_update](#backlogops_gui.backlog_window.BacklogWindow._backlog_update)
+    * [\_on\_backlog\_updated](#backlogops_gui.backlog_window.BacklogWindow._on_backlog_updated)
+    * [\_show\_update\_report](#backlogops_gui.backlog_window.BacklogWindow._show_update_report)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
   * [ConfigChoice](#backlogops_gui.io_dialogs.ConfigChoice)
   * [PresetKind](#backlogops_gui.io_dialogs.PresetKind)
@@ -208,6 +219,7 @@
   * [JiraReadOptions](#backlogops_gui.io_dialogs.JiraReadOptions)
   * [JiraWriteOptions](#backlogops_gui.io_dialogs.JiraWriteOptions)
   * [JiraReleaseUpdateOptions](#backlogops_gui.io_dialogs.JiraReleaseUpdateOptions)
+  * [JiraBacklogUpdateOptions](#backlogops_gui.io_dialogs.JiraBacklogUpdateOptions)
   * [choose\_input\_file](#backlogops_gui.io_dialogs.choose_input_file)
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
@@ -265,6 +277,15 @@
     * [\_build\_releases](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_releases)
     * [\_confirm](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._confirm)
   * [ask\_release\_update](#backlogops_gui.io_dialogs.ask_release_update)
+  * [\_JiraBacklogUpdateDialog](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog)
+    * [\_\_init\_\_](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog.__init__)
+    * [\_build](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build)
+    * [\_build\_preset](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_preset)
+    * [\_build\_mode](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_mode)
+    * [\_build\_fields](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_fields)
+    * [\_preset\_changed](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._preset_changed)
+    * [\_confirm](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._confirm)
+  * [ask\_backlog\_update](#backlogops_gui.io_dialogs.ask_backlog_update)
   * [\_PassphraseDialog](#backlogops_gui.io_dialogs._PassphraseDialog)
     * [\_\_init\_\_](#backlogops_gui.io_dialogs._PassphraseDialog.__init__)
     * [\_build](#backlogops_gui.io_dialogs._PassphraseDialog._build)
@@ -1824,6 +1845,85 @@ def _releases_update_done(
 
 Hand the result to the window and log the completed update.
 
+<a id="backlogops_gui.application.BacklogApp._backlog_update_action"></a>
+
+#### \_backlog\_update\_action
+
+```python
+def _backlog_update_action() -> Optional[Callable[
+    [BacklogReleases, Callable[[UpdatedBacklogInJira], None]], None]]
+```
+
+Return the update-backlog handler, or None when unavailable.
+
+<a id="backlogops_gui.application.BacklogApp._preset_update_fields"></a>
+
+#### \_preset\_update\_fields
+
+```python
+def _preset_update_fields() -> dict[str, list[str]]
+```
+
+Return each preset name mapped to its updatable backlog fields.
+
+<a id="backlogops_gui.application.BacklogApp._update_backlog_in_jira"></a>
+
+#### \_update\_backlog\_in\_jira
+
+```python
+def _update_backlog_in_jira(
+        data: BacklogReleases, on_done: Callable[[UpdatedBacklogInJira],
+                                                 None]) -> None
+```
+
+Ask for a preset, fields and mode, then update the backlog.
+
+<a id="backlogops_gui.application.BacklogApp._start_backlog_update"></a>
+
+#### \_start\_backlog\_update
+
+```python
+def _start_backlog_update(
+        data: BacklogReleases, options: JiraBacklogUpdateOptions,
+        on_done: Callable[[UpdatedBacklogInJira], None]) -> None
+```
+
+Start the Jira backlog-update worker thread.
+
+<a id="backlogops_gui.application.BacklogApp._backlog_update_worker"></a>
+
+#### \_backlog\_update\_worker
+
+```python
+def _backlog_update_worker(
+        data: BacklogReleases, options: JiraBacklogUpdateOptions,
+        on_done: Callable[[UpdatedBacklogInJira], None]) -> None
+```
+
+Update the backlog on a worker and schedule the GUI update.
+
+<a id="backlogops_gui.application.BacklogApp._backlog_update_failed"></a>
+
+#### \_backlog\_update\_failed
+
+```python
+def _backlog_update_failed(preset_name: str, message: str) -> None
+```
+
+Report a failed backlog update on the GUI thread.
+
+<a id="backlogops_gui.application.BacklogApp._backlog_update_done"></a>
+
+#### \_backlog\_update\_done
+
+```python
+def _backlog_update_done(
+        preset_name: str, result: UpdatedBacklogInJira,
+        on_done: Callable[[UpdatedBacklogInJira], None]) -> None
+```
+
+Hand the result to the window and log the completed update.
+
 <a id="backlogops_gui.application.BacklogApp.new_demo_backlog"></a>
 
 #### new\_demo\_backlog
@@ -2364,6 +2464,22 @@ The added items take their new Jira keys (order preserved), the view
 is rebuilt, and the added and already-present lists are shown to the
 user through ``show_report``.
 
+<a id="backlogops_gui.backlog_window.apply_update_result"></a>
+
+#### apply\_update\_result
+
+```python
+def apply_update_result(data: BacklogReleases, result: UpdatedBacklogInJira,
+                        refresh: Callable[[], None],
+                        show_report: Callable[[str], None]) -> None
+```
+
+Rekey any added items, refresh the view and show the update lists.
+
+Only the items added under the ``ADD`` policy took new Jira keys, so
+the shown backlog is rekeyed with the add result's key map, the view is
+rebuilt, and the update outcome is shown through ``show_report``.
+
 <a id="backlogops_gui.backlog_window.BacklogWindow"></a>
 
 ## BacklogWindow Objects
@@ -2396,6 +2512,9 @@ def __init__(
                  None]] = None,
     update_releases: Optional[
         Callable[[BacklogReleases, Callable[[UpdatedReleasesInJira], None]],
+                 None]] = None,
+    update_backlog: Optional[
+        Callable[[BacklogReleases, Callable[[UpdatedBacklogInJira], None]],
                  None]] = None
 ) -> None
 ```
@@ -2424,6 +2543,9 @@ Build the window, its menu and the two tables.
   calls back with the result, or None when adding is
   unavailable (no configuration or no write presets).
 - `update_releases` - Handler that updates the shown releases in Jira
+  and calls back with the result, or None when updating is
+  unavailable (no configuration or no write presets).
+- `update_backlog` - Handler that updates the shown backlog in Jira
   and calls back with the result, or None when updating is
   unavailable (no configuration or no write presets).
 
@@ -2711,6 +2833,40 @@ The lists are the updated, already-correct, ignored, added and
 failed releases. An update changes only the Jira versions, not the
 shown releases, so no rebuild of the tables is needed.
 
+<a id="backlogops_gui.backlog_window.BacklogWindow._backlog_update"></a>
+
+#### \_backlog\_update
+
+```python
+def _backlog_update() -> None
+```
+
+Update the shown backlog in Jira and show the result lists.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._on_backlog_updated"></a>
+
+#### \_on\_backlog\_updated
+
+```python
+def _on_backlog_updated(result: UpdatedBacklogInJira) -> None
+```
+
+Rekey any added items, refresh the view and show the outcome.
+
+Only items added under the ``ADD`` policy took new Jira keys, so the
+shown backlog is rekeyed for them, the tables are rebuilt, and the
+update outcome is shown in a copy-pasteable pop-up.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._show_update_report"></a>
+
+#### \_show\_update\_report
+
+```python
+def _show_update_report(text: str) -> None
+```
+
+Show the backlog update result text in a copy-pasteable pop-up.
+
 <a id="backlogops_gui.io_dialogs"></a>
 
 # backlogops\_gui.io\_dialogs
@@ -2811,6 +2967,17 @@ class JiraReleaseUpdateOptions()
 ```
 
 The preset, missing-name mode and selected names for updating.
+
+<a id="backlogops_gui.io_dialogs.JiraBacklogUpdateOptions"></a>
+
+## JiraBacklogUpdateOptions Objects
+
+```python
+@dataclass
+class JiraBacklogUpdateOptions()
+```
+
+The preset, missing-key mode, fields and link policy for updating.
 
 <a id="backlogops_gui.io_dialogs.choose_input_file"></a>
 
@@ -3391,6 +3558,103 @@ def ask_release_update(
 ```
 
 Ask the preset, missing-name mode and releases, None when cancelled.
+
+<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog"></a>
+
+## \_JiraBacklogUpdateDialog Objects
+
+```python
+class _JiraBacklogUpdateDialog(_ModalDialog)
+```
+
+Modal dialog for the backlog-update preset, mode, fields and links.
+
+The field checkboxes depend on the selected preset, so they are rebuilt
+whenever the preset changes. ``preset_fields`` maps each preset name to
+the internal fields it can update.
+
+<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, preset_fields: Mapping[str,
+                                                     Sequence[str]]) -> None
+```
+
+Build, show and wait for the backlog-update dialog.
+
+<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build"></a>
+
+#### \_build
+
+```python
+def _build(names: Sequence[str]) -> None
+```
+
+Add the preset, the mode radios, the links box and the fields.
+
+<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_preset"></a>
+
+#### \_build\_preset
+
+```python
+def _build_preset(names: Sequence[str]) -> None
+```
+
+Add the Jira preset label and read-only chooser.
+
+<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_mode"></a>
+
+#### \_build\_mode
+
+```python
+def _build_mode() -> None
+```
+
+Add the radios choosing what to do with a missing key.
+
+<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_fields"></a>
+
+#### \_build\_fields
+
+```python
+def _build_fields() -> None
+```
+
+Rebuild the field checkboxes for the selected preset.
+
+<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._preset_changed"></a>
+
+#### \_preset\_changed
+
+```python
+def _preset_changed(_event: object) -> None
+```
+
+Rebuild the field checkboxes for the newly selected preset.
+
+<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the preset, mode, fields and link policy, requiring both.
+
+<a id="backlogops_gui.io_dialogs.ask_backlog_update"></a>
+
+#### ask\_backlog\_update
+
+```python
+def ask_backlog_update(
+    parent: tk.Misc, preset_fields: Mapping[str, Sequence[str]]
+) -> Optional[JiraBacklogUpdateOptions]
+```
+
+Ask the preset, mode, fields and link policy, None when cancelled.
 
 <a id="backlogops_gui.io_dialogs._PassphraseDialog"></a>
 

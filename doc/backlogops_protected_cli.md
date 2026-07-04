@@ -6,6 +6,15 @@
   * [\_print\_pairs](#backlogops_cli.jira_fields._print_pairs)
   * [\_run](#backlogops_cli.jira_fields._run)
   * [main](#backlogops_cli.jira_fields.main)
+* [backlogops\_cli.update\_backlog\_in\_jira](#backlogops_cli.update_backlog_in_jira)
+  * [build\_parser](#backlogops_cli.update_backlog_in_jira.build_parser)
+  * [\_add\_column\_flags](#backlogops_cli.update_backlog_in_jira._add_column_flags)
+  * [\_passphrase](#backlogops_cli.update_backlog_in_jira._passphrase)
+  * [\_resolve\_fields](#backlogops_cli.update_backlog_in_jira._resolve_fields)
+  * [\_update](#backlogops_cli.update_backlog_in_jira._update)
+  * [\_report\_summary](#backlogops_cli.update_backlog_in_jira._report_summary)
+  * [\_run](#backlogops_cli.update_backlog_in_jira._run)
+  * [main](#backlogops_cli.update_backlog_in_jira.main)
 * [backlogops\_cli.adjust\_release\_content](#backlogops_cli.adjust_release_content)
   * [build\_parser](#backlogops_cli.adjust_release_content.build_parser)
   * [\_adjust](#backlogops_cli.adjust_release_content._adjust)
@@ -208,6 +217,127 @@ Print Jira field information for a preset.
 **Returns**:
 
   ``0`` on success, ``1`` when the fields cannot be read.
+
+<a id="backlogops_cli.update_backlog_in_jira"></a>
+
+# backlogops\_cli.update\_backlog\_in\_jira
+
+Update a backlog in Jira from an input file, matching issues by key.
+
+The command reads a backlog (or a backlog and its releases) from the input
+file, then updates the matching Jira issues using a named preset of the
+backlog-ops configuration, changing only a chosen subset of the mapped
+fields. The subset is chosen with exactly one of two flags: ``-s``/``--store``
+lists the columns to update (or the single word ``all`` for every mapped
+writable column), while ``-e``/``--exclude`` updates every mapped writable
+column except the listed ones.
+
+``--on-missing`` chooses what to do with an item whose key is not present in
+Jira: ``raise`` (the default) stops with an error, ``ignore`` leaves it
+alone, and ``add`` creates it with all of its fields. ``--add-links-only``
+only adds the missing parent and dependency links; without it the links are
+reconciled, so a Jira link the backlog no longer has is removed.
+
+The updated, already-correct, ignored, added and failed items are printed
+to stdout as labelled lists, unless ``-q``/``--quiet`` is given. An
+encrypted Jira token is unlocked by a pass phrase asked on the terminal
+only when it is needed.
+
+<a id="backlogops_cli.update_backlog_in_jira.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the update-backlog command.
+
+<a id="backlogops_cli.update_backlog_in_jira._add_column_flags"></a>
+
+#### \_add\_column\_flags
+
+```python
+def _add_column_flags(parser: argparse.ArgumentParser) -> None
+```
+
+Add the mutually exclusive, required column-selection flags.
+
+<a id="backlogops_cli.update_backlog_in_jira._passphrase"></a>
+
+#### \_passphrase
+
+```python
+def _passphrase() -> str
+```
+
+Ask for the Jira token pass phrase on the terminal.
+
+<a id="backlogops_cli.update_backlog_in_jira._resolve_fields"></a>
+
+#### \_resolve\_fields
+
+```python
+def _resolve_fields(parsed: argparse.Namespace,
+                    connections: JiraConnections) -> list[str]
+```
+
+Return the internal field names to update from the -s/-e flags.
+
+``-s all`` and ``-e`` are resolved against the preset's updatable
+columns. A ``-s`` name that is not an updatable column is reported and
+dropped, so a typo does not silently update nothing.
+
+<a id="backlogops_cli.update_backlog_in_jira._update"></a>
+
+#### \_update
+
+```python
+def _update(parsed: argparse.Namespace, config: BacklogOpsConfig,
+            data_backlog: object) -> UpdatedBacklogInJira
+```
+
+Update the input backlog in Jira using the named preset.
+
+<a id="backlogops_cli.update_backlog_in_jira._report_summary"></a>
+
+#### \_report\_summary
+
+```python
+def _report_summary(result: UpdatedBacklogInJira) -> None
+```
+
+Print a one-line summary of the update outcome to stderr.
+
+<a id="backlogops_cli.update_backlog_in_jira._run"></a>
+
+#### \_run
+
+```python
+def _run(parsed: argparse.Namespace) -> int
+```
+
+Read the input, update the backlog and print the result lists.
+
+<a id="backlogops_cli.update_backlog_in_jira.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Update a backlog in Jira and report the outcome per item.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the backlog cannot be updated or a key
+  is not present in Jira with the raise policy.
 
 <a id="backlogops_cli.adjust_release_content"></a>
 

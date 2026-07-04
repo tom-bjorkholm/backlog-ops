@@ -21,11 +21,11 @@ from tableio import ValueFmt
 from backlogops import (
     AddedReleasesToJira, AddedToJira, AvailableTeams, BacklogReleases,
     GuiDisplayConfig, Levels, OutputFormatConfig, ReleaseChanges,
-    ReleaseDateChanges, UpdatedReleasesInJira, allow_overwrite,
-    apply_jira_keys, format_add_result, format_content_changes,
-    format_date_changes, format_release_result, format_release_updates,
-    get_keys_in_order, write_content_changes, write_date_changes,
-    write_key_list)
+    ReleaseDateChanges, UpdatedBacklogInJira, UpdatedReleasesInJira,
+    allow_overwrite, apply_jira_keys, format_add_result,
+    format_backlog_updates, format_content_changes, format_date_changes,
+    format_release_result, format_release_updates, get_keys_in_order,
+    write_content_changes, write_date_changes, write_key_list)
 from backlogops_gui.backlog_io import write_backlog
 from backlogops_gui.io_dialogs import (
     ask_buffer_days, ask_date_order, ask_dep_options, ask_keys, ask_levels,
@@ -367,6 +367,20 @@ def apply_add_result(data: BacklogReleases, result: AddedToJira,
     show_report(format_add_result(result))
 
 
+def apply_update_result(data: BacklogReleases, result: UpdatedBacklogInJira,
+                        refresh: Callable[[], None],
+                        show_report: Callable[[str], None]) -> None:
+    """Rekey any added items, refresh the view and show the update lists.
+
+    Only the items added under the ``ADD`` policy took new Jira keys, so
+    the shown backlog is rekeyed with the add result's key map, the view is
+    rebuilt, and the update outcome is shown through ``show_report``.
+    """
+    apply_jira_keys(data.backlog, result.added.key_map)
+    refresh()
+    show_report(format_backlog_updates(result))
+
+
 # pylint: disable-next=too-few-public-methods,too-many-instance-attributes
 class BacklogWindow:
     """A top-level window showing one backlog and its releases."""
@@ -389,6 +403,10 @@ class BacklogWindow:
                  update_releases: Optional[Callable[
                      [BacklogReleases,
                       Callable[[UpdatedReleasesInJira], None]],
+                     None]] = None,
+                 update_backlog: Optional[Callable[
+                     [BacklogReleases,
+                      Callable[[UpdatedBacklogInJira], None]],
                      None]] = None) -> None:
         """Build the window, its menu and the two tables.
 
@@ -415,6 +433,9 @@ class BacklogWindow:
             update_releases: Handler that updates the shown releases in Jira
                 and calls back with the result, or None when updating is
                 unavailable (no configuration or no write presets).
+            update_backlog: Handler that updates the shown backlog in Jira
+                and calls back with the result, or None when updating is
+                unavailable (no configuration or no write presets).
         """
         self._data = data
         self._presets = presets
@@ -426,6 +447,7 @@ class BacklogWindow:
         self._add_to_jira = add_to_jira
         self._add_releases = add_releases
         self._update_releases = update_releases
+        self._update_backlog = update_backlog
         self._win = tk.Toplevel(root)
         self._win.title(title)
         self._tables: list[tk.Widget] = []
@@ -513,6 +535,11 @@ class BacklogWindow:
                       and self._warning is None else 'disabled')
         menu.add_command(label='Add backlog to Jira…', command=self._jira_add,
                          state=jira_state)
+        upd_bl_state: Literal['normal', 'disabled']
+        upd_bl_state = ('normal' if self._update_backlog is not None
+                        and self._warning is None else 'disabled')
+        menu.add_command(label='Update backlog in Jira…',
+                         command=self._backlog_update, state=upd_bl_state)
         rel_state: Literal['normal', 'disabled']
         rel_state = ('normal' if self._add_releases is not None
                      and self._warning is None else 'disabled')
@@ -648,3 +675,22 @@ class BacklogWindow:
         """
         show_text_report(self._win, 'Update releases in Jira',
                          format_release_updates(result))
+
+    def _backlog_update(self) -> None:
+        """Update the shown backlog in Jira and show the result lists."""
+        if self._update_backlog is not None:
+            self._update_backlog(self._data, self._on_backlog_updated)
+
+    def _on_backlog_updated(self, result: UpdatedBacklogInJira) -> None:
+        """Rekey any added items, refresh the view and show the outcome.
+
+        Only items added under the ``ADD`` policy took new Jira keys, so the
+        shown backlog is rekeyed for them, the tables are rebuilt, and the
+        update outcome is shown in a copy-pasteable pop-up.
+        """
+        apply_update_result(self._data, result, self._refresh_tables,
+                            self._show_update_report)
+
+    def _show_update_report(self, text: str) -> None:
+        """Show the backlog update result text in a copy-pasteable pop-up."""
+        show_text_report(self._win, 'Update backlog in Jira', text)

@@ -35,17 +35,19 @@ from tableio_cfg_json import WizardUiBridge
 from backlogops import (
     AddedReleasesToJira, AddedToJira, AvailableTeams, BacklogOpsConfig,
     BacklogReleases, GuiDisplayConfig, InputFormatConfig, JiraConnectConfig,
-    JiraConnections, Levels, OnExistingKey, OutputFormatConfig, Status,
-    UpdatedReleasesInJira, add_backlog_to_jira, add_releases_to_jira,
-    get_demo_backlog, get_backlog_ops_config, backlog_ops_wizard,
-    preset_wizard, read_jira_from_config, update_releases_in_jira)
+    JiraConnections, Levels, LinkUpdate, OnExistingKey, OutputFormatConfig,
+    Status, UpdatedBacklogInJira, UpdatedReleasesInJira, add_backlog_to_jira,
+    add_releases_to_jira, get_demo_backlog, get_backlog_ops_config,
+    backlog_ops_wizard, preset_wizard, read_jira_from_config,
+    updatable_backlog_fields, update_backlog_in_jira, update_releases_in_jira)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 from backlogops_gui.gui_wizard import TkWizardBridge
 from backlogops_gui.io_dialogs import (
-    ConfigChoice, JiraReleaseUpdateOptions, PresetKind, ask_no_config_choice,
-    ask_preset_kind, JiraWriteOptions, ask_read_options, ask_jira_passphrase,
+    ConfigChoice, JiraBacklogUpdateOptions, JiraReleaseUpdateOptions,
+    PresetKind, ask_no_config_choice, ask_preset_kind, JiraWriteOptions,
+    ask_backlog_update, ask_read_options, ask_jira_passphrase,
     ask_jira_read_options, ask_jira_write_options, ask_release_update,
     choose_config_file, choose_existing_config, choose_input_file,
     choose_migrated_preset, choose_preset_to_migrate)
@@ -709,6 +711,89 @@ class BacklogApp:
                        f"{len(result.ignored)} ignored; {len(result.added)} "
                        f"added (preset '{preset_name}').\n")
 
+    def _backlog_update_action(self) -> Optional[Callable[
+            [BacklogReleases, Callable[[UpdatedBacklogInJira], None]],
+            None]]:
+        """Return the update-backlog handler, or None when unavailable."""
+        if self.config is None:
+            return None
+        if not self.config.get_jira_config().presets:
+            return None
+        return self._update_backlog_in_jira
+
+    def _preset_update_fields(self) -> dict[str, list[str]]:
+        """Return each preset name mapped to its updatable backlog fields."""
+        assert self.config is not None
+        connections = JiraConnections(self.config.get_jira_config())
+        return {name: updatable_backlog_fields(connections, name)
+                for name in self.config.get_jira_config().presets}
+
+    def _update_backlog_in_jira(
+            self, data: BacklogReleases,
+            on_done: Callable[[UpdatedBacklogInJira], None]) -> None:
+        """Ask for a preset, fields and mode, then update the backlog."""
+        assert self.config is not None
+        options = ask_backlog_update(self.root, self._preset_update_fields())
+        if options is None:
+            return
+        if not self._prepare_jira_token(options.preset_name):
+            return
+        self._start_backlog_update(data, options, on_done)
+
+    def _start_backlog_update(
+            self, data: BacklogReleases, options: JiraBacklogUpdateOptions,
+            on_done: Callable[[UpdatedBacklogInJira], None]) -> None:
+        """Start the Jira backlog-update worker thread."""
+        self.log.write(f"Updating backlog in Jira using preset "
+                       f"'{options.preset_name}'...\n")
+        self._refresh_log()
+        thread = threading.Thread(
+            target=lambda: self._backlog_update_worker(data, options, on_done),
+            daemon=True)
+        thread.start()
+
+    def _backlog_update_worker(
+            self, data: BacklogReleases, options: JiraBacklogUpdateOptions,
+            on_done: Callable[[UpdatedBacklogInJira], None]) -> None:
+        """Update the backlog on a worker and schedule the GUI update."""
+        assert self.config is not None
+        connections = JiraConnections(self.config.get_jira_config())
+        link_update = (LinkUpdate.RECONCILE if options.reconcile_links
+                       else LinkUpdate.ADD_MISSING)
+        try:
+            result = update_backlog_in_jira(
+                connections, options.preset_name, data.backlog,
+                on_missing_key=options.on_missing,
+                fields_to_update=options.fields, link_update=link_update,
+                levels=self.config.get_levels(),
+                status_map=self.config.get_status_input_map(),
+                stderr_file=self.log)
+        except JIRA_ERRORS as error:
+            message = str(error)
+            self._after(lambda: self._backlog_update_failed(
+                options.preset_name, message))
+            return
+        self._after(
+            lambda: self._backlog_update_done(options.preset_name, result,
+                                              on_done))
+
+    def _backlog_update_failed(self, preset_name: str, message: str) -> None:
+        """Report a failed backlog update on the GUI thread."""
+        self.log.write(f"Could not update backlog in Jira preset "
+                       f"'{preset_name}': {message}\n")
+        self.show_error('Could not update backlog in Jira', message)
+
+    def _backlog_update_done(
+            self, preset_name: str, result: UpdatedBacklogInJira,
+            on_done: Callable[[UpdatedBacklogInJira], None]) -> None:
+        """Hand the result to the window and log the completed update."""
+        on_done(result)
+        self.log.write(f"Updated {len(result.updated)} backlog items in Jira; "
+                       f"{len(result.already_correct)} already correct; "
+                       f"{len(result.ignored)} ignored; "
+                       f"{len(result.added.stored)} added "
+                       f"(preset '{preset_name}').\n")
+
     def new_demo_backlog(self) -> None:
         """Open a demonstration backlog in a new window."""
         self.open_backlog(get_demo_backlog(), 'Demo backlog')
@@ -719,7 +804,8 @@ class BacklogApp:
         BacklogWindow(self.root, data, title, self.out_presets,
                       self.available_teams, self.log, self.levels,
                       self.gui_display, warning, self._jira_write_action(),
-                      self._jira_releases_action(), self._jira_update_action())
+                      self._jira_releases_action(), self._jira_update_action(),
+                      self._backlog_update_action())
 
     def report_versions(self) -> None:
         """Report version information into the log on a worker thread.

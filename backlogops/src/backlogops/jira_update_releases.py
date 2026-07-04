@@ -31,7 +31,7 @@ from jira.resources import Resource
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap
 from backlogops.jira_write import (
-    ItemNotInJiraError, OnMissingKey, _labeled_lines)
+    ItemNotInJiraError, OnMissingKey, _key_section, _outcome_prefix)
 from backlogops.jira_write_releases import (
     FailedRelease, _ReleaseCtx, _failed_section, _release_context,
     _report_skipped, _run_version_write, _try_create_version, _version_kwargs)
@@ -216,12 +216,6 @@ def update_releases_in_jira(connections: JiraConnections, preset_name: str,
                                  acc.added, acc.failed)
 
 
-def _name_section(heading: str, names: list[str]) -> list[str]:
-    """Return the heading with its count and one line per release name."""
-    body = [f'  {name}' for name in names]
-    return _labeled_lines(heading, len(names), body)
-
-
 def format_release_updates(result: UpdatedReleasesInJira) -> str:
     """Return a listing of the update outcome per release.
 
@@ -231,14 +225,10 @@ def format_release_updates(result: UpdatedReleasesInJira) -> str:
     The CLI prints this text and the GUI shows it in a copy-pasteable
     pop-up.
     """
-    lines = _name_section('Updated in Jira', result.updated)
+    lines = _outcome_prefix(result.updated, result.already_correct,
+                            result.ignored)
     lines.append('')
-    lines.extend(_name_section('Already correct in Jira',
-                               result.already_correct))
-    lines.append('')
-    lines.extend(_name_section('Not in Jira (ignored)', result.ignored))
-    lines.append('')
-    lines.extend(_name_section('Added to Jira', result.added))
+    lines.extend(_key_section('Added to Jira', result.added))
     lines.append('')
     lines.extend(_failed_section('Failed to update', result.failed))
     return '\n'.join(lines)

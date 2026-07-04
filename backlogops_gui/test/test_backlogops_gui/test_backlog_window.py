@@ -12,12 +12,13 @@ import pytest
 from backlogops import (
     AddedToJira, AvailableTeams, BacklogItem, BacklogReleases, DependencyMode,
     GuiDisplayConfig, NoTextIO, Release, ReleaseChange, ReleaseDateChange,
-    Status, get_demo_backlog)
+    Status, UpdatedBacklogInJira, get_demo_backlog)
 from backlogops_gui import backlog_window
 from backlogops_gui.backlog_window import (
-    BacklogWindow, adjust_content, apply_add_result, estimate_date,
-    extract_keys, order_by_deps, order_by_keys, order_by_release, order_dates,
-    plan_dates, save_backlog, save_changes, set_plan, show_changes)
+    BacklogWindow, adjust_content, apply_add_result, apply_update_result,
+    estimate_date, extract_keys, order_by_deps, order_by_keys,
+    order_by_release, order_dates, plan_dates, save_backlog, save_changes,
+    set_plan, show_changes)
 from backlogops_gui.backlog_window import _content_report, _date_report
 from backlogops_gui.io_dialogs import (
     DepOptions, ReleaseOrderOptions, StartChoice, WriteOptions,
@@ -842,3 +843,86 @@ def test_apply_add_result() -> None:
     assert data.backlog[0].key == 'PROJ-1'
     assert calls == ['refresh']
     assert 'Added to Jira' in reports[0]
+
+
+def _empty_added() -> AddedToJira:
+    """Return an empty add result for building an update result."""
+    return AddedToJira([], [], [], {}, [], [])
+
+
+def test_apply_update_result() -> None:
+    """Test rekeying added items and showing the update outcome."""
+    kept = BacklogItem(key='A', level=1, title='One', story_points=1,
+                       status=Status.TODO)
+    added = BacklogItem(key='NEW', level=1, title='Two', story_points=2,
+                        status=Status.TODO)
+    data = BacklogReleases(backlog=[kept, added], releases=[])
+    stored = BacklogItem(key='PROJ-9', level=1, title='Two', story_points=2,
+                         status=Status.TODO)
+    add_res = AddedToJira(stored=[stored], already_present=[], failed=[],
+                          key_map={'NEW': 'PROJ-9'}, status_mismatch=[],
+                          failed_links=[])
+    result = UpdatedBacklogInJira(updated=['A'], already_correct=[],
+                                  ignored=[], failed=[], status_mismatch=[],
+                                  failed_links=[], added=add_res)
+    calls: list[str] = []
+    reports: list[str] = []
+    apply_update_result(data, result, lambda: calls.append('refresh'),
+                        reports.append)
+    assert [item.key for item in data.backlog] == ['A', 'PROJ-9']
+    assert calls == ['refresh']
+    assert 'Updated in Jira' in reports[0]
+
+
+def _jira_menu_labels(window: BacklogWindow) -> list[str]:
+    """Return the labels in the Jira menu of a backlog window."""
+    # pylint: disable-next=protected-access
+    menubar = window._win.nametowidget(window._win.cget('menu'))
+    assert isinstance(menubar, tk.Menu)
+    menu = menubar.nametowidget(menubar.entrycget(1, 'menu'))
+    assert isinstance(menu, tk.Menu)
+    last = menu.index('end')
+    assert last is not None
+    return [menu.entrycget(index, 'label') for index in range(last + 1)
+            if menu.type(index) != 'separator']
+
+
+def _bl_update_recorder(store: list[object]) -> Callable[..., None]:
+    """Return an update-backlog handler recording the data it is given."""
+    def handler(data: object, _on_done: object) -> None:
+        store.append(data)
+    return handler
+
+
+def test_backlog_update_menu() -> None:
+    """Test the update-backlog menu item is present and delegates."""
+    root = _root()
+    try:
+        got: list[object] = []
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
+                               update_backlog=_bl_update_recorder(got))
+        assert 'Update backlog in Jira…' in _jira_menu_labels(window)
+        # pylint: disable-next=protected-access
+        window._backlog_update()
+        assert got and got[0] is DATA
+    finally:
+        root.destroy()
+
+
+def test_bl_update_absent() -> None:
+    """Test the update-backlog item is disabled without a handler."""
+    root = _root()
+    try:
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK)
+        # pylint: disable-next=protected-access
+        menubar = window._win.nametowidget(window._win.cget('menu'))
+        menu = menubar.nametowidget(menubar.entrycget(1, 'menu'))
+        last = menu.index('end')
+        assert last is not None
+        states = {menu.entrycget(index, 'label'):
+                  menu.entrycget(index, 'state')
+                  for index in range(last + 1)
+                  if menu.type(index) != 'separator'}
+        assert states['Update backlog in Jira…'] == 'disabled'
+    finally:
+        root.destroy()

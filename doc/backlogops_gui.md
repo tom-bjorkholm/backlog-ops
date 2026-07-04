@@ -56,6 +56,7 @@
   * [order\_dates](#backlogops_gui.backlog_window.order_dates)
   * [extract\_keys](#backlogops_gui.backlog_window.extract_keys)
   * [apply\_add\_result](#backlogops_gui.backlog_window.apply_add_result)
+  * [apply\_update\_result](#backlogops_gui.backlog_window.apply_update_result)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
 * [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
@@ -67,6 +68,7 @@
   * [JiraReadOptions](#backlogops_gui.io_dialogs.JiraReadOptions)
   * [JiraWriteOptions](#backlogops_gui.io_dialogs.JiraWriteOptions)
   * [JiraReleaseUpdateOptions](#backlogops_gui.io_dialogs.JiraReleaseUpdateOptions)
+  * [JiraBacklogUpdateOptions](#backlogops_gui.io_dialogs.JiraBacklogUpdateOptions)
   * [choose\_input\_file](#backlogops_gui.io_dialogs.choose_input_file)
   * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
@@ -81,6 +83,7 @@
   * [ask\_jira\_write\_options](#backlogops_gui.io_dialogs.ask_jira_write_options)
   * [MISSING\_MODE\_TEXT](#backlogops_gui.io_dialogs.MISSING_MODE_TEXT)
   * [ask\_release\_update](#backlogops_gui.io_dialogs.ask_release_update)
+  * [ask\_backlog\_update](#backlogops_gui.io_dialogs.ask_backlog_update)
   * [ask\_jira\_passphrase](#backlogops_gui.io_dialogs.ask_jira_passphrase)
   * [choose\_key\_list\_output](#backlogops_gui.io_dialogs.choose_key_list_output)
   * [choose\_changes\_output](#backlogops_gui.io_dialogs.choose_changes_output)
@@ -851,6 +854,22 @@ The added items take their new Jira keys (order preserved), the view
 is rebuilt, and the added and already-present lists are shown to the
 user through ``show_report``.
 
+<a id="backlogops_gui.backlog_window.apply_update_result"></a>
+
+#### apply\_update\_result
+
+```python
+def apply_update_result(data: BacklogReleases, result: UpdatedBacklogInJira,
+                        refresh: Callable[[], None],
+                        show_report: Callable[[str], None]) -> None
+```
+
+Rekey any added items, refresh the view and show the update lists.
+
+Only the items added under the ``ADD`` policy took new Jira keys, so
+the shown backlog is rekeyed with the add result's key map, the view is
+rebuilt, and the update outcome is shown through ``show_report``.
+
 <a id="backlogops_gui.backlog_window.BacklogWindow"></a>
 
 ## BacklogWindow Objects
@@ -883,6 +902,9 @@ def __init__(
                  None]] = None,
     update_releases: Optional[
         Callable[[BacklogReleases, Callable[[UpdatedReleasesInJira], None]],
+                 None]] = None,
+    update_backlog: Optional[
+        Callable[[BacklogReleases, Callable[[UpdatedBacklogInJira], None]],
                  None]] = None
 ) -> None
 ```
@@ -911,6 +933,9 @@ Build the window, its menu and the two tables.
   calls back with the result, or None when adding is
   unavailable (no configuration or no write presets).
 - `update_releases` - Handler that updates the shown releases in Jira
+  and calls back with the result, or None when updating is
+  unavailable (no configuration or no write presets).
+- `update_backlog` - Handler that updates the shown backlog in Jira
   and calls back with the result, or None when updating is
   unavailable (no configuration or no write presets).
 
@@ -1014,6 +1039,17 @@ class JiraReleaseUpdateOptions()
 ```
 
 The preset, missing-name mode and selected names for updating.
+
+<a id="backlogops_gui.io_dialogs.JiraBacklogUpdateOptions"></a>
+
+## JiraBacklogUpdateOptions Objects
+
+```python
+@dataclass
+class JiraBacklogUpdateOptions()
+```
+
+The preset, missing-key mode, fields and link policy for updating.
 
 <a id="backlogops_gui.io_dialogs.choose_input_file"></a>
 
@@ -1162,6 +1198,18 @@ def ask_release_update(
 ```
 
 Ask the preset, missing-name mode and releases, None when cancelled.
+
+<a id="backlogops_gui.io_dialogs.ask_backlog_update"></a>
+
+#### ask\_backlog\_update
+
+```python
+def ask_backlog_update(
+    parent: tk.Misc, preset_fields: Mapping[str, Sequence[str]]
+) -> Optional[JiraBacklogUpdateOptions]
+```
+
+Ask the preset, mode, fields and link policy, None when cancelled.
 
 <a id="backlogops_gui.io_dialogs.ask_jira_passphrase"></a>
 

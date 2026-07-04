@@ -12,21 +12,23 @@ from backlogops import DependencyMode, OnMissingKey
 from backlogops.no_text_io import NoTextIO
 from backlogops_gui.io_dialogs import (
     MODE_FILE, MODE_INFER, MODE_PRESET, ConfigChoice, DepOptions,
-    JiraReleaseUpdateOptions, PresetKind, JiraReadOptions, ReadOptions,
-    ReleaseOrderOptions, StartChoice, WriteOptions, format_value)
+    JiraBacklogUpdateOptions, JiraReleaseUpdateOptions, PresetKind,
+    JiraReadOptions, ReadOptions, ReleaseOrderOptions, StartChoice,
+    WriteOptions, format_value)
 from backlogops_gui.io_dialogs import (
     _BufferDialog, _DateOrderDialog, _DepOptionsDialog, _FormatDialog,
-    _JiraReadDialog, _JiraReleaseUpdateDialog, _KeysDialog, _LevelsDialog,
-    _ModalDialog, _NoConfigDialog, _PassphraseDialog, _PresetKindDialog,
-    _ReleaseOrderDialog, _StartDateDialog)
+    _JiraBacklogUpdateDialog, _JiraReadDialog, _JiraReleaseUpdateDialog,
+    _KeysDialog, _LevelsDialog, _ModalDialog, _NoConfigDialog,
+    _PassphraseDialog, _PresetKindDialog, _ReleaseOrderDialog,
+    _StartDateDialog)
 from backlogops_gui.io_dialogs import (
-    ask_buffer_days, ask_date_order, ask_dep_options, ask_jira_passphrase,
-    ask_jira_read_options, ask_keys, ask_levels, ask_no_config_choice,
-    ask_preset_kind, ask_read_options, ask_release_order, ask_release_update,
-    ask_start_date, ask_write_options, choose_changes_output,
-    choose_config_file, choose_existing_config, choose_input_file,
-    choose_key_list_output, choose_migrated_preset, choose_output_file,
-    choose_preset_to_migrate, show_change_list)
+    ask_backlog_update, ask_buffer_days, ask_date_order, ask_dep_options,
+    ask_jira_passphrase, ask_jira_read_options, ask_keys, ask_levels,
+    ask_no_config_choice, ask_preset_kind, ask_read_options,
+    ask_release_order, ask_release_update, ask_start_date, ask_write_options,
+    choose_changes_output, choose_config_file, choose_existing_config,
+    choose_input_file, choose_key_list_output, choose_migrated_preset,
+    choose_output_file, choose_preset_to_migrate, show_change_list)
 from .gui_test_helpers import root_or_skip
 
 
@@ -74,6 +76,10 @@ def test_option_dataclasses() -> None:
     assert update.preset_name == 'scrum'
     assert update.on_missing is OnMissingKey.ADD
     assert update.selected == ['R1']
+    backlog = JiraBacklogUpdateOptions('scrum', OnMissingKey.RAISE, ['title'],
+                                       True)
+    assert backlog.fields == ['title']
+    assert backlog.reconcile_links is True
 
 
 def test_action_dataclasses() -> None:
@@ -341,6 +347,76 @@ def test_rel_update_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     root = root_or_skip()
     try:
         assert ask_release_update(root, ['p'], ['R1']) is None
+    finally:
+        root.destroy()
+
+
+_BL_FIELDS = {'p': ['title', 'status'], 'q': ['title', 'team']}
+"""Two presets mapped to their updatable fields for the dialog tests."""
+
+
+def test_bl_update_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the backlog-update dialog stores preset, mode, fields and links."""
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    root = root_or_skip()
+    try:
+        dialog = _JiraBacklogUpdateDialog(root, _BL_FIELDS)
+        # pylint: disable-next=protected-access
+        dialog._mode.set(OnMissingKey.ADD.name)
+        # pylint: disable-next=protected-access
+        dialog._reconcile.set(False)
+        # pylint: disable-next=protected-access
+        dialog._picks['status'].set(False)
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        expected = JiraBacklogUpdateOptions('p', OnMissingKey.ADD, ['title'],
+                                            False)
+        assert dialog.options == expected
+    finally:
+        root.destroy()
+
+
+def test_bl_switch_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test switching the preset rebuilds the field checkboxes."""
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    root = root_or_skip()
+    try:
+        dialog = _JiraBacklogUpdateDialog(root, _BL_FIELDS)
+        # pylint: disable-next=protected-access
+        dialog._preset.set('q')
+        # pylint: disable-next=protected-access
+        dialog._preset_changed(None)
+        # pylint: disable-next=protected-access
+        assert sorted(dialog._picks) == ['team', 'title']
+    finally:
+        root.destroy()
+
+
+def test_bl_needs_field(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test confirming with no field ticked keeps the dialog open."""
+    rec = _MsgRec()
+    monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
+    monkeypatch.setattr('backlogops_gui.io_dialogs.messagebox', rec)
+    root = root_or_skip()
+    try:
+        dialog = _JiraBacklogUpdateDialog(root, _BL_FIELDS)
+        # pylint: disable-next=protected-access
+        for var in dialog._picks.values():
+            var.set(False)
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None
+        assert rec.calls == [('No columns', 'Select at least one column.')]
+    finally:
+        root.destroy()
+
+
+def test_bl_update_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the backlog-update dialog returns nothing."""
+    monkeypatch.setattr(_ModalDialog, '_show', _cancel_show)
+    root = root_or_skip()
+    try:
+        assert ask_backlog_update(root, _BL_FIELDS) is None
     finally:
         root.destroy()
 

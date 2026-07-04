@@ -380,6 +380,39 @@
   * [\_report\_unnamed](#backlogops.table_rows._report_unnamed)
   * [display\_level\_rows](#backlogops.table_rows.display_level_rows)
   * [fold\_level\_name](#backlogops.table_rows.fold_level_name)
+* [backlogops.jira\_update\_backlog](#backlogops.jira_update_backlog)
+  * [\_IDENTITY\_FIELDS](#backlogops.jira_update_backlog._IDENTITY_FIELDS)
+  * [\_LINK\_FIELDS](#backlogops.jira_update_backlog._LINK_FIELDS)
+  * [\_SKIP\_DATA](#backlogops.jira_update_backlog._SKIP_DATA)
+  * [LinkUpdate](#backlogops.jira_update_backlog.LinkUpdate)
+  * [UpdatedBacklogInJira](#backlogops.jira_update_backlog.UpdatedBacklogInJira)
+  * [\_UpdateCtx](#backlogops.jira_update_backlog._UpdateCtx)
+  * [\_Updated](#backlogops.jira_update_backlog._Updated)
+  * [\_Work](#backlogops.jira_update_backlog._Work)
+  * [\_existing\_issues](#backlogops.jira_update_backlog._existing_issues)
+  * [\_raise\_missing](#backlogops.jira_update_backlog._raise_missing)
+  * [\_report\_skipped](#backlogops.jira_update_backlog._report_skipped)
+  * [\_field\_diff](#backlogops.jira_update_backlog._field_diff)
+  * [\_write\_fields](#backlogops.jira_update_backlog._write_fields)
+  * [\_apply\_status](#backlogops.jira_update_backlog._apply_status)
+  * [\_desired\_parent](#backlogops.jira_update_backlog._desired_parent)
+  * [\_apply\_parent](#backlogops.jira_update_backlog._apply_parent)
+  * [\_write\_parent](#backlogops.jira_update_backlog._write_parent)
+  * [\_clear\_parent](#backlogops.jira_update_backlog._clear_parent)
+  * [\_clear\_parent\_fields](#backlogops.jira_update_backlog._clear_parent_fields)
+  * [\_apply\_deps](#backlogops.jira_update_backlog._apply_deps)
+  * [\_apply\_one\_dep](#backlogops.jira_update_backlog._apply_one_dep)
+  * [\_create\_dep\_link](#backlogops.jira_update_backlog._create_dep_link)
+  * [\_remove\_dep\_link](#backlogops.jira_update_backlog._remove_dep_link)
+  * [\_find\_link\_id](#backlogops.jira_update_backlog._find_link_id)
+  * [\_update\_one](#backlogops.jira_update_backlog._update_one)
+  * [\_make\_ctx](#backlogops.jira_update_backlog._make_ctx)
+  * [\_empty\_added](#backlogops.jira_update_backlog._empty_added)
+  * [\_add\_or\_raise](#backlogops.jira_update_backlog._add_or_raise)
+  * [\_run\_updates](#backlogops.jira_update_backlog._run_updates)
+  * [update\_backlog\_in\_jira](#backlogops.jira_update_backlog.update_backlog_in_jira)
+  * [updatable\_backlog\_fields](#backlogops.jira_update_backlog.updatable_backlog_fields)
+  * [format\_backlog\_updates](#backlogops.jira_update_backlog.format_backlog_updates)
 * [backlogops.io\_config](#backlogops.io_config)
   * [EXTENSION\_FORMATS](#backlogops.io_config.EXTENSION_FORMATS)
   * [PRESET\_NAME\_RE](#backlogops.io_config.PRESET_NAME_RE)
@@ -566,6 +599,8 @@
   * [\_build\_ctx](#backlogops.jira_write._build_ctx)
   * [\_labeled\_lines](#backlogops.jira_write._labeled_lines)
   * [\_result\_section](#backlogops.jira_write._result_section)
+  * [\_key\_section](#backlogops.jira_write._key_section)
+  * [\_outcome\_prefix](#backlogops.jira_write._outcome_prefix)
   * [format\_add\_result](#backlogops.jira_write.format_add_result)
   * [\_failed\_section](#backlogops.jira_write._failed_section)
   * [\_status\_section](#backlogops.jira_write._status_section)
@@ -584,7 +619,6 @@
   * [\_update\_matched](#backlogops.jira_update_releases._update_matched)
   * [\_apply\_one](#backlogops.jira_update_releases._apply_one)
   * [update\_releases\_in\_jira](#backlogops.jira_update_releases.update_releases_in_jira)
-  * [\_name\_section](#backlogops.jira_update_releases._name_section)
   * [format\_release\_updates](#backlogops.jira_update_releases.format_release_updates)
 * [backlogops.backlog\_releases\_io](#backlogops.backlog_releases_io)
   * [BACKLOG\_HEADING](#backlogops.backlog_releases_io.BACKLOG_HEADING)
@@ -790,8 +824,10 @@
   * [\_place\_value](#backlogops.jira_write_fields._place_value)
   * [\_parent\_fields](#backlogops.jira_write_fields._parent_fields)
   * [\_LinkSpec](#backlogops.jira_write_fields._LinkSpec)
+  * [\_link\_attr](#backlogops.jira_write_fields._link_attr)
   * [\_link\_spec\_for](#backlogops.jira_write_fields._link_spec_for)
   * [\_link\_specs](#backlogops.jira_write_fields._link_specs)
+  * [\_dep\_link\_attrs](#backlogops.jira_write_fields._dep_link_attrs)
 * [backlogops.work\_hours](#backlogops.work_hours)
   * [WeekDay](#backlogops.work_hours.WeekDay)
   * [DEFAULT\_WORK\_WEEK](#backlogops.work_hours.DEFAULT_WORK_WEEK)
@@ -6828,6 +6864,520 @@ item conversion. The ``level name`` column is always removed so it is
 never stored as an extra field. One information message is printed
 when both columns appeared together.
 
+<a id="backlogops.jira_update_backlog"></a>
+
+# backlogops.jira\_update\_backlog
+
+Update backlog items in Jira from an internal backlog.
+
+:func:`update_backlog_in_jira` changes each Jira issue whose key matches an
+internal backlog item so that a chosen subset of its mapped fields matches
+the item. Only the fields named in ``fields_to_update`` are touched; the
+identity field ``key`` and the issue type (``level``) are never changed on
+an existing issue. For each selected field the current Jira value is read
+through the write column map and compared to the item's value, so only the
+fields that actually differ are written; an item whose selected fields
+already match is reported as already correct and its issue is not touched.
+An empty internal value is left unset, so an empty value never clears a
+Jira field.
+
+The selected fields are written in the same way they are read: a settable
+field (summary, description, story points, team, fix version) through an
+issue update, the status through a workflow transition, the parent through
+the mapped parent field, and each dependency through Jira issue links. How
+links are reconciled is chosen by :class:`LinkUpdate`: ``ADD_MISSING``
+only creates the links that are missing, while ``RECONCILE`` also removes
+the Jira links (and clears the parent) that the backlog no longer has.
+
+A backlog item whose key is not present in Jira is handled by the chosen
+:class:`OnMissingKey` policy: ``RAISE`` raises :class:`ItemNotInJiraError`
+before anything is changed, ``IGNORE`` leaves the missing item alone, and
+``ADD`` creates it exactly as :func:`add_backlog_to_jira` would, writing
+all of its mapped fields. When items are added their assigned Jira keys are
+used to remap the parent and dependency keys of the updated items, so an
+updated item that referred to a newly added item links to its Jira key. An
+item whose update Jira refuses is collected in the result's ``failed`` list
+with a concise reason, and the remaining items are still processed. The
+argument backlog is never modified.
+
+<a id="backlogops.jira_update_backlog._IDENTITY_FIELDS"></a>
+
+#### \_IDENTITY\_FIELDS
+
+Mapped fields never changed on an issue already in Jira.
+
+The key is the identity used to find the issue and the level maps to the
+issue type, which is not changed on an existing issue. These are excluded
+from the selectable fields and from any update.
+
+<a id="backlogops.jira_update_backlog._LINK_FIELDS"></a>
+
+#### \_LINK\_FIELDS
+
+Selected fields written as links rather than as issue fields.
+
+<a id="backlogops.jira_update_backlog._SKIP_DATA"></a>
+
+#### \_SKIP\_DATA
+
+Fields not written by the settable-field diff (handled elsewhere).
+
+<a id="backlogops.jira_update_backlog.LinkUpdate"></a>
+
+## LinkUpdate Objects
+
+```python
+class LinkUpdate(Enum)
+```
+
+How to reconcile an item's links when updating it in Jira.
+
+``ADD_MISSING`` only creates the dependency links that are missing and
+sets a parent that is not set; existing Jira links are left alone.
+``RECONCILE`` also removes the Jira links the backlog no longer has and
+clears a parent the backlog no longer has, so the links match exactly.
+
+<a id="backlogops.jira_update_backlog.UpdatedBacklogInJira"></a>
+
+## UpdatedBacklogInJira Objects
+
+```python
+class UpdatedBacklogInJira(NamedTuple)
+```
+
+The result of updating backlog items in Jira.
+
+Fields:
+    updated: Keys of the items already in Jira that had at least one
+        selected field changed.
+    already_correct: Keys of the items already in Jira whose selected
+        fields already matched, so no change was made.
+    ignored: Keys of the items not present in Jira and left untouched
+        under the ``IGNORE`` policy.
+    failed: Items whose update Jira refused, each with a concise
+        reason; the argument backlog is not changed by a failure.
+    status_mismatch: Updated items whose status could not be
+        transitioned to a Jira status matching the item's status.
+    failed_links: The parent and dependency links Jira refused to write
+        or remove while updating existing items, each with a reason.
+    added: The result of adding the items not present in Jira under the
+        ``ADD`` policy, empty under the other policies. It carries the
+        key map used to rekey the shown backlog for the added items.
+
+<a id="backlogops.jira_update_backlog._UpdateCtx"></a>
+
+## \_UpdateCtx Objects
+
+```python
+@dataclass(frozen=True)
+class _UpdateCtx()
+```
+
+The resolved target, the selected fields and the link policy.
+
+``key_map`` maps an original key to the Jira key assigned to an item
+added in the same run, so an updated item's references to a newly added
+item are remapped. ``dep_specs`` pairs each writable dependency field's
+link spec with its ``issuelinks`` path.
+
+<a id="backlogops.jira_update_backlog._Updated"></a>
+
+## \_Updated Objects
+
+```python
+@dataclass
+class _Updated()
+```
+
+Mutable accumulator of the update-backlog results being built.
+
+<a id="backlogops.jira_update_backlog._Work"></a>
+
+## \_Work Objects
+
+```python
+@dataclass
+class _Work()
+```
+
+The state shared by the helpers that update one existing issue.
+
+``current`` holds the item's current internal field values, read once
+from the issue before any change, so a diff never sees its own writes.
+
+<a id="backlogops.jira_update_backlog._existing_issues"></a>
+
+#### \_existing\_issues
+
+```python
+def _existing_issues(client: JIRA, backlog: Backlog) -> dict[str, Issue]
+```
+
+Return the Jira issues that exist, indexed by their backlog key.
+
+<a id="backlogops.jira_update_backlog._raise_missing"></a>
+
+#### \_raise\_missing
+
+```python
+def _raise_missing(names: list[str], stderr_file: TextIO) -> None
+```
+
+Report and raise for backlog keys not present in Jira.
+
+<a id="backlogops.jira_update_backlog._report_skipped"></a>
+
+#### \_report\_skipped
+
+```python
+def _report_skipped(key: str, skipped: list[str], custom_names: dict[str, str],
+                    stderr_file: TextIO) -> None
+```
+
+Report selected fields the issue's edit screen did not offer.
+
+<a id="backlogops.jira_update_backlog._field_diff"></a>
+
+#### \_field\_diff
+
+```python
+def _field_diff(work: _Work) -> dict[str, object]
+```
+
+Return the settable-field payload whose value differs in Jira.
+
+Only the selected settable fields are considered; the status, parent
+and dependency fields are handled separately. An empty internal value
+is left unset, and a value equal to the current Jira value is skipped.
+
+<a id="backlogops.jira_update_backlog._write_fields"></a>
+
+#### \_write\_fields
+
+```python
+def _write_fields(work: _Work, payload: dict[str, object]) -> Optional[bool]
+```
+
+Write the differing settable fields, or record a refusal.
+
+Returns whether anything was written, or None when Jira refused the
+update, in which case the item is recorded as failed and the rest of
+its update is skipped. Fields the edit screen does not offer are
+reported, exactly as when adding an issue.
+
+<a id="backlogops.jira_update_backlog._apply_status"></a>
+
+#### \_apply\_status
+
+```python
+def _apply_status(work: _Work) -> bool
+```
+
+Transition the issue to the item's status when selected.
+
+Returns whether a status change was needed. When the current status
+already matches nothing is done; otherwise a matching transition is
+tried, and a failure is reported and collected as a mismatch.
+
+<a id="backlogops.jira_update_backlog._desired_parent"></a>
+
+#### \_desired\_parent
+
+```python
+def _desired_parent(work: _Work) -> Optional[str]
+```
+
+Return the item's parent key remapped for an added parent, or None.
+
+<a id="backlogops.jira_update_backlog._apply_parent"></a>
+
+#### \_apply\_parent
+
+```python
+def _apply_parent(work: _Work) -> bool
+```
+
+Set, clear or leave the item's parent when selected.
+
+Returns whether a parent change was needed. Under ``ADD_MISSING`` the
+parent is set only when the issue has none, so an existing parent is
+never replaced or cleared. Under ``RECONCILE`` the parent is set to
+match, replacing a different one, and cleared when the item has none.
+
+<a id="backlogops.jira_update_backlog._write_parent"></a>
+
+#### \_write\_parent
+
+```python
+def _write_parent(work: _Work, parent_key: str) -> None
+```
+
+Set the item's parent link to a parent key through the mapped field.
+
+<a id="backlogops.jira_update_backlog._clear_parent"></a>
+
+#### \_clear\_parent
+
+```python
+def _clear_parent(work: _Work, current: object) -> None
+```
+
+Clear the item's parent by setting the mapped parent field to None.
+
+<a id="backlogops.jira_update_backlog._clear_parent_fields"></a>
+
+#### \_clear\_parent\_fields
+
+```python
+def _clear_parent_fields(column_map: dict[str, tuple[JiraAttrPath, ...]],
+                         custom_ids: dict[str, str]) -> dict[str, object]
+```
+
+Return the update fields that clear the first mapped parent path.
+
+<a id="backlogops.jira_update_backlog._apply_deps"></a>
+
+#### \_apply\_deps
+
+```python
+def _apply_deps(work: _Work) -> bool
+```
+
+Reconcile every selected dependency field's Jira issue links.
+
+<a id="backlogops.jira_update_backlog._apply_one_dep"></a>
+
+#### \_apply\_one\_dep
+
+```python
+def _apply_one_dep(work: _Work, spec: _LinkSpec, attr: JiraAttrPath) -> bool
+```
+
+Add the missing links of one dependency field, removing stale ones.
+
+The links present on the issue for this field are read and compared to
+the item's dependency keys (remapped for added items). The missing keys
+are linked; under ``RECONCILE`` the keys no longer wanted are unlinked.
+
+<a id="backlogops.jira_update_backlog._create_dep_link"></a>
+
+#### \_create\_dep\_link
+
+```python
+def _create_dep_link(work: _Work, spec: _LinkSpec, dep: str) -> None
+```
+
+Create one Jira issue link for a dependency in the spec's direction.
+
+<a id="backlogops.jira_update_backlog._remove_dep_link"></a>
+
+#### \_remove\_dep\_link
+
+```python
+def _remove_dep_link(work: _Work, spec: _LinkSpec, dep: str) -> None
+```
+
+Delete the Jira issue link of the spec's type to a dependency key.
+
+<a id="backlogops.jira_update_backlog._find_link_id"></a>
+
+#### \_find\_link\_id
+
+```python
+def _find_link_id(issue: Issue, spec: _LinkSpec, dep: str) -> Optional[str]
+```
+
+Return the id of the issue link of the spec's type to a dep key.
+
+<a id="backlogops.jira_update_backlog._update_one"></a>
+
+#### \_update\_one
+
+```python
+def _update_one(ctx: _UpdateCtx, item: BacklogItem, issue: Issue,
+                acc: _Updated) -> None
+```
+
+Update one existing issue's selected fields, links and status.
+
+The current values are read once, the differing settable fields are
+written, and the status, parent and dependency links are reconciled.
+The item is recorded as updated when anything changed, as already
+correct when nothing needed changing, or as failed when the field
+update was refused.
+
+<a id="backlogops.jira_update_backlog._make_ctx"></a>
+
+#### \_make\_ctx
+
+```python
+def _make_ctx(base: _WriteContext, fields_to_update: list[str],
+              key_map: dict[str, str], link_update: LinkUpdate,
+              stderr_file: TextIO) -> _UpdateCtx
+```
+
+Build the update context from the write context and the selection.
+
+<a id="backlogops.jira_update_backlog._empty_added"></a>
+
+#### \_empty\_added
+
+```python
+def _empty_added() -> AddedToJira
+```
+
+Return an empty add result for the non-add policies.
+
+<a id="backlogops.jira_update_backlog._add_or_raise"></a>
+
+#### \_add\_or\_raise
+
+```python
+def _add_or_raise(connections: JiraConnections, preset_name: str,
+                  backlog: Backlog, existing: dict[str,
+                                                   Issue], mode: OnMissingKey,
+                  levels: Optional[Levels], status_map: Optional[dict[str,
+                                                                      Status]],
+                  stderr_file: TextIO) -> AddedToJira
+```
+
+Handle the items not present in Jira per the missing-key policy.
+
+``RAISE`` raises before anything is changed, ``ADD`` creates the
+missing items with all of their fields as :func:`add_backlog_to_jira`
+does, and any other policy leaves them alone with an empty add result.
+
+<a id="backlogops.jira_update_backlog._run_updates"></a>
+
+#### \_run\_updates
+
+```python
+def _run_updates(ctx: _UpdateCtx, backlog: Backlog, existing: dict[str, Issue],
+                 mode: OnMissingKey,
+                 added: AddedToJira) -> UpdatedBacklogInJira
+```
+
+Update every present item and record the ignored missing keys.
+
+<a id="backlogops.jira_update_backlog.update_backlog_in_jira"></a>
+
+#### update\_backlog\_in\_jira
+
+```python
+def update_backlog_in_jira(
+        connections: JiraConnections,
+        preset_name: str,
+        backlog: Backlog,
+        *,
+        on_missing_key: OnMissingKey,
+        fields_to_update: list[str],
+        link_update: LinkUpdate = LinkUpdate.RECONCILE,
+        levels: Optional[Levels] = None,
+        status_map: Optional[dict[str, Status]] = None,
+        stderr_file: TextIO = sys.stderr) -> UpdatedBacklogInJira
+```
+
+Update the backlog items in Jira, matching a Jira issue by its key.
+
+Every item's key is looked up in Jira. In ``RAISE`` mode, if any key is
+not present the function raises before changing anything. Items not
+present are added in ``ADD`` mode (writing all of their mapped fields,
+as :func:`add_backlog_to_jira` does) and left alone in ``IGNORE`` mode.
+Each matched issue has the selected fields updated: only the fields
+named in ``fields_to_update`` that are mapped for writing and are not
+the key or the issue type, and among those only the ones whose current
+Jira value differs from the item. The status is set by a transition,
+the parent by the mapped parent field, and the dependencies by Jira
+issue links reconciled per ``link_update``. An item whose update Jira
+refuses is collected in ``failed`` with a concise reason, and the other
+items are still processed. The argument backlog is never modified.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients and the configuration
+  holding the preset, connection and backlog write column map.
+- `preset_name` - The name of the Jira preset to use.
+- `backlog` - The backlog items to update. Not modified.
+- `on_missing_key` - Whether to raise, ignore or add when a key is not
+  present in Jira.
+- `fields_to_update` - The internal field names to update. Names that
+  are not mapped for writing, or that are the key or the issue
+  type, are ignored. Use :func:`updatable_backlog_fields` for the
+  full set of updatable fields of a preset.
+- `link_update` - Whether to only add missing links or also remove the
+  Jira links the backlog no longer has.
+- `levels` - The levels used to resolve the issue type when adding a
+  missing item, or None for the default levels.
+- `status_map` - Extra Jira status names mapped to internal statuses,
+  used to reconcile a status, or None for the built-in matching.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The keys of the updated, already-correct and ignored items, the
+  items whose update failed, the status mismatches and failed links
+  of the updated items, and the add result for any added items.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or a referenced connection or map is
+  missing.
+- `UnknownIssueTypeError` - In ``ADD`` mode, if an added item's issue
+  type is not valid in the project.
+- `ItemNotInJiraError` - In ``RAISE`` mode, if any key is not present in
+  Jira.
+
+<a id="backlogops.jira_update_backlog.updatable_backlog_fields"></a>
+
+#### updatable\_backlog\_fields
+
+```python
+def updatable_backlog_fields(connections: JiraConnections,
+                             preset_name: str) -> list[str]
+```
+
+Return the internal fields a preset can update on an existing issue.
+
+These are the fields mapped in the preset's backlog write map, minus
+the key and the issue type (level), which are never changed on an
+existing issue. The order follows the write map. This is the set the
+CLI ``all`` value and the GUI checkbox list offer, and the set
+:func:`update_backlog_in_jira` intersects ``fields_to_update`` with.
+
+**Arguments**:
+
+- `connections` - The pool holding the configuration with the preset.
+- `preset_name` - The name of the Jira preset to use.
+  
+
+**Returns**:
+
+  The updatable internal field names, in write-map order.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or its backlog write map is missing.
+
+<a id="backlogops.jira_update_backlog.format_backlog_updates"></a>
+
+#### format\_backlog\_updates
+
+```python
+def format_backlog_updates(result: UpdatedBacklogInJira) -> str
+```
+
+Return a listing of the update outcome per backlog item.
+
+The sections are the updated, already-correct and ignored keys, the
+added items, and the failed items, status mismatches and failed links,
+which combine the updated items with any added items. Each section has
+a heading with its count, then one line per entry, or a ``(none)`` line
+when empty. The CLI prints this text and the GUI shows it in a
+copy-pasteable pop-up.
+
 <a id="backlogops.io_config"></a>
 
 # backlogops.io\_config
@@ -9337,15 +9887,16 @@ Warn that one link between two Jira issues could not be written.
 #### \_try\_link
 
 ```python
-def _try_link(acc: _Added, template: FailedLink, stderr_file: TextIO,
-              write: Callable[[], object]) -> None
+def _try_link(links: list[FailedLink], template: FailedLink,
+              stderr_file: TextIO, write: Callable[[], object]) -> None
 ```
 
 Run one link write, recording a Jira refusal against the template.
 
 The template is a :class:`FailedLink` for the attempted link whose
-reason is filled in from the error, so a refusal is both collected and
-reported while the other links are still attempted.
+reason is filled in from the error, so a refusal is both collected in
+``links`` and reported while the other links are still attempted. It is
+shared by the add-backlog and update-backlog paths.
 
 <a id="backlogops.jira_write._write_dep_links"></a>
 
@@ -9543,6 +10094,33 @@ def _result_section(heading: str, backlog: Backlog) -> list[str]
 ```
 
 Return the heading and the key-and-title lines for one backlog.
+
+<a id="backlogops.jira_write._key_section"></a>
+
+#### \_key\_section
+
+```python
+def _key_section(heading: str, names: list[str]) -> list[str]
+```
+
+Return a heading with its count and one indented line per name.
+
+This is shared by the backlog-update and release-update listings for
+their key-only or name-only sections.
+
+<a id="backlogops.jira_write._outcome_prefix"></a>
+
+#### \_outcome\_prefix
+
+```python
+def _outcome_prefix(updated: list[str], already_correct: list[str],
+                    ignored: list[str]) -> list[str]
+```
+
+Return the updated, already-correct and ignored key sections.
+
+This is the shared start of the backlog-update and release-update
+listings, before each adds its own trailing sections.
 
 <a id="backlogops.jira_write.format_add_result"></a>
 
@@ -9831,16 +10409,6 @@ releases are still processed. The argument releases are never modified.
   missing.
 - `ItemNotInJiraError` - In ``RAISE`` mode, if any release name is not
   present in Jira.
-
-<a id="backlogops.jira_update_releases._name_section"></a>
-
-#### \_name\_section
-
-```python
-def _name_section(heading: str, names: list[str]) -> list[str]
-```
-
-Return the heading with its count and one line per release name.
 
 <a id="backlogops.jira_update_releases.format_release_updates"></a>
 
@@ -12599,6 +13167,20 @@ Jira issue link type name to create (such as ``Blocks``), and
 current issue, so the link is created with the current issue as the
 inward side and the dependency as the outward side.
 
+<a id="backlogops.jira_write_fields._link_attr"></a>
+
+#### \_link\_attr
+
+```python
+def _link_attr(attrs: tuple[JiraAttrPath, ...]) -> Optional[JiraAttrPath]
+```
+
+Return the first ``issuelinks`` FILTERED_FIELD path, or None.
+
+This is the path a dependency field is both read from and written as a
+Jira issue link, so it is shared by the link spec and by the update
+path that reads an issue's current links.
+
 <a id="backlogops.jira_write_fields._link_spec_for"></a>
 
 #### \_link\_spec\_for
@@ -12625,6 +13207,21 @@ def _link_specs(column_map: JiraColumnMap) -> list[_LinkSpec]
 ```
 
 Return the writable issue-link specs for the dependency fields.
+
+<a id="backlogops.jira_write_fields._dep_link_attrs"></a>
+
+#### \_dep\_link\_attrs
+
+```python
+def _dep_link_attrs(
+        column_map: JiraColumnMap) -> list[tuple[_LinkSpec, JiraAttrPath]]
+```
+
+Return each dependency field's link spec paired with its path.
+
+Only the dependency fields whose map has an ``issuelinks`` path are
+returned. The path lets the update path read the issue's current links
+for that field, so it can add the missing links and remove stale ones.
 
 <a id="backlogops.work_hours"></a>
 

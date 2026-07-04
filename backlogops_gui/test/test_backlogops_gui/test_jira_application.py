@@ -10,13 +10,15 @@ import pytest
 from backlogops import (
     AddedReleasesToJira, AddedToJira, BacklogItem, BacklogOpsConfig,
     BacklogReleases, ExistsInJiraError, ItemNotInJiraError, JiraConnectConfig,
-    JiraIOConfig, JiraPreset, OnMissingKey, Release, ReleaseExistsError,
-    Status, TokenStorage, UpdatedReleasesInJira)
+    JiraIOConfig, JiraPreset, LinkUpdate, OnMissingKey, Release,
+    ReleaseExistsError, Status, TokenStorage, UpdatedBacklogInJira,
+    UpdatedReleasesInJira)
 from backlogops.jira_token import encrypt_token
 from backlogops_gui import application
 from backlogops_gui.application import BacklogApp
 from backlogops_gui.io_dialogs import (
-    JiraReadOptions, JiraReleaseUpdateOptions, JiraWriteOptions)
+    JiraBacklogUpdateOptions, JiraReadOptions, JiraReleaseUpdateOptions,
+    JiraWriteOptions)
 
 DATA = BacklogReleases(backlog=[], releases=[])
 
@@ -524,5 +526,110 @@ def test_upd_failed(monkeypatch: pytest.MonkeyPatch) -> None:
     got: list[UpdatedReleasesInJira] = []
     # pylint: disable-next=protected-access
     app._update_releases_in_jira(DATA, got.append)
+    assert not got
+    assert errors
+
+
+def _fields_stub(_connections: object, _name: str) -> list[str]:
+    """Return a fixed updatable field list as the library would."""
+    return ['title', 'status']
+
+
+def _bl_upd_opts(_parent: object, _fields: object) -> JiraBacklogUpdateOptions:
+    """Return backlog-update options as if the dialog was confirmed."""
+    return JiraBacklogUpdateOptions('scrum', OnMissingKey.RAISE,
+                                    ['title', 'status'], True)
+
+
+def _no_bl_upd_opts(_parent: object, _fields: object) -> None:
+    """Return None as if the backlog-update dialog was cancelled."""
+    return None
+
+
+def _bl_update_result() -> UpdatedBacklogInJira:
+    """Return a result with an updated and an already-correct item."""
+    return UpdatedBacklogInJira(updated=['A'], already_correct=['B'],
+                                ignored=[], failed=[], status_mismatch=[],
+                                failed_links=[],
+                                added=AddedToJira([], [], [], {}, [], []))
+
+
+def _fake_bl_update(captured: dict[str, object], result: UpdatedBacklogInJira
+                    ) -> Callable[..., UpdatedBacklogInJira]:
+    """Return a stand-in update recording the fields and link policy."""
+    def update(connections: object, preset: str, backlog: object, *,
+               fields_to_update: list[str], link_update: LinkUpdate,
+               **kwargs: object) -> UpdatedBacklogInJira:
+        """Record the resolved fields and the link policy."""
+        _ = (connections, preset, backlog, kwargs)
+        captured['fields'] = fields_to_update
+        captured['link'] = link_update
+        return result
+    return update
+
+
+def test_bl_upd_action_absent() -> None:
+    """Test the update-backlog action is absent without write presets."""
+    # pylint: disable-next=protected-access
+    assert _app(BacklogOpsConfig())._backlog_update_action() is None
+    # pylint: disable-next=protected-access
+    assert _app(_config())._backlog_update_action() is not None
+
+
+def test_bl_preset_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the preset-to-fields map is built from the library helper."""
+    monkeypatch.setattr(application, 'updatable_backlog_fields', _fields_stub)
+    app = _app(_config())
+    # pylint: disable-next=protected-access
+    assert app._preset_update_fields() == {'scrum': ['title', 'status']}
+
+
+def test_bl_upd_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the handler updates the backlog and hands back the result."""
+    captured: dict[str, object] = {}
+    result = _bl_update_result()
+    monkeypatch.setattr(application, 'updatable_backlog_fields', _fields_stub)
+    monkeypatch.setattr(application, 'ask_backlog_update', _bl_upd_opts)
+    monkeypatch.setattr(application, 'update_backlog_in_jira',
+                        _fake_bl_update(captured, result))
+    monkeypatch.setattr('backlogops_gui.application.threading.Thread',
+                        _make_immediate)
+    app = _app(_config())
+    got: list[UpdatedBacklogInJira] = []
+    # pylint: disable-next=protected-access
+    app._update_backlog_in_jira(DATA, got.append)
+    assert got == [result]
+    assert captured['fields'] == ['title', 'status']
+    assert captured['link'] is LinkUpdate.RECONCILE
+    assert 'already correct' in app.log.text()
+
+
+def test_bl_upd_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the backlog-update dialog updates nothing."""
+    monkeypatch.setattr(application, 'updatable_backlog_fields', _fields_stub)
+    monkeypatch.setattr(application, 'ask_backlog_update', _no_bl_upd_opts)
+    app = _app(_config())
+    got: list[UpdatedBacklogInJira] = []
+    # pylint: disable-next=protected-access
+    app._update_backlog_in_jira(DATA, got.append)
+    assert not got
+
+
+def test_bl_upd_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a backlog-update failure is reported and nothing handed back."""
+    def _raise(*_args: object, **_kwargs: object) -> UpdatedBacklogInJira:
+        """Raise as the real update does when a key is missing."""
+        raise ItemNotInJiraError(['A'], 'Backlog keys')
+    monkeypatch.setattr(application, 'updatable_backlog_fields', _fields_stub)
+    monkeypatch.setattr(application, 'ask_backlog_update', _bl_upd_opts)
+    monkeypatch.setattr(application, 'update_backlog_in_jira', _raise)
+    monkeypatch.setattr('backlogops_gui.application.threading.Thread',
+                        _make_immediate)
+    app = _app(_config())
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    got: list[UpdatedBacklogInJira] = []
+    # pylint: disable-next=protected-access
+    app._update_backlog_in_jira(DATA, got.append)
     assert not got
     assert errors

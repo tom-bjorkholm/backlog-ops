@@ -104,6 +104,20 @@ class _LinkSpec:
     dep_is_inward: bool
 
 
+def _link_attr(attrs: tuple[JiraAttrPath, ...]) -> Optional[JiraAttrPath]:
+    """Return the first ``issuelinks`` FILTERED_FIELD path, or None.
+
+    This is the path a dependency field is both read from and written as a
+    Jira issue link, so it is shared by the link spec and by the update
+    path that reads an issue's current links.
+    """
+    for attr in attrs:
+        if attr.kind is JiraAttrType.FILTERED_FIELD and \
+                len(attr.path) == 4 and attr.path[0] == 'issuelinks':
+            return attr
+    return None
+
+
 def _link_spec_for(name: str, attrs: tuple[JiraAttrPath, ...]
                    ) -> Optional[_LinkSpec]:
     """Return the issue-link spec inverted from a dependency map entry.
@@ -114,12 +128,11 @@ def _link_spec_for(name: str, attrs: tuple[JiraAttrPath, ...]
     dependency is the inward issue on the current issue. A field without
     such a path cannot be written as a link and yields None.
     """
-    for attr in attrs:
-        if attr.kind is JiraAttrType.FILTERED_FIELD and \
-                len(attr.path) == 4 and attr.path[0] == 'issuelinks':
-            return _LinkSpec(name, attr.path[2],
-                             attr.path[3].startswith('inwardIssue'))
-    return None
+    attr = _link_attr(attrs)
+    if attr is None:
+        return None
+    return _LinkSpec(name, attr.path[2],
+                     attr.path[3].startswith('inwardIssue'))
 
 
 def _link_specs(column_map: JiraColumnMap) -> list[_LinkSpec]:
@@ -130,3 +143,21 @@ def _link_specs(column_map: JiraColumnMap) -> list[_LinkSpec]:
         if spec is not None:
             specs.append(spec)
     return specs
+
+
+def _dep_link_attrs(column_map: JiraColumnMap
+                    ) -> list[tuple[_LinkSpec, JiraAttrPath]]:
+    """Return each dependency field's link spec paired with its path.
+
+    Only the dependency fields whose map has an ``issuelinks`` path are
+    returned. The path lets the update path read the issue's current links
+    for that field, so it can add the missing links and remove stale ones.
+    """
+    result: list[tuple[_LinkSpec, JiraAttrPath]] = []
+    for name in DEPENDENCY_FIELDS:
+        attrs = column_map.get(name, ())
+        spec = _link_spec_for(name, attrs)
+        attr = _link_attr(attrs)
+        if spec is not None and attr is not None:
+            result.append((spec, attr))
+    return result

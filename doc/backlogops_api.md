@@ -218,6 +218,12 @@
   * [display\_level\_order](#backlogops.table_rows.display_level_order)
   * [display\_level\_rows](#backlogops.table_rows.display_level_rows)
   * [fold\_level\_name](#backlogops.table_rows.fold_level_name)
+* [backlogops.jira\_update\_backlog](#backlogops.jira_update_backlog)
+  * [LinkUpdate](#backlogops.jira_update_backlog.LinkUpdate)
+  * [UpdatedBacklogInJira](#backlogops.jira_update_backlog.UpdatedBacklogInJira)
+  * [update\_backlog\_in\_jira](#backlogops.jira_update_backlog.update_backlog_in_jira)
+  * [updatable\_backlog\_fields](#backlogops.jira_update_backlog.updatable_backlog_fields)
+  * [format\_backlog\_updates](#backlogops.jira_update_backlog.format_backlog_updates)
 * [backlogops.io\_config](#backlogops.io_config)
   * [EXTENSION\_FORMATS](#backlogops.io_config.EXTENSION_FORMATS)
   * [PRESET\_NAME\_RE](#backlogops.io_config.PRESET_NAME_RE)
@@ -4552,6 +4558,203 @@ column is present its value becomes the level, to be resolved by the
 item conversion. The ``level name`` column is always removed so it is
 never stored as an extra field. One information message is printed
 when both columns appeared together.
+
+<a id="backlogops.jira_update_backlog"></a>
+
+# backlogops.jira\_update\_backlog
+
+Update backlog items in Jira from an internal backlog.
+
+:func:`update_backlog_in_jira` changes each Jira issue whose key matches an
+internal backlog item so that a chosen subset of its mapped fields matches
+the item. Only the fields named in ``fields_to_update`` are touched; the
+identity field ``key`` and the issue type (``level``) are never changed on
+an existing issue. For each selected field the current Jira value is read
+through the write column map and compared to the item's value, so only the
+fields that actually differ are written; an item whose selected fields
+already match is reported as already correct and its issue is not touched.
+An empty internal value is left unset, so an empty value never clears a
+Jira field.
+
+The selected fields are written in the same way they are read: a settable
+field (summary, description, story points, team, fix version) through an
+issue update, the status through a workflow transition, the parent through
+the mapped parent field, and each dependency through Jira issue links. How
+links are reconciled is chosen by :class:`LinkUpdate`: ``ADD_MISSING``
+only creates the links that are missing, while ``RECONCILE`` also removes
+the Jira links (and clears the parent) that the backlog no longer has.
+
+A backlog item whose key is not present in Jira is handled by the chosen
+:class:`OnMissingKey` policy: ``RAISE`` raises :class:`ItemNotInJiraError`
+before anything is changed, ``IGNORE`` leaves the missing item alone, and
+``ADD`` creates it exactly as :func:`add_backlog_to_jira` would, writing
+all of its mapped fields. When items are added their assigned Jira keys are
+used to remap the parent and dependency keys of the updated items, so an
+updated item that referred to a newly added item links to its Jira key. An
+item whose update Jira refuses is collected in the result's ``failed`` list
+with a concise reason, and the remaining items are still processed. The
+argument backlog is never modified.
+
+<a id="backlogops.jira_update_backlog.LinkUpdate"></a>
+
+## LinkUpdate Objects
+
+```python
+class LinkUpdate(Enum)
+```
+
+How to reconcile an item's links when updating it in Jira.
+
+``ADD_MISSING`` only creates the dependency links that are missing and
+sets a parent that is not set; existing Jira links are left alone.
+``RECONCILE`` also removes the Jira links the backlog no longer has and
+clears a parent the backlog no longer has, so the links match exactly.
+
+<a id="backlogops.jira_update_backlog.UpdatedBacklogInJira"></a>
+
+## UpdatedBacklogInJira Objects
+
+```python
+class UpdatedBacklogInJira(NamedTuple)
+```
+
+The result of updating backlog items in Jira.
+
+Fields:
+    updated: Keys of the items already in Jira that had at least one
+        selected field changed.
+    already_correct: Keys of the items already in Jira whose selected
+        fields already matched, so no change was made.
+    ignored: Keys of the items not present in Jira and left untouched
+        under the ``IGNORE`` policy.
+    failed: Items whose update Jira refused, each with a concise
+        reason; the argument backlog is not changed by a failure.
+    status_mismatch: Updated items whose status could not be
+        transitioned to a Jira status matching the item's status.
+    failed_links: The parent and dependency links Jira refused to write
+        or remove while updating existing items, each with a reason.
+    added: The result of adding the items not present in Jira under the
+        ``ADD`` policy, empty under the other policies. It carries the
+        key map used to rekey the shown backlog for the added items.
+
+<a id="backlogops.jira_update_backlog.update_backlog_in_jira"></a>
+
+#### update\_backlog\_in\_jira
+
+```python
+def update_backlog_in_jira(
+        connections: JiraConnections,
+        preset_name: str,
+        backlog: Backlog,
+        *,
+        on_missing_key: OnMissingKey,
+        fields_to_update: list[str],
+        link_update: LinkUpdate = LinkUpdate.RECONCILE,
+        levels: Optional[Levels] = None,
+        status_map: Optional[dict[str, Status]] = None,
+        stderr_file: TextIO = sys.stderr) -> UpdatedBacklogInJira
+```
+
+Update the backlog items in Jira, matching a Jira issue by its key.
+
+Every item's key is looked up in Jira. In ``RAISE`` mode, if any key is
+not present the function raises before changing anything. Items not
+present are added in ``ADD`` mode (writing all of their mapped fields,
+as :func:`add_backlog_to_jira` does) and left alone in ``IGNORE`` mode.
+Each matched issue has the selected fields updated: only the fields
+named in ``fields_to_update`` that are mapped for writing and are not
+the key or the issue type, and among those only the ones whose current
+Jira value differs from the item. The status is set by a transition,
+the parent by the mapped parent field, and the dependencies by Jira
+issue links reconciled per ``link_update``. An item whose update Jira
+refuses is collected in ``failed`` with a concise reason, and the other
+items are still processed. The argument backlog is never modified.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients and the configuration
+  holding the preset, connection and backlog write column map.
+- `preset_name` - The name of the Jira preset to use.
+- `backlog` - The backlog items to update. Not modified.
+- `on_missing_key` - Whether to raise, ignore or add when a key is not
+  present in Jira.
+- `fields_to_update` - The internal field names to update. Names that
+  are not mapped for writing, or that are the key or the issue
+  type, are ignored. Use :func:`updatable_backlog_fields` for the
+  full set of updatable fields of a preset.
+- `link_update` - Whether to only add missing links or also remove the
+  Jira links the backlog no longer has.
+- `levels` - The levels used to resolve the issue type when adding a
+  missing item, or None for the default levels.
+- `status_map` - Extra Jira status names mapped to internal statuses,
+  used to reconcile a status, or None for the built-in matching.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The keys of the updated, already-correct and ignored items, the
+  items whose update failed, the status mismatches and failed links
+  of the updated items, and the add result for any added items.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or a referenced connection or map is
+  missing.
+- `UnknownIssueTypeError` - In ``ADD`` mode, if an added item's issue
+  type is not valid in the project.
+- `ItemNotInJiraError` - In ``RAISE`` mode, if any key is not present in
+  Jira.
+
+<a id="backlogops.jira_update_backlog.updatable_backlog_fields"></a>
+
+#### updatable\_backlog\_fields
+
+```python
+def updatable_backlog_fields(connections: JiraConnections,
+                             preset_name: str) -> list[str]
+```
+
+Return the internal fields a preset can update on an existing issue.
+
+These are the fields mapped in the preset's backlog write map, minus
+the key and the issue type (level), which are never changed on an
+existing issue. The order follows the write map. This is the set the
+CLI ``all`` value and the GUI checkbox list offer, and the set
+:func:`update_backlog_in_jira` intersects ``fields_to_update`` with.
+
+**Arguments**:
+
+- `connections` - The pool holding the configuration with the preset.
+- `preset_name` - The name of the Jira preset to use.
+  
+
+**Returns**:
+
+  The updatable internal field names, in write-map order.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or its backlog write map is missing.
+
+<a id="backlogops.jira_update_backlog.format_backlog_updates"></a>
+
+#### format\_backlog\_updates
+
+```python
+def format_backlog_updates(result: UpdatedBacklogInJira) -> str
+```
+
+Return a listing of the update outcome per backlog item.
+
+The sections are the updated, already-correct and ignored keys, the
+added items, and the failed items, status mismatches and failed links,
+which combine the updated items with any added items. Each section has
+a heading with its count, then one line per entry, or a ``(none)`` line
+when empty. The CLI prints this text and the GUI shows it in a
+copy-pasteable pop-up.
 
 <a id="backlogops.io_config"></a>
 

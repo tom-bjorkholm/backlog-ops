@@ -103,6 +103,16 @@ class JiraReleaseUpdateOptions:
     selected: list[str]
 
 
+@dataclass
+class JiraBacklogUpdateOptions:
+    """The preset, missing-key mode, fields and link policy for updating."""
+
+    preset_name: str
+    on_missing: OnMissingKey
+    fields: list[str]
+    reconcile_links: bool
+
+
 def choose_input_file(parent: tk.Misc) -> Optional[str]:
     """Ask for an existing backlog file, or None when cancelled."""
     name = filedialog.askopenfilename(parent=parent, title='Read backlog')
@@ -555,6 +565,103 @@ def ask_release_update(parent: tk.Misc, presets: Sequence[str],
                        ) -> Optional[JiraReleaseUpdateOptions]:
     """Ask the preset, missing-name mode and releases, None when cancelled."""
     dialog = _JiraReleaseUpdateDialog(parent, presets, release_names)
+    if dialog.cancelled:
+        return None
+    return dialog.options
+
+
+# pylint: disable-next=too-few-public-methods,too-many-instance-attributes
+class _JiraBacklogUpdateDialog(_ModalDialog):
+    """Modal dialog for the backlog-update preset, mode, fields and links.
+
+    The field checkboxes depend on the selected preset, so they are rebuilt
+    whenever the preset changes. ``preset_fields`` maps each preset name to
+    the internal fields it can update.
+    """
+
+    def __init__(self, parent: tk.Misc,
+                 preset_fields: Mapping[str, Sequence[str]]) -> None:
+        """Build, show and wait for the backlog-update dialog."""
+        super().__init__(parent, 'Update backlog in Jira')
+        self.options: Optional[JiraBacklogUpdateOptions] = None
+        self._fields = {name: list(fields)
+                        for name, fields in preset_fields.items()}
+        names = sorted(self._fields)
+        self._preset = tk.StringVar(self._win, names[0] if names else '')
+        self._mode = tk.StringVar(self._win, OnMissingKey.RAISE.name)
+        self._reconcile = tk.BooleanVar(self._win, True)
+        self._picks: dict[str, tk.BooleanVar] = {}
+        self._fields_frame = tk.Frame(self._win)
+        self._build(names)
+        self._show()
+
+    def _build(self, names: Sequence[str]) -> None:
+        """Add the preset, the mode radios, the links box and the fields."""
+        self._build_preset(names)
+        self._build_mode()
+        tk.Checkbutton(self._win, variable=self._reconcile,
+                       text='Also remove Jira links the backlog no longer has '
+                       '(reconcile)').pack(anchor='w', padx=12, pady=(8, 2))
+        tk.Label(self._win, text='Columns to update:'
+                 ).pack(anchor='w', padx=12, pady=(8, 2))
+        self._fields_frame.pack(anchor='w', fill='x')
+        self._build_fields()
+
+    def _build_preset(self, names: Sequence[str]) -> None:
+        """Add the Jira preset label and read-only chooser."""
+        tk.Label(self._win, text='Jira preset:').pack(anchor='w', padx=12,
+                                                      pady=(10, 2))
+        box = ttk.Combobox(self._win, textvariable=self._preset,
+                           values=list(names), state='readonly', width=35)
+        box.bind('<<ComboboxSelected>>', self._preset_changed)
+        style_input(box)
+        box.pack(anchor='w', padx=12)
+
+    def _build_mode(self) -> None:
+        """Add the radios choosing what to do with a missing key."""
+        tk.Label(self._win, text='If an item key is not in Jira:'
+                 ).pack(anchor='w', padx=12, pady=(8, 2))
+        for mode, text in MISSING_MODE_TEXT.items():
+            tk.Radiobutton(self._win, variable=self._mode, value=mode.name,
+                           text=text).pack(anchor='w', padx=24)
+
+    def _build_fields(self) -> None:
+        """Rebuild the field checkboxes for the selected preset."""
+        for child in self._fields_frame.winfo_children():
+            child.destroy()
+        self._picks = {}
+        for name in self._fields.get(self._preset.get(), []):
+            var = tk.BooleanVar(self._win, True)
+            self._picks[name] = var
+            tk.Checkbutton(self._fields_frame, variable=var, text=name
+                           ).pack(anchor='w', padx=24)
+
+    def _preset_changed(self, _event: object) -> None:
+        """Rebuild the field checkboxes for the newly selected preset."""
+        self._build_fields()
+
+    def _confirm(self) -> None:
+        """Store the preset, mode, fields and link policy, requiring both."""
+        name = self._preset.get()
+        if not name:
+            messagebox.showerror('No Jira preset', 'Select a Jira preset.',
+                                 parent=self._win)
+            return
+        fields = [pick for pick, var in self._picks.items() if var.get()]
+        if not fields:
+            messagebox.showerror('No columns', 'Select at least one column.',
+                                 parent=self._win)
+            return
+        self.options = JiraBacklogUpdateOptions(name, OnMissingKey[
+            self._mode.get()], fields, self._reconcile.get())
+        super()._confirm()
+
+
+def ask_backlog_update(parent: tk.Misc,
+                       preset_fields: Mapping[str, Sequence[str]]
+                       ) -> Optional[JiraBacklogUpdateOptions]:
+    """Ask the preset, mode, fields and link policy, None when cancelled."""
+    dialog = _JiraBacklogUpdateDialog(parent, preset_fields)
     if dialog.cancelled:
         return None
     return dialog.options

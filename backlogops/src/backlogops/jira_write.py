@@ -643,19 +643,20 @@ def _report_failed_link(failed: FailedLink, stderr_file: TextIO) -> None:
           f'to {failed.target}: {failed.reason}.', file=stderr_file)
 
 
-def _try_link(acc: _Added, template: FailedLink, stderr_file: TextIO,
-              write: Callable[[], object]) -> None:
+def _try_link(links: list[FailedLink], template: FailedLink,
+              stderr_file: TextIO, write: Callable[[], object]) -> None:
     """Run one link write, recording a Jira refusal against the template.
 
     The template is a :class:`FailedLink` for the attempted link whose
-    reason is filled in from the error, so a refusal is both collected and
-    reported while the other links are still attempted.
+    reason is filled in from the error, so a refusal is both collected in
+    ``links`` and reported while the other links are still attempted. It is
+    shared by the add-backlog and update-backlog paths.
     """
     try:
         write()
     except JIRAError as error:
         failed = template._replace(reason=_jira_reason(error))
-        acc.links.append(failed)
+        links.append(failed)
         _report_failed_link(failed, stderr_file)
 
 
@@ -672,7 +673,7 @@ def _write_dep_links(ctx: _WriteContext, item: BacklogItem, spec: _LinkSpec,
         inward, outward = ((item.key, dep) if spec.dep_is_inward
                            else (dep, item.key))
         template = FailedLink(item, dep, spec.link_type, '')
-        _try_link(acc, template, stderr_file,
+        _try_link(acc.links, template, stderr_file,
                   partial(ctx.client.create_issue_link, spec.link_type, inward,
                           outward))
 
@@ -689,7 +690,7 @@ def _write_parent_link(ctx: _WriteContext, item: BacklogItem, parent_key: str,
     if not fields:
         return
     template = FailedLink(item, parent_key, 'parent', '')
-    _try_link(acc, template, stderr_file,
+    _try_link(acc.links, template, stderr_file,
               lambda: acc.issues[item.key].update(fields=fields))
 
 
@@ -873,6 +874,30 @@ def _result_section(heading: str, backlog: Backlog) -> list[str]:
     """Return the heading and the key-and-title lines for one backlog."""
     return _labeled_lines(heading, len(backlog),
                           [f'  {item.key}  {item.title}' for item in backlog])
+
+
+def _key_section(heading: str, names: list[str]) -> list[str]:
+    """Return a heading with its count and one indented line per name.
+
+    This is shared by the backlog-update and release-update listings for
+    their key-only or name-only sections.
+    """
+    return _labeled_lines(heading, len(names), [f'  {n}' for n in names])
+
+
+def _outcome_prefix(updated: list[str], already_correct: list[str],
+                    ignored: list[str]) -> list[str]:
+    """Return the updated, already-correct and ignored key sections.
+
+    This is the shared start of the backlog-update and release-update
+    listings, before each adds its own trailing sections.
+    """
+    lines = _key_section('Updated in Jira', updated)
+    lines.append('')
+    lines.extend(_key_section('Already correct in Jira', already_correct))
+    lines.append('')
+    lines.extend(_key_section('Not in Jira (ignored)', ignored))
+    return lines
 
 
 def format_add_result(result: AddedToJira) -> str:

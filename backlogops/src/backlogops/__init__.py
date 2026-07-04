@@ -85,6 +85,9 @@ from backlogops.jira_write_releases import (
     ReleaseExistsError, format_release_result)
 from backlogops.jira_update_releases import (
     update_releases_in_jira, UpdatedReleasesInJira, format_release_updates)
+from backlogops.jira_update_backlog import (
+    update_backlog_in_jira, UpdatedBacklogInJira, LinkUpdate,
+    format_backlog_updates, updatable_backlog_fields)
 
 __all__ = [
     'Backlog', 'BacklogItem', 'Status', 'get_backlog', 'get_backlog_item',
@@ -133,4 +136,6 @@ __all__ = [
     'add_releases_to_jira', 'AddedReleasesToJira', 'FailedRelease',
     'ReleaseExistsError', 'format_release_result',
     'update_releases_in_jira', 'UpdatedReleasesInJira',
-    'format_release_updates']
+    'format_release_updates', 'update_backlog_in_jira',
+    'UpdatedBacklogInJira', 'LinkUpdate', 'format_backlog_updates',
+    'updatable_backlog_fields']
