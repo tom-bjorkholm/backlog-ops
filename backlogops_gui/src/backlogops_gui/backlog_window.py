@@ -640,10 +640,11 @@ class BacklogWindow:
             self._update_releases(self._data, self._on_releases_updated)
 
     def _on_releases_updated(self, result: UpdatedReleasesInJira) -> None:
-        """Show the updated, ignored, added and failed release lists.
+        """Show the update outcome per release in a pop-up.
 
-        An update changes only the Jira versions, not the shown releases,
-        so no rebuild of the tables is needed.
+        The lists are the updated, already-correct, ignored, added and
+        failed releases. An update changes only the Jira versions, not the
+        shown releases, so no rebuild of the tables is needed.
         """
         show_text_report(self._win, 'Update releases in Jira',
                          format_release_updates(result))

@@ -69,13 +69,21 @@ def attr_path(step: str) -> tuple[JiraAttrPath, ...]:
 
 # pylint: disable-next=too-few-public-methods
 class FakeVersion:
-    """A stand-in Jira version that records or refuses field updates."""
+    """A stand-in Jira version that records or refuses field updates.
 
-    def __init__(self, name: str, fail: bool = False) -> None:
-        """Start with the version name and whether an update should fail."""
+    Any ``fields`` are set as attributes to mimic a version's current
+    values, so the update code can read them (such as ``releaseDate``) and
+    tell an already-correct version from one that needs a change.
+    """
+
+    def __init__(self, name: str, fail: bool = False,
+                 fields: Optional[dict[str, object]] = None) -> None:
+        """Start with the name, the failing flag and the current fields."""
         self.name = name
         self.fail = fail
         self.updated: dict[str, object] = {}
+        for field_name, value in (fields or {}).items():
+            setattr(self, field_name, value)
 
     def update(self, **kwargs: object) -> None:
         """Merge the fields as the real version does, or raise when failing.
@@ -104,10 +112,19 @@ class FakeJiraClient:
 
     def __init__(self, existing: Optional[list[str]] = None,
                  fail_create: Optional[set[str]] = None,
-                 fail_update: Optional[set[str]] = None) -> None:
-        """Start with the present versions and the failing create names."""
+                 fail_update: Optional[set[str]] = None,
+                 current: Optional[dict[str, dict[str, object]]] = None
+                 ) -> None:
+        """Start with the present versions, their fields and the fail sets.
+
+        ``current`` maps a present version name to the field values it
+        already holds in Jira, so an update that would set the same values
+        is recognised as already correct.
+        """
         fails = set() if fail_update is None else fail_update
-        self.versions = {name: FakeVersion(name, name in fails)
+        fields = {} if current is None else current
+        self.versions = {name: FakeVersion(name, name in fails,
+                                           fields.get(name))
                          for name in (existing or [])}
         self.fail_create = set() if fail_create is None else set(fail_create)
         self.created: list[dict[str, object]] = []

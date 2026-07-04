@@ -1798,9 +1798,10 @@ creates it. ``--release`` names releases and may be given several times;
 ``--only-listed`` limits the update to just those named releases, while
 without it every input release is updated.
 
-The updated, ignored, added and failed releases are printed to stdout as
-labelled lists, unless ``-q``/``--quiet`` is given. An encrypted Jira token
-is unlocked by a pass phrase asked on the terminal only when it is needed.
+The updated, already-correct, ignored, added and failed releases are
+printed to stdout as labelled lists, unless ``-q``/``--quiet`` is given. An
+encrypted Jira token is unlocked by a pass phrase asked on the terminal
+only when it is needed.
 
 <a id="backlogops_cli.update_releases_in_jira.build_parser"></a>
 

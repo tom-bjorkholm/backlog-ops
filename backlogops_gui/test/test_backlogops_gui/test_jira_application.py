@@ -461,9 +461,9 @@ def _no_update_opts(_parent: object, _presets: object, _names: object) -> None:
 
 
 def _update_result() -> UpdatedReleasesInJira:
-    """Return a canned update result with one updated release."""
-    return UpdatedReleasesInJira(updated=['R1'], ignored=[], added=[],
-                                 failed=[])
+    """Return a result with an updated and an already-correct release."""
+    return UpdatedReleasesInJira(updated=['R1'], already_correct=['R2'],
+                                 ignored=[], added=[], failed=[])
 
 
 def _fake_update(result: UpdatedReleasesInJira
@@ -496,6 +496,7 @@ def test_upd_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     # pylint: disable-next=protected-access
     app._update_releases_in_jira(DATA, got.append)
     assert got == [result]
+    assert 'already correct' in app.log.text()
 
 
 def test_upd_cancel(monkeypatch: pytest.MonkeyPatch) -> None:

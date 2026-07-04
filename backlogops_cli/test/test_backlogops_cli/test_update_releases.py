@@ -46,8 +46,14 @@ def _write_input(path: Path) -> None:
 
 def _result() -> UpdatedReleasesInJira:
     """Return a canned update result with one updated release."""
-    return UpdatedReleasesInJira(updated=['R1'], ignored=[], added=[],
-                                 failed=[])
+    return UpdatedReleasesInJira(updated=['R1'], already_correct=[],
+                                 ignored=[], added=[], failed=[])
+
+
+def _mixed() -> UpdatedReleasesInJira:
+    """Return a result with an updated and an already-correct release."""
+    return UpdatedReleasesInJira(updated=['R1'], already_correct=['R2'],
+                                 ignored=[], added=[], failed=[])
 
 
 def _fake_update(captured: dict[str, object], result: UpdatedReleasesInJira
@@ -104,6 +110,20 @@ def test_default_raise(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     assert captured['names'] == ['R1', 'R2']
     out = capsys.readouterr().out
     assert 'Updated in Jira (1):' in out and '  R1' in out
+
+
+def test_correct_shown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                       capsys: pytest.CaptureFixture[str]) -> None:
+    """Test the already-correct releases appear in the report and summary."""
+    _patch(monkeypatch, _mixed())
+    _config_file(tmp_path / 'ops.cfg')
+    _write_input(tmp_path / 'in.csv')
+    code = update_releases_in_jira.main(_args(tmp_path))
+    assert code == 0
+    captured = capsys.readouterr()
+    assert 'Already correct in Jira (1):' in captured.out
+    assert '  R2' in captured.out
+    assert 'already correct' in captured.err
 
 
 @pytest.mark.parametrize('flag, mode', [

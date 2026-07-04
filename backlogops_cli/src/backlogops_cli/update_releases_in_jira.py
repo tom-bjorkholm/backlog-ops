@@ -11,9 +11,10 @@ creates it. ``--release`` names releases and may be given several times;
 ``--only-listed`` limits the update to just those named releases, while
 without it every input release is updated.
 
-The updated, ignored, added and failed releases are printed to stdout as
-labelled lists, unless ``-q``/``--quiet`` is given. An encrypted Jira token
-is unlocked by a pass phrase asked on the terminal only when it is needed.
+The updated, already-correct, ignored, added and failed releases are
+printed to stdout as labelled lists, unless ``-q``/``--quiet`` is given. An
+encrypted Jira token is unlocked by a pass phrase asked on the terminal
+only when it is needed.
 """
 
 # PYTHON_ARGCOMPLETE_OK
@@ -93,6 +94,7 @@ def _update(parsed: argparse.Namespace, config: BacklogOpsConfig,
     result = update_releases_in_jira(connections, parsed.preset, releases,
                                      on_missing_key=mode)
     print(f'Updated {len(result.updated)} releases in Jira; '
+          f'{len(result.already_correct)} already correct; '
           f'{len(result.ignored)} ignored; {len(result.added)} added; '
           f'{len(result.failed)} failed.', file=sys.stderr)
     return result

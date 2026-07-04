@@ -8,6 +8,9 @@ the preset's release column map, exactly as when adding a release, but the
 version name is the identity used to find the version and is never
 changed. A mapped value that is empty (such as a release with no planned
 date) is left unset, so an empty internal value never clears a Jira field.
+Only the fields whose value differs from the version's current value are
+written; a release whose mapped fields already match Jira is reported as
+already correct and its version is not touched.
 
 A release whose name is not present in Jira is handled by the chosen
 :class:`OnMissingKey` policy: ``RAISE`` raises :class:`ItemNotInJiraError`
@@ -26,11 +29,12 @@ from dataclasses import dataclass
 from typing import NamedTuple, Optional, TextIO
 from jira.resources import Resource
 from backlogops.jira_connect import JiraConnections
+from backlogops.jira_io_config import JiraColumnMap
 from backlogops.jira_write import (
     ItemNotInJiraError, OnMissingKey, _labeled_lines)
 from backlogops.jira_write_releases import (
     FailedRelease, _ReleaseCtx, _failed_section, _release_context,
-    _run_version_write, _try_create_version, _version_kwargs)
+    _report_skipped, _run_version_write, _try_create_version, _version_kwargs)
 from backlogops.releases import Release, Releases
 
 
@@ -38,9 +42,12 @@ class UpdatedReleasesInJira(NamedTuple):
     """The result of updating releases in Jira.
 
     Fields:
-        updated: Names of the releases whose matching Jira version was
-            updated. A release with nothing to change (an empty mapped
-            value) is a no-op update and is still counted here.
+        updated: Names of the releases whose matching Jira version had at
+            least one mapped field changed.
+        already_correct: Names of the releases whose matching Jira version
+            already held the mapped values, so no change was made. A
+            release with nothing to write (an empty mapped value) is
+            counted here too, since its version is left untouched.
         ignored: Names of the releases not present in Jira and left
             untouched under the ``IGNORE`` policy.
         added: Names of the releases not present in Jira and created under
@@ -51,6 +58,7 @@ class UpdatedReleasesInJira(NamedTuple):
     """
 
     updated: list[str]
+    already_correct: list[str]
     ignored: list[str]
     added: list[str]
     failed: list[FailedRelease]
@@ -61,6 +69,7 @@ class _UpdatedRel:
     """Mutable accumulator of the update-releases results being built."""
 
     updated: list[str]
+    already_correct: list[str]
     ignored: list[str]
     added: list[str]
     failed: list[FailedRelease]
@@ -93,22 +102,20 @@ def _raise_missing(names: list[str], stderr_file: TextIO) -> None:
     raise error
 
 
-def _updated_or_failed(ctx: _ReleaseCtx, release: Release, version: Resource,
-                       stderr_file: TextIO) -> Optional[FailedRelease]:
-    """Update one matched version, returning a FailedRelease if refused.
+def _changed_fields(release: Release, column_map: JiraColumnMap,
+                    version: Resource) -> tuple[dict[str, object], list[str]]:
+    """Return the mapped fields that differ from the version, and skipped.
 
-    The update payload is the inverted release map without the version
-    name, which is the identity and never changes. When nothing is left to
-    set (an empty internal value) no update call is made.
+    The intended payload is the inverted release map without the version
+    name, which is the identity and never changes. A field is kept only
+    when its value differs from the version's current value, so an empty
+    result means the version already holds the mapped values.
     """
-    kwargs, skipped = _version_kwargs(release, ctx.column_map)
+    kwargs, skipped = _version_kwargs(release, column_map)
     del kwargs['name']
-
-    def write() -> None:
-        """Update the version's mapped fields when any remain."""
-        if kwargs:
-            version.update(fields=kwargs)
-    return _run_version_write(release, skipped, stderr_file, write)
+    changed = {target: value for target, value in kwargs.items()
+               if getattr(version, target, None) != value}
+    return changed, skipped
 
 
 def _record(acc: _UpdatedRel, done: list[str], name: str,
@@ -120,6 +127,28 @@ def _record(acc: _UpdatedRel, done: list[str], name: str,
         done.append(name)
 
 
+def _update_matched(ctx: _UpdateCtx, release: Release, version: Resource,
+                    acc: _UpdatedRel) -> None:
+    """Record a matched version as already correct, updated or failed.
+
+    Only the mapped fields whose value differs from the version are
+    written; when none differ the version is left untouched and the release
+    is already correct. A skipped mapped target is reported in either case.
+    """
+    changed, skipped = _changed_fields(release, ctx.base.column_map, version)
+    if not changed:
+        if skipped:
+            _report_skipped(release.name, skipped, ctx.stderr_file)
+        acc.already_correct.append(release.name)
+        return
+
+    def write() -> None:
+        """Write only the mapped fields whose value differs in Jira."""
+        version.update(fields=changed)
+    _record(acc, acc.updated, release.name,
+            _run_version_write(release, skipped, ctx.stderr_file, write))
+
+
 def _apply_one(ctx: _UpdateCtx, release: Release, acc: _UpdatedRel) -> None:
     """Update, add or ignore one release per the missing-key mode.
 
@@ -129,9 +158,7 @@ def _apply_one(ctx: _UpdateCtx, release: Release, acc: _UpdatedRel) -> None:
     """
     version = ctx.existing.get(release.name)
     if version is not None:
-        _record(acc, acc.updated, release.name,
-                _updated_or_failed(ctx.base, release, version,
-                                   ctx.stderr_file))
+        _update_matched(ctx, release, version, acc)
     elif ctx.mode is OnMissingKey.ADD:
         _record(acc, acc.added, release.name,
                 _try_create_version(ctx.base, release, ctx.stderr_file))
@@ -166,8 +193,9 @@ def update_releases_in_jira(connections: JiraConnections, preset_name: str,
         stderr_file: Stream used for user-facing diagnostics.
 
     Returns:
-        The names of the updated, ignored and added releases, and the
-        releases whose update or creation failed with a reason.
+        The names of the updated, already-correct, ignored and added
+        releases, and the releases whose update or creation failed with a
+        reason.
 
     Raises:
         KeyError: If the preset or a referenced connection or map is
@@ -181,11 +209,11 @@ def update_releases_in_jira(connections: JiraConnections, preset_name: str,
     if on_missing_key is OnMissingKey.RAISE and missing:
         _raise_missing(missing, stderr_file)
     update_ctx = _UpdateCtx(ctx, existing, on_missing_key, stderr_file)
-    acc = _UpdatedRel([], [], [], [])
+    acc = _UpdatedRel([], [], [], [], [])
     for release in releases:
         _apply_one(update_ctx, release, acc)
-    return UpdatedReleasesInJira(acc.updated, acc.ignored, acc.added,
-                                 acc.failed)
+    return UpdatedReleasesInJira(acc.updated, acc.already_correct, acc.ignored,
+                                 acc.added, acc.failed)
 
 
 def _name_section(heading: str, names: list[str]) -> list[str]:
@@ -195,13 +223,18 @@ def _name_section(heading: str, names: list[str]) -> list[str]:
 
 
 def format_release_updates(result: UpdatedReleasesInJira) -> str:
-    """Return a listing of the updated, ignored, added and failed releases.
+    """Return a listing of the update outcome per release.
 
-    Each section has a heading with its count, then one line per release
-    name, or a ``(none)`` line when the section is empty. The CLI prints
-    this text and the GUI shows it in a copy-pasteable pop-up.
+    The sections are the updated, already-correct, ignored, added and
+    failed releases. Each section has a heading with its count, then one
+    line per release name, or a ``(none)`` line when the section is empty.
+    The CLI prints this text and the GUI shows it in a copy-pasteable
+    pop-up.
     """
     lines = _name_section('Updated in Jira', result.updated)
+    lines.append('')
+    lines.extend(_name_section('Already correct in Jira',
+                               result.already_correct))
     lines.append('')
     lines.extend(_name_section('Not in Jira (ignored)', result.ignored))
     lines.append('')

@@ -579,8 +579,9 @@
   * [\_UpdateCtx](#backlogops.jira_update_releases._UpdateCtx)
   * [\_versions\_by\_name](#backlogops.jira_update_releases._versions_by_name)
   * [\_raise\_missing](#backlogops.jira_update_releases._raise_missing)
-  * [\_updated\_or\_failed](#backlogops.jira_update_releases._updated_or_failed)
+  * [\_changed\_fields](#backlogops.jira_update_releases._changed_fields)
   * [\_record](#backlogops.jira_update_releases._record)
+  * [\_update\_matched](#backlogops.jira_update_releases._update_matched)
   * [\_apply\_one](#backlogops.jira_update_releases._apply_one)
   * [update\_releases\_in\_jira](#backlogops.jira_update_releases.update_releases_in_jira)
   * [\_name\_section](#backlogops.jira_update_releases._name_section)
@@ -9645,6 +9646,9 @@ the preset's release column map, exactly as when adding a release, but the
 version name is the identity used to find the version and is never
 changed. A mapped value that is empty (such as a release with no planned
 date) is left unset, so an empty internal value never clears a Jira field.
+Only the fields whose value differs from the version's current value are
+written; a release whose mapped fields already match Jira is reported as
+already correct and its version is not touched.
 
 A release whose name is not present in Jira is handled by the chosen
 :class:`OnMissingKey` policy: ``RAISE`` raises :class:`ItemNotInJiraError`
@@ -9665,9 +9669,12 @@ class UpdatedReleasesInJira(NamedTuple)
 The result of updating releases in Jira.
 
 Fields:
-    updated: Names of the releases whose matching Jira version was
-        updated. A release with nothing to change (an empty mapped
-        value) is a no-op update and is still counted here.
+    updated: Names of the releases whose matching Jira version had at
+        least one mapped field changed.
+    already_correct: Names of the releases whose matching Jira version
+        already held the mapped values, so no change was made. A
+        release with nothing to write (an empty mapped value) is
+        counted here too, since its version is left untouched.
     ignored: Names of the releases not present in Jira and left
         untouched under the ``IGNORE`` policy.
     added: Names of the releases not present in Jira and created under
@@ -9718,20 +9725,21 @@ def _raise_missing(names: list[str], stderr_file: TextIO) -> None
 
 Report and raise for release names not present in Jira.
 
-<a id="backlogops.jira_update_releases._updated_or_failed"></a>
+<a id="backlogops.jira_update_releases._changed_fields"></a>
 
-#### \_updated\_or\_failed
+#### \_changed\_fields
 
 ```python
-def _updated_or_failed(ctx: _ReleaseCtx, release: Release, version: Resource,
-                       stderr_file: TextIO) -> Optional[FailedRelease]
+def _changed_fields(release: Release, column_map: JiraColumnMap,
+                    version: Resource) -> tuple[dict[str, object], list[str]]
 ```
 
-Update one matched version, returning a FailedRelease if refused.
+Return the mapped fields that differ from the version, and skipped.
 
-The update payload is the inverted release map without the version
-name, which is the identity and never changes. When nothing is left to
-set (an empty internal value) no update call is made.
+The intended payload is the inverted release map without the version
+name, which is the identity and never changes. A field is kept only
+when its value differs from the version's current value, so an empty
+result means the version already holds the mapped values.
 
 <a id="backlogops.jira_update_releases._record"></a>
 
@@ -9743,6 +9751,21 @@ def _record(acc: _UpdatedRel, done: list[str], name: str,
 ```
 
 Add a refusal to ``failed``, else the name to the ``done`` list.
+
+<a id="backlogops.jira_update_releases._update_matched"></a>
+
+#### \_update\_matched
+
+```python
+def _update_matched(ctx: _UpdateCtx, release: Release, version: Resource,
+                    acc: _UpdatedRel) -> None
+```
+
+Record a matched version as already correct, updated or failed.
+
+Only the mapped fields whose value differs from the version are
+written; when none differ the version is left untouched and the release
+is already correct. A skipped mapped target is reported in either case.
 
 <a id="backlogops.jira_update_releases._apply_one"></a>
 
@@ -9797,8 +9820,9 @@ releases are still processed. The argument releases are never modified.
 
 **Returns**:
 
-  The names of the updated, ignored and added releases, and the
-  releases whose update or creation failed with a reason.
+  The names of the updated, already-correct, ignored and added
+  releases, and the releases whose update or creation failed with a
+  reason.
   
 
 **Raises**:
@@ -9826,11 +9850,13 @@ Return the heading with its count and one line per release name.
 def format_release_updates(result: UpdatedReleasesInJira) -> str
 ```
 
-Return a listing of the updated, ignored, added and failed releases.
+Return a listing of the update outcome per release.
 
-Each section has a heading with its count, then one line per release
-name, or a ``(none)`` line when the section is empty. The CLI prints
-this text and the GUI shows it in a copy-pasteable pop-up.
+The sections are the updated, already-correct, ignored, added and
+failed releases. Each section has a heading with its count, then one
+line per release name, or a ``(none)`` line when the section is empty.
+The CLI prints this text and the GUI shows it in a copy-pasteable
+pop-up.
 
 <a id="backlogops.backlog_releases_io"></a>
 

@@ -705,6 +705,7 @@ class BacklogApp:
         """Hand the result to the window and log the completed update."""
         on_done(result)
         self.log.write(f"Updated {len(result.updated)} releases in Jira; "
+                       f"{len(result.already_correct)} already correct; "
                        f"{len(result.ignored)} ignored; {len(result.added)} "
                        f"added (preset '{preset_name}').\n")
 

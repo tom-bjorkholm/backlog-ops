@@ -2705,10 +2705,11 @@ Update the shown releases in Jira and show the result lists.
 def _on_releases_updated(result: UpdatedReleasesInJira) -> None
 ```
 
-Show the updated, ignored, added and failed release lists.
+Show the update outcome per release in a pop-up.
 
-An update changes only the Jira versions, not the shown releases,
-so no rebuild of the tables is needed.
+The lists are the updated, already-correct, ignored, added and
+failed releases. An update changes only the Jira versions, not the
+shown releases, so no rebuild of the tables is needed.
 
 <a id="backlogops_gui.io_dialogs"></a>
 

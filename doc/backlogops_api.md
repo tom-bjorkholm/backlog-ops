@@ -5876,6 +5876,9 @@ the preset's release column map, exactly as when adding a release, but the
 version name is the identity used to find the version and is never
 changed. A mapped value that is empty (such as a release with no planned
 date) is left unset, so an empty internal value never clears a Jira field.
+Only the fields whose value differs from the version's current value are
+written; a release whose mapped fields already match Jira is reported as
+already correct and its version is not touched.
 
 A release whose name is not present in Jira is handled by the chosen
 :class:`OnMissingKey` policy: ``RAISE`` raises :class:`ItemNotInJiraError`
@@ -5896,9 +5899,12 @@ class UpdatedReleasesInJira(NamedTuple)
 The result of updating releases in Jira.
 
 Fields:
-    updated: Names of the releases whose matching Jira version was
-        updated. A release with nothing to change (an empty mapped
-        value) is a no-op update and is still counted here.
+    updated: Names of the releases whose matching Jira version had at
+        least one mapped field changed.
+    already_correct: Names of the releases whose matching Jira version
+        already held the mapped values, so no change was made. A
+        release with nothing to write (an empty mapped value) is
+        counted here too, since its version is left untouched.
     ignored: Names of the releases not present in Jira and left
         untouched under the ``IGNORE`` policy.
     added: Names of the releases not present in Jira and created under
@@ -5946,8 +5952,9 @@ releases are still processed. The argument releases are never modified.
 
 **Returns**:
 
-  The names of the updated, ignored and added releases, and the
-  releases whose update or creation failed with a reason.
+  The names of the updated, already-correct, ignored and added
+  releases, and the releases whose update or creation failed with a
+  reason.
   
 
 **Raises**:
@@ -5965,11 +5972,13 @@ releases are still processed. The argument releases are never modified.
 def format_release_updates(result: UpdatedReleasesInJira) -> str
 ```
 
-Return a listing of the updated, ignored, added and failed releases.
+Return a listing of the update outcome per release.
 
-Each section has a heading with its count, then one line per release
-name, or a ``(none)`` line when the section is empty. The CLI prints
-this text and the GUI shows it in a copy-pasteable pop-up.
+The sections are the updated, already-correct, ignored, added and
+failed releases. Each section has a heading with its count, then one
+line per release name, or a ``(none)`` line when the section is empty.
+The CLI prints this text and the GUI shows it in a copy-pasteable
+pop-up.
 
 <a id="backlogops.backlog_releases_io"></a>
 
