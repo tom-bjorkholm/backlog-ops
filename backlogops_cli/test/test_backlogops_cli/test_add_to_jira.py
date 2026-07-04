@@ -51,7 +51,8 @@ def _result() -> AddedToJira:
     present = BacklogItem(key='X-9', level=1, title='Old', story_points=5,
                           status=Status.TODO)
     return AddedToJira(stored=[added], already_present=[present], failed=[],
-                       key_map={'A': 'PROJ-1'}, status_mismatch=[])
+                       key_map={'A': 'PROJ-1'}, status_mismatch=[],
+                       failed_links=[])
 
 
 def _fake_add(captured: dict[str, object],

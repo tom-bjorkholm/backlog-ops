@@ -35,7 +35,17 @@ returned backlog of stored items is internally consistent. The status of
 a created issue is set by a workflow transition to a Jira status that
 maps to the item's status, trying the matching transitions in turn; when
 none succeeds the remaining mismatch is reported. A sub-task's parent is
-set at create time as above. The argument backlog is never modified.
+set at create time as above.
+
+Once the keys are consistent, the links between items are written to
+Jira: the parent link of each non-sub-task and the mapped dependency
+links, using the assigned Jira keys. The Jira link type and its direction
+are derived from the column map, so a write is the exact inverse of a
+read: a dependency mapped to a ``Blocks`` filtered field becomes a created
+issue link, and the parent is set from the first mapped ``parent_key``
+path. A link Jira refuses is collected in the result's ``failed_links``
+list with a concise reason, and the remaining links are still written. The
+argument backlog is never modified.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -45,14 +55,16 @@ import copy
 import sys
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import NamedTuple, Optional, TextIO
+from functools import partial
+from typing import Callable, NamedTuple, Optional, TextIO
 from config_as_json import string_to_enum_best_match
-from jira import JIRA, JIRAError
+from jira import JIRA, Issue, JIRAError
 from backlogops.backlog import Backlog, BacklogItem, DEPENDENCY_FIELDS, Status
 from backlogops.jira_connect import JiraConnections
-from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
-    JiraColumnMap, JiraIssueTypeMap
-from backlogops.jira_read import _coerce, _custom_ids, _field_id, _resolve
+from backlogops.jira_io_config import JiraColumnMap, JiraIssueTypeMap
+from backlogops.jira_read import _coerce, _custom_ids, _resolve
+from backlogops.jira_write_fields import FailedLink, _LinkSpec, _link_specs, \
+    _parent_fields, _place_value
 from backlogops.levels import DEFAULT_LEVELS, Levels, level_name
 
 _SKIP_WRITE_FIELDS = frozenset({'key', 'status', 'parent_key'}) | \
@@ -64,9 +76,6 @@ the parent and dependency links are updated in a later batch. A
 sub-task's parent is the exception: it is set at create time by a
 dedicated path, because Jira requires it, not from the column map.
 """
-
-_JIRA_LIST_FIELDS = frozenset({'fixVersions', 'versions', 'components'})
-"""Jira issue fields whose create value is a list of named objects."""
 
 _CREATE_FIELD_NAMES = frozenset({'project', 'summary', 'issuetype', 'parent'})
 """Jira fields set while creating an issue; the rest are set by an update.
@@ -180,6 +189,8 @@ class AddedToJira(NamedTuple):
             Jira assigned.
         status_mismatch: The stored items whose created issue could not be
             transitioned to a Jira status matching the item's status.
+        failed_links: The parent and dependency links Jira refused to
+            write, each with a concise reason.
     """
 
     stored: Backlog
@@ -187,6 +198,7 @@ class AddedToJira(NamedTuple):
     failed: list[FailedItem]
     key_map: dict[str, str]
     status_mismatch: list[StatusMismatch]
+    failed_links: list[FailedLink]
 
 
 @dataclass(frozen=True)
@@ -221,34 +233,6 @@ class _WriteContext:
     custom_names: dict[str, str]
     types: _TypeInfo
     status_map: Optional[dict[str, Status]]
-
-
-def _nest(path: tuple[str, ...], value: object) -> dict[str, object]:
-    """Return ``value`` wrapped in nested dicts named by the path steps."""
-    result: object = value
-    for step in reversed(path):
-        result = {step: result}
-    assert isinstance(result, dict)
-    return result
-
-
-def _field_payload(path: tuple[str, ...], value: object) -> dict[str, object]:
-    """Return the create-fields entry for a plain or list issue field."""
-    if path[0] in _JIRA_LIST_FIELDS:
-        inner = _nest(path[1:], value) if len(path) > 1 else {'name': value}
-        return {path[0]: [inner]}
-    return _nest(path, value)
-
-
-def _place_value(fields: dict[str, object], attr: JiraAttrPath, value: object,
-                 custom_ids: dict[str, str]) -> None:
-    """Place one field value into the Jira create-fields dict by kind."""
-    if attr.kind is JiraAttrType.CUSTOM_FIELD:
-        field_id = _field_id(attr.path[0], custom_ids)
-        if field_id is not None:
-            fields[field_id] = value
-    elif attr.kind is JiraAttrType.FIELD:
-        fields.update(_field_payload(attr.path, value))
 
 
 def _issue_type(level: int, issue_type_map: JiraIssueTypeMap,
@@ -453,7 +437,7 @@ def _subtasks_last(ctx: _WriteContext, backlog: Backlog) -> Backlog:
 
 
 def _create_issue(ctx: _WriteContext, item: BacklogItem,
-                  parent_key: Optional[str]) -> tuple[str, list[str], object]:
+                  parent_key: Optional[str]) -> tuple[str, list[str], Issue]:
     """Create the issue and set the fields its edit screen offers.
 
     The issue is created with the create-screen fields, then the remaining
@@ -637,13 +621,92 @@ def _reconcile_status(ctx: _WriteContext, item: BacklogItem, issue: object,
 
 @dataclass
 class _Added:
-    """Mutable accumulator of the add-to-Jira results being built."""
+    """Mutable accumulator of the add-to-Jira results being built.
+
+    ``issues`` keeps each created issue by its assigned Jira key, so a
+    parent link can be set through the already-created issue, and ``links``
+    collects the links Jira refused to write.
+    """
 
     stored: Backlog
     already: Backlog
     failed: list[FailedItem]
     mismatch: list[StatusMismatch]
     key_map: dict[str, str]
+    issues: dict[str, Issue]
+    links: list[FailedLink]
+
+
+def _report_failed_link(failed: FailedLink, stderr_file: TextIO) -> None:
+    """Warn that one link between two Jira issues could not be written."""
+    print(f'WARNING: could not link {failed.item.key} ({failed.relation}) '
+          f'to {failed.target}: {failed.reason}.', file=stderr_file)
+
+
+def _try_link(acc: _Added, template: FailedLink, stderr_file: TextIO,
+              write: Callable[[], object]) -> None:
+    """Run one link write, recording a Jira refusal against the template.
+
+    The template is a :class:`FailedLink` for the attempted link whose
+    reason is filled in from the error, so a refusal is both collected and
+    reported while the other links are still attempted.
+    """
+    try:
+        write()
+    except JIRAError as error:
+        failed = template._replace(reason=_jira_reason(error))
+        acc.links.append(failed)
+        _report_failed_link(failed, stderr_file)
+
+
+def _write_dep_links(ctx: _WriteContext, item: BacklogItem, spec: _LinkSpec,
+                     acc: _Added, stderr_file: TextIO) -> None:
+    """Create the Jira issue links for one dependency field of an item.
+
+    Each dependency key is linked to the item under the spec's link type,
+    with the current issue on the inward or outward side so that reading
+    the link back yields the same dependency. Each key is the assigned Jira
+    key produced by the earlier remap.
+    """
+    for dep in getattr(item, spec.field):
+        inward, outward = ((item.key, dep) if spec.dep_is_inward
+                           else (dep, item.key))
+        template = FailedLink(item, dep, spec.link_type, '')
+        _try_link(acc, template, stderr_file,
+                  partial(ctx.client.create_issue_link, spec.link_type, inward,
+                          outward))
+
+
+def _write_parent_link(ctx: _WriteContext, item: BacklogItem, parent_key: str,
+                       acc: _Added, stderr_file: TextIO) -> None:
+    """Set a non-sub-task item's parent link from the column map.
+
+    The parent field is taken from the first mapped ``parent_key`` path and
+    set through an update on the already-created issue, using the parent's
+    assigned Jira key.
+    """
+    fields = _parent_fields(ctx.column_map, ctx.custom_ids, parent_key)
+    if not fields:
+        return
+    template = FailedLink(item, parent_key, 'parent', '')
+    _try_link(acc, template, stderr_file,
+              lambda: acc.issues[item.key].update(fields=fields))
+
+
+def _write_item_links(ctx: _WriteContext, item: BacklogItem,
+                      specs: list[_LinkSpec], acc: _Added,
+                      stderr_file: TextIO) -> None:
+    """Write the parent and dependency links of one stored item.
+
+    A non-sub-task item's parent is linked to its parent's Jira key; a
+    sub-task already had its parent set at create time. Each mapped
+    dependency field is written as its Jira issue links. Every stored item
+    already carries its assigned Jira keys from the earlier remap.
+    """
+    if item.parent_key is not None and not _is_subtask(item, ctx):
+        _write_parent_link(ctx, item, item.parent_key, acc, stderr_file)
+    for spec in specs:
+        _write_dep_links(ctx, item, spec, acc, stderr_file)
 
 
 def _add_item(ctx: _WriteContext, item: BacklogItem, existing: set[str],
@@ -652,7 +715,8 @@ def _add_item(ctx: _WriteContext, item: BacklogItem, existing: set[str],
 
     An already-present item is copied into ``already``. A refused create is
     recorded in ``failed``. A created item is copied with its Jira key,
-    recorded in ``stored`` and ``key_map``, and its status is reconciled.
+    recorded in ``stored``, ``key_map`` and ``issues``, and its status is
+    reconciled.
     """
     if item.key in existing:
         acc.already.append(copy.deepcopy(item))
@@ -669,6 +733,7 @@ def _add_item(ctx: _WriteContext, item: BacklogItem, existing: set[str],
     stored_item = _stored_copy(item, new_key)
     acc.stored.append(stored_item)
     acc.key_map[item.key] = new_key
+    acc.issues[new_key] = issue
     bad = _reconcile_status(ctx, stored_item, issue, stderr_file)
     if bad is not None:
         acc.mismatch.append(bad)
@@ -682,14 +747,19 @@ def _write_new_items(ctx: _WriteContext, backlog: Backlog, existing: set[str],
     created with its parent key. Once every issue exists, each stored
     copy's parent and dependency keys are remapped to the assigned Jira
     keys, so the returned backlog of stored items is internally consistent.
+    The parent and dependency links are then written to Jira using those
+    keys; a link Jira refuses is collected in ``failed_links``.
     """
-    acc = _Added([], [], [], [], {})
+    acc = _Added([], [], [], [], {}, {}, [])
     for item in _subtasks_last(ctx, backlog):
         _add_item(ctx, item, existing, acc, stderr_file)
     for stored_item in acc.stored:
         _remap_refs(stored_item, acc.key_map)
+    specs = _link_specs(ctx.column_map)
+    for stored_item in acc.stored:
+        _write_item_links(ctx, stored_item, specs, acc, stderr_file)
     return AddedToJira(acc.stored, acc.already, acc.failed, acc.key_map,
-                       acc.mismatch)
+                       acc.mismatch, acc.links)
 
 
 # pylint: disable-next=too-many-arguments
@@ -715,7 +785,11 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
     and dependency keys are remapped to the assigned Jira keys, and each
     created issue is transitioned to a Jira status matching the item's
     status; an issue that cannot be matched is collected in
-    ``status_mismatch``. The argument backlog is never modified.
+    ``status_mismatch``. Finally the parent link of each non-sub-task and
+    the mapped dependency links are written to Jira using the assigned
+    keys, deriving the Jira link type and direction from the column map; a
+    link Jira refuses is collected in ``failed_links``. The argument
+    backlog is never modified.
 
     Args:
         connections: The pool of live Jira clients and the configuration
@@ -816,6 +890,8 @@ def format_add_result(result: AddedToJira) -> str:
     lines.append('')
     lines.extend(_status_section('Status not set in Jira',
                                  result.status_mismatch))
+    lines.append('')
+    lines.extend(_link_section('Links not written', result.failed_links))
     return '\n'.join(lines)
 
 
@@ -832,6 +908,13 @@ def _status_section(heading: str, mismatch: list[StatusMismatch]) -> list[str]:
             f'{bad.expected.name}, Jira status {bad.actual!r}'
             for bad in mismatch]
     return _labeled_lines(heading, len(mismatch), body)
+
+
+def _link_section(heading: str, links: list[FailedLink]) -> list[str]:
+    """Return the heading and the source, target and reason of each link."""
+    body = [f'  {link.item.key} -> {link.target}  ({link.relation})  '
+            f'- {link.reason}' for link in links]
+    return _labeled_lines(heading, len(links), body)
 
 
 def apply_jira_keys(backlog: Backlog, key_map: dict[str, str]) -> None:

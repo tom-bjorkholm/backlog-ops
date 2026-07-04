@@ -74,6 +74,7 @@ from backlogops.jira_connect import JiraConnections
 from backlogops.jira_read import (
     read_backlog_from_jira, read_jira_from_config, build_backlog_releases,
     resolve_jql)
+from backlogops.jira_write_fields import FailedLink
 from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, FailedItem,
     ItemNotInJiraError, OnExistingKey, OnMissingKey, StatusMismatch,
@@ -125,8 +126,8 @@ __all__ = [
     'backlog_in_release_order', 'read_backlog_from_jira',
     'read_jira_from_config', 'build_backlog_releases', 'resolve_jql',
     'JiraConnections', 'add_backlog_to_jira', 'AddedToJira',
-    'ExistsInJiraError', 'FailedItem', 'ItemNotInJiraError', 'OnExistingKey',
-    'OnMissingKey', 'StatusMismatch',
+    'ExistsInJiraError', 'FailedItem', 'FailedLink', 'ItemNotInJiraError',
+    'OnExistingKey', 'OnMissingKey', 'StatusMismatch',
     'UnknownIssueTypeError', 'apply_jira_keys', 'format_add_result',
     'jira_custom_fields', 'jira_editable_fields',
     'add_releases_to_jira', 'AddedReleasesToJira', 'FailedRelease',

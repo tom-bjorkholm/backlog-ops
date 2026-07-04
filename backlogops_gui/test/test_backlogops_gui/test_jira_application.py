@@ -318,7 +318,8 @@ def _add_result() -> AddedToJira:
     added = BacklogItem(key='PROJ-1', level=1, title='First', story_points=5,
                         status=Status.TODO)
     return AddedToJira(stored=[added], already_present=[], failed=[],
-                       key_map={'A': 'PROJ-1'}, status_mismatch=[])
+                       key_map={'A': 'PROJ-1'}, status_mismatch=[],
+                       failed_links=[])
 
 
 def _fake_write(result: AddedToJira) -> Callable[..., AddedToJira]:

@@ -833,7 +833,8 @@ def test_apply_add_result() -> None:
     added = BacklogItem(key='PROJ-1', level=1, title='First', story_points=5,
                         status=Status.TODO)
     result = AddedToJira(stored=[added], already_present=[], failed=[],
-                         key_map={'A': 'PROJ-1'}, status_mismatch=[])
+                         key_map={'A': 'PROJ-1'}, status_mismatch=[],
+                         failed_links=[])
     calls: list[str] = []
     reports: list[str] = []
     apply_add_result(data, result, lambda: calls.append('refresh'),

@@ -23,11 +23,14 @@ from backlogops.backlog import BacklogItem, Status
 import backlogops.jira_connect as jc
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraIOConfig
+from backlogops.jira_io_config import (
+    DEF_BACKLOG_COLUMN_MAP, JiraAttrPath, JiraAttrType)
 from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, FailedItem,
     OnExistingKey, StatusMismatch, UnknownIssueTypeError, apply_jira_keys,
     format_add_result, jira_custom_fields, jira_editable_fields,
     _issue_type_meta, _status_from_name, _transition_target)
+from backlogops.jira_write_fields import FailedLink, _link_spec_for
 from backlogops.levels import DEFAULT_LEVELS, level_name
 from .jira_write_helpers import (
     connections_for as _connections, jira_write_config as _config, NO)
@@ -52,15 +55,6 @@ unavailable, so that sub-task detection falls back to the lowest level.
 """
 
 
-def _recorder(record: dict[str, object]
-              ) -> Callable[[dict[str, object]], None]:
-    """Return an update callback that merges its fields into ``record``."""
-    def update(fields: dict[str, object]) -> None:
-        """Merge the update fields into the created issue's record."""
-        record.update(fields)
-    return update
-
-
 @dataclass
 class _Behavior:
     """How the fake Jira answers create, edit and transition calls.
@@ -77,6 +71,22 @@ class _Behavior:
     transitions: list[dict[str, object]] = field(default_factory=list)
     fail_transition: bool = False
     transitioned: list[tuple[str, str]] = field(default_factory=list)
+
+
+@dataclass
+class _LinkLog:
+    """Recorded update and link calls, and the link failure knobs.
+
+    ``updates`` records each ``update`` call as (key, fields), ``links``
+    records each created issue link as (type, inward, outward),
+    ``fail_parent`` makes a parent update fail, and ``fail_link_to`` names
+    the endpoint keys whose link creation should fail.
+    """
+
+    updates: list[tuple[str, dict[str, object]]] = field(default_factory=list)
+    links: list[tuple[str, str, str]] = field(default_factory=list)
+    fail_parent: bool = False
+    fail_link_to: set[str] = field(default_factory=set)
 
 
 class _WriteClient:
@@ -101,6 +111,7 @@ class _WriteClient:
                          else issue_types),
             fail_types=set() if fail_types is None else fail_types)
         self.created: list[dict[str, object]] = []
+        self.link_log = _LinkLog()
         self.closed = 0
 
     def myself(self) -> dict[str, str]:
@@ -153,10 +164,30 @@ class _WriteClient:
                             'but parent issue key or id not specified.')
         record = dict(fields)
         self.created.append(record)
+        key = f'JIRA-{len(self.created)}'
         status = SimpleNamespace(name=self.behavior.init_status)
-        return SimpleNamespace(key=f'JIRA-{len(self.created)}',
-                               update=_recorder(record),
+        return SimpleNamespace(key=key, update=self._updater(key, record),
                                fields=SimpleNamespace(status=status))
+
+    def _updater(self, key: str, record: dict[str, object]
+                 ) -> Callable[..., None]:
+        """Return an update callback that records and may refuse a parent."""
+        def update(fields: dict[str, object]) -> None:
+            """Record the update, refusing a parent link when set to fail."""
+            if self.link_log.fail_parent and 'parent' in fields:
+                raise JIRAError(status_code=400, text='parent rejected')
+            record.update(fields)
+            self.link_log.updates.append((key, dict(fields)))
+        return update
+
+    def create_issue_link(self, link_type: str, inward: str, outward: str,
+                          comment: Optional[dict[str, object]] = None) -> None:
+        """Record a created issue link, or refuse a failing endpoint."""
+        _ = comment
+        if inward in self.link_log.fail_link_to or \
+                outward in self.link_log.fail_link_to:
+            raise JIRAError(status_code=400, text='link rejected')
+        self.link_log.links.append((link_type, inward, outward))
 
     def editmeta(self, issue: str) -> dict[str, object]:
         """Return the edit-screen field metadata for the issue."""
@@ -384,10 +415,13 @@ def test_format_result() -> None:
     bad.title = 'Epic'
     late = _item('P-2')
     late.title = 'Late'
+    linked = _item('P-3')
+    linked.title = 'Linked'
     result = AddedToJira(
         stored=[added], already_present=[present],
         failed=[FailedItem(bad, 'HTTP 400: nope')], key_map={'A': 'P-1'},
-        status_mismatch=[StatusMismatch(late, Status.DONE, 'To Do')])
+        status_mismatch=[StatusMismatch(late, Status.DONE, 'To Do')],
+        failed_links=[FailedLink(linked, 'P-1', 'Blocks', 'HTTP 400: link')])
     text = format_add_result(result)
     assert 'Added to Jira (1):' in text
     assert '  P-1  First' in text
@@ -397,14 +431,17 @@ def test_format_result() -> None:
     assert 'E-1  Epic  - HTTP 400: nope' in text
     assert 'Status not set in Jira (1):' in text
     assert "P-2  Late  - expected DONE, Jira status 'To Do'" in text
+    assert 'Links not written (1):' in text
+    assert 'P-3 -> P-1  (Blocks)  - HTTP 400: link' in text
 
 
 def test_format_empty() -> None:
     """Test an empty section is shown as a count of zero and (none)."""
-    text = format_add_result(AddedToJira([], [], [], {}, []))
+    text = format_add_result(AddedToJira([], [], [], {}, [], []))
     assert 'Added to Jira (0):' in text
     assert 'Failed to add (0):' in text
     assert 'Status not set in Jira (0):' in text
+    assert 'Links not written (0):' in text
     assert '(none)' in text
 
 
@@ -588,8 +625,10 @@ def test_reexport() -> None:
     assert backlogops.AddedToJira is AddedToJira
     assert backlogops.ExistsInJiraError is ExistsInJiraError
     assert backlogops.StatusMismatch is StatusMismatch
+    assert backlogops.FailedLink is FailedLink
     assert 'add_backlog_to_jira' in backlogops.__all__
     assert 'StatusMismatch' in backlogops.__all__
+    assert 'FailedLink' in backlogops.__all__
     assert 'JiraConnections' in backlogops.__all__
 
 
@@ -697,3 +736,164 @@ def test_status_trans_fail(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_status_from_name(name: str, expected: Optional[Status]) -> None:
     """Test a status map match wins over the built-in name matching."""
     assert _status_from_name(name, {'To Do': Status.TODO}) is expected
+
+
+def _link_config() -> JiraIOConfig:
+    """Return a config whose backlog map links all dependency fields.
+
+    Besides the default ``depends_on_f2s`` Blocks link, ``depends_on_f2f``
+    is mapped to a ``Relates`` link read from the outward side and
+    ``depends_on_s2s`` to a ``Precedes`` link read from the inward side, so
+    both link directions are exercised.
+    """
+    config = _config()
+    backlog_map = dict(DEF_BACKLOG_COLUMN_MAP)
+    backlog_map['depends_on_f2f'] = (JiraAttrPath(
+        JiraAttrType.FILTERED_FIELD,
+        ('issuelinks', 'type.name', 'Relates', 'outwardIssue.key')),)
+    backlog_map['depends_on_s2s'] = (JiraAttrPath(
+        JiraAttrType.FILTERED_FIELD,
+        ('issuelinks', 'type.name', 'Precedes', 'inwardIssue.key')),)
+    config.backlog_column_maps = {'bk': backlog_map}
+    return config
+
+
+@pytest.mark.parametrize('value_path, expected', [
+    ('inwardIssue.key', True), ('outwardIssue.key', False)])
+def test_link_spec_direction(value_path: str, expected: bool) -> None:
+    """Test the link direction is inverted from the map's value path."""
+    attrs = (JiraAttrPath(JiraAttrType.FILTERED_FIELD,
+             ('issuelinks', 'type.name', 'Blocks', value_path)),)
+    spec = _link_spec_for('depends_on_f2s', attrs)
+    assert spec is not None
+    assert spec.link_type == 'Blocks'
+    assert spec.dep_is_inward is expected
+
+
+def test_link_spec_none() -> None:
+    """Test a field without an issuelinks path yields no link spec."""
+    attrs = (JiraAttrPath(JiraAttrType.FIELD, ('parent', 'key')),)
+    assert _link_spec_for('parent_key', attrs) is None
+
+
+def test_dep_link_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a Blocks dependency links with the current issue inward."""
+    client = _WriteClient()
+    connections = _connections(monkeypatch, client)
+    blocked = _item('A')
+    blocked.depends_on_f2s = ['B']
+    result = add_backlog_to_jira(connections, 'w', [blocked, _item('B')],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 stderr_file=NO)
+    assert client.link_log.links == [('Blocks', 'JIRA-1', 'JIRA-2')]
+    assert not result.failed_links
+
+
+def test_dep_link_external(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a dependency outside the run links to its kept Jira key."""
+    client = _WriteClient()
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.depends_on_f2s = ['EXT']
+    add_backlog_to_jira(connections, 'w', [item],
+                        on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
+    assert client.link_log.links == [('Blocks', 'JIRA-1', 'EXT')]
+
+
+def test_all_dep_links(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test every mapped dependency field is written in its direction."""
+    client = _WriteClient()
+    connections = _connections(monkeypatch, client, _link_config())
+    item = _item('A')
+    item.depends_on_f2s = ['E1']
+    item.depends_on_f2f = ['E2']
+    item.depends_on_s2s = ['E3']
+    add_backlog_to_jira(connections, 'w', [item],
+                        on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
+    assert ('Blocks', 'JIRA-1', 'E1') in client.link_log.links
+    assert ('Relates', 'E2', 'JIRA-1') in client.link_log.links
+    assert ('Precedes', 'JIRA-1', 'E3') in client.link_log.links
+    assert len(client.link_log.links) == 3
+
+
+def test_no_dep_link_map(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a map without an issuelinks path writes no dependency links."""
+    config = _config()
+    backlog_map = dict(DEF_BACKLOG_COLUMN_MAP)
+    del backlog_map['depends_on_f2s']
+    config.backlog_column_maps = {'bk': backlog_map}
+    client = _WriteClient()
+    connections = _connections(monkeypatch, client, config)
+    item = _item('A')
+    item.depends_on_f2s = ['B']
+    result = add_backlog_to_jira(connections, 'w', [item],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 stderr_file=NO)
+    assert not client.link_log.links
+    assert not result.failed_links
+
+
+def test_parent_link_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a non-sub-task parent is set from the parent's Jira key."""
+    client = _WriteClient()
+    connections = _connections(monkeypatch, client)
+    backlog = [_leveled('C', 1, 'P'), _leveled('P', 2)]
+    result = add_backlog_to_jira(connections, 'w', backlog,
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 stderr_file=NO)
+    assert client.created[0]['parent'] == {'key': 'JIRA-2'}
+    assert 'parent' not in client.created[1]
+    assert not client.link_log.links
+    assert not result.failed_links
+
+
+def test_subtask_parent_skip(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a sub-task keeps its create-time parent, not a link update.
+
+    The sub-task's dependency link is still written, but no parent link
+    update is issued, since Jira set the parent at create time.
+    """
+    client = _WriteClient(issue_types={'Story': False, 'Sub-Task': True})
+    connections = _connections(monkeypatch, client)
+    sub = _leveled('T', 0, 'P')
+    sub.depends_on_f2s = ['P']
+    add_backlog_to_jira(connections, 'w', [sub, _leveled('P', 1)],
+                        on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
+    assert client.created[1]['parent'] == {'key': 'JIRA-1'}
+    assert all('parent' not in fields
+               for _, fields in client.link_log.updates)
+    assert ('Blocks', 'JIRA-2', 'JIRA-1') in client.link_log.links
+
+
+def test_link_fail_reported(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a refused link is collected and the others still written."""
+    client = _WriteClient()
+    client.link_log.fail_link_to = {'JIRA-2'}
+    connections = _connections(monkeypatch, client)
+    errors = io.StringIO()
+    item = _item('A')
+    item.depends_on_f2s = ['B', 'EXT']
+    result = add_backlog_to_jira(connections, 'w', [item, _item('B')],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 stderr_file=errors)
+    assert [link.target for link in result.failed_links] == ['JIRA-2']
+    failed = result.failed_links[0]
+    assert failed.item.key == 'JIRA-1'
+    assert failed.relation == 'Blocks'
+    assert 'HTTP 400' in failed.reason
+    assert ('Blocks', 'JIRA-1', 'EXT') in client.link_log.links
+    assert 'JIRA-1' in errors.getvalue()
+
+
+def test_parent_link_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a refused parent link is collected with the parent relation."""
+    client = _WriteClient()
+    client.link_log.fail_parent = True
+    connections = _connections(monkeypatch, client)
+    backlog = [_leveled('C', 1, 'P'), _leveled('P', 2)]
+    result = add_backlog_to_jira(connections, 'w', backlog,
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 stderr_file=NO)
+    assert [link.relation for link in result.failed_links] == ['parent']
+    assert result.failed_links[0].target == 'JIRA-2'
+    assert result.failed_links[0].item.key == 'JIRA-1'

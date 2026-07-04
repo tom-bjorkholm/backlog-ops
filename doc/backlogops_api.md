@@ -310,6 +310,8 @@
 * [backlogops.estimate\_ready\_date](#backlogops.estimate_ready_date)
   * [estimate\_ready\_date](#backlogops.estimate_ready_date.estimate_ready_date)
   * [set\_plan\_from\_estimate](#backlogops.estimate_ready_date.set_plan_from_estimate)
+* [backlogops.jira\_write\_fields](#backlogops.jira_write_fields)
+  * [FailedLink](#backlogops.jira_write_fields.FailedLink)
 * [backlogops.work\_hours](#backlogops.work_hours)
   * [WeekDay](#backlogops.work_hours.WeekDay)
   * [DEFAULT\_WORK\_WEEK](#backlogops.work_hours.DEFAULT_WORK_WEEK)
@@ -5574,7 +5576,17 @@ returned backlog of stored items is internally consistent. The status of
 a created issue is set by a workflow transition to a Jira status that
 maps to the item's status, trying the matching transitions in turn; when
 none succeeds the remaining mismatch is reported. A sub-task's parent is
-set at create time as above. The argument backlog is never modified.
+set at create time as above.
+
+Once the keys are consistent, the links between items are written to
+Jira: the parent link of each non-sub-task and the mapped dependency
+links, using the assigned Jira keys. The Jira link type and its direction
+are derived from the column map, so a write is the exact inverse of a
+read: a dependency mapped to a ``Blocks`` filtered field becomes a created
+issue link, and the parent is set from the first mapped ``parent_key``
+path. A link Jira refuses is collected in the result's ``failed_links``
+list with a concise reason, and the remaining links are still written. The
+argument backlog is never modified.
 
 <a id="backlogops.jira_write.ExistsInJiraError"></a>
 
@@ -5718,6 +5730,8 @@ Fields:
         Jira assigned.
     status_mismatch: The stored items whose created issue could not be
         transitioned to a Jira status matching the item's status.
+    failed_links: The parent and dependency links Jira refused to
+        write, each with a concise reason.
 
 <a id="backlogops.jira_write.add_backlog_to_jira"></a>
 
@@ -5751,7 +5765,11 @@ are still added. Once every issue exists, each stored copy's parent
 and dependency keys are remapped to the assigned Jira keys, and each
 created issue is transitioned to a Jira status matching the item's
 status; an issue that cannot be matched is collected in
-``status_mismatch``. The argument backlog is never modified.
+``status_mismatch``. Finally the parent link of each non-sub-task and
+the mapped dependency links are written to Jira using the assigned
+keys, deriving the Jira link type and direction from the column map; a
+link Jira refuses is collected in ``failed_links``. The argument
+backlog is never modified.
 
 **Arguments**:
 
@@ -6551,6 +6569,39 @@ ready date, copying None when the estimated ready date is None.
 
   A new backlog whose items carry the planned ready date taken from
   the estimated ready date. The other fields are copied unchanged.
+
+<a id="backlogops.jira_write_fields"></a>
+
+# backlogops.jira\_write\_fields
+
+Invert a Jira column map into write payloads and issue-link specs.
+
+Writing to Jira is the inverse of reading: a value read from a Jira
+attribute path is written back to the same path. This module holds the
+pure helpers that build one Jira field payload from a mapped path
+(:func:`_place_value` and the parent update fields from
+:func:`_parent_fields`) and that derive how a dependency field is written
+as a Jira issue link (:func:`_link_specs`). It also defines
+:class:`FailedLink`, the result of a link that Jira refused. The
+orchestration that creates issues and writes the links lives in
+:mod:`backlogops.jira_write`, which imports these helpers.
+
+<a id="backlogops.jira_write_fields.FailedLink"></a>
+
+## FailedLink Objects
+
+```python
+class FailedLink(NamedTuple)
+```
+
+A link between two items that could not be written to Jira.
+
+Fields:
+    item: The stored source item, carrying its Jira key.
+    target: The Jira key the link points to, a parent or a dependency.
+    relation: The link relation, ``'parent'`` or the Jira link type
+        name such as ``'Blocks'``.
+    reason: A concise reason the link could not be written.
 
 <a id="backlogops.work_hours"></a>
 

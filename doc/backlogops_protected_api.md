@@ -508,7 +508,6 @@
   * [level\_name](#backlogops.levels.level_name)
 * [backlogops.jira\_write](#backlogops.jira_write)
   * [\_SKIP\_WRITE\_FIELDS](#backlogops.jira_write._SKIP_WRITE_FIELDS)
-  * [\_JIRA\_LIST\_FIELDS](#backlogops.jira_write._JIRA_LIST_FIELDS)
   * [\_CREATE\_FIELD\_NAMES](#backlogops.jira_write._CREATE_FIELD_NAMES)
   * [ExistsInJiraError](#backlogops.jira_write.ExistsInJiraError)
     * [\_\_init\_\_](#backlogops.jira_write.ExistsInJiraError.__init__)
@@ -523,9 +522,6 @@
   * [AddedToJira](#backlogops.jira_write.AddedToJira)
   * [\_TypeInfo](#backlogops.jira_write._TypeInfo)
   * [\_WriteContext](#backlogops.jira_write._WriteContext)
-  * [\_nest](#backlogops.jira_write._nest)
-  * [\_field\_payload](#backlogops.jira_write._field_payload)
-  * [\_place\_value](#backlogops.jira_write._place_value)
   * [\_issue\_type](#backlogops.jira_write._issue_type)
   * [\_internal\_value](#backlogops.jira_write._internal_value)
   * [\_create\_fields](#backlogops.jira_write._create_fields)
@@ -559,6 +555,11 @@
   * [\_report\_status\_mismatch](#backlogops.jira_write._report_status_mismatch)
   * [\_reconcile\_status](#backlogops.jira_write._reconcile_status)
   * [\_Added](#backlogops.jira_write._Added)
+  * [\_report\_failed\_link](#backlogops.jira_write._report_failed_link)
+  * [\_try\_link](#backlogops.jira_write._try_link)
+  * [\_write\_dep\_links](#backlogops.jira_write._write_dep_links)
+  * [\_write\_parent\_link](#backlogops.jira_write._write_parent_link)
+  * [\_write\_item\_links](#backlogops.jira_write._write_item_links)
   * [\_add\_item](#backlogops.jira_write._add_item)
   * [\_write\_new\_items](#backlogops.jira_write._write_new_items)
   * [add\_backlog\_to\_jira](#backlogops.jira_write.add_backlog_to_jira)
@@ -568,6 +569,7 @@
   * [format\_add\_result](#backlogops.jira_write.format_add_result)
   * [\_failed\_section](#backlogops.jira_write._failed_section)
   * [\_status\_section](#backlogops.jira_write._status_section)
+  * [\_link\_section](#backlogops.jira_write._link_section)
   * [apply\_jira\_keys](#backlogops.jira_write.apply_jira_keys)
   * [jira\_custom\_fields](#backlogops.jira_write.jira_custom_fields)
   * [jira\_editable\_fields](#backlogops.jira_write.jira_editable_fields)
@@ -779,6 +781,16 @@
     * [effective](#backlogops.estimate_ready_date._ParentRollup.effective)
   * [estimate\_ready\_date](#backlogops.estimate_ready_date.estimate_ready_date)
   * [set\_plan\_from\_estimate](#backlogops.estimate_ready_date.set_plan_from_estimate)
+* [backlogops.jira\_write\_fields](#backlogops.jira_write_fields)
+  * [\_JIRA\_LIST\_FIELDS](#backlogops.jira_write_fields._JIRA_LIST_FIELDS)
+  * [FailedLink](#backlogops.jira_write_fields.FailedLink)
+  * [\_nest](#backlogops.jira_write_fields._nest)
+  * [\_field\_payload](#backlogops.jira_write_fields._field_payload)
+  * [\_place\_value](#backlogops.jira_write_fields._place_value)
+  * [\_parent\_fields](#backlogops.jira_write_fields._parent_fields)
+  * [\_LinkSpec](#backlogops.jira_write_fields._LinkSpec)
+  * [\_link\_spec\_for](#backlogops.jira_write_fields._link_spec_for)
+  * [\_link\_specs](#backlogops.jira_write_fields._link_specs)
 * [backlogops.work\_hours](#backlogops.work_hours)
   * [WeekDay](#backlogops.work_hours.WeekDay)
   * [DEFAULT\_WORK\_WEEK](#backlogops.work_hours.DEFAULT_WORK_WEEK)
@@ -8692,7 +8704,17 @@ returned backlog of stored items is internally consistent. The status of
 a created issue is set by a workflow transition to a Jira status that
 maps to the item's status, trying the matching transitions in turn; when
 none succeeds the remaining mismatch is reported. A sub-task's parent is
-set at create time as above. The argument backlog is never modified.
+set at create time as above.
+
+Once the keys are consistent, the links between items are written to
+Jira: the parent link of each non-sub-task and the mapped dependency
+links, using the assigned Jira keys. The Jira link type and its direction
+are derived from the column map, so a write is the exact inverse of a
+read: a dependency mapped to a ``Blocks`` filtered field becomes a created
+issue link, and the parent is set from the first mapped ``parent_key``
+path. A link Jira refuses is collected in the result's ``failed_links``
+list with a concise reason, and the remaining links are still written. The
+argument backlog is never modified.
 
 <a id="backlogops.jira_write._SKIP_WRITE_FIELDS"></a>
 
@@ -8704,12 +8726,6 @@ The key is assigned by Jira, the status needs a workflow transition, and
 the parent and dependency links are updated in a later batch. A
 sub-task's parent is the exception: it is set at create time by a
 dedicated path, because Jira requires it, not from the column map.
-
-<a id="backlogops.jira_write._JIRA_LIST_FIELDS"></a>
-
-#### \_JIRA\_LIST\_FIELDS
-
-Jira issue fields whose create value is a list of named objects.
 
 <a id="backlogops.jira_write._CREATE_FIELD_NAMES"></a>
 
@@ -8864,6 +8880,8 @@ Fields:
         Jira assigned.
     status_mismatch: The stored items whose created issue could not be
         transitioned to a Jira status matching the item's status.
+    failed_links: The parent and dependency links Jira refused to
+        write, each with a concise reason.
 
 <a id="backlogops.jira_write._TypeInfo"></a>
 
@@ -8896,37 +8914,6 @@ The resolved Jira target and mapping for creating issues.
 by name. ``types`` resolves an item's level to its Jira issue type.
 ``status_map`` maps a Jira status name to an internal status when
 reconciling a created issue's status.
-
-<a id="backlogops.jira_write._nest"></a>
-
-#### \_nest
-
-```python
-def _nest(path: tuple[str, ...], value: object) -> dict[str, object]
-```
-
-Return ``value`` wrapped in nested dicts named by the path steps.
-
-<a id="backlogops.jira_write._field_payload"></a>
-
-#### \_field\_payload
-
-```python
-def _field_payload(path: tuple[str, ...], value: object) -> dict[str, object]
-```
-
-Return the create-fields entry for a plain or list issue field.
-
-<a id="backlogops.jira_write._place_value"></a>
-
-#### \_place\_value
-
-```python
-def _place_value(fields: dict[str, object], attr: JiraAttrPath, value: object,
-                 custom_ids: dict[str, str]) -> None
-```
-
-Place one field value into the Jira create-fields dict by kind.
 
 <a id="backlogops.jira_write._issue_type"></a>
 
@@ -9148,7 +9135,7 @@ is created first; the original order within each group is kept.
 
 ```python
 def _create_issue(ctx: _WriteContext, item: BacklogItem,
-                  parent_key: Optional[str]) -> tuple[str, list[str], object]
+                  parent_key: Optional[str]) -> tuple[str, list[str], Issue]
 ```
 
 Create the issue and set the fields its edit screen offers.
@@ -9330,6 +9317,83 @@ class _Added()
 
 Mutable accumulator of the add-to-Jira results being built.
 
+``issues`` keeps each created issue by its assigned Jira key, so a
+parent link can be set through the already-created issue, and ``links``
+collects the links Jira refused to write.
+
+<a id="backlogops.jira_write._report_failed_link"></a>
+
+#### \_report\_failed\_link
+
+```python
+def _report_failed_link(failed: FailedLink, stderr_file: TextIO) -> None
+```
+
+Warn that one link between two Jira issues could not be written.
+
+<a id="backlogops.jira_write._try_link"></a>
+
+#### \_try\_link
+
+```python
+def _try_link(acc: _Added, template: FailedLink, stderr_file: TextIO,
+              write: Callable[[], object]) -> None
+```
+
+Run one link write, recording a Jira refusal against the template.
+
+The template is a :class:`FailedLink` for the attempted link whose
+reason is filled in from the error, so a refusal is both collected and
+reported while the other links are still attempted.
+
+<a id="backlogops.jira_write._write_dep_links"></a>
+
+#### \_write\_dep\_links
+
+```python
+def _write_dep_links(ctx: _WriteContext, item: BacklogItem, spec: _LinkSpec,
+                     acc: _Added, stderr_file: TextIO) -> None
+```
+
+Create the Jira issue links for one dependency field of an item.
+
+Each dependency key is linked to the item under the spec's link type,
+with the current issue on the inward or outward side so that reading
+the link back yields the same dependency. Each key is the assigned Jira
+key produced by the earlier remap.
+
+<a id="backlogops.jira_write._write_parent_link"></a>
+
+#### \_write\_parent\_link
+
+```python
+def _write_parent_link(ctx: _WriteContext, item: BacklogItem, parent_key: str,
+                       acc: _Added, stderr_file: TextIO) -> None
+```
+
+Set a non-sub-task item's parent link from the column map.
+
+The parent field is taken from the first mapped ``parent_key`` path and
+set through an update on the already-created issue, using the parent's
+assigned Jira key.
+
+<a id="backlogops.jira_write._write_item_links"></a>
+
+#### \_write\_item\_links
+
+```python
+def _write_item_links(ctx: _WriteContext, item: BacklogItem,
+                      specs: list[_LinkSpec], acc: _Added,
+                      stderr_file: TextIO) -> None
+```
+
+Write the parent and dependency links of one stored item.
+
+A non-sub-task item's parent is linked to its parent's Jira key; a
+sub-task already had its parent set at create time. Each mapped
+dependency field is written as its Jira issue links. Every stored item
+already carries its assigned Jira keys from the earlier remap.
+
 <a id="backlogops.jira_write._add_item"></a>
 
 #### \_add\_item
@@ -9343,7 +9407,8 @@ Create one not-yet-present item and record it in the accumulator.
 
 An already-present item is copied into ``already``. A refused create is
 recorded in ``failed``. A created item is copied with its Jira key,
-recorded in ``stored`` and ``key_map``, and its status is reconciled.
+recorded in ``stored``, ``key_map`` and ``issues``, and its status is
+reconciled.
 
 <a id="backlogops.jira_write._write_new_items"></a>
 
@@ -9360,6 +9425,8 @@ Sub-tasks are created last, after their parents exist, and each is
 created with its parent key. Once every issue exists, each stored
 copy's parent and dependency keys are remapped to the assigned Jira
 keys, so the returned backlog of stored items is internally consistent.
+The parent and dependency links are then written to Jira using those
+keys; a link Jira refuses is collected in ``failed_links``.
 
 <a id="backlogops.jira_write.add_backlog_to_jira"></a>
 
@@ -9393,7 +9460,11 @@ are still added. Once every issue exists, each stored copy's parent
 and dependency keys are remapped to the assigned Jira keys, and each
 created issue is transitioned to a Jira status matching the item's
 status; an issue that cannot be matched is collected in
-``status_mismatch``. The argument backlog is never modified.
+``status_mismatch``. Finally the parent link of each non-sub-task and
+the mapped dependency links are written to Jira using the assigned
+keys, deriving the Jira link type and direction from the column map; a
+link Jira refuses is collected in ``failed_links``. The argument
+backlog is never modified.
 
 **Arguments**:
 
@@ -9505,6 +9576,16 @@ def _status_section(heading: str, mismatch: list[StatusMismatch]) -> list[str]
 ```
 
 Return the heading and the key, title and status of each mismatch.
+
+<a id="backlogops.jira_write._link_section"></a>
+
+#### \_link\_section
+
+```python
+def _link_section(heading: str, links: list[FailedLink]) -> list[str]
+```
+
+Return the heading and the source, target and reason of each link.
 
 <a id="backlogops.jira_write.apply_jira_keys"></a>
 
@@ -12387,6 +12468,137 @@ ready date, copying None when the estimated ready date is None.
 
   A new backlog whose items carry the planned ready date taken from
   the estimated ready date. The other fields are copied unchanged.
+
+<a id="backlogops.jira_write_fields"></a>
+
+# backlogops.jira\_write\_fields
+
+Invert a Jira column map into write payloads and issue-link specs.
+
+Writing to Jira is the inverse of reading: a value read from a Jira
+attribute path is written back to the same path. This module holds the
+pure helpers that build one Jira field payload from a mapped path
+(:func:`_place_value` and the parent update fields from
+:func:`_parent_fields`) and that derive how a dependency field is written
+as a Jira issue link (:func:`_link_specs`). It also defines
+:class:`FailedLink`, the result of a link that Jira refused. The
+orchestration that creates issues and writes the links lives in
+:mod:`backlogops.jira_write`, which imports these helpers.
+
+<a id="backlogops.jira_write_fields._JIRA_LIST_FIELDS"></a>
+
+#### \_JIRA\_LIST\_FIELDS
+
+Jira issue fields whose create value is a list of named objects.
+
+<a id="backlogops.jira_write_fields.FailedLink"></a>
+
+## FailedLink Objects
+
+```python
+class FailedLink(NamedTuple)
+```
+
+A link between two items that could not be written to Jira.
+
+Fields:
+    item: The stored source item, carrying its Jira key.
+    target: The Jira key the link points to, a parent or a dependency.
+    relation: The link relation, ``'parent'`` or the Jira link type
+        name such as ``'Blocks'``.
+    reason: A concise reason the link could not be written.
+
+<a id="backlogops.jira_write_fields._nest"></a>
+
+#### \_nest
+
+```python
+def _nest(path: tuple[str, ...], value: object) -> dict[str, object]
+```
+
+Return ``value`` wrapped in nested dicts named by the path steps.
+
+<a id="backlogops.jira_write_fields._field_payload"></a>
+
+#### \_field\_payload
+
+```python
+def _field_payload(path: tuple[str, ...], value: object) -> dict[str, object]
+```
+
+Return the create-fields entry for a plain or list issue field.
+
+<a id="backlogops.jira_write_fields._place_value"></a>
+
+#### \_place\_value
+
+```python
+def _place_value(fields: dict[str, object], attr: JiraAttrPath, value: object,
+                 custom_ids: dict[str, str]) -> None
+```
+
+Place one field value into the Jira create-fields dict by kind.
+
+<a id="backlogops.jira_write_fields._parent_fields"></a>
+
+#### \_parent\_fields
+
+```python
+def _parent_fields(column_map: JiraColumnMap, custom_ids: dict[str, str],
+                   parent_key: str) -> dict[str, object]
+```
+
+Build the update fields that set an item's parent link.
+
+The first mapped ``parent_key`` path is inverted, so the default map's
+``parent`` field becomes ``{'parent': {'key': parent_key}}`` and an
+``Epic Link`` custom field becomes its resolved field id. A
+``parent_key`` that is not mapped, or whose custom field cannot be
+resolved, yields no fields.
+
+<a id="backlogops.jira_write_fields._LinkSpec"></a>
+
+## \_LinkSpec Objects
+
+```python
+@dataclass(frozen=True)
+class _LinkSpec()
+```
+
+How to write one dependency field as a Jira issue link.
+
+``field`` is the internal dependency field name, ``link_type`` is the
+Jira issue link type name to create (such as ``Blocks``), and
+``dep_is_inward`` says the dependency is the inward issue on the
+current issue, so the link is created with the current issue as the
+inward side and the dependency as the outward side.
+
+<a id="backlogops.jira_write_fields._link_spec_for"></a>
+
+#### \_link\_spec\_for
+
+```python
+def _link_spec_for(name: str, attrs: tuple[JiraAttrPath,
+                                           ...]) -> Optional[_LinkSpec]
+```
+
+Return the issue-link spec inverted from a dependency map entry.
+
+The first FILTERED_FIELD path over ``issuelinks`` is inverted: its
+expected filter value is the link type name and its value path names
+the side the dependency is read from, so ``inwardIssue.key`` means the
+dependency is the inward issue on the current issue. A field without
+such a path cannot be written as a link and yields None.
+
+<a id="backlogops.jira_write_fields._link_specs"></a>
+
+#### \_link\_specs
+
+```python
+def _link_specs(column_map: JiraColumnMap) -> list[_LinkSpec]
+```
+
+Return the writable issue-link specs for the dependency fields.
 
 <a id="backlogops.work_hours"></a>
 
