@@ -12,6 +12,7 @@ created window so a caller or a test can drive or close it.
 
 import tkinter as tk
 from typing import Callable
+from backlogops_gui.close_binding import bind_close
 
 
 def show_change_list(parent: tk.Misc, title: str, text: str,
@@ -36,6 +37,7 @@ def show_change_list(parent: tk.Misc, title: str, text: str,
               command=on_save).pack(side='left')
     tk.Button(button_bar, text='Dismiss',
               command=win.destroy).pack(side='right')
+    bind_close(win)
     return win
 
 
@@ -55,4 +57,5 @@ def show_text_report(parent: tk.Misc, title: str, text: str) -> tk.Toplevel:
     box.configure(state='disabled')
     box.pack(padx=12, pady=(10, 4), fill='both', expand=True)
     tk.Button(win, text='Dismiss', command=win.destroy).pack(padx=12, pady=10)
+    bind_close(win)
     return win

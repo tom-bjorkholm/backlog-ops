@@ -11,7 +11,7 @@ from backlogops import (
     BacklogReleases, GuiDisplayConfig, NoTextIO, get_demo_backlog)
 from backlogops_gui import backlog_window
 from backlogops_gui.backlog_window import BacklogWindow
-from .gui_test_helpers import MsgRecorder, gui_root
+from .gui_test_helpers import MsgRecorder, gui_root, press_close
 
 DATA = BacklogReleases(backlog=[], releases=[])
 SINK = NoTextIO()
@@ -164,6 +164,30 @@ def test_backlog_update_menu() -> None:
         # pylint: disable-next=protected-access
         window._backlog_update()
         assert got and got[0] is DATA
+
+
+def test_cmd_w_closes() -> None:
+    """Test Cmd-W closes a backlog window."""
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK)
+        # pylint: disable-next=protected-access
+        press_close(window._win)
+        # pylint: disable-next=protected-access
+        assert not window._win.winfo_exists()
+
+
+def test_close_accelerator() -> None:
+    """Test the Close menu item shows the Cmd-W accelerator."""
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK)
+        menu = _backlog_menu(window)
+        last = menu.index('end')
+        assert last is not None
+        accels = {menu.entrycget(index, 'label'):
+                  menu.entrycget(index, 'accelerator')
+                  for index in range(last + 1)
+                  if menu.type(index) != 'separator'}
+        assert accels['Close'] == 'Command-W'
 
 
 def test_bl_update_absent() -> None:

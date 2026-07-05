@@ -26,6 +26,7 @@ from backlogops_gui.backlog_actions import (
     adjust_content, apply_add_result, apply_update_result, estimate_date,
     extract_keys, order_by_deps, order_by_keys, order_by_release, order_dates,
     plan_dates, save_backlog, set_plan)
+from backlogops_gui.close_binding import CLOSE_ACCELERATOR, bind_close
 from backlogops_gui.report_windows import show_text_report
 from backlogops_gui.table_view import (
     backlog_table, make_table, release_table)
@@ -103,6 +104,7 @@ class BacklogWindow:
         self._update_backlog = update_backlog
         self._win = tk.Toplevel(root)
         self._win.title(title)
+        bind_close(self._win)
         self._tables: list[tk.Widget] = []
         self._add_menu()
         self._add_warning()
@@ -153,7 +155,8 @@ class BacklogWindow:
         self._add_jira_actions(jira_menu)
         backlog_menu.add_separator()
         backlog_menu.add_command(label='Save to file…', command=self._save)
-        backlog_menu.add_command(label='Close', command=self._win.destroy)
+        backlog_menu.add_command(label='Close', command=self._win.destroy,
+                                 accelerator=CLOSE_ACCELERATOR)
         menubar.add_cascade(label='Backlog', menu=backlog_menu)
         menubar.add_cascade(label='Jira', menu=jira_menu)
         self._win.config(menu=menubar)

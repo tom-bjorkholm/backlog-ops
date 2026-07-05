@@ -14,6 +14,7 @@ an output preset before it is migrated.
 import tkinter as tk
 from enum import Enum
 from typing import Optional
+from backlogops_gui.close_binding import bind_close
 
 NO_CONFIG_WRAP = 360
 NO_CONFIG_TEXT = (
@@ -52,6 +53,7 @@ class NoConfigDialog:
         if isinstance(parent, tk.Wm):
             self._win.transient(parent)
         self._win.protocol('WM_DELETE_WINDOW', self._win.destroy)
+        bind_close(self._win)
         self._build()
         self._show()
 
@@ -99,6 +101,7 @@ class PresetKindDialog:
         if isinstance(parent, tk.Wm):
             self._win.transient(parent)
         self._win.protocol('WM_DELETE_WINDOW', self._win.destroy)
+        bind_close(self._win)
         self._build()
         self._show()
 

@@ -5,8 +5,10 @@
 # MIT License
 
 import tkinter as tk
+import pytest
+from backlogops_gui import wizard_window
 from backlogops_gui.wizard_window import WizardWindow
-from .gui_test_helpers import gui_root
+from .gui_test_helpers import CloseSpy, gui_root
 
 
 def test_choice_list_shown() -> None:
@@ -108,4 +110,15 @@ def test_choice_preselect() -> None:
         # pylint: disable-next=protected-access
         assert WizardWindow._preset_indexes(['a', 'b', 'c'],
                                             ['a', 'c']) == [0, 2]
+        window.close()
+
+
+def test_binds_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the wizard window binds Cmd-W to its cancel action."""
+    spy = CloseSpy()
+    monkeypatch.setattr(wizard_window, 'bind_close', spy)
+    with gui_root() as root:
+        window = WizardWindow(tk.Frame(root))
+        # pylint: disable-next=protected-access
+        assert spy.calls == [(window._win, window._cancel)]
         window.close()

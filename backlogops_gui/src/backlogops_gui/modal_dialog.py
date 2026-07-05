@@ -12,6 +12,7 @@ store the entered values before the window closes.
 # MIT License
 
 import tkinter as tk
+from backlogops_gui.close_binding import bind_close
 from backlogops_gui.gui_style import focus_first_input
 
 
@@ -27,6 +28,7 @@ class ModalDialog:
         if isinstance(parent, tk.Wm):
             self._win.transient(parent)
         self._win.protocol('WM_DELETE_WINDOW', self._cancel)
+        bind_close(self._win, self._cancel)
 
     def _show(self) -> None:
         """Add buttons, focus the first input and wait for the close."""

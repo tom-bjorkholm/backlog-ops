@@ -6,10 +6,11 @@
 
 import tkinter as tk
 import pytest
+from backlogops_gui import choice_dialogs
 from backlogops_gui.choice_dialogs import (
     ConfigChoice, NoConfigDialog, PresetKind, PresetKindDialog,
     ask_no_config_choice, ask_preset_kind)
-from .gui_test_helpers import gui_root
+from .gui_test_helpers import CloseSpy, gui_root
 
 
 def _no_config_wait(self: NoConfigDialog) -> None:
@@ -61,6 +62,17 @@ def test_ask_no_config(monkeypatch: pytest.MonkeyPatch) -> None:
         assert ask_no_config_choice(root) is ConfigChoice.EXIT
 
 
+def test_no_config_binds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the no-config dialog binds Cmd-W to close itself."""
+    spy = CloseSpy()
+    monkeypatch.setattr(choice_dialogs, 'bind_close', spy)
+    monkeypatch.setattr(NoConfigDialog, '_show', _no_config_wait)
+    with gui_root() as root:
+        dialog = NoConfigDialog(root)
+        # pylint: disable-next=protected-access
+        assert spy.calls == [(dialog._win, None)]
+
+
 def _kind_wait(self: PresetKindDialog) -> None:
     """Stand in for the preset-kind show without grabbing or waiting."""
     assert self is not None
@@ -107,3 +119,14 @@ def test_ask_preset_kind(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(PresetKindDialog, '_show', _kind_wait)
     with gui_root() as root:
         assert ask_preset_kind(root) is None
+
+
+def test_preset_kind_binds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the preset-kind dialog binds Cmd-W to close itself."""
+    spy = CloseSpy()
+    monkeypatch.setattr(choice_dialogs, 'bind_close', spy)
+    monkeypatch.setattr(PresetKindDialog, '_show', _kind_wait)
+    with gui_root() as root:
+        dialog = PresetKindDialog(root)
+        # pylint: disable-next=protected-access
+        assert spy.calls == [(dialog._win, None)]

@@ -27,7 +27,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: End Users/Desktop",
     "Intended Audience :: Information Technology",
-    "Topic :: Office/Business :: Scheduling"
+    "Topic :: Office/Business :: Scheduling",
+    "Typing :: Typed"
 ]
 dynamic = ["dependencies"]
 

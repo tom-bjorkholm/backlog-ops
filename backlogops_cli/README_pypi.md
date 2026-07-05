@@ -240,7 +240,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 1975 passed in 42s
+- Test result: 1991 passed in 41s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

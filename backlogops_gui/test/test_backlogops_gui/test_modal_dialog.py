@@ -4,8 +4,11 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import pytest
+from backlogops_gui import modal_dialog
 from backlogops_gui.backlog_dialogs import BufferDialog
-from .gui_test_helpers import gui_root
+from .dialog_test_helpers import no_wait
+from .gui_test_helpers import CloseSpy, gui_root
 
 
 # pylint: disable-next=too-few-public-methods
@@ -23,3 +26,14 @@ def test_modal_show_real() -> None:
     with gui_root() as root:
         dialog = _AutoBuffer(root)
         assert dialog.days == 5
+
+
+def test_binds_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a modal dialog binds Cmd-W to its cancel action."""
+    spy = CloseSpy()
+    monkeypatch.setattr(modal_dialog, 'bind_close', spy)
+    monkeypatch.setattr(BufferDialog, '_show', no_wait)
+    with gui_root() as root:
+        dialog = BufferDialog(root)
+        # pylint: disable-next=protected-access
+        assert spy.calls == [(dialog._win, dialog._cancel)]

@@ -25,7 +25,8 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Office/Business :: Scheduling"
+    "Topic :: Office/Business :: Scheduling",
+    "Typing :: Typed"
 ]
 dynamic = ["dependencies"]
 

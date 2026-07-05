@@ -18,6 +18,7 @@ import tkinter as tk
 from typing import Callable, Optional, Sequence
 from tableio_cfg_json import PartialCheck, TableCell, TableColumn, \
     WizardAbort, WizardBack, WizardCancelLevel, WizardNavigation
+from backlogops_gui.close_binding import bind_close
 from backlogops_gui.gui_style import focus_first_input, style_input
 from backlogops_gui.wizard_table import TableEditor
 
@@ -43,6 +44,7 @@ class WizardWindow:
         if isinstance(parent, tk.Wm):
             self._win.transient(parent)
         self._win.protocol('WM_DELETE_WINDOW', self._cancel)
+        bind_close(self._win, self._cancel)
         self._done = tk.IntVar(self._win, 0)
         self._messages = self._build_messages()
         self._content = tk.Frame(self._win)

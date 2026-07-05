@@ -136,6 +136,8 @@
   * [extract\_keys](#backlogops_gui.backlog_actions.extract_keys)
   * [apply\_add\_result](#backlogops_gui.backlog_actions.apply_add_result)
   * [apply\_update\_result](#backlogops_gui.backlog_actions.apply_update_result)
+* [backlogops\_gui.close\_binding](#backlogops_gui.close_binding)
+  * [bind\_close](#backlogops_gui.close_binding.bind_close)
 * [backlogops\_gui.backlog\_window](#backlogops_gui.backlog_window)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
@@ -1791,6 +1793,37 @@ Rekey any added items, refresh the view and show the update lists.
 Only the items added under the ``ADD`` policy took new Jira keys, so
 the shown backlog is rekeyed with the add result's key map, the view is
 rebuilt, and the update outcome is shown through ``show_report``.
+
+<a id="backlogops_gui.close_binding"></a>
+
+# backlogops\_gui.close\_binding
+
+Bind the close-window key to a secondary window's close action.
+
+On macOS the Tk toolkit does not close a window when the user presses
+Cmd-W, so every secondary window binds that key here. Cmd-W is bound on
+every platform, where it is harmless without a Command key, and Ctrl-W is
+added on Windows, its customary close-window shortcut. The bound action
+defaults to destroying the window but may be the window's own cancel or
+abort handler, so the key behaves exactly like the window close button.
+
+<a id="backlogops_gui.close_binding.bind_close"></a>
+
+#### bind\_close
+
+```python
+def bind_close(win: tk.Toplevel,
+               on_close: Optional[Callable[[], None]] = None) -> None
+```
+
+Bind the close-window key to run the window's close action.
+
+**Arguments**:
+
+- `win` - The secondary window to close on the key press.
+- `on_close` - The close action, defaulting to destroying the window.
+  A window that cancels or aborts on close passes its own
+  handler, so the key matches its window close button.
 
 <a id="backlogops_gui.backlog_window"></a>
 
