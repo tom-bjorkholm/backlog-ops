@@ -1,5 +1,133 @@
 # Table of Contents
 
+* [backlogops\_gui.jira\_update](#backlogops_gui.jira_update)
+  * [JiraUpdater](#backlogops_gui.jira_update.JiraUpdater)
+    * [releases\_action](#backlogops_gui.jira_update.JiraUpdater.releases_action)
+    * [backlog\_action](#backlogops_gui.jira_update.JiraUpdater.backlog_action)
+    * [\_update\_releases](#backlogops_gui.jira_update.JiraUpdater._update_releases)
+    * [\_releases\_worker](#backlogops_gui.jira_update.JiraUpdater._releases_worker)
+    * [\_preset\_fields](#backlogops_gui.jira_update.JiraUpdater._preset_fields)
+    * [\_update\_backlog](#backlogops_gui.jira_update.JiraUpdater._update_backlog)
+    * [\_backlog\_worker](#backlogops_gui.jira_update.JiraUpdater._backlog_worker)
+* [backlogops\_gui.backlog\_dialogs](#backlogops_gui.backlog_dialogs)
+  * [DepOptions](#backlogops_gui.backlog_dialogs.DepOptions)
+  * [ReleaseOrderOptions](#backlogops_gui.backlog_dialogs.ReleaseOrderOptions)
+  * [StartChoice](#backlogops_gui.backlog_dialogs.StartChoice)
+  * [KeysDialog](#backlogops_gui.backlog_dialogs.KeysDialog)
+    * [\_\_init\_\_](#backlogops_gui.backlog_dialogs.KeysDialog.__init__)
+    * [\_build\_text](#backlogops_gui.backlog_dialogs.KeysDialog._build_text)
+    * [\_load](#backlogops_gui.backlog_dialogs.KeysDialog._load)
+    * [\_confirm](#backlogops_gui.backlog_dialogs.KeysDialog._confirm)
+  * [DepOptionsDialog](#backlogops_gui.backlog_dialogs.DepOptionsDialog)
+    * [\_\_init\_\_](#backlogops_gui.backlog_dialogs.DepOptionsDialog.__init__)
+    * [\_build](#backlogops_gui.backlog_dialogs.DepOptionsDialog._build)
+    * [\_build\_mode](#backlogops_gui.backlog_dialogs.DepOptionsDialog._build_mode)
+    * [\_build\_space](#backlogops_gui.backlog_dialogs.DepOptionsDialog._build_space)
+    * [\_confirm](#backlogops_gui.backlog_dialogs.DepOptionsDialog._confirm)
+  * [StartDateDialog](#backlogops_gui.backlog_dialogs.StartDateDialog)
+    * [\_\_init\_\_](#backlogops_gui.backlog_dialogs.StartDateDialog.__init__)
+    * [\_build](#backlogops_gui.backlog_dialogs.StartDateDialog._build)
+    * [\_confirm](#backlogops_gui.backlog_dialogs.StartDateDialog._confirm)
+  * [LevelsDialog](#backlogops_gui.backlog_dialogs.LevelsDialog)
+    * [\_\_init\_\_](#backlogops_gui.backlog_dialogs.LevelsDialog.__init__)
+    * [\_build](#backlogops_gui.backlog_dialogs.LevelsDialog._build)
+    * [\_confirm](#backlogops_gui.backlog_dialogs.LevelsDialog._confirm)
+  * [DateOrderDialog](#backlogops_gui.backlog_dialogs.DateOrderDialog)
+    * [\_\_init\_\_](#backlogops_gui.backlog_dialogs.DateOrderDialog.__init__)
+    * [\_build](#backlogops_gui.backlog_dialogs.DateOrderDialog._build)
+    * [\_confirm](#backlogops_gui.backlog_dialogs.DateOrderDialog._confirm)
+  * [ReleaseOrderDialog](#backlogops_gui.backlog_dialogs.ReleaseOrderDialog)
+    * [\_\_init\_\_](#backlogops_gui.backlog_dialogs.ReleaseOrderDialog.__init__)
+    * [\_build](#backlogops_gui.backlog_dialogs.ReleaseOrderDialog._build)
+    * [\_confirm](#backlogops_gui.backlog_dialogs.ReleaseOrderDialog._confirm)
+  * [BufferDialog](#backlogops_gui.backlog_dialogs.BufferDialog)
+    * [\_\_init\_\_](#backlogops_gui.backlog_dialogs.BufferDialog.__init__)
+    * [\_build](#backlogops_gui.backlog_dialogs.BufferDialog._build)
+    * [\_confirm](#backlogops_gui.backlog_dialogs.BufferDialog._confirm)
+  * [ask\_keys](#backlogops_gui.backlog_dialogs.ask_keys)
+  * [ask\_dep\_options](#backlogops_gui.backlog_dialogs.ask_dep_options)
+  * [ask\_start\_date](#backlogops_gui.backlog_dialogs.ask_start_date)
+  * [ask\_levels](#backlogops_gui.backlog_dialogs.ask_levels)
+  * [ask\_date\_order](#backlogops_gui.backlog_dialogs.ask_date_order)
+  * [ask\_release\_order](#backlogops_gui.backlog_dialogs.ask_release_order)
+  * [ask\_buffer\_days](#backlogops_gui.backlog_dialogs.ask_buffer_days)
+* [backlogops\_gui.report\_windows](#backlogops_gui.report_windows)
+  * [show\_change\_list](#backlogops_gui.report_windows.show_change_list)
+  * [show\_text\_report](#backlogops_gui.report_windows.show_text_report)
+* [backlogops\_gui.choice\_dialogs](#backlogops_gui.choice_dialogs)
+  * [ConfigChoice](#backlogops_gui.choice_dialogs.ConfigChoice)
+  * [PresetKind](#backlogops_gui.choice_dialogs.PresetKind)
+  * [NoConfigDialog](#backlogops_gui.choice_dialogs.NoConfigDialog)
+    * [\_\_init\_\_](#backlogops_gui.choice_dialogs.NoConfigDialog.__init__)
+    * [\_build](#backlogops_gui.choice_dialogs.NoConfigDialog._build)
+    * [\_add\_button](#backlogops_gui.choice_dialogs.NoConfigDialog._add_button)
+    * [\_show](#backlogops_gui.choice_dialogs.NoConfigDialog._show)
+    * [\_choose](#backlogops_gui.choice_dialogs.NoConfigDialog._choose)
+  * [ask\_no\_config\_choice](#backlogops_gui.choice_dialogs.ask_no_config_choice)
+  * [PresetKindDialog](#backlogops_gui.choice_dialogs.PresetKindDialog)
+    * [\_\_init\_\_](#backlogops_gui.choice_dialogs.PresetKindDialog.__init__)
+    * [\_build](#backlogops_gui.choice_dialogs.PresetKindDialog._build)
+    * [\_add\_button](#backlogops_gui.choice_dialogs.PresetKindDialog._add_button)
+    * [\_show](#backlogops_gui.choice_dialogs.PresetKindDialog._show)
+    * [\_choose](#backlogops_gui.choice_dialogs.PresetKindDialog._choose)
+  * [ask\_preset\_kind](#backlogops_gui.choice_dialogs.ask_preset_kind)
+* [backlogops\_gui.format\_dialogs](#backlogops_gui.format_dialogs)
+  * [format\_value](#backlogops_gui.format_dialogs.format_value)
+  * [ReadOptions](#backlogops_gui.format_dialogs.ReadOptions)
+  * [WriteOptions](#backlogops_gui.format_dialogs.WriteOptions)
+  * [FormatDialog](#backlogops_gui.format_dialogs.FormatDialog)
+    * [\_\_init\_\_](#backlogops_gui.format_dialogs.FormatDialog.__init__)
+    * [\_build](#backlogops_gui.format_dialogs.FormatDialog._build)
+    * [\_add\_radio](#backlogops_gui.format_dialogs.FormatDialog._add_radio)
+    * [\_add\_preset\_row](#backlogops_gui.format_dialogs.FormatDialog._add_preset_row)
+    * [\_add\_file\_row](#backlogops_gui.format_dialogs.FormatDialog._add_file_row)
+    * [\_browse](#backlogops_gui.format_dialogs.FormatDialog._browse)
+    * [\_confirm](#backlogops_gui.format_dialogs.FormatDialog._confirm)
+    * [\_selected\_value](#backlogops_gui.format_dialogs.FormatDialog._selected_value)
+  * [ask\_read\_options](#backlogops_gui.format_dialogs.ask_read_options)
+  * [ask\_write\_options](#backlogops_gui.format_dialogs.ask_write_options)
+* [backlogops\_gui.jira\_dialogs](#backlogops_gui.jira_dialogs)
+  * [MISSING\_MODE\_TEXT](#backlogops_gui.jira_dialogs.MISSING_MODE_TEXT)
+  * [LINK\_MODE\_TEXT](#backlogops_gui.jira_dialogs.LINK_MODE_TEXT)
+  * [JiraPresetOptions](#backlogops_gui.jira_dialogs.JiraPresetOptions)
+  * [JiraReadOptions](#backlogops_gui.jira_dialogs.JiraReadOptions)
+  * [JiraWriteOptions](#backlogops_gui.jira_dialogs.JiraWriteOptions)
+  * [JiraReleaseUpdateOptions](#backlogops_gui.jira_dialogs.JiraReleaseUpdateOptions)
+  * [JiraBacklogUpdateOptions](#backlogops_gui.jira_dialogs.JiraBacklogUpdateOptions)
+  * [JiraReadDialog](#backlogops_gui.jira_dialogs.JiraReadDialog)
+    * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraReadDialog.__init__)
+    * [\_build](#backlogops_gui.jira_dialogs.JiraReadDialog._build)
+    * [\_preset\_changed](#backlogops_gui.jira_dialogs.JiraReadDialog._preset_changed)
+    * [\_confirm](#backlogops_gui.jira_dialogs.JiraReadDialog._confirm)
+  * [ask\_jira\_read\_options](#backlogops_gui.jira_dialogs.ask_jira_read_options)
+  * [JiraWriteDialog](#backlogops_gui.jira_dialogs.JiraWriteDialog)
+    * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraWriteDialog.__init__)
+    * [\_build](#backlogops_gui.jira_dialogs.JiraWriteDialog._build)
+    * [\_confirm](#backlogops_gui.jira_dialogs.JiraWriteDialog._confirm)
+  * [ask\_jira\_write\_options](#backlogops_gui.jira_dialogs.ask_jira_write_options)
+  * [JiraReleaseUpdateDialog](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog)
+    * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog.__init__)
+    * [\_build](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog._build)
+    * [\_build\_preset](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog._build_preset)
+    * [\_build\_mode](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog._build_mode)
+    * [\_build\_releases](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog._build_releases)
+    * [\_confirm](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog._confirm)
+  * [ask\_release\_update](#backlogops_gui.jira_dialogs.ask_release_update)
+  * [JiraBacklogUpdateDialog](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog)
+    * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog.__init__)
+    * [\_build](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build)
+    * [\_build\_preset](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_preset)
+    * [\_build\_mode](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_mode)
+    * [\_build\_links](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_links)
+    * [\_build\_fields](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_fields)
+    * [\_preset\_changed](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._preset_changed)
+    * [\_confirm](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._confirm)
+  * [ask\_backlog\_update](#backlogops_gui.jira_dialogs.ask_backlog_update)
+  * [PassphraseDialog](#backlogops_gui.jira_dialogs.PassphraseDialog)
+    * [\_\_init\_\_](#backlogops_gui.jira_dialogs.PassphraseDialog.__init__)
+    * [\_build](#backlogops_gui.jira_dialogs.PassphraseDialog._build)
+    * [\_confirm](#backlogops_gui.jira_dialogs.PassphraseDialog._confirm)
+  * [ask\_jira\_passphrase](#backlogops_gui.jira_dialogs.ask_jira_passphrase)
 * [backlogops\_gui.gui\_style](#backlogops_gui.gui_style)
   * [style\_input](#backlogops_gui.gui_style.style_input)
   * [\_style\_combobox](#backlogops_gui.gui_style._style_combobox)
@@ -7,53 +135,6 @@
   * [\_first\_input](#backlogops_gui.gui_style._first_input)
   * [\_is\_input](#backlogops_gui.gui_style._is_input)
 * [backlogops\_gui.gui\_wizard](#backlogops_gui.gui_wizard)
-  * [\_uniform](#backlogops_gui.gui_wizard._uniform)
-  * [\_new\_row\_template](#backlogops_gui.gui_wizard._new_row_template)
-  * [\_Cell](#backlogops_gui.gui_wizard._Cell)
-  * [\_cell\_text](#backlogops_gui.gui_wizard._cell_text)
-  * [\_TableEditor](#backlogops_gui.gui_wizard._TableEditor)
-    * [\_\_init\_\_](#backlogops_gui.gui_wizard._TableEditor.__init__)
-    * [is\_variable](#backlogops_gui.gui_wizard._TableEditor.is_variable)
-    * [values](#backlogops_gui.gui_wizard._TableEditor.values)
-    * [add\_row](#backlogops_gui.gui_wizard._TableEditor.add_row)
-    * [remove\_row](#backlogops_gui.gui_wizard._TableEditor.remove_row)
-    * [\_build\_grid\_area](#backlogops_gui.gui_wizard._TableEditor._build_grid_area)
-    * [\_build\_scroll](#backlogops_gui.gui_wizard._TableEditor._build_scroll)
-    * [\_scroll\_to\_end](#backlogops_gui.gui_wizard._TableEditor._scroll_to_end)
-    * [\_build\_header](#backlogops_gui.gui_wizard._TableEditor._build_header)
-    * [\_append\_cells](#backlogops_gui.gui_wizard._TableEditor._append_cells)
-    * [\_build\_cell](#backlogops_gui.gui_wizard._TableEditor._build_cell)
-    * [\_editable\_widget](#backlogops_gui.gui_wizard._TableEditor._editable_widget)
-    * [\_bind\_change](#backlogops_gui.gui_wizard._TableEditor._bind_change)
-    * [\_feedback](#backlogops_gui.gui_wizard._TableEditor._feedback)
-    * [\_show](#backlogops_gui.gui_wizard._TableEditor._show)
-  * [\_WizardWindow](#backlogops_gui.gui_wizard._WizardWindow)
-    * [\_\_init\_\_](#backlogops_gui.gui_wizard._WizardWindow.__init__)
-    * [\_build\_messages](#backlogops_gui.gui_wizard._WizardWindow._build_messages)
-    * [show](#backlogops_gui.gui_wizard._WizardWindow.show)
-    * [close](#backlogops_gui.gui_wizard._WizardWindow.close)
-    * [ask\_text](#backlogops_gui.gui_wizard._WizardWindow.ask_text)
-    * [\_text\_result](#backlogops_gui.gui_wizard._WizardWindow._text_result)
-    * [ask\_yes\_no](#backlogops_gui.gui_wizard._WizardWindow.ask_yes_no)
-    * [ask\_choice](#backlogops_gui.gui_wizard._WizardWindow.ask_choice)
-    * [ask\_multi](#backlogops_gui.gui_wizard._WizardWindow.ask_multi)
-    * [ask\_table](#backlogops_gui.gui_wizard._WizardWindow.ask_table)
-    * [\_run\_multi](#backlogops_gui.gui_wizard._WizardWindow._run_multi)
-    * [\_choice\_list](#backlogops_gui.gui_wizard._WizardWindow._choice_list)
-    * [\_preset\_indexes](#backlogops_gui.gui_wizard._WizardWindow._preset_indexes)
-    * [\_pick\_one](#backlogops_gui.gui_wizard._WizardWindow._pick_one)
-    * [\_pick\_many](#backlogops_gui.gui_wizard._WizardWindow._pick_many)
-    * [\_begin](#backlogops_gui.gui_wizard._WizardWindow._begin)
-    * [\_add\_label](#backlogops_gui.gui_wizard._WizardWindow._add_label)
-    * [\_add\_buttons](#backlogops_gui.gui_wizard._WizardWindow._add_buttons)
-    * [\_add\_table\_buttons](#backlogops_gui.gui_wizard._WizardWindow._add_table_buttons)
-    * [\_add\_nav\_buttons](#backlogops_gui.gui_wizard._WizardWindow._add_nav_buttons)
-    * [\_wait](#backlogops_gui.gui_wizard._WizardWindow._wait)
-    * [\_finish](#backlogops_gui.gui_wizard._WizardWindow._finish)
-    * [\_back](#backlogops_gui.gui_wizard._WizardWindow._back)
-    * [\_cancel\_level](#backlogops_gui.gui_wizard._WizardWindow._cancel_level)
-    * [\_cancel](#backlogops_gui.gui_wizard._WizardWindow._cancel)
-    * [\_navigate](#backlogops_gui.gui_wizard._WizardWindow._navigate)
   * [TkWizardBridge](#backlogops_gui.gui_wizard.TkWizardBridge)
     * [\_\_init\_\_](#backlogops_gui.gui_wizard.TkWizardBridge.__init__)
     * [ask\_text](#backlogops_gui.gui_wizard.TkWizardBridge.ask_text)
@@ -65,6 +146,20 @@
     * [error\_file](#backlogops_gui.gui_wizard.TkWizardBridge.error_file)
     * [close](#backlogops_gui.gui_wizard.TkWizardBridge.close)
     * [\_window\_obj](#backlogops_gui.gui_wizard.TkWizardBridge._window_obj)
+* [backlogops\_gui.jira\_base](#backlogops_gui.jira_base)
+  * [JiraAction](#backlogops_gui.jira_base.JiraAction)
+    * [\_\_init\_\_](#backlogops_gui.jira_base.JiraAction.__init__)
+    * [\_config](#backlogops_gui.jira_base.JiraAction._config)
+    * [\_available](#backlogops_gui.jira_base.JiraAction._available)
+    * [\_presets](#backlogops_gui.jira_base.JiraAction._presets)
+    * [\_connections](#backlogops_gui.jira_base.JiraAction._connections)
+    * [\_jira\_connection](#backlogops_gui.jira_base.JiraAction._jira_connection)
+    * [\_prepare\_jira\_token](#backlogops_gui.jira_base.JiraAction._prepare_jira_token)
+    * [\_start](#backlogops_gui.jira_base.JiraAction._start)
+    * [\_dispatch](#backlogops_gui.jira_base.JiraAction._dispatch)
+    * [\_after](#backlogops_gui.jira_base.JiraAction._after)
+    * [\_fail](#backlogops_gui.jira_base.JiraAction._fail)
+    * [\_finish](#backlogops_gui.jira_base.JiraAction._finish)
 * [backlogops\_gui.\_migrate\_warn](#backlogops_gui._migrate_warn)
   * [GuiMigrateWarnHook](#backlogops_gui._migrate_warn.GuiMigrateWarnHook)
     * [migrate\_instructions](#backlogops_gui._migrate_warn.GuiMigrateWarnHook.migrate_instructions)
@@ -80,7 +175,6 @@
     * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
     * [levels](#backlogops_gui.application.BacklogApp.levels)
     * [status\_map](#backlogops_gui.application.BacklogApp.status_map)
-    * [\_jira\_preset\_filters](#backlogops_gui.application.BacklogApp._jira_preset_filters)
     * [gui\_display](#backlogops_gui.application.BacklogApp.gui_display)
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
     * [show\_info](#backlogops_gui.application.BacklogApp.show_info)
@@ -99,40 +193,6 @@
     * [write\_config](#backlogops_gui.application.BacklogApp.write_config)
     * [\_write\_to\_chosen](#backlogops_gui.application.BacklogApp._write_to_chosen)
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
-    * [\_read\_jira\_backlog](#backlogops_gui.application.BacklogApp._read_jira_backlog)
-    * [\_jira\_connection](#backlogops_gui.application.BacklogApp._jira_connection)
-    * [\_prepare\_jira\_token](#backlogops_gui.application.BacklogApp._prepare_jira_token)
-    * [\_start\_jira\_thread](#backlogops_gui.application.BacklogApp._start_jira_thread)
-    * [\_read\_jira\_worker](#backlogops_gui.application.BacklogApp._read_jira_worker)
-    * [\_jira\_consistency\_warning](#backlogops_gui.application.BacklogApp._jira_consistency_warning)
-    * [\_after](#backlogops_gui.application.BacklogApp._after)
-    * [\_jira\_read\_failed](#backlogops_gui.application.BacklogApp._jira_read_failed)
-    * [\_jira\_read\_done](#backlogops_gui.application.BacklogApp._jira_read_done)
-    * [\_jira\_write\_action](#backlogops_gui.application.BacklogApp._jira_write_action)
-    * [\_add\_backlog\_to\_jira](#backlogops_gui.application.BacklogApp._add_backlog_to_jira)
-    * [\_start\_jira\_write](#backlogops_gui.application.BacklogApp._start_jira_write)
-    * [\_jira\_write\_worker](#backlogops_gui.application.BacklogApp._jira_write_worker)
-    * [\_jira\_write\_failed](#backlogops_gui.application.BacklogApp._jira_write_failed)
-    * [\_jira\_write\_done](#backlogops_gui.application.BacklogApp._jira_write_done)
-    * [\_jira\_releases\_action](#backlogops_gui.application.BacklogApp._jira_releases_action)
-    * [\_add\_releases\_to\_jira](#backlogops_gui.application.BacklogApp._add_releases_to_jira)
-    * [\_start\_releases\_write](#backlogops_gui.application.BacklogApp._start_releases_write)
-    * [\_releases\_write\_worker](#backlogops_gui.application.BacklogApp._releases_write_worker)
-    * [\_releases\_write\_failed](#backlogops_gui.application.BacklogApp._releases_write_failed)
-    * [\_releases\_write\_done](#backlogops_gui.application.BacklogApp._releases_write_done)
-    * [\_jira\_update\_action](#backlogops_gui.application.BacklogApp._jira_update_action)
-    * [\_update\_releases\_in\_jira](#backlogops_gui.application.BacklogApp._update_releases_in_jira)
-    * [\_start\_releases\_update](#backlogops_gui.application.BacklogApp._start_releases_update)
-    * [\_releases\_update\_worker](#backlogops_gui.application.BacklogApp._releases_update_worker)
-    * [\_releases\_update\_failed](#backlogops_gui.application.BacklogApp._releases_update_failed)
-    * [\_releases\_update\_done](#backlogops_gui.application.BacklogApp._releases_update_done)
-    * [\_backlog\_update\_action](#backlogops_gui.application.BacklogApp._backlog_update_action)
-    * [\_preset\_update\_fields](#backlogops_gui.application.BacklogApp._preset_update_fields)
-    * [\_update\_backlog\_in\_jira](#backlogops_gui.application.BacklogApp._update_backlog_in_jira)
-    * [\_start\_backlog\_update](#backlogops_gui.application.BacklogApp._start_backlog_update)
-    * [\_backlog\_update\_worker](#backlogops_gui.application.BacklogApp._backlog_update_worker)
-    * [\_backlog\_update\_failed](#backlogops_gui.application.BacklogApp._backlog_update_failed)
-    * [\_backlog\_update\_done](#backlogops_gui.application.BacklogApp._backlog_update_done)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
     * [open\_backlog](#backlogops_gui.application.BacklogApp.open_backlog)
     * [report\_versions](#backlogops_gui.application.BacklogApp.report_versions)
@@ -146,7 +206,7 @@
     * [\_build\_log\_view](#backlogops_gui.application.BacklogApp._build_log_view)
     * [\_status\_text](#backlogops_gui.application.BacklogApp._status_text)
     * [\_update\_status](#backlogops_gui.application.BacklogApp._update_status)
-    * [\_refresh\_log](#backlogops_gui.application.BacklogApp._refresh_log)
+    * [refresh\_log](#backlogops_gui.application.BacklogApp.refresh_log)
     * [\_log\_selection](#backlogops_gui.application.BacklogApp._log_selection)
     * [\_copy\_log](#backlogops_gui.application.BacklogApp._copy_log)
     * [\_schedule\_refresh](#backlogops_gui.application.BacklogApp._schedule_refresh)
@@ -158,26 +218,33 @@
   * [\_bad\_version\_warning](#backlogops_gui.tcltk_version._bad_version_warning)
   * [warning\_for\_version](#backlogops_gui.tcltk_version.warning_for_version)
   * [check\_tcltk\_version](#backlogops_gui.tcltk_version.check_tcltk_version)
+* [backlogops\_gui.jira\_read](#backlogops_gui.jira_read)
+  * [JiraReader](#backlogops_gui.jira_read.JiraReader)
+    * [read\_backlog](#backlogops_gui.jira_read.JiraReader.read_backlog)
+    * [\_preset\_filters](#backlogops_gui.jira_read.JiraReader._preset_filters)
+    * [\_read\_worker](#backlogops_gui.jira_read.JiraReader._read_worker)
+    * [\_consistency\_warning](#backlogops_gui.jira_read.JiraReader._consistency_warning)
+* [backlogops\_gui.backlog\_actions](#backlogops_gui.backlog_actions)
+  * [save\_backlog](#backlogops_gui.backlog_actions.save_backlog)
+  * [\_apply\_change](#backlogops_gui.backlog_actions._apply_change)
+  * [order\_by\_keys](#backlogops_gui.backlog_actions.order_by_keys)
+  * [order\_by\_deps](#backlogops_gui.backlog_actions.order_by_deps)
+  * [\_release\_order\_message](#backlogops_gui.backlog_actions._release_order_message)
+  * [order\_by\_release](#backlogops_gui.backlog_actions.order_by_release)
+  * [save\_changes](#backlogops_gui.backlog_actions.save_changes)
+  * [show\_changes](#backlogops_gui.backlog_actions.show_changes)
+  * [\_date\_report](#backlogops_gui.backlog_actions._date_report)
+  * [\_content\_report](#backlogops_gui.backlog_actions._content_report)
+  * [\_run\_change](#backlogops_gui.backlog_actions._run_change)
+  * [estimate\_date](#backlogops_gui.backlog_actions.estimate_date)
+  * [set\_plan](#backlogops_gui.backlog_actions.set_plan)
+  * [adjust\_content](#backlogops_gui.backlog_actions.adjust_content)
+  * [plan\_dates](#backlogops_gui.backlog_actions.plan_dates)
+  * [order\_dates](#backlogops_gui.backlog_actions.order_dates)
+  * [extract\_keys](#backlogops_gui.backlog_actions.extract_keys)
+  * [apply\_add\_result](#backlogops_gui.backlog_actions.apply_add_result)
+  * [apply\_update\_result](#backlogops_gui.backlog_actions.apply_update_result)
 * [backlogops\_gui.backlog\_window](#backlogops_gui.backlog_window)
-  * [save\_backlog](#backlogops_gui.backlog_window.save_backlog)
-  * [\_apply\_change](#backlogops_gui.backlog_window._apply_change)
-  * [order\_by\_keys](#backlogops_gui.backlog_window.order_by_keys)
-  * [order\_by\_deps](#backlogops_gui.backlog_window.order_by_deps)
-  * [\_release\_order\_message](#backlogops_gui.backlog_window._release_order_message)
-  * [order\_by\_release](#backlogops_gui.backlog_window.order_by_release)
-  * [save\_changes](#backlogops_gui.backlog_window.save_changes)
-  * [show\_changes](#backlogops_gui.backlog_window.show_changes)
-  * [\_date\_report](#backlogops_gui.backlog_window._date_report)
-  * [\_content\_report](#backlogops_gui.backlog_window._content_report)
-  * [\_run\_change](#backlogops_gui.backlog_window._run_change)
-  * [estimate\_date](#backlogops_gui.backlog_window.estimate_date)
-  * [set\_plan](#backlogops_gui.backlog_window.set_plan)
-  * [adjust\_content](#backlogops_gui.backlog_window.adjust_content)
-  * [plan\_dates](#backlogops_gui.backlog_window.plan_dates)
-  * [order\_dates](#backlogops_gui.backlog_window.order_dates)
-  * [extract\_keys](#backlogops_gui.backlog_window.extract_keys)
-  * [apply\_add\_result](#backlogops_gui.backlog_window.apply_add_result)
-  * [apply\_update\_result](#backlogops_gui.backlog_window.apply_update_result)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
     * [\_report\_error](#backlogops_gui.backlog_window.BacklogWindow._report_error)
@@ -210,138 +277,38 @@
     * [\_backlog\_update](#backlogops_gui.backlog_window.BacklogWindow._backlog_update)
     * [\_on\_backlog\_updated](#backlogops_gui.backlog_window.BacklogWindow._on_backlog_updated)
     * [\_show\_update\_report](#backlogops_gui.backlog_window.BacklogWindow._show_update_report)
-* [backlogops\_gui.io\_dialogs](#backlogops_gui.io_dialogs)
-  * [ConfigChoice](#backlogops_gui.io_dialogs.ConfigChoice)
-  * [PresetKind](#backlogops_gui.io_dialogs.PresetKind)
-  * [format\_value](#backlogops_gui.io_dialogs.format_value)
-  * [ReadOptions](#backlogops_gui.io_dialogs.ReadOptions)
-  * [WriteOptions](#backlogops_gui.io_dialogs.WriteOptions)
-  * [JiraReadOptions](#backlogops_gui.io_dialogs.JiraReadOptions)
-  * [JiraWriteOptions](#backlogops_gui.io_dialogs.JiraWriteOptions)
-  * [JiraReleaseUpdateOptions](#backlogops_gui.io_dialogs.JiraReleaseUpdateOptions)
-  * [JiraBacklogUpdateOptions](#backlogops_gui.io_dialogs.JiraBacklogUpdateOptions)
-  * [choose\_input\_file](#backlogops_gui.io_dialogs.choose_input_file)
-  * [choose\_output\_file](#backlogops_gui.io_dialogs.choose_output_file)
-  * [choose\_config\_file](#backlogops_gui.io_dialogs.choose_config_file)
-  * [choose\_existing\_config](#backlogops_gui.io_dialogs.choose_existing_config)
-  * [choose\_preset\_to\_migrate](#backlogops_gui.io_dialogs.choose_preset_to_migrate)
-  * [choose\_migrated\_preset](#backlogops_gui.io_dialogs.choose_migrated_preset)
-  * [\_NoConfigDialog](#backlogops_gui.io_dialogs._NoConfigDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._NoConfigDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._NoConfigDialog._build)
-    * [\_add\_button](#backlogops_gui.io_dialogs._NoConfigDialog._add_button)
-    * [\_show](#backlogops_gui.io_dialogs._NoConfigDialog._show)
-    * [\_choose](#backlogops_gui.io_dialogs._NoConfigDialog._choose)
-  * [ask\_no\_config\_choice](#backlogops_gui.io_dialogs.ask_no_config_choice)
-  * [\_PresetKindDialog](#backlogops_gui.io_dialogs._PresetKindDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._PresetKindDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._PresetKindDialog._build)
-    * [\_add\_button](#backlogops_gui.io_dialogs._PresetKindDialog._add_button)
-    * [\_show](#backlogops_gui.io_dialogs._PresetKindDialog._show)
-    * [\_choose](#backlogops_gui.io_dialogs._PresetKindDialog._choose)
-  * [ask\_preset\_kind](#backlogops_gui.io_dialogs.ask_preset_kind)
-  * [\_ModalDialog](#backlogops_gui.io_dialogs._ModalDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._ModalDialog.__init__)
-    * [\_show](#backlogops_gui.io_dialogs._ModalDialog._show)
-    * [\_add\_buttons](#backlogops_gui.io_dialogs._ModalDialog._add_buttons)
-    * [\_confirm](#backlogops_gui.io_dialogs._ModalDialog._confirm)
-    * [\_cancel](#backlogops_gui.io_dialogs._ModalDialog._cancel)
-  * [\_FormatDialog](#backlogops_gui.io_dialogs._FormatDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._FormatDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._FormatDialog._build)
-    * [\_add\_radio](#backlogops_gui.io_dialogs._FormatDialog._add_radio)
-    * [\_add\_preset\_row](#backlogops_gui.io_dialogs._FormatDialog._add_preset_row)
-    * [\_add\_file\_row](#backlogops_gui.io_dialogs._FormatDialog._add_file_row)
-    * [\_browse](#backlogops_gui.io_dialogs._FormatDialog._browse)
-    * [\_confirm](#backlogops_gui.io_dialogs._FormatDialog._confirm)
-    * [\_selected\_value](#backlogops_gui.io_dialogs._FormatDialog._selected_value)
-  * [ask\_read\_options](#backlogops_gui.io_dialogs.ask_read_options)
-  * [ask\_write\_options](#backlogops_gui.io_dialogs.ask_write_options)
-  * [\_JiraReadDialog](#backlogops_gui.io_dialogs._JiraReadDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._JiraReadDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._JiraReadDialog._build)
-    * [\_preset\_changed](#backlogops_gui.io_dialogs._JiraReadDialog._preset_changed)
-    * [\_confirm](#backlogops_gui.io_dialogs._JiraReadDialog._confirm)
-  * [ask\_jira\_read\_options](#backlogops_gui.io_dialogs.ask_jira_read_options)
-  * [\_JiraWriteDialog](#backlogops_gui.io_dialogs._JiraWriteDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._JiraWriteDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._JiraWriteDialog._build)
-    * [\_confirm](#backlogops_gui.io_dialogs._JiraWriteDialog._confirm)
-  * [ask\_jira\_write\_options](#backlogops_gui.io_dialogs.ask_jira_write_options)
-  * [MISSING\_MODE\_TEXT](#backlogops_gui.io_dialogs.MISSING_MODE_TEXT)
-  * [LINK\_MODE\_TEXT](#backlogops_gui.io_dialogs.LINK_MODE_TEXT)
-  * [\_JiraReleaseUpdateDialog](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build)
-    * [\_build\_preset](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_preset)
-    * [\_build\_mode](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_mode)
-    * [\_build\_releases](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_releases)
-    * [\_confirm](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._confirm)
-  * [ask\_release\_update](#backlogops_gui.io_dialogs.ask_release_update)
-  * [\_JiraBacklogUpdateDialog](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build)
-    * [\_build\_preset](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_preset)
-    * [\_build\_mode](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_mode)
-    * [\_build\_links](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_links)
-    * [\_build\_fields](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_fields)
-    * [\_preset\_changed](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._preset_changed)
-    * [\_confirm](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._confirm)
-  * [ask\_backlog\_update](#backlogops_gui.io_dialogs.ask_backlog_update)
-  * [\_PassphraseDialog](#backlogops_gui.io_dialogs._PassphraseDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._PassphraseDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._PassphraseDialog._build)
-    * [\_confirm](#backlogops_gui.io_dialogs._PassphraseDialog._confirm)
-  * [ask\_jira\_passphrase](#backlogops_gui.io_dialogs.ask_jira_passphrase)
-  * [choose\_key\_list\_output](#backlogops_gui.io_dialogs.choose_key_list_output)
-  * [choose\_changes\_output](#backlogops_gui.io_dialogs.choose_changes_output)
-  * [\_BufferDialog](#backlogops_gui.io_dialogs._BufferDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._BufferDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._BufferDialog._build)
-    * [\_confirm](#backlogops_gui.io_dialogs._BufferDialog._confirm)
-  * [ask\_buffer\_days](#backlogops_gui.io_dialogs.ask_buffer_days)
-  * [show\_change\_list](#backlogops_gui.io_dialogs.show_change_list)
-  * [show\_text\_report](#backlogops_gui.io_dialogs.show_text_report)
-  * [DepOptions](#backlogops_gui.io_dialogs.DepOptions)
-  * [ReleaseOrderOptions](#backlogops_gui.io_dialogs.ReleaseOrderOptions)
-  * [StartChoice](#backlogops_gui.io_dialogs.StartChoice)
-  * [\_KeysDialog](#backlogops_gui.io_dialogs._KeysDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._KeysDialog.__init__)
-    * [\_build\_text](#backlogops_gui.io_dialogs._KeysDialog._build_text)
-    * [\_load](#backlogops_gui.io_dialogs._KeysDialog._load)
-    * [\_confirm](#backlogops_gui.io_dialogs._KeysDialog._confirm)
-  * [\_DepOptionsDialog](#backlogops_gui.io_dialogs._DepOptionsDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._DepOptionsDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._DepOptionsDialog._build)
-    * [\_build\_mode](#backlogops_gui.io_dialogs._DepOptionsDialog._build_mode)
-    * [\_build\_space](#backlogops_gui.io_dialogs._DepOptionsDialog._build_space)
-    * [\_confirm](#backlogops_gui.io_dialogs._DepOptionsDialog._confirm)
-  * [\_StartDateDialog](#backlogops_gui.io_dialogs._StartDateDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._StartDateDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._StartDateDialog._build)
-    * [\_confirm](#backlogops_gui.io_dialogs._StartDateDialog._confirm)
-  * [\_LevelsDialog](#backlogops_gui.io_dialogs._LevelsDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._LevelsDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._LevelsDialog._build)
-    * [\_confirm](#backlogops_gui.io_dialogs._LevelsDialog._confirm)
-  * [\_DateOrderDialog](#backlogops_gui.io_dialogs._DateOrderDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._DateOrderDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._DateOrderDialog._build)
-    * [\_confirm](#backlogops_gui.io_dialogs._DateOrderDialog._confirm)
-  * [\_ReleaseOrderDialog](#backlogops_gui.io_dialogs._ReleaseOrderDialog)
-    * [\_\_init\_\_](#backlogops_gui.io_dialogs._ReleaseOrderDialog.__init__)
-    * [\_build](#backlogops_gui.io_dialogs._ReleaseOrderDialog._build)
-    * [\_confirm](#backlogops_gui.io_dialogs._ReleaseOrderDialog._confirm)
-  * [ask\_keys](#backlogops_gui.io_dialogs.ask_keys)
-  * [ask\_dep\_options](#backlogops_gui.io_dialogs.ask_dep_options)
-  * [ask\_start\_date](#backlogops_gui.io_dialogs.ask_start_date)
-  * [ask\_levels](#backlogops_gui.io_dialogs.ask_levels)
-  * [ask\_date\_order](#backlogops_gui.io_dialogs.ask_date_order)
-  * [ask\_release\_order](#backlogops_gui.io_dialogs.ask_release_order)
 * [backlogops\_gui.blog\_version\_reporter](#backlogops_gui.blog_version_reporter)
   * [BloGuiVersionReporter](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter)
     * [package\_names](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter.package_names)
     * [get\_main\_package\_name](#backlogops_gui.blog_version_reporter.BloGuiVersionReporter.get_main_package_name)
+* [backlogops\_gui.wizard\_table](#backlogops_gui.wizard_table)
+  * [\_uniform](#backlogops_gui.wizard_table._uniform)
+  * [\_new\_row\_template](#backlogops_gui.wizard_table._new_row_template)
+  * [Cell](#backlogops_gui.wizard_table.Cell)
+  * [\_cell\_text](#backlogops_gui.wizard_table._cell_text)
+  * [TableEditor](#backlogops_gui.wizard_table.TableEditor)
+    * [\_\_init\_\_](#backlogops_gui.wizard_table.TableEditor.__init__)
+    * [is\_variable](#backlogops_gui.wizard_table.TableEditor.is_variable)
+    * [values](#backlogops_gui.wizard_table.TableEditor.values)
+    * [add\_row](#backlogops_gui.wizard_table.TableEditor.add_row)
+    * [remove\_row](#backlogops_gui.wizard_table.TableEditor.remove_row)
+    * [\_build\_grid\_area](#backlogops_gui.wizard_table.TableEditor._build_grid_area)
+    * [\_build\_scroll](#backlogops_gui.wizard_table.TableEditor._build_scroll)
+    * [\_scroll\_to\_end](#backlogops_gui.wizard_table.TableEditor._scroll_to_end)
+    * [\_build\_header](#backlogops_gui.wizard_table.TableEditor._build_header)
+    * [\_append\_cells](#backlogops_gui.wizard_table.TableEditor._append_cells)
+    * [\_build\_cell](#backlogops_gui.wizard_table.TableEditor._build_cell)
+    * [\_editable\_widget](#backlogops_gui.wizard_table.TableEditor._editable_widget)
+    * [\_bind\_change](#backlogops_gui.wizard_table.TableEditor._bind_change)
+    * [\_feedback](#backlogops_gui.wizard_table.TableEditor._feedback)
+    * [\_show](#backlogops_gui.wizard_table.TableEditor._show)
+* [backlogops\_gui.modal\_dialog](#backlogops_gui.modal_dialog)
+  * [ModalDialog](#backlogops_gui.modal_dialog.ModalDialog)
+    * [\_\_init\_\_](#backlogops_gui.modal_dialog.ModalDialog.__init__)
+    * [\_show](#backlogops_gui.modal_dialog.ModalDialog._show)
+    * [\_add\_buttons](#backlogops_gui.modal_dialog.ModalDialog._add_buttons)
+    * [\_confirm](#backlogops_gui.modal_dialog.ModalDialog._confirm)
+    * [\_cancel](#backlogops_gui.modal_dialog.ModalDialog._cancel)
 * [backlogops\_gui.python\_version](#backlogops_gui.python_version)
   * [check\_python\_version](#backlogops_gui.python_version.check_python_version)
 * [backlogops\_gui.log\_buffer](#backlogops_gui.log_buffer)
@@ -349,6 +316,15 @@
     * [\_\_init\_\_](#backlogops_gui.log_buffer.LogBuffer.__init__)
     * [write](#backlogops_gui.log_buffer.LogBuffer.write)
     * [text](#backlogops_gui.log_buffer.LogBuffer.text)
+* [backlogops\_gui.jira\_write](#backlogops_gui.jira_write)
+  * [JiraWriter](#backlogops_gui.jira_write.JiraWriter)
+    * [backlog\_action](#backlogops_gui.jira_write.JiraWriter.backlog_action)
+    * [releases\_action](#backlogops_gui.jira_write.JiraWriter.releases_action)
+    * [\_ask](#backlogops_gui.jira_write.JiraWriter._ask)
+    * [\_add\_backlog](#backlogops_gui.jira_write.JiraWriter._add_backlog)
+    * [\_backlog\_worker](#backlogops_gui.jira_write.JiraWriter._backlog_worker)
+    * [\_add\_releases](#backlogops_gui.jira_write.JiraWriter._add_releases)
+    * [\_releases\_worker](#backlogops_gui.jira_write.JiraWriter._releases_worker)
 * [backlogops\_gui.backlog\_io](#backlogops_gui.backlog_io)
   * [\_sink](#backlogops_gui.backlog_io._sink)
   * [read\_backlog](#backlogops_gui.backlog_io.read_backlog)
@@ -368,6 +344,1386 @@
   * [\_color\_cells](#backlogops_gui.table_view._color_cells)
   * [\_insert\_row](#backlogops_gui.table_view._insert_row)
   * [make\_table](#backlogops_gui.table_view.make_table)
+* [backlogops\_gui.wizard\_window](#backlogops_gui.wizard_window)
+  * [WizardWindow](#backlogops_gui.wizard_window.WizardWindow)
+    * [\_\_init\_\_](#backlogops_gui.wizard_window.WizardWindow.__init__)
+    * [\_build\_messages](#backlogops_gui.wizard_window.WizardWindow._build_messages)
+    * [show](#backlogops_gui.wizard_window.WizardWindow.show)
+    * [close](#backlogops_gui.wizard_window.WizardWindow.close)
+    * [ask\_text](#backlogops_gui.wizard_window.WizardWindow.ask_text)
+    * [\_text\_result](#backlogops_gui.wizard_window.WizardWindow._text_result)
+    * [ask\_yes\_no](#backlogops_gui.wizard_window.WizardWindow.ask_yes_no)
+    * [ask\_choice](#backlogops_gui.wizard_window.WizardWindow.ask_choice)
+    * [ask\_multi](#backlogops_gui.wizard_window.WizardWindow.ask_multi)
+    * [ask\_table](#backlogops_gui.wizard_window.WizardWindow.ask_table)
+    * [\_run\_multi](#backlogops_gui.wizard_window.WizardWindow._run_multi)
+    * [\_choice\_list](#backlogops_gui.wizard_window.WizardWindow._choice_list)
+    * [\_preset\_indexes](#backlogops_gui.wizard_window.WizardWindow._preset_indexes)
+    * [\_pick\_one](#backlogops_gui.wizard_window.WizardWindow._pick_one)
+    * [\_pick\_many](#backlogops_gui.wizard_window.WizardWindow._pick_many)
+    * [\_begin](#backlogops_gui.wizard_window.WizardWindow._begin)
+    * [\_add\_label](#backlogops_gui.wizard_window.WizardWindow._add_label)
+    * [\_add\_buttons](#backlogops_gui.wizard_window.WizardWindow._add_buttons)
+    * [\_add\_table\_buttons](#backlogops_gui.wizard_window.WizardWindow._add_table_buttons)
+    * [\_add\_nav\_buttons](#backlogops_gui.wizard_window.WizardWindow._add_nav_buttons)
+    * [\_wait](#backlogops_gui.wizard_window.WizardWindow._wait)
+    * [\_finish](#backlogops_gui.wizard_window.WizardWindow._finish)
+    * [\_back](#backlogops_gui.wizard_window.WizardWindow._back)
+    * [\_cancel\_level](#backlogops_gui.wizard_window.WizardWindow._cancel_level)
+    * [\_cancel](#backlogops_gui.wizard_window.WizardWindow._cancel)
+    * [\_navigate](#backlogops_gui.wizard_window.WizardWindow._navigate)
+* [backlogops\_gui.jira\_actions](#backlogops_gui.jira_actions)
+  * [JiraActions](#backlogops_gui.jira_actions.JiraActions)
+    * [\_\_init\_\_](#backlogops_gui.jira_actions.JiraActions.__init__)
+* [backlogops\_gui.file\_choosers](#backlogops_gui.file_choosers)
+  * [choose\_input\_file](#backlogops_gui.file_choosers.choose_input_file)
+  * [choose\_output\_file](#backlogops_gui.file_choosers.choose_output_file)
+  * [choose\_config\_file](#backlogops_gui.file_choosers.choose_config_file)
+  * [choose\_existing\_config](#backlogops_gui.file_choosers.choose_existing_config)
+  * [choose\_preset\_to\_migrate](#backlogops_gui.file_choosers.choose_preset_to_migrate)
+  * [choose\_migrated\_preset](#backlogops_gui.file_choosers.choose_migrated_preset)
+  * [choose\_key\_list\_output](#backlogops_gui.file_choosers.choose_key_list_output)
+  * [choose\_changes\_output](#backlogops_gui.file_choosers.choose_changes_output)
+
+<a id="backlogops_gui.jira_update"></a>
+
+# backlogops\_gui.jira\_update
+
+Update the shown releases and backlog in Jira.
+
+The updater offers a handler for updating the shown releases and a handler
+for updating the shown backlog, each available only when a configuration
+with Jira presets is loaded. A handler asks for a preset and the update
+options, then updates on a worker thread and hands the result back to the
+GUI thread. The backlog-update dialog offers the columns each preset can
+update, taken from the library.
+
+<a id="backlogops_gui.jira_update.JiraUpdater"></a>
+
+## JiraUpdater Objects
+
+```python
+class JiraUpdater(JiraAction)
+```
+
+Updates the shown releases and backlog in Jira.
+
+<a id="backlogops_gui.jira_update.JiraUpdater.releases_action"></a>
+
+#### releases\_action
+
+```python
+def releases_action() -> Optional[Callable[
+    [BacklogReleases, Callable[[UpdatedReleasesInJira], None]], None]]
+```
+
+Return the update-releases handler, or None when unavailable.
+
+<a id="backlogops_gui.jira_update.JiraUpdater.backlog_action"></a>
+
+#### backlog\_action
+
+```python
+def backlog_action() -> Optional[Callable[
+    [BacklogReleases, Callable[[UpdatedBacklogInJira], None]], None]]
+```
+
+Return the update-backlog handler, or None when unavailable.
+
+<a id="backlogops_gui.jira_update.JiraUpdater._update_releases"></a>
+
+#### \_update\_releases
+
+```python
+def _update_releases(data: BacklogReleases,
+                     on_done: Callable[[UpdatedReleasesInJira], None]) -> None
+```
+
+Ask for a preset, mode and releases, then update them in Jira.
+
+<a id="backlogops_gui.jira_update.JiraUpdater._releases_worker"></a>
+
+#### \_releases\_worker
+
+```python
+def _releases_worker(options: JiraReleaseUpdateOptions, data: BacklogReleases,
+                     on_done: Callable[[UpdatedReleasesInJira], None]) -> None
+```
+
+Update the releases on a worker and schedule the GUI update.
+
+<a id="backlogops_gui.jira_update.JiraUpdater._preset_fields"></a>
+
+#### \_preset\_fields
+
+```python
+def _preset_fields() -> dict[str, list[str]]
+```
+
+Return each preset name mapped to its updatable backlog fields.
+
+<a id="backlogops_gui.jira_update.JiraUpdater._update_backlog"></a>
+
+#### \_update\_backlog
+
+```python
+def _update_backlog(data: BacklogReleases,
+                    on_done: Callable[[UpdatedBacklogInJira], None]) -> None
+```
+
+Ask for a preset, fields and mode, then update the backlog.
+
+<a id="backlogops_gui.jira_update.JiraUpdater._backlog_worker"></a>
+
+#### \_backlog\_worker
+
+```python
+def _backlog_worker(options: JiraBacklogUpdateOptions, data: BacklogReleases,
+                    on_done: Callable[[UpdatedBacklogInJira], None]) -> None
+```
+
+Update the backlog on a worker and schedule the GUI update.
+
+<a id="backlogops_gui.backlog_dialogs"></a>
+
+# backlogops\_gui.backlog\_dialogs
+
+Modal dialogs collecting options for the backlog operations.
+
+These dialogs gather the options for the actions offered by a backlog
+window: the leading keys for a reordering, the order-by-dependencies
+options, the start date for a ready-date estimate, the levels to extract
+keys at, the buffer in calendar days, and the two release-ordering
+choices. Each dialog stores its result and the matching ``ask_`` wrapper
+returns it, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.backlog_dialogs.DepOptions"></a>
+
+## DepOptions Objects
+
+```python
+@dataclass
+class DepOptions()
+```
+
+The options selected for ordering a backlog by dependencies.
+
+<a id="backlogops_gui.backlog_dialogs.ReleaseOrderOptions"></a>
+
+## ReleaseOrderOptions Objects
+
+```python
+@dataclass
+class ReleaseOrderOptions()
+```
+
+The options selected for ordering a backlog by release order.
+
+<a id="backlogops_gui.backlog_dialogs.StartChoice"></a>
+
+## StartChoice Objects
+
+```python
+@dataclass
+class StartChoice()
+```
+
+The start date selected for estimating ready dates.
+
+<a id="backlogops_gui.backlog_dialogs.KeysDialog"></a>
+
+## KeysDialog Objects
+
+```python
+class KeysDialog(ModalDialog)
+```
+
+Modal dialog collecting the leading keys for a reordering.
+
+<a id="backlogops_gui.backlog_dialogs.KeysDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, sink: TextIO) -> None
+```
+
+Build, show and wait for the key entry dialog.
+
+<a id="backlogops_gui.backlog_dialogs.KeysDialog._build_text"></a>
+
+#### \_build\_text
+
+```python
+def _build_text() -> tk.Text
+```
+
+Add the entry label, text box and the load-from-file button.
+
+<a id="backlogops_gui.backlog_dialogs.KeysDialog._load"></a>
+
+#### \_load
+
+```python
+def _load() -> None
+```
+
+Read a key list file into the text box, reporting failures.
+
+<a id="backlogops_gui.backlog_dialogs.KeysDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Split the text on whitespace and close the dialog.
+
+<a id="backlogops_gui.backlog_dialogs.DepOptionsDialog"></a>
+
+## DepOptionsDialog Objects
+
+```python
+class DepOptionsDialog(ModalDialog)
+```
+
+Modal dialog collecting the order-by-dependencies options.
+
+<a id="backlogops_gui.backlog_dialogs.DepOptionsDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the dependency options dialog.
+
+<a id="backlogops_gui.backlog_dialogs.DepOptionsDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the later check box, the mode chooser and the key entry.
+
+<a id="backlogops_gui.backlog_dialogs.DepOptionsDialog._build_mode"></a>
+
+#### \_build\_mode
+
+```python
+def _build_mode() -> None
+```
+
+Add the placement-mode label and chooser.
+
+<a id="backlogops_gui.backlog_dialogs.DepOptionsDialog._build_space"></a>
+
+#### \_build\_space
+
+```python
+def _build_space() -> None
+```
+
+Add the space-around label and key entry.
+
+<a id="backlogops_gui.backlog_dialogs.DepOptionsDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the selected options and close the dialog.
+
+<a id="backlogops_gui.backlog_dialogs.StartDateDialog"></a>
+
+## StartDateDialog Objects
+
+```python
+class StartDateDialog(ModalDialog)
+```
+
+Modal dialog collecting the start date for the estimate.
+
+<a id="backlogops_gui.backlog_dialogs.StartDateDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the start date dialog.
+
+<a id="backlogops_gui.backlog_dialogs.StartDateDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the start date label and entry.
+
+<a id="backlogops_gui.backlog_dialogs.StartDateDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Parse the date, keeping the dialog open on a bad value.
+
+<a id="backlogops_gui.backlog_dialogs.LevelsDialog"></a>
+
+## LevelsDialog Objects
+
+```python
+class LevelsDialog(ModalDialog)
+```
+
+Modal dialog selecting the levels to extract keys at.
+
+<a id="backlogops_gui.backlog_dialogs.LevelsDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the level selection dialog.
+
+<a id="backlogops_gui.backlog_dialogs.LevelsDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> dict[int, tk.BooleanVar]
+```
+
+Add a check box for each default level and return its variables.
+
+<a id="backlogops_gui.backlog_dialogs.LevelsDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the chosen levels, requiring at least one selection.
+
+<a id="backlogops_gui.backlog_dialogs.DateOrderDialog"></a>
+
+## DateOrderDialog Objects
+
+```python
+class DateOrderDialog(ModalDialog)
+```
+
+Modal dialog choosing planned or estimated date for ordering.
+
+<a id="backlogops_gui.backlog_dialogs.DateOrderDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the date order dialog.
+
+<a id="backlogops_gui.backlog_dialogs.DateOrderDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the estimated-date check box, off for the planned date.
+
+<a id="backlogops_gui.backlog_dialogs.DateOrderDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the chosen date kind and close the dialog.
+
+<a id="backlogops_gui.backlog_dialogs.ReleaseOrderDialog"></a>
+
+## ReleaseOrderDialog Objects
+
+```python
+class ReleaseOrderDialog(ModalDialog)
+```
+
+Modal dialog choosing options for ordering by release order.
+
+<a id="backlogops_gui.backlog_dialogs.ReleaseOrderDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the release-order dialog.
+
+<a id="backlogops_gui.backlog_dialogs.ReleaseOrderDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the honor-dependencies and direction check boxes.
+
+<a id="backlogops_gui.backlog_dialogs.ReleaseOrderDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the chosen release-order options and close.
+
+<a id="backlogops_gui.backlog_dialogs.BufferDialog"></a>
+
+## BufferDialog Objects
+
+```python
+class BufferDialog(ModalDialog)
+```
+
+Modal dialog collecting the buffer in calendar days.
+
+<a id="backlogops_gui.backlog_dialogs.BufferDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the buffer days dialog.
+
+<a id="backlogops_gui.backlog_dialogs.BufferDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the buffer label and entry prefilled with the default.
+
+<a id="backlogops_gui.backlog_dialogs.BufferDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Parse the buffer, keeping the dialog open on a bad value.
+
+<a id="backlogops_gui.backlog_dialogs.ask_keys"></a>
+
+#### ask\_keys
+
+```python
+def ask_keys(parent: tk.Misc, sink: TextIO) -> Optional[list[str]]
+```
+
+Ask for the leading keys, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.backlog_dialogs.ask_dep_options"></a>
+
+#### ask\_dep\_options
+
+```python
+def ask_dep_options(parent: tk.Misc) -> Optional[DepOptions]
+```
+
+Ask for the dependency options, or None when cancelled.
+
+<a id="backlogops_gui.backlog_dialogs.ask_start_date"></a>
+
+#### ask\_start\_date
+
+```python
+def ask_start_date(parent: tk.Misc) -> Optional[StartChoice]
+```
+
+Ask for the start date, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.backlog_dialogs.ask_levels"></a>
+
+#### ask\_levels
+
+```python
+def ask_levels(parent: tk.Misc) -> Optional[list[int]]
+```
+
+Ask for the levels to extract, or None when cancelled.
+
+<a id="backlogops_gui.backlog_dialogs.ask_date_order"></a>
+
+#### ask\_date\_order
+
+```python
+def ask_date_order(parent: tk.Misc) -> Optional[bool]
+```
+
+Ask whether to order by estimated date, or None when cancelled.
+
+<a id="backlogops_gui.backlog_dialogs.ask_release_order"></a>
+
+#### ask\_release\_order
+
+```python
+def ask_release_order(parent: tk.Misc) -> Optional[ReleaseOrderOptions]
+```
+
+Ask for the release-order options, or None when cancelled.
+
+<a id="backlogops_gui.backlog_dialogs.ask_buffer_days"></a>
+
+#### ask\_buffer\_days
+
+```python
+def ask_buffer_days(parent: tk.Misc) -> Optional[int]
+```
+
+Ask for the buffer in days, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.report_windows"></a>
+
+# backlogops\_gui.report\_windows
+
+Read-only text pop-ups for change listings and text reports.
+
+A change listing is shown with a Save-to-file and a Dismiss button, so the
+user can keep a record of what an action changed. A text report is shown
+read-only but copy-pasteable, with only a Dismiss button. Both return the
+created window so a caller or a test can drive or close it.
+
+<a id="backlogops_gui.report_windows.show_change_list"></a>
+
+#### show\_change\_list
+
+```python
+def show_change_list(parent: tk.Misc, title: str, text: str,
+                     on_save: Callable[[], None]) -> tk.Toplevel
+```
+
+Show a change listing with Save-to-file and Dismiss buttons.
+
+The listing is shown read-only. The Save button calls ``on_save`` and
+the Dismiss button closes the window. The created window is returned
+so a caller (or a test) can drive or close it.
+
+<a id="backlogops_gui.report_windows.show_text_report"></a>
+
+#### show\_text\_report
+
+```python
+def show_text_report(parent: tk.Misc, title: str, text: str) -> tk.Toplevel
+```
+
+Show read-only, copy-pasteable text with a Dismiss button.
+
+The text is shown in a disabled text box, which still lets the user
+select and copy it. The created window is returned so a caller or a
+test can drive or close it.
+
+<a id="backlogops_gui.choice_dialogs"></a>
+
+# backlogops\_gui.choice\_dialogs
+
+Modal button-choice dialogs shown outside a backlog window.
+
+These dialogs present a short explanation and a column of buttons, each
+selecting one enumerated value, with no OK or Cancel. The no-configuration
+dialog offers to run the wizard, load a file, or exit at startup. The
+preset-kind dialog asks whether a stand-alone preset file is an input or
+an output preset before it is migrated.
+
+<a id="backlogops_gui.choice_dialogs.ConfigChoice"></a>
+
+## ConfigChoice Objects
+
+```python
+class ConfigChoice(Enum)
+```
+
+The action chosen in the no-configuration startup dialog.
+
+<a id="backlogops_gui.choice_dialogs.PresetKind"></a>
+
+## PresetKind Objects
+
+```python
+class PresetKind(Enum)
+```
+
+Whether a stand-alone preset file is an input or output preset.
+
+<a id="backlogops_gui.choice_dialogs.NoConfigDialog"></a>
+
+## NoConfigDialog Objects
+
+```python
+class NoConfigDialog()
+```
+
+Modal dialog offering to create, load, or exit without a config.
+
+<a id="backlogops_gui.choice_dialogs.NoConfigDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the no-configuration dialog.
+
+<a id="backlogops_gui.choice_dialogs.NoConfigDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the explanation and the three action buttons.
+
+<a id="backlogops_gui.choice_dialogs.NoConfigDialog._add_button"></a>
+
+#### \_add\_button
+
+```python
+def _add_button(text: str, choice: ConfigChoice) -> None
+```
+
+Add one action button that selects the given choice.
+
+<a id="backlogops_gui.choice_dialogs.NoConfigDialog._show"></a>
+
+#### \_show
+
+```python
+def _show() -> None
+```
+
+Grab the focus and wait for the dialog to close.
+
+<a id="backlogops_gui.choice_dialogs.NoConfigDialog._choose"></a>
+
+#### \_choose
+
+```python
+def _choose(choice: ConfigChoice) -> None
+```
+
+Record the chosen action and close the dialog.
+
+<a id="backlogops_gui.choice_dialogs.ask_no_config_choice"></a>
+
+#### ask\_no\_config\_choice
+
+```python
+def ask_no_config_choice(parent: tk.Misc) -> ConfigChoice
+```
+
+Ask whether to run the wizard, load a file, or exit.
+
+<a id="backlogops_gui.choice_dialogs.PresetKindDialog"></a>
+
+## PresetKindDialog Objects
+
+```python
+class PresetKindDialog()
+```
+
+Modal dialog asking whether a preset is for input or output.
+
+<a id="backlogops_gui.choice_dialogs.PresetKindDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the preset kind dialog.
+
+<a id="backlogops_gui.choice_dialogs.PresetKindDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the explanation and the two kind buttons.
+
+<a id="backlogops_gui.choice_dialogs.PresetKindDialog._add_button"></a>
+
+#### \_add\_button
+
+```python
+def _add_button(text: str, kind: PresetKind) -> None
+```
+
+Add one button that selects the given preset kind.
+
+<a id="backlogops_gui.choice_dialogs.PresetKindDialog._show"></a>
+
+#### \_show
+
+```python
+def _show() -> None
+```
+
+Grab the focus and wait for the dialog to close.
+
+<a id="backlogops_gui.choice_dialogs.PresetKindDialog._choose"></a>
+
+#### \_choose
+
+```python
+def _choose(kind: PresetKind) -> None
+```
+
+Record the chosen kind and close the dialog.
+
+<a id="backlogops_gui.choice_dialogs.ask_preset_kind"></a>
+
+#### ask\_preset\_kind
+
+```python
+def ask_preset_kind(parent: tk.Misc) -> Optional[PresetKind]
+```
+
+Ask whether a preset file is an input or output preset.
+
+Returns the chosen kind, or None when the dialog is closed without a
+choice.
+
+<a id="backlogops_gui.format_dialogs"></a>
+
+# backlogops\_gui.format\_dialogs
+
+File-format option dialogs for reading and writing backlog files.
+
+The format options mirror the command line: the format is either inferred
+from the file name, taken from a named preset stored in the teams
+configuration, or read from a stand-alone configuration file. Writing also
+offers to put the releases before the backlog. The chosen format is
+returned as a single value understood by the resolver in
+:mod:`backlogops_gui.backlog_io`.
+
+<a id="backlogops_gui.format_dialogs.format_value"></a>
+
+#### format\_value
+
+```python
+def format_value(mode: int, preset: str, path: str) -> Optional[str]
+```
+
+Return the resolver value for a selected mode and inputs.
+
+A preset or file mode with an empty input falls back to inference, so
+an unfinished selection behaves like inferring from the file name.
+
+<a id="backlogops_gui.format_dialogs.ReadOptions"></a>
+
+## ReadOptions Objects
+
+```python
+@dataclass
+class ReadOptions()
+```
+
+The format selection entered for reading a file.
+
+<a id="backlogops_gui.format_dialogs.WriteOptions"></a>
+
+## WriteOptions Objects
+
+```python
+@dataclass
+class WriteOptions()
+```
+
+The format selection and ordering entered for writing a file.
+
+<a id="backlogops_gui.format_dialogs.FormatDialog"></a>
+
+## FormatDialog Objects
+
+```python
+class FormatDialog(ModalDialog)
+```
+
+Modal dialog collecting the format selection for one file.
+
+<a id="backlogops_gui.format_dialogs.FormatDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, presets: Sequence[str],
+             with_releases_first: bool) -> None
+```
+
+Build, show and wait for the modal format dialog.
+
+<a id="backlogops_gui.format_dialogs.FormatDialog._build"></a>
+
+#### \_build
+
+```python
+def _build(with_releases_first: bool) -> None
+```
+
+Create the radio buttons, inputs and action buttons.
+
+<a id="backlogops_gui.format_dialogs.FormatDialog._add_radio"></a>
+
+#### \_add\_radio
+
+```python
+def _add_radio(text: str, mode: int) -> None
+```
+
+Add one mode radio button.
+
+<a id="backlogops_gui.format_dialogs.FormatDialog._add_preset_row"></a>
+
+#### \_add\_preset\_row
+
+```python
+def _add_preset_row() -> None
+```
+
+Add the preset radio button and its choices, when available.
+
+<a id="backlogops_gui.format_dialogs.FormatDialog._add_file_row"></a>
+
+#### \_add\_file\_row
+
+```python
+def _add_file_row() -> None
+```
+
+Add the configuration-file radio button, entry and browse.
+
+<a id="backlogops_gui.format_dialogs.FormatDialog._browse"></a>
+
+#### \_browse
+
+```python
+def _browse() -> None
+```
+
+Pick a configuration file and select the file mode.
+
+<a id="backlogops_gui.format_dialogs.FormatDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the selected format value and close the dialog.
+
+<a id="backlogops_gui.format_dialogs.FormatDialog._selected_value"></a>
+
+#### \_selected\_value
+
+```python
+def _selected_value() -> Optional[str]
+```
+
+Return the format value for the selected mode.
+
+<a id="backlogops_gui.format_dialogs.ask_read_options"></a>
+
+#### ask\_read\_options
+
+```python
+def ask_read_options(
+        parent: tk.Misc,
+        presets: Optional[Sequence[str]]) -> Optional[ReadOptions]
+```
+
+Ask how to read a file, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.format_dialogs.ask_write_options"></a>
+
+#### ask\_write\_options
+
+```python
+def ask_write_options(
+        parent: tk.Misc,
+        presets: Optional[Sequence[str]]) -> Optional[WriteOptions]
+```
+
+Ask how to write a file, or None when the dialog is cancelled.
+
+<a id="backlogops_gui.jira_dialogs"></a>
+
+# backlogops\_gui.jira\_dialogs
+
+Modal dialogs collecting the options for the Jira operations.
+
+Reading from Jira picks a Jira preset and an editable issue filter. Adding
+to Jira picks a write preset and whether to skip items whose key already
+exists. Updating releases picks a preset, what to do with a missing
+release name, and which releases to update. Updating the backlog picks a
+preset, what to do with a missing item key, which columns to update, and
+how parent and dependency links are reconciled. A separate dialog collects
+the masked pass phrase for an encrypted Jira API token.
+
+<a id="backlogops_gui.jira_dialogs.MISSING_MODE_TEXT"></a>
+
+#### MISSING\_MODE\_TEXT
+
+Label shown for each missing-name mode in the release-update dialog.
+
+<a id="backlogops_gui.jira_dialogs.LINK_MODE_TEXT"></a>
+
+#### LINK\_MODE\_TEXT
+
+Label shown for each link-update mode in the backlog-update dialog.
+
+The keys mirror the CLI ``--links`` values; ``reconcile`` maps to
+:class:`LinkUpdate.RECONCILE` and ``add`` to :class:`LinkUpdate.ADD_MISSING`.
+
+<a id="backlogops_gui.jira_dialogs.JiraPresetOptions"></a>
+
+## JiraPresetOptions Objects
+
+```python
+@dataclass
+class JiraPresetOptions()
+```
+
+Base for the Jira option dataclasses that name a Jira preset.
+
+<a id="backlogops_gui.jira_dialogs.JiraReadOptions"></a>
+
+## JiraReadOptions Objects
+
+```python
+@dataclass
+class JiraReadOptions(JiraPresetOptions)
+```
+
+The Jira preset and issue filter selected for reading from Jira.
+
+<a id="backlogops_gui.jira_dialogs.JiraWriteOptions"></a>
+
+## JiraWriteOptions Objects
+
+```python
+@dataclass
+class JiraWriteOptions(JiraPresetOptions)
+```
+
+The Jira write preset and existing-key choice for adding to Jira.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateOptions"></a>
+
+## JiraReleaseUpdateOptions Objects
+
+```python
+@dataclass
+class JiraReleaseUpdateOptions(JiraPresetOptions)
+```
+
+The preset, missing-name mode and selected names for updating.
+
+<a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateOptions"></a>
+
+## JiraBacklogUpdateOptions Objects
+
+```python
+@dataclass
+class JiraBacklogUpdateOptions(JiraPresetOptions)
+```
+
+The preset, missing-key mode, fields and link policy for updating.
+
+<a id="backlogops_gui.jira_dialogs.JiraReadDialog"></a>
+
+## JiraReadDialog Objects
+
+```python
+class JiraReadDialog(ModalDialog)
+```
+
+Modal dialog collecting the Jira preset and issue filter.
+
+<a id="backlogops_gui.jira_dialogs.JiraReadDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, preset_filters: Mapping[str, str]) -> None
+```
+
+Build, show and wait for the Jira read dialog.
+
+<a id="backlogops_gui.jira_dialogs.JiraReadDialog._build"></a>
+
+#### \_build
+
+```python
+def _build(names: Sequence[str]) -> None
+```
+
+Add the preset chooser and editable filter field.
+
+<a id="backlogops_gui.jira_dialogs.JiraReadDialog._preset_changed"></a>
+
+#### \_preset\_changed
+
+```python
+def _preset_changed(_event: object) -> None
+```
+
+Show the selected preset's default issue filter.
+
+<a id="backlogops_gui.jira_dialogs.JiraReadDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the selected preset and filter, requiring a preset.
+
+<a id="backlogops_gui.jira_dialogs.ask_jira_read_options"></a>
+
+#### ask\_jira\_read\_options
+
+```python
+def ask_jira_read_options(
+        parent: tk.Misc,
+        preset_filters: Mapping[str, str]) -> Optional[JiraReadOptions]
+```
+
+Ask which Jira preset and filter to read, or None when cancelled.
+
+<a id="backlogops_gui.jira_dialogs.JiraWriteDialog"></a>
+
+## JiraWriteDialog Objects
+
+```python
+class JiraWriteDialog(ModalDialog)
+```
+
+Modal dialog collecting the Jira write preset and skip choice.
+
+<a id="backlogops_gui.jira_dialogs.JiraWriteDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, presets: Sequence[str]) -> None
+```
+
+Build, show and wait for the Jira write dialog.
+
+<a id="backlogops_gui.jira_dialogs.JiraWriteDialog._build"></a>
+
+#### \_build
+
+```python
+def _build(names: Sequence[str]) -> None
+```
+
+Add the preset chooser and the skip-existing checkbox.
+
+<a id="backlogops_gui.jira_dialogs.JiraWriteDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the selected preset and skip choice, requiring a preset.
+
+<a id="backlogops_gui.jira_dialogs.ask_jira_write_options"></a>
+
+#### ask\_jira\_write\_options
+
+```python
+def ask_jira_write_options(
+        parent: tk.Misc, presets: Sequence[str]) -> Optional[JiraWriteOptions]
+```
+
+Ask which write preset and skip choice, or None when cancelled.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog"></a>
+
+## JiraReleaseUpdateDialog Objects
+
+```python
+class JiraReleaseUpdateDialog(ModalDialog)
+```
+
+Modal dialog for the release-update preset, mode and selection.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, presets: Sequence[str],
+             release_names: Sequence[str]) -> None
+```
+
+Build, show and wait for the release-update dialog.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog._build"></a>
+
+#### \_build
+
+```python
+def _build(names: Sequence[str], release_names: Sequence[str]) -> None
+```
+
+Add the preset chooser, the mode radios and the release picks.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog._build_preset"></a>
+
+#### \_build\_preset
+
+```python
+def _build_preset(names: Sequence[str]) -> None
+```
+
+Add the Jira preset label and read-only chooser.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog._build_mode"></a>
+
+#### \_build\_mode
+
+```python
+def _build_mode() -> None
+```
+
+Add the radios choosing what to do with a missing release.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog._build_releases"></a>
+
+#### \_build\_releases
+
+```python
+def _build_releases(release_names: Sequence[str]) -> None
+```
+
+Add a checkbox per release, all selected by default.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the preset, mode and picks, requiring a preset.
+
+<a id="backlogops_gui.jira_dialogs.ask_release_update"></a>
+
+#### ask\_release\_update
+
+```python
+def ask_release_update(
+        parent: tk.Misc, presets: Sequence[str],
+        release_names: Sequence[str]) -> Optional[JiraReleaseUpdateOptions]
+```
+
+Ask the preset, missing-name mode and releases, None when cancelled.
+
+<a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog"></a>
+
+## JiraBacklogUpdateDialog Objects
+
+```python
+class JiraBacklogUpdateDialog(ModalDialog)
+```
+
+Modal dialog for the backlog-update preset, mode, fields and links.
+
+The field checkboxes depend on the selected preset, so they are rebuilt
+whenever the preset changes. ``preset_fields`` maps each preset name to
+the internal fields it can update.
+
+<a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, preset_fields: Mapping[str,
+                                                     Sequence[str]]) -> None
+```
+
+Build, show and wait for the backlog-update dialog.
+
+<a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build"></a>
+
+#### \_build
+
+```python
+def _build(names: Sequence[str]) -> None
+```
+
+Add the preset, the mode radios, the links box and the fields.
+
+<a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_preset"></a>
+
+#### \_build\_preset
+
+```python
+def _build_preset(names: Sequence[str]) -> None
+```
+
+Add the Jira preset label and read-only chooser.
+
+<a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_mode"></a>
+
+#### \_build\_mode
+
+```python
+def _build_mode() -> None
+```
+
+Add the radios choosing what to do with a missing key.
+
+<a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_links"></a>
+
+#### \_build\_links
+
+```python
+def _build_links() -> None
+```
+
+Add the radios choosing how parent and dependency links update.
+
+<a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_fields"></a>
+
+#### \_build\_fields
+
+```python
+def _build_fields() -> None
+```
+
+Rebuild the field checkboxes for the selected preset.
+
+<a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._preset_changed"></a>
+
+#### \_preset\_changed
+
+```python
+def _preset_changed(_event: object) -> None
+```
+
+Rebuild the field checkboxes for the newly selected preset.
+
+<a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the preset, mode, fields and link policy, requiring both.
+
+<a id="backlogops_gui.jira_dialogs.ask_backlog_update"></a>
+
+#### ask\_backlog\_update
+
+```python
+def ask_backlog_update(
+    parent: tk.Misc, preset_fields: Mapping[str, Sequence[str]]
+) -> Optional[JiraBacklogUpdateOptions]
+```
+
+Ask the preset, mode, fields and link policy, None when cancelled.
+
+<a id="backlogops_gui.jira_dialogs.PassphraseDialog"></a>
+
+## PassphraseDialog Objects
+
+```python
+class PassphraseDialog(ModalDialog)
+```
+
+Modal dialog collecting a masked pass phrase.
+
+<a id="backlogops_gui.jira_dialogs.PassphraseDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the pass phrase dialog.
+
+<a id="backlogops_gui.jira_dialogs.PassphraseDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the masked pass phrase entry.
+
+<a id="backlogops_gui.jira_dialogs.PassphraseDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the entered pass phrase and close the dialog.
+
+<a id="backlogops_gui.jira_dialogs.ask_jira_passphrase"></a>
+
+#### ask\_jira\_passphrase
+
+```python
+def ask_jira_passphrase(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for the Jira token pass phrase, or None when cancelled.
 
 <a id="backlogops_gui.gui_style"></a>
 
@@ -447,531 +1803,9 @@ Graphical bridge that drives the synchronous config wizard.
 The backlog-ops configuration wizard asks its questions through a
 :class:`WizardUiBridge`. This module provides :class:`TkWizardBridge`, a
 concrete bridge that overrides every typed ask method of that base class
-with a real Tkinter control: a text entry, a yes/no button pair, a
-single- and a multi-selection list, and an editable table. All questions
-are answered in one reused window, so the whole wizard session happens in
-a single pop-up that does not jump around the display.
-Every prompt also offers back, out-one-level and abort buttons, which
-raise the matching :class:`WizardNavigation` request so the wizard can
-step within the configuration or abandon it.
-
-A table question may have a fixed set of rows or, when it is asked with
-both a minimum and a maximum row count, a variable set of rows. A
-variable table offers add-row and remove-row buttons and shows its grid
-in a scrolling area, so a long table stays usable in the fixed window.
-
-<a id="backlogops_gui.gui_wizard._uniform"></a>
-
-#### \_uniform
-
-```python
-def _uniform(values: list[_V], default: _V) -> _V
-```
-
-Return the value shared by every entry, or the default.
-
-<a id="backlogops_gui.gui_wizard._new_row_template"></a>
-
-#### \_new\_row\_template
-
-```python
-def _new_row_template(columns: Sequence[TableColumn],
-                      rows: Sequence[Sequence[TableCell]]) -> list[TableCell]
-```
-
-Return the cell descriptors used for rows added at run time.
-
-For each column the new cell keeps the value, choices and nullable
-flag shared by every seed cell of that column, and falls back to an
-empty string, no choices and not-nullable when they differ. A cell in
-an added row is always editable, even in a read-only column.
-
-<a id="backlogops_gui.gui_wizard._Cell"></a>
-
-## \_Cell Objects
-
-```python
-@dataclass(frozen=True)
-class _Cell()
-```
-
-One built table cell: its widget and how its value is read.
-
-A read-only cell keeps the fixed text it shows in its label. An
-editable cell keeps the widget the user types in or selects from, and
-whether an empty cell is reported as ``None``.
-
-<a id="backlogops_gui.gui_wizard._cell_text"></a>
-
-#### \_cell\_text
-
-```python
-def _cell_text(cell: _Cell) -> Optional[str]
-```
-
-Return the final string a cell holds, or None for an empty cell.
-
-<a id="backlogops_gui.gui_wizard._TableEditor"></a>
-
-## \_TableEditor Objects
-
-```python
-class _TableEditor()
-```
-
-An editable grid of cells for one table question.
-
-A fixed table fills the seed rows only. A variable table, asked with
-both a minimum and a maximum row count, adds editable rows up to the
-maximum and removes the last row down to the minimum. A variable
-table shows its grid in a scrolling area, so a long table stays
-usable while the wizard window is resized.
-
-<a id="backlogops_gui.gui_wizard._TableEditor.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc,
-             columns: Sequence[TableColumn],
-             rows: Sequence[Sequence[TableCell]],
-             partial_check: Optional[PartialCheck],
-             min_rows: Optional[int] = None,
-             max_rows: Optional[int] = None) -> None
-```
-
-Build the header and one widget per cell of the seed rows.
-
-<a id="backlogops_gui.gui_wizard._TableEditor.is_variable"></a>
-
-#### is\_variable
-
-```python
-def is_variable() -> bool
-```
-
-Return whether the table can add and remove rows.
-
-<a id="backlogops_gui.gui_wizard._TableEditor.values"></a>
-
-#### values
-
-```python
-def values() -> list[list[Optional[str]]]
-```
-
-Return the whole table as rows of final cell strings.
-
-<a id="backlogops_gui.gui_wizard._TableEditor.add_row"></a>
-
-#### add\_row
-
-```python
-def add_row() -> None
-```
-
-Append one editable row, up to the maximum row count.
-
-<a id="backlogops_gui.gui_wizard._TableEditor.remove_row"></a>
-
-#### remove\_row
-
-```python
-def remove_row() -> None
-```
-
-Remove the last row, down to the minimum row count.
-
-<a id="backlogops_gui.gui_wizard._TableEditor._build_grid_area"></a>
-
-#### \_build\_grid\_area
-
-```python
-def _build_grid_area(parent: tk.Misc) -> tk.Frame
-```
-
-Return the frame holding the grid, scrolling when variable.
-
-<a id="backlogops_gui.gui_wizard._TableEditor._build_scroll"></a>
-
-#### \_build\_scroll
-
-```python
-def _build_scroll(parent: tk.Misc) -> tk.Frame
-```
-
-Build an expanding scrolling area and return its inner frame.
-
-<a id="backlogops_gui.gui_wizard._TableEditor._scroll_to_end"></a>
-
-#### \_scroll\_to\_end
-
-```python
-def _scroll_to_end() -> None
-```
-
-Bring the newly added last row into the scrolling area.
-
-<a id="backlogops_gui.gui_wizard._TableEditor._build_header"></a>
-
-#### \_build\_header
-
-```python
-def _build_header() -> None
-```
-
-Show one bold heading label per column.
-
-<a id="backlogops_gui.gui_wizard._TableEditor._append_cells"></a>
-
-#### \_append\_cells
-
-```python
-def _append_cells(row: Sequence[TableCell], added: bool) -> None
-```
-
-Build and store one widget per column of one new table row.
-
-<a id="backlogops_gui.gui_wizard._TableEditor._build_cell"></a>
-
-#### \_build\_cell
-
-```python
-def _build_cell(index: int, col: int, pair: tuple[TableColumn, TableCell],
-                added: bool) -> _Cell
-```
-
-Build one read-only label or one editable cell widget.
-
-<a id="backlogops_gui.gui_wizard._TableEditor._editable_widget"></a>
-
-#### \_editable\_widget
-
-```python
-def _editable_widget(cell: TableCell) -> tk.Widget
-```
-
-Return a drop-down for a cell with choices, else a text entry.
-
-<a id="backlogops_gui.gui_wizard._TableEditor._bind_change"></a>
-
-#### \_bind\_change
-
-```python
-def _bind_change(widget: tk.Widget, row: int, col: int) -> None
-```
-
-Show early per-cell feedback when an edited cell changes.
-
-<a id="backlogops_gui.gui_wizard._TableEditor._feedback"></a>
-
-#### \_feedback
-
-```python
-def _feedback(row: int, col: int) -> None
-```
-
-Run the partial check and show its message for one cell.
-
-<a id="backlogops_gui.gui_wizard._TableEditor._show"></a>
-
-#### \_show
-
-```python
-def _show(message: str) -> None
-```
-
-Show a status message below the grid.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow"></a>
-
-## \_WizardWindow Objects
-
-```python
-class _WizardWindow()
-```
-
-One reused window that asks every wizard prompt in turn.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Create the fixed-size window and its lasting message area.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._build_messages"></a>
-
-#### \_build\_messages
-
-```python
-def _build_messages() -> tk.Text
-```
-
-Build the read-only area that keeps the wizard messages.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow.show"></a>
-
-#### show
-
-```python
-def show(message: str) -> None
-```
-
-Append one lasting message to the message area.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow.close"></a>
-
-#### close
-
-```python
-def close() -> None
-```
-
-Destroy the wizard window.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow.ask_text"></a>
-
-#### ask\_text
-
-```python
-def ask_text(question: str,
-             re_ask: Optional[str],
-             nullable: bool,
-             default: Optional[str] = None,
-             sensitive: bool = False) -> Optional[str]
-```
-
-Ask one free-text question and return the entered text.
-
-A sensitive question masks the typed text; a default value is
-pre-filled and returned when the answer is left empty.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._text_result"></a>
-
-#### \_text\_result
-
-```python
-@staticmethod
-def _text_result(result: str, nullable: bool,
-                 default: Optional[str]) -> Optional[str]
-```
-
-Return the answer after the default and nullable rules.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow.ask_yes_no"></a>
-
-#### ask\_yes\_no
-
-```python
-def ask_yes_no(question: str, default: bool, re_ask: Optional[str]) -> bool
-```
-
-Ask one yes/no question with dedicated buttons.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow.ask_choice"></a>
-
-#### ask\_choice
-
-```python
-def ask_choice(question: str, choices: Sequence[str], default: Optional[str],
-               re_ask: Optional[str]) -> str
-```
-
-Ask the user to pick exactly one choice and return it.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow.ask_multi"></a>
-
-#### ask\_multi
-
-```python
-def ask_multi(question: str, choices: Sequence[str],
-              default: Optional[Sequence[str]], min_select: int,
-              max_select: Optional[int], re_ask: Optional[str]) -> list[str]
-```
-
-Ask the user to pick several choices within the count bounds.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow.ask_table"></a>
-
-#### ask\_table
-
-```python
-def ask_table(columns: Sequence[TableColumn],
-              cells: Sequence[Sequence[TableCell]], question: str,
-              re_ask: Optional[str], partial_check: Optional[PartialCheck],
-              min_rows: Optional[int],
-              max_rows: Optional[int]) -> list[list[Optional[str]]]
-```
-
-Ask the user to fill the given table rows and return them.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._run_multi"></a>
-
-#### \_run\_multi
-
-```python
-def _run_multi(question: str, re_ask: Optional[str], choices: Sequence[str],
-               default: Optional[Sequence[str]]) -> list[str]
-```
-
-Show a multi-selection list once and return the picked values.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._choice_list"></a>
-
-#### \_choice\_list
-
-```python
-def _choice_list(choices: Sequence[str], marked: Optional[str | Sequence[str]],
-                 mode: str) -> tk.Listbox
-```
-
-Build a selection list, preselecting the marked choices.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._preset_indexes"></a>
-
-#### \_preset\_indexes
-
-```python
-@staticmethod
-def _preset_indexes(choices: Sequence[str],
-                    marked: Optional[str | Sequence[str]]) -> list[int]
-```
-
-Return the indexes to preselect from a default value or list.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._pick_one"></a>
-
-#### \_pick\_one
-
-```python
-def _pick_one(listbox: tk.Listbox, choices: Sequence[str]) -> None
-```
-
-Finish a single-choice question with the selected value.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._pick_many"></a>
-
-#### \_pick\_many
-
-```python
-def _pick_many(listbox: tk.Listbox, choices: Sequence[str]) -> None
-```
-
-Finish a multi-choice question with the selected values.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._begin"></a>
-
-#### \_begin
-
-```python
-def _begin(question: str, re_ask: Optional[str]) -> None
-```
-
-Clear the content area and show the question and any reason.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._add_label"></a>
-
-#### \_add\_label
-
-```python
-def _add_label(text: str, color: str) -> None
-```
-
-Add one wrapped label to the content area.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._add_buttons"></a>
-
-#### \_add\_buttons
-
-```python
-def _add_buttons(on_ok: Callable[[], None]) -> None
-```
-
-Add the confirm and navigation buttons.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._add_table_buttons"></a>
-
-#### \_add\_table\_buttons
-
-```python
-def _add_table_buttons(editor: _TableEditor) -> None
-```
-
-Add confirm, optional add/remove-row and navigation buttons.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._add_nav_buttons"></a>
-
-#### \_add\_nav\_buttons
-
-```python
-def _add_nav_buttons(box: tk.Frame) -> None
-```
-
-Add the back, out-one-level and abort navigation buttons.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._wait"></a>
-
-#### \_wait
-
-```python
-def _wait() -> object
-```
-
-Focus the first input, then wait for an answer or navigation.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._finish"></a>
-
-#### \_finish
-
-```python
-def _finish(value: object) -> None
-```
-
-Store the answer and release the waiting prompt.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._back"></a>
-
-#### \_back
-
-```python
-def _back() -> None
-```
-
-Request a step back to the previous question.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._cancel_level"></a>
-
-#### \_cancel\_level
-
-```python
-def _cancel_level() -> None
-```
-
-Request leaving the current level by one step.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._cancel"></a>
-
-#### \_cancel
-
-```python
-def _cancel() -> None
-```
-
-Request abandoning the whole configuration.
-
-<a id="backlogops_gui.gui_wizard._WizardWindow._navigate"></a>
-
-#### \_navigate
-
-```python
-def _navigate(request: type[WizardNavigation]) -> None
-```
-
-Record a navigation request and release the waiting prompt.
+with a real Tkinter control. All questions are answered in one reused
+:class:`~backlogops_gui.wizard_window.WizardWindow`, so the whole wizard
+session happens in a single pop-up that does not jump around the display.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge"></a>
 
@@ -1112,10 +1946,163 @@ Close the wizard window when one was opened.
 #### \_window\_obj
 
 ```python
-def _window_obj() -> _WizardWindow
+def _window_obj() -> WizardWindow
 ```
 
 Return the wizard window, creating it on first use.
+
+<a id="backlogops_gui.jira_base"></a>
+
+# backlogops\_gui.jira\_base
+
+Shared behavior for the Jira operations of the application.
+
+The Jira read, write and update operations all resolve a Jira connection
+and materialize an encrypted API token before starting, run their network
+call on a worker thread, and hand success or failure back to the GUI
+thread. :class:`JiraAction` holds a reference to the running
+:class:`~backlogops_gui.application.BacklogApp` and provides those shared
+steps, so each concrete Jira collaborator only implements the call, the
+success reporting and, where needed, the dialog that gathers its options.
+
+<a id="backlogops_gui.jira_base.JiraAction"></a>
+
+## JiraAction Objects
+
+```python
+class JiraAction()
+```
+
+Base for the Jira menu actions, sharing the app and worker steps.
+
+<a id="backlogops_gui.jira_base.JiraAction.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(app: 'BacklogApp') -> None
+```
+
+Store the application whose window, log and config are used.
+
+<a id="backlogops_gui.jira_base.JiraAction._config"></a>
+
+#### \_config
+
+```python
+def _config() -> BacklogOpsConfig
+```
+
+Return the active configuration, which the caller ensured is set.
+
+<a id="backlogops_gui.jira_base.JiraAction._available"></a>
+
+#### \_available
+
+```python
+def _available() -> bool
+```
+
+Return whether a configuration with Jira presets is loaded.
+
+<a id="backlogops_gui.jira_base.JiraAction._presets"></a>
+
+#### \_presets
+
+```python
+def _presets() -> list[str]
+```
+
+Return the Jira preset names of the configuration, sorted.
+
+<a id="backlogops_gui.jira_base.JiraAction._connections"></a>
+
+#### \_connections
+
+```python
+def _connections() -> JiraConnections
+```
+
+Return the Jira connections of the configuration.
+
+<a id="backlogops_gui.jira_base.JiraAction._jira_connection"></a>
+
+#### \_jira\_connection
+
+```python
+def _jira_connection(preset_name: str) -> JiraConnectConfig
+```
+
+Return the Jira connection used by the named preset.
+
+<a id="backlogops_gui.jira_base.JiraAction._prepare_jira_token"></a>
+
+#### \_prepare\_jira\_token
+
+```python
+def _prepare_jira_token(preset_name: str) -> bool
+```
+
+Materialize an encrypted Jira token before the worker starts.
+
+<a id="backlogops_gui.jira_base.JiraAction._start"></a>
+
+#### \_start
+
+```python
+def _start(preset_name: str, verb: str, worker: Callable[[], None]) -> None
+```
+
+Prepare the token, log the start, and run the worker on a thread.
+
+``verb`` is spliced into the "<verb> using preset '<name>'..." start
+message logged before the worker thread runs. Nothing runs when the
+token could not be materialized.
+
+<a id="backlogops_gui.jira_base.JiraAction._dispatch"></a>
+
+#### \_dispatch
+
+```python
+def _dispatch(title: str, preset_name: str, call: Callable[[], _R],
+              done: Callable[[_R], None]) -> None
+```
+
+Run the Jira call and hand its result to the GUI thread.
+
+A call raising one of the known Jira errors is reported under
+``title`` for ``preset_name``; otherwise the result is passed to
+``done``. Both run on the GUI thread if the main window still exists.
+
+<a id="backlogops_gui.jira_base.JiraAction._after"></a>
+
+#### \_after
+
+```python
+def _after(callback: Callable[[], None]) -> None
+```
+
+Schedule a GUI-thread callback if the main window still exists.
+
+<a id="backlogops_gui.jira_base.JiraAction._fail"></a>
+
+#### \_fail
+
+```python
+def _fail(title: str, preset_name: str, message: str) -> None
+```
+
+Log and report a failed Jira operation for one preset.
+
+<a id="backlogops_gui.jira_base.JiraAction._finish"></a>
+
+#### \_finish
+
+```python
+def _finish(on_done: Callable[[_R], None], result: _R, summary: str) -> None
+```
+
+Hand the result to the window and log a completion summary.
 
 <a id="backlogops_gui._migrate_warn"></a>
 
@@ -1208,6 +2195,9 @@ taken from the file given with ``-c`` or from the configured locations;
 when no configuration is found a startup dialog offers to run the wizard,
 load a configuration file, or exit. Cancelling the wizard or a dialog
 returns to that choice, so the application ends only when the user exits.
+The Jira menu actions of a backlog window are delegated to the collaborator
+objects in :mod:`backlogops_gui.jira_read`, :mod:`backlogops_gui.jira_write`
+and :mod:`backlogops_gui.jira_update`.
 
 <a id="backlogops_gui.application.initial_config"></a>
 
@@ -1268,7 +2258,7 @@ The backlog operations application and its menu actions.
 def __init__(root: tk.Tk, config: Optional[BacklogOpsConfig] = None) -> None
 ```
 
-Store the main window, configuration, and a log buffer.
+Store the window, config, log and Jira collaborators.
 
 <a id="backlogops_gui.application.BacklogApp.in_presets"></a>
 
@@ -1319,16 +2309,6 @@ def status_map() -> Optional[dict[str, Status]]
 ```
 
 Return the library-wide status input map, or None when absent.
-
-<a id="backlogops_gui.application.BacklogApp._jira_preset_filters"></a>
-
-#### \_jira\_preset\_filters
-
-```python
-def _jira_preset_filters() -> Optional[dict[str, str]]
-```
-
-Return Jira preset names mapped to their default filters.
 
 <a id="backlogops_gui.application.BacklogApp.gui_display"></a>
 
@@ -1553,379 +2533,6 @@ def read_backlog_file() -> None
 
 Read a backlog from a chosen file into a new window.
 
-<a id="backlogops_gui.application.BacklogApp._read_jira_backlog"></a>
-
-#### \_read\_jira\_backlog
-
-```python
-def _read_jira_backlog() -> None
-```
-
-Read a backlog from Jira into a new window.
-
-<a id="backlogops_gui.application.BacklogApp._jira_connection"></a>
-
-#### \_jira\_connection
-
-```python
-def _jira_connection(preset_name: str) -> JiraConnectConfig
-```
-
-Return the Jira connection used by the named preset.
-
-<a id="backlogops_gui.application.BacklogApp._prepare_jira_token"></a>
-
-#### \_prepare\_jira\_token
-
-```python
-def _prepare_jira_token(preset_name: str) -> bool
-```
-
-Materialize an encrypted Jira token before the worker starts.
-
-<a id="backlogops_gui.application.BacklogApp._start_jira_thread"></a>
-
-#### \_start\_jira\_thread
-
-```python
-def _start_jira_thread(preset_name: str, issue_filter: str) -> None
-```
-
-Start the Jira read worker thread.
-
-<a id="backlogops_gui.application.BacklogApp._read_jira_worker"></a>
-
-#### \_read\_jira\_worker
-
-```python
-def _read_jira_worker(preset_name: str, issue_filter: str) -> None
-```
-
-Read Jira data on a worker and schedule the GUI update.
-
-<a id="backlogops_gui.application.BacklogApp._jira_consistency_warning"></a>
-
-#### \_jira\_consistency\_warning
-
-```python
-def _jira_consistency_warning(data: BacklogReleases) -> Optional[str]
-```
-
-Return a warning if the Jira data is not fully consistent.
-
-<a id="backlogops_gui.application.BacklogApp._after"></a>
-
-#### \_after
-
-```python
-def _after(callback: Callable[[], None]) -> None
-```
-
-Schedule a GUI-thread callback if the main window still exists.
-
-<a id="backlogops_gui.application.BacklogApp._jira_read_failed"></a>
-
-#### \_jira\_read\_failed
-
-```python
-def _jira_read_failed(preset_name: str, message: str) -> None
-```
-
-Report a failed Jira read on the GUI thread.
-
-<a id="backlogops_gui.application.BacklogApp._jira_read_done"></a>
-
-#### \_jira\_read\_done
-
-```python
-def _jira_read_done(preset_name: str, data: BacklogReleases,
-                    warning: Optional[str]) -> None
-```
-
-Open the Jira backlog and report the completed read.
-
-<a id="backlogops_gui.application.BacklogApp._jira_write_action"></a>
-
-#### \_jira\_write\_action
-
-```python
-def _jira_write_action() -> Optional[Callable[
-    [BacklogReleases, Callable[[AddedToJira], None]], None]]
-```
-
-Return the add-to-Jira handler, or None when it is unavailable.
-
-<a id="backlogops_gui.application.BacklogApp._add_backlog_to_jira"></a>
-
-#### \_add\_backlog\_to\_jira
-
-```python
-def _add_backlog_to_jira(data: BacklogReleases,
-                         on_done: Callable[[AddedToJira], None]) -> None
-```
-
-Ask for a preset and add the shown backlog to Jira.
-
-<a id="backlogops_gui.application.BacklogApp._start_jira_write"></a>
-
-#### \_start\_jira\_write
-
-```python
-def _start_jira_write(data: BacklogReleases, options: JiraWriteOptions,
-                      on_done: Callable[[AddedToJira], None]) -> None
-```
-
-Start the Jira write worker thread.
-
-<a id="backlogops_gui.application.BacklogApp._jira_write_worker"></a>
-
-#### \_jira\_write\_worker
-
-```python
-def _jira_write_worker(data: BacklogReleases, options: JiraWriteOptions,
-                       on_done: Callable[[AddedToJira], None]) -> None
-```
-
-Add the backlog on a worker and schedule the GUI update.
-
-<a id="backlogops_gui.application.BacklogApp._jira_write_failed"></a>
-
-#### \_jira\_write\_failed
-
-```python
-def _jira_write_failed(preset_name: str, message: str) -> None
-```
-
-Report a failed Jira write on the GUI thread.
-
-<a id="backlogops_gui.application.BacklogApp._jira_write_done"></a>
-
-#### \_jira\_write\_done
-
-```python
-def _jira_write_done(preset_name: str, result: AddedToJira,
-                     on_done: Callable[[AddedToJira], None]) -> None
-```
-
-Hand the result to the window and log the completed write.
-
-<a id="backlogops_gui.application.BacklogApp._jira_releases_action"></a>
-
-#### \_jira\_releases\_action
-
-```python
-def _jira_releases_action() -> Optional[Callable[
-    [BacklogReleases, Callable[[AddedReleasesToJira], None]], None]]
-```
-
-Return the add-releases handler, or None when unavailable.
-
-<a id="backlogops_gui.application.BacklogApp._add_releases_to_jira"></a>
-
-#### \_add\_releases\_to\_jira
-
-```python
-def _add_releases_to_jira(
-        data: BacklogReleases, on_done: Callable[[AddedReleasesToJira],
-                                                 None]) -> None
-```
-
-Ask for a preset and add the shown releases to Jira.
-
-<a id="backlogops_gui.application.BacklogApp._start_releases_write"></a>
-
-#### \_start\_releases\_write
-
-```python
-def _start_releases_write(
-        data: BacklogReleases, options: JiraWriteOptions,
-        on_done: Callable[[AddedReleasesToJira], None]) -> None
-```
-
-Start the Jira releases-write worker thread.
-
-<a id="backlogops_gui.application.BacklogApp._releases_write_worker"></a>
-
-#### \_releases\_write\_worker
-
-```python
-def _releases_write_worker(
-        data: BacklogReleases, options: JiraWriteOptions,
-        on_done: Callable[[AddedReleasesToJira], None]) -> None
-```
-
-Add the releases on a worker and schedule the GUI update.
-
-<a id="backlogops_gui.application.BacklogApp._releases_write_failed"></a>
-
-#### \_releases\_write\_failed
-
-```python
-def _releases_write_failed(preset_name: str, message: str) -> None
-```
-
-Report a failed releases write on the GUI thread.
-
-<a id="backlogops_gui.application.BacklogApp._releases_write_done"></a>
-
-#### \_releases\_write\_done
-
-```python
-def _releases_write_done(
-        preset_name: str, result: AddedReleasesToJira,
-        on_done: Callable[[AddedReleasesToJira], None]) -> None
-```
-
-Hand the result to the window and log the completed write.
-
-<a id="backlogops_gui.application.BacklogApp._jira_update_action"></a>
-
-#### \_jira\_update\_action
-
-```python
-def _jira_update_action() -> Optional[Callable[
-    [BacklogReleases, Callable[[UpdatedReleasesInJira], None]], None]]
-```
-
-Return the update-releases handler, or None when unavailable.
-
-<a id="backlogops_gui.application.BacklogApp._update_releases_in_jira"></a>
-
-#### \_update\_releases\_in\_jira
-
-```python
-def _update_releases_in_jira(
-        data: BacklogReleases, on_done: Callable[[UpdatedReleasesInJira],
-                                                 None]) -> None
-```
-
-Ask for a preset, mode and releases, then update them in Jira.
-
-<a id="backlogops_gui.application.BacklogApp._start_releases_update"></a>
-
-#### \_start\_releases\_update
-
-```python
-def _start_releases_update(
-        data: BacklogReleases, options: JiraReleaseUpdateOptions,
-        on_done: Callable[[UpdatedReleasesInJira], None]) -> None
-```
-
-Start the Jira releases-update worker thread.
-
-<a id="backlogops_gui.application.BacklogApp._releases_update_worker"></a>
-
-#### \_releases\_update\_worker
-
-```python
-def _releases_update_worker(
-        data: BacklogReleases, options: JiraReleaseUpdateOptions,
-        on_done: Callable[[UpdatedReleasesInJira], None]) -> None
-```
-
-Update the releases on a worker and schedule the GUI update.
-
-<a id="backlogops_gui.application.BacklogApp._releases_update_failed"></a>
-
-#### \_releases\_update\_failed
-
-```python
-def _releases_update_failed(preset_name: str, message: str) -> None
-```
-
-Report a failed releases update on the GUI thread.
-
-<a id="backlogops_gui.application.BacklogApp._releases_update_done"></a>
-
-#### \_releases\_update\_done
-
-```python
-def _releases_update_done(
-        preset_name: str, result: UpdatedReleasesInJira,
-        on_done: Callable[[UpdatedReleasesInJira], None]) -> None
-```
-
-Hand the result to the window and log the completed update.
-
-<a id="backlogops_gui.application.BacklogApp._backlog_update_action"></a>
-
-#### \_backlog\_update\_action
-
-```python
-def _backlog_update_action() -> Optional[Callable[
-    [BacklogReleases, Callable[[UpdatedBacklogInJira], None]], None]]
-```
-
-Return the update-backlog handler, or None when unavailable.
-
-<a id="backlogops_gui.application.BacklogApp._preset_update_fields"></a>
-
-#### \_preset\_update\_fields
-
-```python
-def _preset_update_fields() -> dict[str, list[str]]
-```
-
-Return each preset name mapped to its updatable backlog fields.
-
-<a id="backlogops_gui.application.BacklogApp._update_backlog_in_jira"></a>
-
-#### \_update\_backlog\_in\_jira
-
-```python
-def _update_backlog_in_jira(
-        data: BacklogReleases, on_done: Callable[[UpdatedBacklogInJira],
-                                                 None]) -> None
-```
-
-Ask for a preset, fields and mode, then update the backlog.
-
-<a id="backlogops_gui.application.BacklogApp._start_backlog_update"></a>
-
-#### \_start\_backlog\_update
-
-```python
-def _start_backlog_update(
-        data: BacklogReleases, options: JiraBacklogUpdateOptions,
-        on_done: Callable[[UpdatedBacklogInJira], None]) -> None
-```
-
-Start the Jira backlog-update worker thread.
-
-<a id="backlogops_gui.application.BacklogApp._backlog_update_worker"></a>
-
-#### \_backlog\_update\_worker
-
-```python
-def _backlog_update_worker(
-        data: BacklogReleases, options: JiraBacklogUpdateOptions,
-        on_done: Callable[[UpdatedBacklogInJira], None]) -> None
-```
-
-Update the backlog on a worker and schedule the GUI update.
-
-<a id="backlogops_gui.application.BacklogApp._backlog_update_failed"></a>
-
-#### \_backlog\_update\_failed
-
-```python
-def _backlog_update_failed(preset_name: str, message: str) -> None
-```
-
-Report a failed backlog update on the GUI thread.
-
-<a id="backlogops_gui.application.BacklogApp._backlog_update_done"></a>
-
-#### \_backlog\_update\_done
-
-```python
-def _backlog_update_done(
-        preset_name: str, result: UpdatedBacklogInJira,
-        on_done: Callable[[UpdatedBacklogInJira], None]) -> None
-```
-
-Hand the result to the window and log the completed update.
-
 <a id="backlogops_gui.application.BacklogApp.new_demo_backlog"></a>
 
 #### new\_demo\_backlog
@@ -2066,12 +2673,12 @@ def _update_status() -> None
 
 Refresh the configuration status line, when it is shown.
 
-<a id="backlogops_gui.application.BacklogApp._refresh_log"></a>
+<a id="backlogops_gui.application.BacklogApp.refresh_log"></a>
 
-#### \_refresh\_log
+#### refresh\_log
 
 ```python
-def _refresh_log() -> None
+def refresh_log() -> None
 ```
 
 Copy the latest log lines into the read-only log view.
@@ -2186,21 +2793,82 @@ def check_tcltk_version(root: tk.Tk) -> Optional[str]
 
 Return a warning if the running Tcl/Tk version may be unsuitable.
 
-<a id="backlogops_gui.backlog_window"></a>
+<a id="backlogops_gui.jira_read"></a>
 
-# backlogops\_gui.backlog\_window
+# backlogops\_gui.jira\_read
 
-A window that shows one backlog and its releases as two tables.
+Read a backlog and its releases from Jira into a new window.
 
-The window shows the backlog and the releases as two read-only tables and
-carries a menu with the actions that can be done to the backlog. The
-backlog table fills the window, while the releases table, which has only a
-few columns, is kept narrow so its columns are not spread out. The menu
-offers reordering, ready-date estimation, release planning, key
-extraction, saving to a file and closing the window. Saving is kept in a
-module function so it can be tested without a display.
+The reader asks for a Jira preset and an issue filter, then reads on a
+worker thread and opens the result in a new backlog window on the GUI
+thread. Jira data that is not fully consistent still opens, but with a
+warning that disables the backlog operations, so the user can inspect and
+save it without acting on inconsistent data.
 
-<a id="backlogops_gui.backlog_window.save_backlog"></a>
+<a id="backlogops_gui.jira_read.JiraReader"></a>
+
+## JiraReader Objects
+
+```python
+class JiraReader(JiraAction)
+```
+
+Reads a backlog from Jira into a new window.
+
+<a id="backlogops_gui.jira_read.JiraReader.read_backlog"></a>
+
+#### read\_backlog
+
+```python
+def read_backlog() -> None
+```
+
+Read a backlog from Jira into a new window.
+
+<a id="backlogops_gui.jira_read.JiraReader._preset_filters"></a>
+
+#### \_preset\_filters
+
+```python
+def _preset_filters() -> dict[str, str]
+```
+
+Return Jira preset names mapped to their default filters.
+
+<a id="backlogops_gui.jira_read.JiraReader._read_worker"></a>
+
+#### \_read\_worker
+
+```python
+def _read_worker(options: JiraReadOptions) -> None
+```
+
+Read Jira data on a worker and schedule the GUI update.
+
+<a id="backlogops_gui.jira_read.JiraReader._consistency_warning"></a>
+
+#### \_consistency\_warning
+
+```python
+def _consistency_warning(data: BacklogReleases) -> Optional[str]
+```
+
+Return a warning if the Jira data is not fully consistent.
+
+<a id="backlogops_gui.backlog_actions"></a>
+
+# backlogops\_gui.backlog\_actions
+
+Backlog operations driven from a backlog window.
+
+Each function asks for the options an operation needs, runs the operation
+on the backlog data, refreshes the view, and reports the outcome through
+``on_error`` and ``on_info`` callbacks. Keeping the operations in module
+functions lets them be tested without a display and keeps the window class
+focused on its widgets. Saving to a file and the Jira result appliers live
+here too, so the same reporting pattern is shared.
+
+<a id="backlogops_gui.backlog_actions.save_backlog"></a>
 
 #### save\_backlog
 
@@ -2226,7 +2894,7 @@ Ask where and how to save a backlog and write it.
 - `on_error` - Callback used to report a write failure.
 - `on_info` - Callback used to report a successful write.
 
-<a id="backlogops_gui.backlog_window._apply_change"></a>
+<a id="backlogops_gui.backlog_actions._apply_change"></a>
 
 #### \_apply\_change
 
@@ -2244,7 +2912,7 @@ A change that raises one of the known data errors is reported through
 ``on_error`` and leaves the view unchanged. A successful change
 refreshes the view and is reported through ``on_info``.
 
-<a id="backlogops_gui.backlog_window.order_by_keys"></a>
+<a id="backlogops_gui.backlog_actions.order_by_keys"></a>
 
 #### order\_by\_keys
 
@@ -2257,7 +2925,7 @@ def order_by_keys(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for leading keys and move those items to the front.
 
-<a id="backlogops_gui.backlog_window.order_by_deps"></a>
+<a id="backlogops_gui.backlog_actions.order_by_deps"></a>
 
 #### order\_by\_deps
 
@@ -2270,7 +2938,7 @@ def order_by_deps(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for the options and order the backlog by dependencies.
 
-<a id="backlogops_gui.backlog_window._release_order_message"></a>
+<a id="backlogops_gui.backlog_actions._release_order_message"></a>
 
 #### \_release\_order\_message
 
@@ -2280,7 +2948,7 @@ def _release_order_message(honor: bool, later: bool) -> str
 
 Return the success message describing a release-order action.
 
-<a id="backlogops_gui.backlog_window.order_by_release"></a>
+<a id="backlogops_gui.backlog_actions.order_by_release"></a>
 
 #### order\_by\_release
 
@@ -2294,7 +2962,7 @@ def order_by_release(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for options and order the backlog by release order.
 
-<a id="backlogops_gui.backlog_window.save_changes"></a>
+<a id="backlogops_gui.backlog_actions.save_changes"></a>
 
 #### save\_changes
 
@@ -2310,7 +2978,7 @@ Ask for a file and write the change list to it.
 A ``write_changes`` of None means there are no changes, so nothing is
 written and that is reported through ``on_info`` instead.
 
-<a id="backlogops_gui.backlog_window.show_changes"></a>
+<a id="backlogops_gui.backlog_actions.show_changes"></a>
 
 #### show\_changes
 
@@ -2324,7 +2992,7 @@ def show_changes(parent: tk.Misc, title: str, text: str,
 
 Show the change listing in a pop-up that can save it to a file.
 
-<a id="backlogops_gui.backlog_window._date_report"></a>
+<a id="backlogops_gui.backlog_actions._date_report"></a>
 
 #### \_date\_report
 
@@ -2338,7 +3006,7 @@ Return the date change listing and a writer, None when empty.
 The native save dialog has already confirmed the overwrite, so the
 writer allows overwriting an existing file.
 
-<a id="backlogops_gui.backlog_window._content_report"></a>
+<a id="backlogops_gui.backlog_actions._content_report"></a>
 
 #### \_content\_report
 
@@ -2353,7 +3021,7 @@ Return the content change listing and a writer, None when empty.
 The native save dialog has already confirmed the overwrite, so the
 writer allows overwriting an existing file.
 
-<a id="backlogops_gui.backlog_window._run_change"></a>
+<a id="backlogops_gui.backlog_actions._run_change"></a>
 
 #### \_run\_change
 
@@ -2373,7 +3041,7 @@ A change that raises one of the known data errors is reported and
 leaves the view unchanged. A successful change refreshes the view and
 shows the change listing in a pop-up that can save it to a file.
 
-<a id="backlogops_gui.backlog_window.estimate_date"></a>
+<a id="backlogops_gui.backlog_actions.estimate_date"></a>
 
 #### estimate\_date
 
@@ -2387,7 +3055,7 @@ def estimate_date(parent: tk.Misc, data: BacklogReleases,
 
 Ask for the start date and estimate the ready dates.
 
-<a id="backlogops_gui.backlog_window.set_plan"></a>
+<a id="backlogops_gui.backlog_actions.set_plan"></a>
 
 #### set\_plan
 
@@ -2399,7 +3067,7 @@ def set_plan(data: BacklogReleases, sink: TextIO, refresh: Callable[[], None],
 
 Copy the estimated ready dates to the planned ready dates.
 
-<a id="backlogops_gui.backlog_window.adjust_content"></a>
+<a id="backlogops_gui.backlog_actions.adjust_content"></a>
 
 #### adjust\_content
 
@@ -2412,7 +3080,7 @@ def adjust_content(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for a buffer and adjust the release content to the estimate.
 
-<a id="backlogops_gui.backlog_window.plan_dates"></a>
+<a id="backlogops_gui.backlog_actions.plan_dates"></a>
 
 #### plan\_dates
 
@@ -2425,7 +3093,7 @@ def plan_dates(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for a buffer and set planned release dates from the estimate.
 
-<a id="backlogops_gui.backlog_window.order_dates"></a>
+<a id="backlogops_gui.backlog_actions.order_dates"></a>
 
 #### order\_dates
 
@@ -2438,7 +3106,7 @@ def order_dates(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for the date kind and order the releases by that date.
 
-<a id="backlogops_gui.backlog_window.extract_keys"></a>
+<a id="backlogops_gui.backlog_actions.extract_keys"></a>
 
 #### extract\_keys
 
@@ -2450,7 +3118,7 @@ def extract_keys(parent: tk.Misc, data: BacklogReleases, sink: TextIO,
 
 Ask for levels and a file, then write the backlog keys to it.
 
-<a id="backlogops_gui.backlog_window.apply_add_result"></a>
+<a id="backlogops_gui.backlog_actions.apply_add_result"></a>
 
 #### apply\_add\_result
 
@@ -2466,7 +3134,7 @@ The added items take their new Jira keys (order preserved), the view
 is rebuilt, and the added and already-present lists are shown to the
 user through ``show_report``.
 
-<a id="backlogops_gui.backlog_window.apply_update_result"></a>
+<a id="backlogops_gui.backlog_actions.apply_update_result"></a>
 
 #### apply\_update\_result
 
@@ -2481,6 +3149,21 @@ Rekey any added items, refresh the view and show the update lists.
 Only the items added under the ``ADD`` policy took new Jira keys, so
 the shown backlog is rekeyed with the add result's key map, the view is
 rebuilt, and the update outcome is shown through ``show_report``.
+
+<a id="backlogops_gui.backlog_window"></a>
+
+# backlogops\_gui.backlog\_window
+
+A window that shows one backlog and its releases as two tables.
+
+The window shows the backlog and the releases as two read-only tables and
+carries a menu with the actions that can be done to the backlog. The
+backlog table fills the window, while the releases table, which has only a
+few columns, is kept narrow so its columns are not spread out. The menu
+offers reordering, ready-date estimation, release planning, key
+extraction, the Jira operations, saving to a file and closing the window.
+The operations themselves live in :mod:`backlogops_gui.backlog_actions`,
+so they can be tested without a display.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow"></a>
 
@@ -2869,1326 +3552,6 @@ def _show_update_report(text: str) -> None
 
 Show the backlog update result text in a copy-pasteable pop-up.
 
-<a id="backlogops_gui.io_dialogs"></a>
-
-# backlogops\_gui.io\_dialogs
-
-File choosers and format-option dialogs for backlog files.
-
-The format options mirror the command line: the format is either inferred
-from the file name, taken from a named preset stored in the teams
-configuration, or read from a stand-alone configuration file. Writing also
-offers to put the releases before the backlog. The chosen format is
-returned as a single value understood by the resolver in
-:mod:`backlogops_gui.backlog_io`.
-
-<a id="backlogops_gui.io_dialogs.ConfigChoice"></a>
-
-## ConfigChoice Objects
-
-```python
-class ConfigChoice(Enum)
-```
-
-The action chosen in the no-configuration startup dialog.
-
-<a id="backlogops_gui.io_dialogs.PresetKind"></a>
-
-## PresetKind Objects
-
-```python
-class PresetKind(Enum)
-```
-
-Whether a stand-alone preset file is an input or output preset.
-
-<a id="backlogops_gui.io_dialogs.format_value"></a>
-
-#### format\_value
-
-```python
-def format_value(mode: int, preset: str, path: str) -> Optional[str]
-```
-
-Return the resolver value for a selected mode and inputs.
-
-A preset or file mode with an empty input falls back to inference, so
-an unfinished selection behaves like inferring from the file name.
-
-<a id="backlogops_gui.io_dialogs.ReadOptions"></a>
-
-## ReadOptions Objects
-
-```python
-@dataclass
-class ReadOptions()
-```
-
-The format selection entered for reading a file.
-
-<a id="backlogops_gui.io_dialogs.WriteOptions"></a>
-
-## WriteOptions Objects
-
-```python
-@dataclass
-class WriteOptions()
-```
-
-The format selection and ordering entered for writing a file.
-
-<a id="backlogops_gui.io_dialogs.JiraReadOptions"></a>
-
-## JiraReadOptions Objects
-
-```python
-@dataclass
-class JiraReadOptions()
-```
-
-The Jira preset and issue filter selected for reading from Jira.
-
-<a id="backlogops_gui.io_dialogs.JiraWriteOptions"></a>
-
-## JiraWriteOptions Objects
-
-```python
-@dataclass
-class JiraWriteOptions()
-```
-
-The Jira write preset and existing-key choice for adding to Jira.
-
-<a id="backlogops_gui.io_dialogs.JiraReleaseUpdateOptions"></a>
-
-## JiraReleaseUpdateOptions Objects
-
-```python
-@dataclass
-class JiraReleaseUpdateOptions()
-```
-
-The preset, missing-name mode and selected names for updating.
-
-<a id="backlogops_gui.io_dialogs.JiraBacklogUpdateOptions"></a>
-
-## JiraBacklogUpdateOptions Objects
-
-```python
-@dataclass
-class JiraBacklogUpdateOptions()
-```
-
-The preset, missing-key mode, fields and link policy for updating.
-
-<a id="backlogops_gui.io_dialogs.choose_input_file"></a>
-
-#### choose\_input\_file
-
-```python
-def choose_input_file(parent: tk.Misc) -> Optional[str]
-```
-
-Ask for an existing backlog file, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs.choose_output_file"></a>
-
-#### choose\_output\_file
-
-```python
-def choose_output_file(parent: tk.Misc) -> Optional[str]
-```
-
-Ask for a backlog file to create, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs.choose_config_file"></a>
-
-#### choose\_config\_file
-
-```python
-def choose_config_file(parent: tk.Misc) -> Optional[str]
-```
-
-Ask for a configuration file to create, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs.choose_existing_config"></a>
-
-#### choose\_existing\_config
-
-```python
-def choose_existing_config(parent: tk.Misc) -> Optional[str]
-```
-
-Ask for an existing configuration file, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs.choose_preset_to_migrate"></a>
-
-#### choose\_preset\_to\_migrate
-
-```python
-def choose_preset_to_migrate(parent: tk.Misc) -> Optional[str]
-```
-
-Ask for an existing preset file to migrate, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs.choose_migrated_preset"></a>
-
-#### choose\_migrated\_preset
-
-```python
-def choose_migrated_preset(parent: tk.Misc) -> Optional[str]
-```
-
-Ask for a migrated preset file to create, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs._NoConfigDialog"></a>
-
-## \_NoConfigDialog Objects
-
-```python
-class _NoConfigDialog()
-```
-
-Modal dialog offering to create, load, or exit without a config.
-
-<a id="backlogops_gui.io_dialogs._NoConfigDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Build, show and wait for the no-configuration dialog.
-
-<a id="backlogops_gui.io_dialogs._NoConfigDialog._build"></a>
-
-#### \_build
-
-```python
-def _build() -> None
-```
-
-Add the explanation and the three action buttons.
-
-<a id="backlogops_gui.io_dialogs._NoConfigDialog._add_button"></a>
-
-#### \_add\_button
-
-```python
-def _add_button(text: str, choice: ConfigChoice) -> None
-```
-
-Add one action button that selects the given choice.
-
-<a id="backlogops_gui.io_dialogs._NoConfigDialog._show"></a>
-
-#### \_show
-
-```python
-def _show() -> None
-```
-
-Grab the focus and wait for the dialog to close.
-
-<a id="backlogops_gui.io_dialogs._NoConfigDialog._choose"></a>
-
-#### \_choose
-
-```python
-def _choose(choice: ConfigChoice) -> None
-```
-
-Record the chosen action and close the dialog.
-
-<a id="backlogops_gui.io_dialogs.ask_no_config_choice"></a>
-
-#### ask\_no\_config\_choice
-
-```python
-def ask_no_config_choice(parent: tk.Misc) -> ConfigChoice
-```
-
-Ask whether to run the wizard, load a file, or exit.
-
-<a id="backlogops_gui.io_dialogs._PresetKindDialog"></a>
-
-## \_PresetKindDialog Objects
-
-```python
-class _PresetKindDialog()
-```
-
-Modal dialog asking whether a preset is for input or output.
-
-<a id="backlogops_gui.io_dialogs._PresetKindDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Build, show and wait for the preset kind dialog.
-
-<a id="backlogops_gui.io_dialogs._PresetKindDialog._build"></a>
-
-#### \_build
-
-```python
-def _build() -> None
-```
-
-Add the explanation and the two kind buttons.
-
-<a id="backlogops_gui.io_dialogs._PresetKindDialog._add_button"></a>
-
-#### \_add\_button
-
-```python
-def _add_button(text: str, kind: PresetKind) -> None
-```
-
-Add one button that selects the given preset kind.
-
-<a id="backlogops_gui.io_dialogs._PresetKindDialog._show"></a>
-
-#### \_show
-
-```python
-def _show() -> None
-```
-
-Grab the focus and wait for the dialog to close.
-
-<a id="backlogops_gui.io_dialogs._PresetKindDialog._choose"></a>
-
-#### \_choose
-
-```python
-def _choose(kind: PresetKind) -> None
-```
-
-Record the chosen kind and close the dialog.
-
-<a id="backlogops_gui.io_dialogs.ask_preset_kind"></a>
-
-#### ask\_preset\_kind
-
-```python
-def ask_preset_kind(parent: tk.Misc) -> Optional[PresetKind]
-```
-
-Ask whether a preset file is an input or output preset.
-
-Returns the chosen kind, or None when the dialog is closed without a
-choice.
-
-<a id="backlogops_gui.io_dialogs._ModalDialog"></a>
-
-## \_ModalDialog Objects
-
-```python
-class _ModalDialog()
-```
-
-Base for small modal dialogs with OK and Cancel buttons.
-
-<a id="backlogops_gui.io_dialogs._ModalDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc, title: str) -> None
-```
-
-Create the modal top-level window and its close handler.
-
-<a id="backlogops_gui.io_dialogs._ModalDialog._show"></a>
-
-#### \_show
-
-```python
-def _show() -> None
-```
-
-Add buttons, focus the first input and wait for the close.
-
-<a id="backlogops_gui.io_dialogs._ModalDialog._add_buttons"></a>
-
-#### \_add\_buttons
-
-```python
-def _add_buttons() -> None
-```
-
-Add the confirm and cancel buttons.
-
-<a id="backlogops_gui.io_dialogs._ModalDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Close the dialog; subclasses override to store their values.
-
-<a id="backlogops_gui.io_dialogs._ModalDialog._cancel"></a>
-
-#### \_cancel
-
-```python
-def _cancel() -> None
-```
-
-Mark the dialog cancelled and close it.
-
-<a id="backlogops_gui.io_dialogs._FormatDialog"></a>
-
-## \_FormatDialog Objects
-
-```python
-class _FormatDialog(_ModalDialog)
-```
-
-Modal dialog collecting the format selection for one file.
-
-<a id="backlogops_gui.io_dialogs._FormatDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc, presets: Sequence[str],
-             with_releases_first: bool) -> None
-```
-
-Build, show and wait for the modal format dialog.
-
-<a id="backlogops_gui.io_dialogs._FormatDialog._build"></a>
-
-#### \_build
-
-```python
-def _build(with_releases_first: bool) -> None
-```
-
-Create the radio buttons, inputs and action buttons.
-
-<a id="backlogops_gui.io_dialogs._FormatDialog._add_radio"></a>
-
-#### \_add\_radio
-
-```python
-def _add_radio(text: str, mode: int) -> None
-```
-
-Add one mode radio button.
-
-<a id="backlogops_gui.io_dialogs._FormatDialog._add_preset_row"></a>
-
-#### \_add\_preset\_row
-
-```python
-def _add_preset_row() -> None
-```
-
-Add the preset radio button and its choices, when available.
-
-<a id="backlogops_gui.io_dialogs._FormatDialog._add_file_row"></a>
-
-#### \_add\_file\_row
-
-```python
-def _add_file_row() -> None
-```
-
-Add the configuration-file radio button, entry and browse.
-
-<a id="backlogops_gui.io_dialogs._FormatDialog._browse"></a>
-
-#### \_browse
-
-```python
-def _browse() -> None
-```
-
-Pick a configuration file and select the file mode.
-
-<a id="backlogops_gui.io_dialogs._FormatDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Store the selected format value and close the dialog.
-
-<a id="backlogops_gui.io_dialogs._FormatDialog._selected_value"></a>
-
-#### \_selected\_value
-
-```python
-def _selected_value() -> Optional[str]
-```
-
-Return the format value for the selected mode.
-
-<a id="backlogops_gui.io_dialogs.ask_read_options"></a>
-
-#### ask\_read\_options
-
-```python
-def ask_read_options(
-        parent: tk.Misc,
-        presets: Optional[Sequence[str]]) -> Optional[ReadOptions]
-```
-
-Ask how to read a file, or None when the dialog is cancelled.
-
-<a id="backlogops_gui.io_dialogs.ask_write_options"></a>
-
-#### ask\_write\_options
-
-```python
-def ask_write_options(
-        parent: tk.Misc,
-        presets: Optional[Sequence[str]]) -> Optional[WriteOptions]
-```
-
-Ask how to write a file, or None when the dialog is cancelled.
-
-<a id="backlogops_gui.io_dialogs._JiraReadDialog"></a>
-
-## \_JiraReadDialog Objects
-
-```python
-class _JiraReadDialog(_ModalDialog)
-```
-
-Modal dialog collecting the Jira preset and issue filter.
-
-<a id="backlogops_gui.io_dialogs._JiraReadDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc, preset_filters: Mapping[str, str]) -> None
-```
-
-Build, show and wait for the Jira read dialog.
-
-<a id="backlogops_gui.io_dialogs._JiraReadDialog._build"></a>
-
-#### \_build
-
-```python
-def _build(names: Sequence[str]) -> None
-```
-
-Add the preset chooser and editable filter field.
-
-<a id="backlogops_gui.io_dialogs._JiraReadDialog._preset_changed"></a>
-
-#### \_preset\_changed
-
-```python
-def _preset_changed(_event: object) -> None
-```
-
-Show the selected preset's default issue filter.
-
-<a id="backlogops_gui.io_dialogs._JiraReadDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Store the selected preset and filter, requiring a preset.
-
-<a id="backlogops_gui.io_dialogs.ask_jira_read_options"></a>
-
-#### ask\_jira\_read\_options
-
-```python
-def ask_jira_read_options(
-        parent: tk.Misc,
-        preset_filters: Mapping[str, str]) -> Optional[JiraReadOptions]
-```
-
-Ask which Jira preset and filter to read, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs._JiraWriteDialog"></a>
-
-## \_JiraWriteDialog Objects
-
-```python
-class _JiraWriteDialog(_ModalDialog)
-```
-
-Modal dialog collecting the Jira write preset and skip choice.
-
-<a id="backlogops_gui.io_dialogs._JiraWriteDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc, presets: Sequence[str]) -> None
-```
-
-Build, show and wait for the Jira write dialog.
-
-<a id="backlogops_gui.io_dialogs._JiraWriteDialog._build"></a>
-
-#### \_build
-
-```python
-def _build(names: Sequence[str]) -> None
-```
-
-Add the preset chooser and the skip-existing checkbox.
-
-<a id="backlogops_gui.io_dialogs._JiraWriteDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Store the selected preset and skip choice, requiring a preset.
-
-<a id="backlogops_gui.io_dialogs.ask_jira_write_options"></a>
-
-#### ask\_jira\_write\_options
-
-```python
-def ask_jira_write_options(
-        parent: tk.Misc, presets: Sequence[str]) -> Optional[JiraWriteOptions]
-```
-
-Ask which write preset and skip choice, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs.MISSING_MODE_TEXT"></a>
-
-#### MISSING\_MODE\_TEXT
-
-Label shown for each missing-name mode in the release-update dialog.
-
-<a id="backlogops_gui.io_dialogs.LINK_MODE_TEXT"></a>
-
-#### LINK\_MODE\_TEXT
-
-Label shown for each link-update mode in the backlog-update dialog.
-
-The keys mirror the CLI ``--links`` values; ``reconcile`` maps to
-:class:`LinkUpdate.RECONCILE` and ``add`` to :class:`LinkUpdate.ADD_MISSING`.
-
-<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog"></a>
-
-## \_JiraReleaseUpdateDialog Objects
-
-```python
-class _JiraReleaseUpdateDialog(_ModalDialog)
-```
-
-Modal dialog for the release-update preset, mode and selection.
-
-<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc, presets: Sequence[str],
-             release_names: Sequence[str]) -> None
-```
-
-Build, show and wait for the release-update dialog.
-
-<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build"></a>
-
-#### \_build
-
-```python
-def _build(names: Sequence[str], release_names: Sequence[str]) -> None
-```
-
-Add the preset chooser, the mode radios and the release picks.
-
-<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_preset"></a>
-
-#### \_build\_preset
-
-```python
-def _build_preset(names: Sequence[str]) -> None
-```
-
-Add the Jira preset label and read-only chooser.
-
-<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_mode"></a>
-
-#### \_build\_mode
-
-```python
-def _build_mode() -> None
-```
-
-Add the radios choosing what to do with a missing release.
-
-<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build_releases"></a>
-
-#### \_build\_releases
-
-```python
-def _build_releases(release_names: Sequence[str]) -> None
-```
-
-Add a checkbox per release, all selected by default.
-
-<a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Store the preset, mode and picks, requiring a preset.
-
-<a id="backlogops_gui.io_dialogs.ask_release_update"></a>
-
-#### ask\_release\_update
-
-```python
-def ask_release_update(
-        parent: tk.Misc, presets: Sequence[str],
-        release_names: Sequence[str]) -> Optional[JiraReleaseUpdateOptions]
-```
-
-Ask the preset, missing-name mode and releases, None when cancelled.
-
-<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog"></a>
-
-## \_JiraBacklogUpdateDialog Objects
-
-```python
-class _JiraBacklogUpdateDialog(_ModalDialog)
-```
-
-Modal dialog for the backlog-update preset, mode, fields and links.
-
-The field checkboxes depend on the selected preset, so they are rebuilt
-whenever the preset changes. ``preset_fields`` maps each preset name to
-the internal fields it can update.
-
-<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc, preset_fields: Mapping[str,
-                                                     Sequence[str]]) -> None
-```
-
-Build, show and wait for the backlog-update dialog.
-
-<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build"></a>
-
-#### \_build
-
-```python
-def _build(names: Sequence[str]) -> None
-```
-
-Add the preset, the mode radios, the links box and the fields.
-
-<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_preset"></a>
-
-#### \_build\_preset
-
-```python
-def _build_preset(names: Sequence[str]) -> None
-```
-
-Add the Jira preset label and read-only chooser.
-
-<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_mode"></a>
-
-#### \_build\_mode
-
-```python
-def _build_mode() -> None
-```
-
-Add the radios choosing what to do with a missing key.
-
-<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_links"></a>
-
-#### \_build\_links
-
-```python
-def _build_links() -> None
-```
-
-Add the radios choosing how parent and dependency links update.
-
-<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_fields"></a>
-
-#### \_build\_fields
-
-```python
-def _build_fields() -> None
-```
-
-Rebuild the field checkboxes for the selected preset.
-
-<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._preset_changed"></a>
-
-#### \_preset\_changed
-
-```python
-def _preset_changed(_event: object) -> None
-```
-
-Rebuild the field checkboxes for the newly selected preset.
-
-<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Store the preset, mode, fields and link policy, requiring both.
-
-<a id="backlogops_gui.io_dialogs.ask_backlog_update"></a>
-
-#### ask\_backlog\_update
-
-```python
-def ask_backlog_update(
-    parent: tk.Misc, preset_fields: Mapping[str, Sequence[str]]
-) -> Optional[JiraBacklogUpdateOptions]
-```
-
-Ask the preset, mode, fields and link policy, None when cancelled.
-
-<a id="backlogops_gui.io_dialogs._PassphraseDialog"></a>
-
-## \_PassphraseDialog Objects
-
-```python
-class _PassphraseDialog(_ModalDialog)
-```
-
-Modal dialog collecting a masked pass phrase.
-
-<a id="backlogops_gui.io_dialogs._PassphraseDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Build, show and wait for the pass phrase dialog.
-
-<a id="backlogops_gui.io_dialogs._PassphraseDialog._build"></a>
-
-#### \_build
-
-```python
-def _build() -> None
-```
-
-Add the masked pass phrase entry.
-
-<a id="backlogops_gui.io_dialogs._PassphraseDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Store the entered pass phrase and close the dialog.
-
-<a id="backlogops_gui.io_dialogs.ask_jira_passphrase"></a>
-
-#### ask\_jira\_passphrase
-
-```python
-def ask_jira_passphrase(parent: tk.Misc) -> Optional[str]
-```
-
-Ask for the Jira token pass phrase, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs.choose_key_list_output"></a>
-
-#### choose\_key\_list\_output
-
-```python
-def choose_key_list_output(parent: tk.Misc) -> Optional[str]
-```
-
-Ask for a key list file to create, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs.choose_changes_output"></a>
-
-#### choose\_changes\_output
-
-```python
-def choose_changes_output(parent: tk.Misc) -> Optional[str]
-```
-
-Ask for a changes file to create, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs._BufferDialog"></a>
-
-## \_BufferDialog Objects
-
-```python
-class _BufferDialog(_ModalDialog)
-```
-
-Modal dialog collecting the buffer in calendar days.
-
-<a id="backlogops_gui.io_dialogs._BufferDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Build, show and wait for the buffer days dialog.
-
-<a id="backlogops_gui.io_dialogs._BufferDialog._build"></a>
-
-#### \_build
-
-```python
-def _build() -> None
-```
-
-Add the buffer label and entry prefilled with the default.
-
-<a id="backlogops_gui.io_dialogs._BufferDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Parse the buffer, keeping the dialog open on a bad value.
-
-<a id="backlogops_gui.io_dialogs.ask_buffer_days"></a>
-
-#### ask\_buffer\_days
-
-```python
-def ask_buffer_days(parent: tk.Misc) -> Optional[int]
-```
-
-Ask for the buffer in days, or None when the dialog is cancelled.
-
-<a id="backlogops_gui.io_dialogs.show_change_list"></a>
-
-#### show\_change\_list
-
-```python
-def show_change_list(parent: tk.Misc, title: str, text: str,
-                     on_save: Callable[[], None]) -> tk.Toplevel
-```
-
-Show a change listing with Save-to-file and Dismiss buttons.
-
-The listing is shown read-only. The Save button calls ``on_save`` and
-the Dismiss button closes the window. The created window is returned
-so a caller (or a test) can drive or close it.
-
-<a id="backlogops_gui.io_dialogs.show_text_report"></a>
-
-#### show\_text\_report
-
-```python
-def show_text_report(parent: tk.Misc, title: str, text: str) -> tk.Toplevel
-```
-
-Show read-only, copy-pasteable text with a Dismiss button.
-
-The text is shown in a disabled text box, which still lets the user
-select and copy it. The created window is returned so a caller or a
-test can drive or close it.
-
-<a id="backlogops_gui.io_dialogs.DepOptions"></a>
-
-## DepOptions Objects
-
-```python
-@dataclass
-class DepOptions()
-```
-
-The options selected for ordering a backlog by dependencies.
-
-<a id="backlogops_gui.io_dialogs.ReleaseOrderOptions"></a>
-
-## ReleaseOrderOptions Objects
-
-```python
-@dataclass
-class ReleaseOrderOptions()
-```
-
-The options selected for ordering a backlog by release order.
-
-<a id="backlogops_gui.io_dialogs.StartChoice"></a>
-
-## StartChoice Objects
-
-```python
-@dataclass
-class StartChoice()
-```
-
-The start date selected for estimating ready dates.
-
-<a id="backlogops_gui.io_dialogs._KeysDialog"></a>
-
-## \_KeysDialog Objects
-
-```python
-class _KeysDialog(_ModalDialog)
-```
-
-Modal dialog collecting the leading keys for a reordering.
-
-<a id="backlogops_gui.io_dialogs._KeysDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc, sink: TextIO) -> None
-```
-
-Build, show and wait for the key entry dialog.
-
-<a id="backlogops_gui.io_dialogs._KeysDialog._build_text"></a>
-
-#### \_build\_text
-
-```python
-def _build_text() -> tk.Text
-```
-
-Add the entry label, text box and the load-from-file button.
-
-<a id="backlogops_gui.io_dialogs._KeysDialog._load"></a>
-
-#### \_load
-
-```python
-def _load() -> None
-```
-
-Read a key list file into the text box, reporting failures.
-
-<a id="backlogops_gui.io_dialogs._KeysDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Split the text on whitespace and close the dialog.
-
-<a id="backlogops_gui.io_dialogs._DepOptionsDialog"></a>
-
-## \_DepOptionsDialog Objects
-
-```python
-class _DepOptionsDialog(_ModalDialog)
-```
-
-Modal dialog collecting the order-by-dependencies options.
-
-<a id="backlogops_gui.io_dialogs._DepOptionsDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Build, show and wait for the dependency options dialog.
-
-<a id="backlogops_gui.io_dialogs._DepOptionsDialog._build"></a>
-
-#### \_build
-
-```python
-def _build() -> None
-```
-
-Add the later check box, the mode chooser and the key entry.
-
-<a id="backlogops_gui.io_dialogs._DepOptionsDialog._build_mode"></a>
-
-#### \_build\_mode
-
-```python
-def _build_mode() -> None
-```
-
-Add the placement-mode label and chooser.
-
-<a id="backlogops_gui.io_dialogs._DepOptionsDialog._build_space"></a>
-
-#### \_build\_space
-
-```python
-def _build_space() -> None
-```
-
-Add the space-around label and key entry.
-
-<a id="backlogops_gui.io_dialogs._DepOptionsDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Store the selected options and close the dialog.
-
-<a id="backlogops_gui.io_dialogs._StartDateDialog"></a>
-
-## \_StartDateDialog Objects
-
-```python
-class _StartDateDialog(_ModalDialog)
-```
-
-Modal dialog collecting the start date for the estimate.
-
-<a id="backlogops_gui.io_dialogs._StartDateDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Build, show and wait for the start date dialog.
-
-<a id="backlogops_gui.io_dialogs._StartDateDialog._build"></a>
-
-#### \_build
-
-```python
-def _build() -> None
-```
-
-Add the start date label and entry.
-
-<a id="backlogops_gui.io_dialogs._StartDateDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Parse the date, keeping the dialog open on a bad value.
-
-<a id="backlogops_gui.io_dialogs._LevelsDialog"></a>
-
-## \_LevelsDialog Objects
-
-```python
-class _LevelsDialog(_ModalDialog)
-```
-
-Modal dialog selecting the levels to extract keys at.
-
-<a id="backlogops_gui.io_dialogs._LevelsDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Build, show and wait for the level selection dialog.
-
-<a id="backlogops_gui.io_dialogs._LevelsDialog._build"></a>
-
-#### \_build
-
-```python
-def _build() -> dict[int, tk.BooleanVar]
-```
-
-Add a check box for each default level and return its variables.
-
-<a id="backlogops_gui.io_dialogs._LevelsDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Store the chosen levels, requiring at least one selection.
-
-<a id="backlogops_gui.io_dialogs._DateOrderDialog"></a>
-
-## \_DateOrderDialog Objects
-
-```python
-class _DateOrderDialog(_ModalDialog)
-```
-
-Modal dialog choosing planned or estimated date for ordering.
-
-<a id="backlogops_gui.io_dialogs._DateOrderDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Build, show and wait for the date order dialog.
-
-<a id="backlogops_gui.io_dialogs._DateOrderDialog._build"></a>
-
-#### \_build
-
-```python
-def _build() -> None
-```
-
-Add the estimated-date check box, off for the planned date.
-
-<a id="backlogops_gui.io_dialogs._DateOrderDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Store the chosen date kind and close the dialog.
-
-<a id="backlogops_gui.io_dialogs._ReleaseOrderDialog"></a>
-
-## \_ReleaseOrderDialog Objects
-
-```python
-class _ReleaseOrderDialog(_ModalDialog)
-```
-
-Modal dialog choosing options for ordering by release order.
-
-<a id="backlogops_gui.io_dialogs._ReleaseOrderDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Build, show and wait for the release-order dialog.
-
-<a id="backlogops_gui.io_dialogs._ReleaseOrderDialog._build"></a>
-
-#### \_build
-
-```python
-def _build() -> None
-```
-
-Add the honor-dependencies and direction check boxes.
-
-<a id="backlogops_gui.io_dialogs._ReleaseOrderDialog._confirm"></a>
-
-#### \_confirm
-
-```python
-def _confirm() -> None
-```
-
-Store the chosen release-order options and close.
-
-<a id="backlogops_gui.io_dialogs.ask_keys"></a>
-
-#### ask\_keys
-
-```python
-def ask_keys(parent: tk.Misc, sink: TextIO) -> Optional[list[str]]
-```
-
-Ask for the leading keys, or None when the dialog is cancelled.
-
-<a id="backlogops_gui.io_dialogs.ask_dep_options"></a>
-
-#### ask\_dep\_options
-
-```python
-def ask_dep_options(parent: tk.Misc) -> Optional[DepOptions]
-```
-
-Ask for the dependency options, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs.ask_start_date"></a>
-
-#### ask\_start\_date
-
-```python
-def ask_start_date(parent: tk.Misc) -> Optional[StartChoice]
-```
-
-Ask for the start date, or None when the dialog is cancelled.
-
-<a id="backlogops_gui.io_dialogs.ask_levels"></a>
-
-#### ask\_levels
-
-```python
-def ask_levels(parent: tk.Misc) -> Optional[list[int]]
-```
-
-Ask for the levels to extract, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs.ask_date_order"></a>
-
-#### ask\_date\_order
-
-```python
-def ask_date_order(parent: tk.Misc) -> Optional[bool]
-```
-
-Ask whether to order by estimated date, or None when cancelled.
-
-<a id="backlogops_gui.io_dialogs.ask_release_order"></a>
-
-#### ask\_release\_order
-
-```python
-def ask_release_order(parent: tk.Misc) -> Optional[ReleaseOrderOptions]
-```
-
-Ask for the release-order options, or None when cancelled.
-
 <a id="backlogops_gui.blog_version_reporter"></a>
 
 # backlogops\_gui.blog\_version\_reporter
@@ -4227,6 +3590,314 @@ def get_main_package_name(cls) -> str
 ```
 
 Return the name of the main package.
+
+<a id="backlogops_gui.wizard_table"></a>
+
+# backlogops\_gui.wizard\_table
+
+An editable grid of cells for one wizard table question.
+
+A table question shown by the wizard is rendered as a grid of cells. A
+fixed table fills its seed rows only; a variable table, asked with both a
+minimum and a maximum row count, offers add-row and remove-row buttons and
+shows its grid in a scrolling area. :class:`TableEditor` builds the grid,
+reads the final cell strings back, and runs the optional per-cell partial
+check for early feedback.
+
+<a id="backlogops_gui.wizard_table._uniform"></a>
+
+#### \_uniform
+
+```python
+def _uniform(values: list[_V], default: _V) -> _V
+```
+
+Return the value shared by every entry, or the default.
+
+<a id="backlogops_gui.wizard_table._new_row_template"></a>
+
+#### \_new\_row\_template
+
+```python
+def _new_row_template(columns: Sequence[TableColumn],
+                      rows: Sequence[Sequence[TableCell]]) -> list[TableCell]
+```
+
+Return the cell descriptors used for rows added at run time.
+
+For each column the new cell keeps the value, choices and nullable
+flag shared by every seed cell of that column, and falls back to an
+empty string, no choices and not-nullable when they differ. A cell in
+an added row is always editable, even in a read-only column.
+
+<a id="backlogops_gui.wizard_table.Cell"></a>
+
+## Cell Objects
+
+```python
+@dataclass(frozen=True)
+class Cell()
+```
+
+One built table cell: its widget and how its value is read.
+
+A read-only cell keeps the fixed text it shows in its label. An
+editable cell keeps the widget the user types in or selects from, and
+whether an empty cell is reported as ``None``.
+
+<a id="backlogops_gui.wizard_table._cell_text"></a>
+
+#### \_cell\_text
+
+```python
+def _cell_text(cell: Cell) -> Optional[str]
+```
+
+Return the final string a cell holds, or None for an empty cell.
+
+<a id="backlogops_gui.wizard_table.TableEditor"></a>
+
+## TableEditor Objects
+
+```python
+class TableEditor()
+```
+
+An editable grid of cells for one table question.
+
+A fixed table fills the seed rows only. A variable table, asked with
+both a minimum and a maximum row count, adds editable rows up to the
+maximum and removes the last row down to the minimum. A variable
+table shows its grid in a scrolling area, so a long table stays
+usable while the wizard window is resized.
+
+<a id="backlogops_gui.wizard_table.TableEditor.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc,
+             columns: Sequence[TableColumn],
+             rows: Sequence[Sequence[TableCell]],
+             partial_check: Optional[PartialCheck],
+             min_rows: Optional[int] = None,
+             max_rows: Optional[int] = None) -> None
+```
+
+Build the header and one widget per cell of the seed rows.
+
+<a id="backlogops_gui.wizard_table.TableEditor.is_variable"></a>
+
+#### is\_variable
+
+```python
+def is_variable() -> bool
+```
+
+Return whether the table can add and remove rows.
+
+<a id="backlogops_gui.wizard_table.TableEditor.values"></a>
+
+#### values
+
+```python
+def values() -> list[list[Optional[str]]]
+```
+
+Return the whole table as rows of final cell strings.
+
+<a id="backlogops_gui.wizard_table.TableEditor.add_row"></a>
+
+#### add\_row
+
+```python
+def add_row() -> None
+```
+
+Append one editable row, up to the maximum row count.
+
+<a id="backlogops_gui.wizard_table.TableEditor.remove_row"></a>
+
+#### remove\_row
+
+```python
+def remove_row() -> None
+```
+
+Remove the last row, down to the minimum row count.
+
+<a id="backlogops_gui.wizard_table.TableEditor._build_grid_area"></a>
+
+#### \_build\_grid\_area
+
+```python
+def _build_grid_area(parent: tk.Misc) -> tk.Frame
+```
+
+Return the frame holding the grid, scrolling when variable.
+
+<a id="backlogops_gui.wizard_table.TableEditor._build_scroll"></a>
+
+#### \_build\_scroll
+
+```python
+def _build_scroll(parent: tk.Misc) -> tk.Frame
+```
+
+Build an expanding scrolling area and return its inner frame.
+
+<a id="backlogops_gui.wizard_table.TableEditor._scroll_to_end"></a>
+
+#### \_scroll\_to\_end
+
+```python
+def _scroll_to_end() -> None
+```
+
+Bring the newly added last row into the scrolling area.
+
+<a id="backlogops_gui.wizard_table.TableEditor._build_header"></a>
+
+#### \_build\_header
+
+```python
+def _build_header() -> None
+```
+
+Show one bold heading label per column.
+
+<a id="backlogops_gui.wizard_table.TableEditor._append_cells"></a>
+
+#### \_append\_cells
+
+```python
+def _append_cells(row: Sequence[TableCell], added: bool) -> None
+```
+
+Build and store one widget per column of one new table row.
+
+<a id="backlogops_gui.wizard_table.TableEditor._build_cell"></a>
+
+#### \_build\_cell
+
+```python
+def _build_cell(index: int, col: int, pair: tuple[TableColumn, TableCell],
+                added: bool) -> Cell
+```
+
+Build one read-only label or one editable cell widget.
+
+<a id="backlogops_gui.wizard_table.TableEditor._editable_widget"></a>
+
+#### \_editable\_widget
+
+```python
+def _editable_widget(cell: TableCell) -> tk.Widget
+```
+
+Return a drop-down for a cell with choices, else a text entry.
+
+<a id="backlogops_gui.wizard_table.TableEditor._bind_change"></a>
+
+#### \_bind\_change
+
+```python
+def _bind_change(widget: tk.Widget, row: int, col: int) -> None
+```
+
+Show early per-cell feedback when an edited cell changes.
+
+<a id="backlogops_gui.wizard_table.TableEditor._feedback"></a>
+
+#### \_feedback
+
+```python
+def _feedback(row: int, col: int) -> None
+```
+
+Run the partial check and show its message for one cell.
+
+<a id="backlogops_gui.wizard_table.TableEditor._show"></a>
+
+#### \_show
+
+```python
+def _show(message: str) -> None
+```
+
+Show a status message below the grid.
+
+<a id="backlogops_gui.modal_dialog"></a>
+
+# backlogops\_gui.modal\_dialog
+
+Base for the small modal option dialogs of the application.
+
+A modal option dialog is a top-level window with an OK and a Cancel
+button. :class:`ModalDialog` builds the window and its close handler, adds
+the two buttons, focuses the first input and waits for the window to
+close. A subclass builds its own inputs and overrides :meth:`_confirm` to
+store the entered values before the window closes.
+
+<a id="backlogops_gui.modal_dialog.ModalDialog"></a>
+
+## ModalDialog Objects
+
+```python
+class ModalDialog()
+```
+
+Base for small modal dialogs with OK and Cancel buttons.
+
+<a id="backlogops_gui.modal_dialog.ModalDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, title: str) -> None
+```
+
+Create the modal top-level window and its close handler.
+
+<a id="backlogops_gui.modal_dialog.ModalDialog._show"></a>
+
+#### \_show
+
+```python
+def _show() -> None
+```
+
+Add buttons, focus the first input and wait for the close.
+
+<a id="backlogops_gui.modal_dialog.ModalDialog._add_buttons"></a>
+
+#### \_add\_buttons
+
+```python
+def _add_buttons() -> None
+```
+
+Add the confirm and cancel buttons.
+
+<a id="backlogops_gui.modal_dialog.ModalDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Close the dialog; subclasses override to store their values.
+
+<a id="backlogops_gui.modal_dialog.ModalDialog._cancel"></a>
+
+#### \_cancel
+
+```python
+def _cancel() -> None
+```
+
+Mark the dialog cancelled and close it.
 
 <a id="backlogops_gui.python_version"></a>
 
@@ -4316,6 +3987,104 @@ def text() -> str
 ```
 
 Return the kept lines, including any unfinished last line.
+
+<a id="backlogops_gui.jira_write"></a>
+
+# backlogops\_gui.jira\_write
+
+Add a shown backlog and its releases to Jira.
+
+The writer offers a handler for adding the shown backlog and a handler for
+adding the shown releases, each available only when a configuration with
+Jira presets is loaded. A handler asks for a write preset and whether to
+skip items whose key already exists, then adds on a worker thread and
+hands the result back to the GUI thread.
+
+<a id="backlogops_gui.jira_write.JiraWriter"></a>
+
+## JiraWriter Objects
+
+```python
+class JiraWriter(JiraAction)
+```
+
+Adds a shown backlog and its releases to Jira.
+
+<a id="backlogops_gui.jira_write.JiraWriter.backlog_action"></a>
+
+#### backlog\_action
+
+```python
+def backlog_action() -> Optional[Callable[
+    [BacklogReleases, Callable[[AddedToJira], None]], None]]
+```
+
+Return the add-backlog handler, or None when it is unavailable.
+
+<a id="backlogops_gui.jira_write.JiraWriter.releases_action"></a>
+
+#### releases\_action
+
+```python
+def releases_action() -> Optional[Callable[
+    [BacklogReleases, Callable[[AddedReleasesToJira], None]], None]]
+```
+
+Return the add-releases handler, or None when unavailable.
+
+<a id="backlogops_gui.jira_write.JiraWriter._ask"></a>
+
+#### \_ask
+
+```python
+def _ask() -> Optional[JiraWriteOptions]
+```
+
+Ask for the write preset and skip-existing choice.
+
+<a id="backlogops_gui.jira_write.JiraWriter._add_backlog"></a>
+
+#### \_add\_backlog
+
+```python
+def _add_backlog(data: BacklogReleases, on_done: Callable[[AddedToJira],
+                                                          None]) -> None
+```
+
+Ask for a preset and add the shown backlog to Jira.
+
+<a id="backlogops_gui.jira_write.JiraWriter._backlog_worker"></a>
+
+#### \_backlog\_worker
+
+```python
+def _backlog_worker(options: JiraWriteOptions, data: BacklogReleases,
+                    on_done: Callable[[AddedToJira], None]) -> None
+```
+
+Add the backlog on a worker and schedule the GUI update.
+
+<a id="backlogops_gui.jira_write.JiraWriter._add_releases"></a>
+
+#### \_add\_releases
+
+```python
+def _add_releases(data: BacklogReleases,
+                  on_done: Callable[[AddedReleasesToJira], None]) -> None
+```
+
+Ask for a preset and add the shown releases to Jira.
+
+<a id="backlogops_gui.jira_write.JiraWriter._releases_worker"></a>
+
+#### \_releases\_worker
+
+```python
+def _releases_worker(options: JiraWriteOptions, data: BacklogReleases,
+                     on_done: Callable[[AddedReleasesToJira], None]) -> None
+```
+
+Add the releases on a worker and schedule the GUI update.
 
 <a id="backlogops_gui.backlog_io"></a>
 
@@ -4599,4 +4368,432 @@ colored instead, so the table still builds and shows the highlight. When
 ``stretch`` is True the columns share the table width; when False each
 column keeps ``width`` pixels, so a table with few columns stays narrow
 instead of spreading across the whole width.
+
+<a id="backlogops_gui.wizard_window"></a>
+
+# backlogops\_gui.wizard\_window
+
+One reused window that asks every wizard prompt in turn.
+
+The wizard bridge answers all of its questions in a single
+:class:`WizardWindow`, so the whole wizard session happens in one pop-up
+that does not jump around the display. The window offers a text entry, a
+yes/no button pair, a single- and a multi-selection list, and an editable
+table, and keeps a lasting message area above the changing content. Every
+prompt also offers back, out-one-level and abort buttons, which raise the
+matching :class:`WizardNavigation` request so the wizard can step within
+the configuration or abandon it.
+
+<a id="backlogops_gui.wizard_window.WizardWindow"></a>
+
+## WizardWindow Objects
+
+```python
+class WizardWindow()
+```
+
+One reused window that asks every wizard prompt in turn.
+
+<a id="backlogops_gui.wizard_window.WizardWindow.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Create the fixed-size window and its lasting message area.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._build_messages"></a>
+
+#### \_build\_messages
+
+```python
+def _build_messages() -> tk.Text
+```
+
+Build the read-only area that keeps the wizard messages.
+
+<a id="backlogops_gui.wizard_window.WizardWindow.show"></a>
+
+#### show
+
+```python
+def show(message: str) -> None
+```
+
+Append one lasting message to the message area.
+
+<a id="backlogops_gui.wizard_window.WizardWindow.close"></a>
+
+#### close
+
+```python
+def close() -> None
+```
+
+Destroy the wizard window.
+
+<a id="backlogops_gui.wizard_window.WizardWindow.ask_text"></a>
+
+#### ask\_text
+
+```python
+def ask_text(question: str,
+             re_ask: Optional[str],
+             nullable: bool,
+             default: Optional[str] = None,
+             sensitive: bool = False) -> Optional[str]
+```
+
+Ask one free-text question and return the entered text.
+
+A sensitive question masks the typed text; a default value is
+pre-filled and returned when the answer is left empty.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._text_result"></a>
+
+#### \_text\_result
+
+```python
+@staticmethod
+def _text_result(result: str, nullable: bool,
+                 default: Optional[str]) -> Optional[str]
+```
+
+Return the answer after the default and nullable rules.
+
+<a id="backlogops_gui.wizard_window.WizardWindow.ask_yes_no"></a>
+
+#### ask\_yes\_no
+
+```python
+def ask_yes_no(question: str, default: bool, re_ask: Optional[str]) -> bool
+```
+
+Ask one yes/no question with dedicated buttons.
+
+<a id="backlogops_gui.wizard_window.WizardWindow.ask_choice"></a>
+
+#### ask\_choice
+
+```python
+def ask_choice(question: str, choices: Sequence[str], default: Optional[str],
+               re_ask: Optional[str]) -> str
+```
+
+Ask the user to pick exactly one choice and return it.
+
+<a id="backlogops_gui.wizard_window.WizardWindow.ask_multi"></a>
+
+#### ask\_multi
+
+```python
+def ask_multi(question: str, choices: Sequence[str],
+              default: Optional[Sequence[str]], min_select: int,
+              max_select: Optional[int], re_ask: Optional[str]) -> list[str]
+```
+
+Ask the user to pick several choices within the count bounds.
+
+<a id="backlogops_gui.wizard_window.WizardWindow.ask_table"></a>
+
+#### ask\_table
+
+```python
+def ask_table(columns: Sequence[TableColumn],
+              cells: Sequence[Sequence[TableCell]], question: str,
+              re_ask: Optional[str], partial_check: Optional[PartialCheck],
+              min_rows: Optional[int],
+              max_rows: Optional[int]) -> list[list[Optional[str]]]
+```
+
+Ask the user to fill the given table rows and return them.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._run_multi"></a>
+
+#### \_run\_multi
+
+```python
+def _run_multi(question: str, re_ask: Optional[str], choices: Sequence[str],
+               default: Optional[Sequence[str]]) -> list[str]
+```
+
+Show a multi-selection list once and return the picked values.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._choice_list"></a>
+
+#### \_choice\_list
+
+```python
+def _choice_list(choices: Sequence[str], marked: Optional[str | Sequence[str]],
+                 mode: str) -> tk.Listbox
+```
+
+Build a selection list, preselecting the marked choices.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._preset_indexes"></a>
+
+#### \_preset\_indexes
+
+```python
+@staticmethod
+def _preset_indexes(choices: Sequence[str],
+                    marked: Optional[str | Sequence[str]]) -> list[int]
+```
+
+Return the indexes to preselect from a default value or list.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._pick_one"></a>
+
+#### \_pick\_one
+
+```python
+def _pick_one(listbox: tk.Listbox, choices: Sequence[str]) -> None
+```
+
+Finish a single-choice question with the selected value.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._pick_many"></a>
+
+#### \_pick\_many
+
+```python
+def _pick_many(listbox: tk.Listbox, choices: Sequence[str]) -> None
+```
+
+Finish a multi-choice question with the selected values.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._begin"></a>
+
+#### \_begin
+
+```python
+def _begin(question: str, re_ask: Optional[str]) -> None
+```
+
+Clear the content area and show the question and any reason.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._add_label"></a>
+
+#### \_add\_label
+
+```python
+def _add_label(text: str, color: str) -> None
+```
+
+Add one wrapped label to the content area.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._add_buttons"></a>
+
+#### \_add\_buttons
+
+```python
+def _add_buttons(on_ok: Callable[[], None]) -> None
+```
+
+Add the confirm and navigation buttons.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._add_table_buttons"></a>
+
+#### \_add\_table\_buttons
+
+```python
+def _add_table_buttons(editor: TableEditor) -> None
+```
+
+Add confirm, optional add/remove-row and navigation buttons.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._add_nav_buttons"></a>
+
+#### \_add\_nav\_buttons
+
+```python
+def _add_nav_buttons(box: tk.Frame) -> None
+```
+
+Add the back, out-one-level and abort navigation buttons.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._wait"></a>
+
+#### \_wait
+
+```python
+def _wait() -> object
+```
+
+Focus the first input, then wait for an answer or navigation.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._finish"></a>
+
+#### \_finish
+
+```python
+def _finish(value: object) -> None
+```
+
+Store the answer and release the waiting prompt.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._back"></a>
+
+#### \_back
+
+```python
+def _back() -> None
+```
+
+Request a step back to the previous question.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._cancel_level"></a>
+
+#### \_cancel\_level
+
+```python
+def _cancel_level() -> None
+```
+
+Request leaving the current level by one step.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._cancel"></a>
+
+#### \_cancel
+
+```python
+def _cancel() -> None
+```
+
+Request abandoning the whole configuration.
+
+<a id="backlogops_gui.wizard_window.WizardWindow._navigate"></a>
+
+#### \_navigate
+
+```python
+def _navigate(request: type[WizardNavigation]) -> None
+```
+
+Record a navigation request and release the waiting prompt.
+
+<a id="backlogops_gui.jira_actions"></a>
+
+# backlogops\_gui.jira\_actions
+
+The Jira read, write and update collaborators of the application.
+
+The Jira menu actions of a backlog window are split across three
+collaborators so each stays focused as the Jira support grows.
+:class:`JiraActions` groups them behind one attribute of the application,
+so the application talks to ``self.jira.reader``, ``self.jira.writer`` and
+``self.jira.updater``.
+
+<a id="backlogops_gui.jira_actions.JiraActions"></a>
+
+## JiraActions Objects
+
+```python
+class JiraActions()
+```
+
+Groups the Jira read, write and update collaborators.
+
+<a id="backlogops_gui.jira_actions.JiraActions.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(app: 'BacklogApp') -> None
+```
+
+Create the reader, writer and updater for the application.
+
+<a id="backlogops_gui.file_choosers"></a>
+
+# backlogops\_gui.file\_choosers
+
+Native file choosers for the backlog operations application.
+
+Each helper opens a native open- or save-file dialog for one purpose and
+returns the chosen path, or None when the user cancels. Keeping the
+choosers in one module lets the tests drive them by patching a single
+``filedialog`` reference.
+
+<a id="backlogops_gui.file_choosers.choose_input_file"></a>
+
+#### choose\_input\_file
+
+```python
+def choose_input_file(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for an existing backlog file, or None when cancelled.
+
+<a id="backlogops_gui.file_choosers.choose_output_file"></a>
+
+#### choose\_output\_file
+
+```python
+def choose_output_file(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for a backlog file to create, or None when cancelled.
+
+<a id="backlogops_gui.file_choosers.choose_config_file"></a>
+
+#### choose\_config\_file
+
+```python
+def choose_config_file(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for a configuration file to create, or None when cancelled.
+
+<a id="backlogops_gui.file_choosers.choose_existing_config"></a>
+
+#### choose\_existing\_config
+
+```python
+def choose_existing_config(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for an existing configuration file, or None when cancelled.
+
+<a id="backlogops_gui.file_choosers.choose_preset_to_migrate"></a>
+
+#### choose\_preset\_to\_migrate
+
+```python
+def choose_preset_to_migrate(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for an existing preset file to migrate, or None when cancelled.
+
+<a id="backlogops_gui.file_choosers.choose_migrated_preset"></a>
+
+#### choose\_migrated\_preset
+
+```python
+def choose_migrated_preset(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for a migrated preset file to create, or None when cancelled.
+
+<a id="backlogops_gui.file_choosers.choose_key_list_output"></a>
+
+#### choose\_key\_list\_output
+
+```python
+def choose_key_list_output(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for a key list file to create, or None when cancelled.
+
+<a id="backlogops_gui.file_choosers.choose_changes_output"></a>
+
+#### choose\_changes\_output
+
+```python
+def choose_changes_output(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for a changes file to create, or None when cancelled.
 

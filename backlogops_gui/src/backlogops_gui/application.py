@@ -15,6 +15,9 @@ taken from the file given with ``-c`` or from the configured locations;
 when no configuration is found a startup dialog offers to run the wizard,
 load a configuration file, or exit. Cancelling the wizard or a dialog
 returns to that choice, so the application ends only when the user exits.
+The Jira menu actions of a backlog window are delegated to the collaborator
+objects in :mod:`backlogops_gui.jira_read`, :mod:`backlogops_gui.jira_write`
+and :mod:`backlogops_gui.jira_update`.
 """
 
 # PYTHON_ARGCOMPLETE_OK
@@ -30,27 +33,22 @@ from typing import Callable, Optional, TextIO, TypeVar
 import argcomplete
 from config_as_json import Config, migrate_cfg
 from config_as_json.file_extension import fix_file_extension
-from jira.exceptions import JIRAError
 from tableio_cfg_json import WizardUiBridge
 from backlogops import (
-    AddedReleasesToJira, AddedToJira, AvailableTeams, BacklogOpsConfig,
-    BacklogReleases, GuiDisplayConfig, InputFormatConfig, JiraConnectConfig,
-    JiraConnections, Levels, LinkUpdate, OnExistingKey, OutputFormatConfig,
-    Status, UpdatedBacklogInJira, UpdatedReleasesInJira, add_backlog_to_jira,
-    add_releases_to_jira, get_demo_backlog, get_backlog_ops_config,
-    backlog_ops_wizard, preset_wizard, read_jira_from_config,
-    updatable_backlog_fields, update_backlog_in_jira, update_releases_in_jira)
+    AvailableTeams, BacklogOpsConfig, BacklogReleases, GuiDisplayConfig,
+    InputFormatConfig, Levels, OutputFormatConfig, Status, get_demo_backlog,
+    get_backlog_ops_config, backlog_ops_wizard, preset_wizard)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 from backlogops_gui.gui_wizard import TkWizardBridge
-from backlogops_gui.io_dialogs import (
-    ConfigChoice, JiraBacklogUpdateOptions, JiraReleaseUpdateOptions,
-    PresetKind, ask_no_config_choice, ask_preset_kind, JiraWriteOptions,
-    ask_backlog_update, ask_read_options, ask_jira_passphrase,
-    ask_jira_read_options, ask_jira_write_options, ask_release_update,
+from backlogops_gui.choice_dialogs import (
+    ConfigChoice, PresetKind, ask_no_config_choice, ask_preset_kind)
+from backlogops_gui.file_choosers import (
     choose_config_file, choose_existing_config, choose_input_file,
     choose_migrated_preset, choose_preset_to_migrate)
+from backlogops_gui.format_dialogs import ask_read_options
+from backlogops_gui.jira_actions import JiraActions
 from backlogops_gui.log_buffer import LogBuffer
 from backlogops_gui._migrate_warn import GuiMigrateWarnHook
 from backlogops_gui.python_version import check_python_version
@@ -71,13 +69,7 @@ DESCRIPTION = 'Graphical user interface for backlog operations'
 CONFIG_ERRORS = (FileNotFoundError, NotADirectoryError, RuntimeError,
                  ValueError, TypeError, KeyError, OSError)
 IO_ERRORS = (ValueError, TypeError, KeyError, OSError)
-JIRA_ERRORS = (ValueError, TypeError, KeyError, RuntimeError, OSError,
-               JIRAError)
-CONSISTENCY_ERRORS = (ValueError, TypeError, KeyError)
 VERSION_ERRORS = (OSError, RuntimeError, ValueError)
-JIRA_WARNING = (
-    'The data read from Jira is not fully consistent. Backlog operations '
-    'are disabled except save to file. See the main log for details.')
 PRESET_CLASSES: dict[PresetKind, type[Config]] = {
     PresetKind.INPUT: InputFormatConfig,
     PresetKind.OUTPUT: OutputFormatConfig}
@@ -123,18 +115,20 @@ def _config_failure(captured: StringIO, fallback: str) -> str:
     return text if text else fallback
 
 
+# pylint: disable-next=too-many-public-methods
 class BacklogApp:
     """The backlog operations application and its menu actions."""
 
     def __init__(self, root: tk.Tk,
                  config: Optional[BacklogOpsConfig] = None) -> None:
-        """Store the main window, configuration, and a log buffer."""
+        """Store the window, config, log and Jira collaborators."""
         self.root = root
         self.config = config
         self.log = LogBuffer()
         self.config_source: Optional[str] = None
         self.log_view: Optional[tk.Text] = None
         self._status: Optional[tk.StringVar] = None
+        self.jira = JiraActions(self)
 
     def in_presets(self) -> Optional[dict[str, InputFormatConfig]]:
         """Return the input presets of the current configuration."""
@@ -155,13 +149,6 @@ class BacklogApp:
     def status_map(self) -> Optional[dict[str, Status]]:
         """Return the library-wide status input map, or None when absent."""
         return self.config.get_status_input_map() if self.config else None
-
-    def _jira_preset_filters(self) -> Optional[dict[str, str]]:
-        """Return Jira preset names mapped to their default filters."""
-        if self.config is None:
-            return None
-        presets = self.config.get_jira_config().presets
-        return {name: preset.def_filter for name, preset in presets.items()}
 
     def gui_display(self) -> GuiDisplayConfig:
         """Return the GUI display configuration (level display and maps)."""
@@ -395,405 +382,6 @@ class BacklogApp:
             return
         self.open_backlog(data, path)
 
-    def _read_jira_backlog(self) -> None:
-        """Read a backlog from Jira into a new window."""
-        if self.config is None:
-            self.show_error('No configuration',
-                            'There is no configuration to read Jira from.')
-            return
-        filters = self._jira_preset_filters()
-        if not filters:
-            self.show_error('No Jira presets',
-                            'There are no Jira presets in the configuration.')
-            return
-        options = ask_jira_read_options(self.root, filters)
-        if options is None:
-            return
-        if not self._prepare_jira_token(options.preset_name):
-            return
-        self._start_jira_thread(options.preset_name, options.issue_filter)
-
-    def _jira_connection(self, preset_name: str) -> JiraConnectConfig:
-        """Return the Jira connection used by the named preset."""
-        assert self.config is not None
-        jira_config = self.config.get_jira_config()
-        preset = jira_config.get_preset(preset_name)
-        return jira_config.connections[preset.connection_name]
-
-    def _prepare_jira_token(self, preset_name: str) -> bool:
-        """Materialize an encrypted Jira token before the worker starts."""
-        connection = self._jira_connection(preset_name)
-        if not connection.uses_encryption() or connection.has_cached_token():
-            return True
-        passphrase = ask_jira_passphrase(self.root)
-        if passphrase is None:
-            return False
-        try:
-            connection.get_token(lambda: passphrase, self.log)
-        except JIRA_ERRORS as error:
-            message = str(error)
-            self.log.write(f"Could not read Jira token for preset "
-                           f"'{preset_name}': {message}\n")
-            self.show_error('Could not read Jira token', message)
-            return False
-        return True
-
-    def _start_jira_thread(self, preset_name: str, issue_filter: str) -> None:
-        """Start the Jira read worker thread."""
-        self.log.write(f"Reading from Jira using preset '{preset_name}'...\n")
-        self._refresh_log()
-        thread = threading.Thread(
-            target=lambda: self._read_jira_worker(preset_name, issue_filter),
-            daemon=True)
-        thread.start()
-
-    def _read_jira_worker(self, preset_name: str, issue_filter: str) -> None:
-        """Read Jira data on a worker and schedule the GUI update."""
-        assert self.config is not None
-        try:
-            data = read_jira_from_config(self.config, preset_name,
-                                         filter_override=issue_filter,
-                                         stderr_file=self.log)
-            warning = self._jira_consistency_warning(data)
-        except JIRA_ERRORS as error:
-            message = str(error)
-            self._after(lambda: self._jira_read_failed(preset_name, message))
-            return
-        self._after(lambda: self._jira_read_done(preset_name, data, warning))
-
-    def _jira_consistency_warning(self, data: BacklogReleases
-                                  ) -> Optional[str]:
-        """Return a warning if the Jira data is not fully consistent."""
-        try:
-            data.check_consistency(self.log)
-        except CONSISTENCY_ERRORS:
-            self.log.write(f'{JIRA_WARNING}\n')
-            return JIRA_WARNING
-        return None
-
-    def _after(self, callback: Callable[[], None]) -> None:
-        """Schedule a GUI-thread callback if the main window still exists."""
-        try:
-            self.root.after(0, callback)
-        except tk.TclError:
-            pass
-
-    def _jira_read_failed(self, preset_name: str, message: str) -> None:
-        """Report a failed Jira read on the GUI thread."""
-        self.log.write(f"Could not read from Jira preset '{preset_name}': "
-                       f'{message}\n')
-        self.show_error('Could not read from Jira', message)
-
-    def _jira_read_done(self, preset_name: str, data: BacklogReleases,
-                        warning: Optional[str]) -> None:
-        """Open the Jira backlog and report the completed read."""
-        title = f'Jira: {preset_name}'
-        self.open_backlog(data, title, warning)
-        self.log.write(f"Read {len(data.backlog)} backlog items and "
-                       f"{len(data.releases)} releases from Jira preset "
-                       f"'{preset_name}'.\n")
-        self.show_info('Read from Jira',
-                       f"Finished reading from Jira preset '{preset_name}'.")
-
-    def _jira_write_action(self) -> Optional[Callable[
-            [BacklogReleases, Callable[[AddedToJira], None]], None]]:
-        """Return the add-to-Jira handler, or None when it is unavailable."""
-        if self.config is None:
-            return None
-        if not self.config.get_jira_config().presets:
-            return None
-        return self._add_backlog_to_jira
-
-    def _add_backlog_to_jira(self, data: BacklogReleases,
-                             on_done: Callable[[AddedToJira], None]) -> None:
-        """Ask for a preset and add the shown backlog to Jira."""
-        assert self.config is not None
-        presets = sorted(self.config.get_jira_config().presets)
-        options = ask_jira_write_options(self.root, presets)
-        if options is None:
-            return
-        if not self._prepare_jira_token(options.preset_name):
-            return
-        self._start_jira_write(data, options, on_done)
-
-    def _start_jira_write(self, data: BacklogReleases,
-                          options: JiraWriteOptions,
-                          on_done: Callable[[AddedToJira], None]) -> None:
-        """Start the Jira write worker thread."""
-        self.log.write(f"Adding backlog to Jira using preset "
-                       f"'{options.preset_name}'...\n")
-        self._refresh_log()
-        thread = threading.Thread(
-            target=lambda: self._jira_write_worker(data, options, on_done),
-            daemon=True)
-        thread.start()
-
-    def _jira_write_worker(self, data: BacklogReleases,
-                           options: JiraWriteOptions,
-                           on_done: Callable[[AddedToJira], None]) -> None:
-        """Add the backlog on a worker and schedule the GUI update."""
-        assert self.config is not None
-        connections = JiraConnections(self.config.get_jira_config())
-        mode = (OnExistingKey.SKIP if options.skip_existing
-                else OnExistingKey.RAISE)
-        try:
-            result = add_backlog_to_jira(
-                connections, options.preset_name, data.backlog,
-                on_existing_key=mode, levels=self.config.get_levels(),
-                status_map=self.config.get_status_input_map(),
-                stderr_file=self.log)
-        except JIRA_ERRORS as error:
-            message = str(error)
-            self._after(
-                lambda: self._jira_write_failed(options.preset_name, message))
-            return
-        self._after(
-            lambda: self._jira_write_done(options.preset_name, result,
-                                          on_done))
-
-    def _jira_write_failed(self, preset_name: str, message: str) -> None:
-        """Report a failed Jira write on the GUI thread."""
-        self.log.write(f"Could not add to Jira preset '{preset_name}': "
-                       f'{message}\n')
-        self.show_error('Could not add to Jira', message)
-
-    def _jira_write_done(self, preset_name: str, result: AddedToJira,
-                         on_done: Callable[[AddedToJira], None]) -> None:
-        """Hand the result to the window and log the completed write."""
-        on_done(result)
-        self.log.write(f"Added {len(result.stored)} backlog items to Jira; "
-                       f"{len(result.already_present)} already present "
-                       f"(preset '{preset_name}').\n")
-
-    def _jira_releases_action(self) -> Optional[Callable[
-            [BacklogReleases, Callable[[AddedReleasesToJira], None]], None]]:
-        """Return the add-releases handler, or None when unavailable."""
-        if self.config is None:
-            return None
-        if not self.config.get_jira_config().presets:
-            return None
-        return self._add_releases_to_jira
-
-    def _add_releases_to_jira(
-            self, data: BacklogReleases,
-            on_done: Callable[[AddedReleasesToJira], None]) -> None:
-        """Ask for a preset and add the shown releases to Jira."""
-        assert self.config is not None
-        presets = sorted(self.config.get_jira_config().presets)
-        options = ask_jira_write_options(self.root, presets)
-        if options is None:
-            return
-        if not self._prepare_jira_token(options.preset_name):
-            return
-        self._start_releases_write(data, options, on_done)
-
-    def _start_releases_write(
-            self, data: BacklogReleases, options: JiraWriteOptions,
-            on_done: Callable[[AddedReleasesToJira], None]) -> None:
-        """Start the Jira releases-write worker thread."""
-        self.log.write(f"Adding releases to Jira using preset "
-                       f"'{options.preset_name}'...\n")
-        self._refresh_log()
-        thread = threading.Thread(
-            target=lambda: self._releases_write_worker(data, options, on_done),
-            daemon=True)
-        thread.start()
-
-    def _releases_write_worker(
-            self, data: BacklogReleases, options: JiraWriteOptions,
-            on_done: Callable[[AddedReleasesToJira], None]) -> None:
-        """Add the releases on a worker and schedule the GUI update."""
-        assert self.config is not None
-        connections = JiraConnections(self.config.get_jira_config())
-        mode = (OnExistingKey.SKIP if options.skip_existing
-                else OnExistingKey.RAISE)
-        try:
-            result = add_releases_to_jira(connections, options.preset_name,
-                                          data.releases, on_existing_key=mode,
-                                          stderr_file=self.log)
-        except JIRA_ERRORS as error:
-            message = str(error)
-            self._after(lambda: self._releases_write_failed(
-                options.preset_name, message))
-            return
-        self._after(
-            lambda: self._releases_write_done(options.preset_name, result,
-                                              on_done))
-
-    def _releases_write_failed(self, preset_name: str, message: str) -> None:
-        """Report a failed releases write on the GUI thread."""
-        self.log.write(f"Could not add releases to Jira preset "
-                       f"'{preset_name}': {message}\n")
-        self.show_error('Could not add releases to Jira', message)
-
-    def _releases_write_done(
-            self, preset_name: str, result: AddedReleasesToJira,
-            on_done: Callable[[AddedReleasesToJira], None]) -> None:
-        """Hand the result to the window and log the completed write."""
-        on_done(result)
-        self.log.write(f"Added {len(result.stored)} releases to Jira; "
-                       f"{len(result.already_present)} already present "
-                       f"(preset '{preset_name}').\n")
-
-    def _jira_update_action(self) -> Optional[Callable[
-            [BacklogReleases, Callable[[UpdatedReleasesInJira], None]],
-            None]]:
-        """Return the update-releases handler, or None when unavailable."""
-        if self.config is None:
-            return None
-        if not self.config.get_jira_config().presets:
-            return None
-        return self._update_releases_in_jira
-
-    def _update_releases_in_jira(
-            self, data: BacklogReleases,
-            on_done: Callable[[UpdatedReleasesInJira], None]) -> None:
-        """Ask for a preset, mode and releases, then update them in Jira."""
-        assert self.config is not None
-        presets = sorted(self.config.get_jira_config().presets)
-        names = [release.name for release in data.releases]
-        options = ask_release_update(self.root, presets, names)
-        if options is None:
-            return
-        if not self._prepare_jira_token(options.preset_name):
-            return
-        self._start_releases_update(data, options, on_done)
-
-    def _start_releases_update(
-            self, data: BacklogReleases, options: JiraReleaseUpdateOptions,
-            on_done: Callable[[UpdatedReleasesInJira], None]) -> None:
-        """Start the Jira releases-update worker thread."""
-        self.log.write(f"Updating releases in Jira using preset "
-                       f"'{options.preset_name}'...\n")
-        self._refresh_log()
-        thread = threading.Thread(
-            target=lambda: self._releases_update_worker(data, options,
-                                                        on_done),
-            daemon=True)
-        thread.start()
-
-    def _releases_update_worker(
-            self, data: BacklogReleases, options: JiraReleaseUpdateOptions,
-            on_done: Callable[[UpdatedReleasesInJira], None]) -> None:
-        """Update the releases on a worker and schedule the GUI update."""
-        assert self.config is not None
-        connections = JiraConnections(self.config.get_jira_config())
-        chosen = set(options.selected)
-        selected = [release for release in data.releases
-                    if release.name in chosen]
-        try:
-            result = update_releases_in_jira(connections, options.preset_name,
-                                             selected,
-                                             on_missing_key=options.on_missing,
-                                             stderr_file=self.log)
-        except JIRA_ERRORS as error:
-            message = str(error)
-            self._after(lambda: self._releases_update_failed(
-                options.preset_name, message))
-            return
-        self._after(
-            lambda: self._releases_update_done(options.preset_name, result,
-                                               on_done))
-
-    def _releases_update_failed(self, preset_name: str, message: str) -> None:
-        """Report a failed releases update on the GUI thread."""
-        self.log.write(f"Could not update releases in Jira preset "
-                       f"'{preset_name}': {message}\n")
-        self.show_error('Could not update releases in Jira', message)
-
-    def _releases_update_done(
-            self, preset_name: str, result: UpdatedReleasesInJira,
-            on_done: Callable[[UpdatedReleasesInJira], None]) -> None:
-        """Hand the result to the window and log the completed update."""
-        on_done(result)
-        self.log.write(f"Updated {len(result.updated)} releases in Jira; "
-                       f"{len(result.already_correct)} already correct; "
-                       f"{len(result.ignored)} ignored; {len(result.added)} "
-                       f"added (preset '{preset_name}').\n")
-
-    def _backlog_update_action(self) -> Optional[Callable[
-            [BacklogReleases, Callable[[UpdatedBacklogInJira], None]],
-            None]]:
-        """Return the update-backlog handler, or None when unavailable."""
-        if self.config is None:
-            return None
-        if not self.config.get_jira_config().presets:
-            return None
-        return self._update_backlog_in_jira
-
-    def _preset_update_fields(self) -> dict[str, list[str]]:
-        """Return each preset name mapped to its updatable backlog fields."""
-        assert self.config is not None
-        connections = JiraConnections(self.config.get_jira_config())
-        return {name: updatable_backlog_fields(connections, name)
-                for name in self.config.get_jira_config().presets}
-
-    def _update_backlog_in_jira(
-            self, data: BacklogReleases,
-            on_done: Callable[[UpdatedBacklogInJira], None]) -> None:
-        """Ask for a preset, fields and mode, then update the backlog."""
-        assert self.config is not None
-        options = ask_backlog_update(self.root, self._preset_update_fields())
-        if options is None:
-            return
-        if not self._prepare_jira_token(options.preset_name):
-            return
-        self._start_backlog_update(data, options, on_done)
-
-    def _start_backlog_update(
-            self, data: BacklogReleases, options: JiraBacklogUpdateOptions,
-            on_done: Callable[[UpdatedBacklogInJira], None]) -> None:
-        """Start the Jira backlog-update worker thread."""
-        self.log.write(f"Updating backlog in Jira using preset "
-                       f"'{options.preset_name}'...\n")
-        self._refresh_log()
-        thread = threading.Thread(
-            target=lambda: self._backlog_update_worker(data, options, on_done),
-            daemon=True)
-        thread.start()
-
-    def _backlog_update_worker(
-            self, data: BacklogReleases, options: JiraBacklogUpdateOptions,
-            on_done: Callable[[UpdatedBacklogInJira], None]) -> None:
-        """Update the backlog on a worker and schedule the GUI update."""
-        assert self.config is not None
-        connections = JiraConnections(self.config.get_jira_config())
-        link_update = (LinkUpdate.RECONCILE if options.reconcile_links
-                       else LinkUpdate.ADD_MISSING)
-        try:
-            result = update_backlog_in_jira(
-                connections, options.preset_name, data.backlog,
-                on_missing_key=options.on_missing,
-                fields_to_update=options.fields, link_update=link_update,
-                levels=self.config.get_levels(),
-                status_map=self.config.get_status_input_map(),
-                stderr_file=self.log)
-        except JIRA_ERRORS as error:
-            message = str(error)
-            self._after(lambda: self._backlog_update_failed(
-                options.preset_name, message))
-            return
-        self._after(
-            lambda: self._backlog_update_done(options.preset_name, result,
-                                              on_done))
-
-    def _backlog_update_failed(self, preset_name: str, message: str) -> None:
-        """Report a failed backlog update on the GUI thread."""
-        self.log.write(f"Could not update backlog in Jira preset "
-                       f"'{preset_name}': {message}\n")
-        self.show_error('Could not update backlog in Jira', message)
-
-    def _backlog_update_done(
-            self, preset_name: str, result: UpdatedBacklogInJira,
-            on_done: Callable[[UpdatedBacklogInJira], None]) -> None:
-        """Hand the result to the window and log the completed update."""
-        on_done(result)
-        self.log.write(f"Updated {len(result.updated)} backlog items in Jira; "
-                       f"{len(result.already_correct)} already correct; "
-                       f"{len(result.ignored)} ignored; "
-                       f"{len(result.added.stored)} added "
-                       f"(preset '{preset_name}').\n")
-
     def new_demo_backlog(self) -> None:
         """Open a demonstration backlog in a new window."""
         self.open_backlog(get_demo_backlog(), 'Demo backlog')
@@ -803,9 +391,11 @@ class BacklogApp:
         """Open one backlog and its releases in a new window."""
         BacklogWindow(self.root, data, title, self.out_presets,
                       self.available_teams, self.log, self.levels,
-                      self.gui_display, warning, self._jira_write_action(),
-                      self._jira_releases_action(), self._jira_update_action(),
-                      self._backlog_update_action())
+                      self.gui_display, warning,
+                      self.jira.writer.backlog_action(),
+                      self.jira.writer.releases_action(),
+                      self.jira.updater.releases_action(),
+                      self.jira.updater.backlog_action())
 
     def report_versions(self) -> None:
         """Report version information into the log on a worker thread.
@@ -845,7 +435,7 @@ class BacklogApp:
         read_command = self.read_backlog_file
         menu.add_command(label='Read backlog from file…', command=read_command)
         menu.add_command(label='Read backlog from Jira…',
-                         command=self._read_jira_backlog)
+                         command=self.jira.reader.read_backlog)
         menu.add_command(label='New demo backlog',
                          command=self.new_demo_backlog)
         menu.add_separator()
@@ -922,7 +512,7 @@ class BacklogApp:
         if self._status is not None:
             self._status.set(self._status_text())
 
-    def _refresh_log(self) -> None:
+    def refresh_log(self) -> None:
         """Copy the latest log lines into the read-only log view."""
         if self.log_view is None:
             return
@@ -959,7 +549,7 @@ class BacklogApp:
     def _schedule_refresh(self) -> None:
         """Refresh the log view and schedule the next refresh."""
         try:
-            self._refresh_log()
+            self.refresh_log()
             self.root.after(LOG_REFRESH_MS, self._schedule_refresh)
         except tk.TclError:
             pass

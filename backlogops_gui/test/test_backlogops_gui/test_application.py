@@ -12,9 +12,10 @@ from backlogops import (
     OutputFormatConfig)
 from backlogops_gui import application
 from backlogops_gui.application import APP_TITLE, BacklogApp
-from backlogops_gui.io_dialogs import ConfigChoice, PresetKind, ReadOptions
+from backlogops_gui.choice_dialogs import ConfigChoice, PresetKind
+from backlogops_gui.format_dialogs import ReadOptions
 from backlogops_gui._migrate_warn import GuiMigrateWarnHook
-from .gui_test_helpers import MsgRecorder, root_or_skip
+from .gui_test_helpers import MsgRecorder, gui_root, root_or_skip
 
 DATA = BacklogReleases(backlog=[], releases=[])
 
@@ -715,28 +716,23 @@ def test_build_menu_and_body(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the menu and body build and the log view refreshes."""
     monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
     monkeypatch.setattr(application, 'check_python_version', lambda: None)
-    root = root_or_skip()
-    try:
+    with gui_root() as root:
         app = BacklogApp(root)
         app.build_menu()
         app.build_body()
         app.log.write('a log line\n')
-        # pylint: disable-next=protected-access
-        app._refresh_log()
+        app.refresh_log()
         # pylint: disable-next=protected-access
         app._update_status()
         # pylint: disable-next=protected-access
         assert 'No configuration' in app._status_text()
-    finally:
-        root.destroy()
 
 
 def test_menu_has_preset_item(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the Configuration menu offers the IO preset file actions."""
     monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
     monkeypatch.setattr(application, 'check_python_version', lambda: None)
-    root = root_or_skip()
-    try:
+    with gui_root() as root:
         app = BacklogApp(root)
         app.build_menu()
         menubar = root.nametowidget(root.cget('menu'))
@@ -744,8 +740,6 @@ def test_menu_has_preset_item(monkeypatch: pytest.MonkeyPatch) -> None:
         labels = _command_labels(menubar)
         assert 'Create IO preset file…' in labels
         assert 'Migrate IO preset file…' in labels
-    finally:
-        root.destroy()
 
 
 def test_body_config_warn(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -753,48 +747,36 @@ def test_body_config_warn(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(application, 'check_tcltk_version',
                         lambda root: 'old Tk warning')
     monkeypatch.setattr(application, 'check_python_version', lambda: None)
-    root = root_or_skip()
-    try:
+    with gui_root() as root:
         app = BacklogApp(root, cast(BacklogOpsConfig, FakeConfig()))
         app.config_source = 'a file'
         app.build_body()
         # pylint: disable-next=protected-access
         assert app._status_text() == 'Configuration loaded from a file.'
-    finally:
-        root.destroy()
 
 
 def test_refresh_no_view() -> None:
     """Test the log refresh returns at once before the view exists."""
-    root = root_or_skip()
-    try:
-        # pylint: disable-next=protected-access
-        BacklogApp(root)._refresh_log()
-    finally:
-        root.destroy()
+    with gui_root() as root:
+        BacklogApp(root).refresh_log()
 
 
 def test_log_copy(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test selected log text can be copied after a log refresh."""
     monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
     monkeypatch.setattr(application, 'check_python_version', lambda: None)
-    root = root_or_skip()
-    try:
+    with gui_root() as root:
         app = BacklogApp(root)
         app.build_body()
         assert app.log_view is not None
         app.log.write('copy this line\n')
-        # pylint: disable-next=protected-access
-        app._refresh_log()
+        app.refresh_log()
         app.log_view.tag_add('sel', '1.0', '1.4')
         app.log.write('and keep selection\n')
-        # pylint: disable-next=protected-access
-        app._refresh_log()
+        app.refresh_log()
         # pylint: disable-next=protected-access
         app._copy_log(object())
         assert root.clipboard_get() == 'copy'
-    finally:
-        root.destroy()
 
 
 def test_sched_destroyed() -> None:
@@ -935,12 +917,9 @@ def test_body_python_warn(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
     monkeypatch.setattr(application, 'check_python_version',
                         lambda: 'old Python warning')
-    root = root_or_skip()
-    try:
+    with gui_root() as root:
         app = BacklogApp(root)
         app.build_body()
         texts = [w.cget('text') for w in app.root.winfo_children()
                  if isinstance(w, tk.Label)]
         assert 'old Python warning' in texts
-    finally:
-        root.destroy()

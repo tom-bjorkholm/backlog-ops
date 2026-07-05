@@ -5,6 +5,8 @@
 # MIT License
 
 import tkinter as tk
+from contextlib import contextmanager
+from typing import Iterator
 import pytest
 
 
@@ -16,6 +18,21 @@ def root_or_skip() -> tk.Tk:
         pytest.skip('no display available')
     root.withdraw()
     return root
+
+
+@contextmanager
+def gui_root() -> Iterator[tk.Tk]:
+    """Yield a withdrawn Tk root and destroy it afterwards.
+
+    This factors out the create-try-finally-destroy boilerplate the widget
+    tests share; the test body runs inside the ``with`` block. The test is
+    skipped when no display is available.
+    """
+    root = root_or_skip()
+    try:
+        yield root
+    finally:
+        root.destroy()
 
 
 class MsgRecorder:
