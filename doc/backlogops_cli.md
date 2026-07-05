@@ -131,9 +131,12 @@ column except the listed ones.
 
 ``--on-missing`` chooses what to do with an item whose key is not present in
 Jira: ``raise`` (the default) stops with an error, ``ignore`` leaves it
-alone, and ``add`` creates it with all of its fields. ``--add-links-only``
-only adds the missing parent and dependency links; without it the links are
-reconciled, so a Jira link the backlog no longer has is removed.
+alone, and ``add`` creates it with all of its fields. ``--links`` chooses how
+the parent and dependency links are updated: ``reconcile`` (the default) makes
+the Jira links match the backlog exactly, removing a Jira link the backlog no
+longer has and clearing a dropped parent, while ``add`` only adds the missing
+links and never removes one. ``--links`` governs only the links; the other
+selected fields are updated the same way under either value.
 
 The updated, already-correct, ignored, added and failed items are printed
 to stdout as labelled lists, unless ``-q``/``--quiet`` is given. An

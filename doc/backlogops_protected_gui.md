@@ -269,6 +269,7 @@
     * [\_confirm](#backlogops_gui.io_dialogs._JiraWriteDialog._confirm)
   * [ask\_jira\_write\_options](#backlogops_gui.io_dialogs.ask_jira_write_options)
   * [MISSING\_MODE\_TEXT](#backlogops_gui.io_dialogs.MISSING_MODE_TEXT)
+  * [LINK\_MODE\_TEXT](#backlogops_gui.io_dialogs.LINK_MODE_TEXT)
   * [\_JiraReleaseUpdateDialog](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog)
     * [\_\_init\_\_](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog.__init__)
     * [\_build](#backlogops_gui.io_dialogs._JiraReleaseUpdateDialog._build)
@@ -282,6 +283,7 @@
     * [\_build](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build)
     * [\_build\_preset](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_preset)
     * [\_build\_mode](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_mode)
+    * [\_build\_links](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_links)
     * [\_build\_fields](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_fields)
     * [\_preset\_changed](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._preset_changed)
     * [\_confirm](#backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._confirm)
@@ -3476,6 +3478,15 @@ Ask which write preset and skip choice, or None when cancelled.
 
 Label shown for each missing-name mode in the release-update dialog.
 
+<a id="backlogops_gui.io_dialogs.LINK_MODE_TEXT"></a>
+
+#### LINK\_MODE\_TEXT
+
+Label shown for each link-update mode in the backlog-update dialog.
+
+The keys mirror the CLI ``--links`` values; ``reconcile`` maps to
+:class:`LinkUpdate.RECONCILE` and ``add`` to :class:`LinkUpdate.ADD_MISSING`.
+
 <a id="backlogops_gui.io_dialogs._JiraReleaseUpdateDialog"></a>
 
 ## \_JiraReleaseUpdateDialog Objects
@@ -3613,6 +3624,16 @@ def _build_mode() -> None
 ```
 
 Add the radios choosing what to do with a missing key.
+
+<a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_links"></a>
+
+#### \_build\_links
+
+```python
+def _build_links() -> None
+```
+
+Add the radios choosing how parent and dependency links update.
 
 <a id="backlogops_gui.io_dialogs._JiraBacklogUpdateDialog._build_fields"></a>
 

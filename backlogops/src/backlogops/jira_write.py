@@ -664,14 +664,18 @@ def _write_dep_links(ctx: _WriteContext, item: BacklogItem, spec: _LinkSpec,
                      acc: _Added, stderr_file: TextIO) -> None:
     """Create the Jira issue links for one dependency field of an item.
 
-    Each dependency key is linked to the item under the spec's link type,
-    with the current issue on the inward or outward side so that reading
-    the link back yields the same dependency. Each key is the assigned Jira
-    key produced by the earlier remap.
+    Each dependency key is linked to the item under the spec's link type.
+    A Jira link is created from its inward issue to its outward issue, so
+    when the dependency is the inward issue (a ``Blocks`` dependency read
+    from ``inwardIssue.key`` means the dependency blocks the item) the link
+    is created from the dependency to the item, and the item ends up blocked
+    by the dependency. This is the exact inverse of the read, so reading the
+    link back yields the same dependency. Each key is the assigned Jira key
+    produced by the earlier remap.
     """
     for dep in getattr(item, spec.field):
-        inward, outward = ((item.key, dep) if spec.dep_is_inward
-                           else (dep, item.key))
+        inward, outward = ((dep, item.key) if spec.dep_is_inward
+                           else (item.key, dep))
         template = FailedLink(item, dep, spec.link_type, '')
         _try_link(acc.links, template, stderr_file,
                   partial(ctx.client.create_issue_link, spec.link_type, inward,

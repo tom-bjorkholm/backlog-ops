@@ -7169,6 +7169,11 @@ def _create_dep_link(work: _Work, spec: _LinkSpec, dep: str) -> None
 
 Create one Jira issue link for a dependency in the spec's direction.
 
+A Jira link is created from its inward issue to its outward issue. When
+the dependency is the inward issue (the dependency blocks the item) the
+link is created from the dependency to the item, so the item ends up
+blocked by the dependency, the exact inverse of the read.
+
 <a id="backlogops.jira_update_backlog._remove_dep_link"></a>
 
 #### \_remove\_dep\_link
@@ -9909,10 +9914,14 @@ def _write_dep_links(ctx: _WriteContext, item: BacklogItem, spec: _LinkSpec,
 
 Create the Jira issue links for one dependency field of an item.
 
-Each dependency key is linked to the item under the spec's link type,
-with the current issue on the inward or outward side so that reading
-the link back yields the same dependency. Each key is the assigned Jira
-key produced by the earlier remap.
+Each dependency key is linked to the item under the spec's link type.
+A Jira link is created from its inward issue to its outward issue, so
+when the dependency is the inward issue (a ``Blocks`` dependency read
+from ``inwardIssue.key`` means the dependency blocks the item) the link
+is created from the dependency to the item, and the item ends up blocked
+by the dependency. This is the exact inverse of the read, so reading the
+link back yields the same dependency. Each key is the assigned Jira key
+produced by the earlier remap.
 
 <a id="backlogops.jira_write._write_parent_link"></a>
 
@@ -13163,9 +13172,13 @@ How to write one dependency field as a Jira issue link.
 
 ``field`` is the internal dependency field name, ``link_type`` is the
 Jira issue link type name to create (such as ``Blocks``), and
-``dep_is_inward`` says the dependency is the inward issue on the
-current issue, so the link is created with the current issue as the
-inward side and the dependency as the outward side.
+``dep_is_inward`` says the dependency is read from the inward side of
+the current issue's link (``inwardIssue.key``), which means the
+dependency is the link's inward issue and the current issue is its
+outward issue. A Jira link is created from its inward issue to its
+outward issue, so such a link is created from the dependency to the
+current issue (a ``Blocks`` link then reads as the current issue being
+blocked by the dependency).
 
 <a id="backlogops.jira_write_fields._link_attr"></a>
 

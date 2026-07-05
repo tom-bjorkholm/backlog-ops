@@ -11,9 +11,12 @@ column except the listed ones.
 
 ``--on-missing`` chooses what to do with an item whose key is not present in
 Jira: ``raise`` (the default) stops with an error, ``ignore`` leaves it
-alone, and ``add`` creates it with all of its fields. ``--add-links-only``
-only adds the missing parent and dependency links; without it the links are
-reconciled, so a Jira link the backlog no longer has is removed.
+alone, and ``add`` creates it with all of its fields. ``--links`` chooses how
+the parent and dependency links are updated: ``reconcile`` (the default) makes
+the Jira links match the backlog exactly, removing a Jira link the backlog no
+longer has and clearing a dropped parent, while ``add`` only adds the missing
+links and never removes one. ``--links`` governs only the links; the other
+selected fields are updated the same way under either value.
 
 The updated, already-correct, ignored, added and failed items are printed
 to stdout as labelled lists, unless ``-q``/``--quiet`` is given. An
@@ -40,6 +43,8 @@ DESCRIPTION = 'Update a backlog in Jira, changing only the chosen columns'
 
 _MISSING_MODES = {'raise': OnMissingKey.RAISE, 'ignore': OnMissingKey.IGNORE,
                   'add': OnMissingKey.ADD}
+_LINK_MODES = {'reconcile': LinkUpdate.RECONCILE,
+               'add': LinkUpdate.ADD_MISSING}
 _STORE_ALL = 'all'
 
 
@@ -55,10 +60,12 @@ def build_parser() -> argparse.ArgumentParser:
                         choices=sorted(_MISSING_MODES), default='raise',
                         help='What to do with an item whose key is not in '
                         'Jira: raise (default), ignore, or add it.')
-    parser.add_argument('--add-links-only', dest='add_links_only',
-                        action='store_true',
-                        help='Only add missing parent and dependency links; '
-                        'without it stale links are also removed.')
+    parser.add_argument('--links', dest='links', choices=sorted(_LINK_MODES),
+                        default='reconcile',
+                        help='How to update parent and dependency links: '
+                        'reconcile (default) makes Jira match the backlog, '
+                        'removing links it no longer has; add only adds '
+                        'missing links.')
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
                         help='Do not print the result lists to stdout.')
     return parser
@@ -110,8 +117,7 @@ def _update(parsed: argparse.Namespace, config: BacklogOpsConfig,
     connections = JiraConnections(config.get_jira_config(), _passphrase)
     fields = _resolve_fields(parsed, connections)
     mode = _MISSING_MODES[parsed.on_missing]
-    link_update = (LinkUpdate.ADD_MISSING if parsed.add_links_only
-                   else LinkUpdate.RECONCILE)
+    link_update = _LINK_MODES[parsed.links]
     assert isinstance(data_backlog, list)
     result = update_backlog_in_jira(connections, parsed.preset, data_backlog,
                                     on_missing_key=mode,

@@ -187,10 +187,11 @@ def test_on_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, flag: str,
 
 @pytest.mark.parametrize('extra, link', [
     ([], LinkUpdate.RECONCILE),
-    (['--add-links-only'], LinkUpdate.ADD_MISSING)])
+    (['--links', 'reconcile'], LinkUpdate.RECONCILE),
+    (['--links', 'add'], LinkUpdate.ADD_MISSING)])
 def test_link_policy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                      extra: list[str], link: LinkUpdate) -> None:
-    """Test --add-links-only chooses the add-missing link policy."""
+    """Test --links chooses the link policy, reconciling by default."""
     captured = _patch(monkeypatch, _result())
     _prepare(tmp_path)
     code = update_backlog_in_jira.main(_args(tmp_path, '-s', 'all', *extra))

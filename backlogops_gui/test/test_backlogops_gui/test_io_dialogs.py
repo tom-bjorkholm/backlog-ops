@@ -355,8 +355,11 @@ _BL_FIELDS = {'p': ['title', 'status'], 'q': ['title', 'team']}
 """Two presets mapped to their updatable fields for the dialog tests."""
 
 
-def test_bl_update_ok(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the backlog-update dialog stores preset, mode, fields and links."""
+@pytest.mark.parametrize('link, reconcile', [
+    ('reconcile', True), ('add', False)])
+def test_bl_update_ok(monkeypatch: pytest.MonkeyPatch, link: str,
+                      reconcile: bool) -> None:
+    """Test the dialog stores preset, mode, fields and link policy."""
     monkeypatch.setattr(_ModalDialog, '_show', _no_wait)
     root = root_or_skip()
     try:
@@ -364,13 +367,13 @@ def test_bl_update_ok(monkeypatch: pytest.MonkeyPatch) -> None:
         # pylint: disable-next=protected-access
         dialog._mode.set(OnMissingKey.ADD.name)
         # pylint: disable-next=protected-access
-        dialog._reconcile.set(False)
+        dialog._links.set(link)
         # pylint: disable-next=protected-access
         dialog._picks['status'].set(False)
         # pylint: disable-next=protected-access
         dialog._confirm()
         expected = JiraBacklogUpdateOptions('p', OnMissingKey.ADD, ['title'],
-                                            False)
+                                            reconcile)
         assert dialog.options == expected
     finally:
         root.destroy()

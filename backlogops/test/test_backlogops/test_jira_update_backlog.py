@@ -317,13 +317,18 @@ def test_reconcile_clear(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_dep_add(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a missing dependency link is created in the read direction."""
+    """Test a missing dependency link makes the dependency block the item.
+
+    ``A`` depends on ``B``, so the link is created from ``B`` to ``A`` and
+    Jira shows ``A`` as blocked by ``B``, the inverse of reading it from
+    ``inwardIssue.key``.
+    """
     client = _Client({'A': _issue('A')})
     connections = _connections(monkeypatch, client)
     item = _item('A', depends_on_f2s=['B'])
     result = _upd(connections, [item], ['depends_on_f2s'])
     assert result.updated == ['A']
-    assert client.created_links == [('Blocks', 'A', 'B')]
+    assert client.created_links == [('Blocks', 'B', 'A')]
 
 
 def test_dep_already(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -354,7 +359,7 @@ def test_dep_add_missing_keep(monkeypatch: pytest.MonkeyPatch) -> None:
     result = _upd(connections, [item], ['depends_on_f2s'],
                   link=LinkUpdate.ADD_MISSING)
     assert result.updated == ['A']
-    assert client.created_links == [('Blocks', 'A', 'C')]
+    assert client.created_links == [('Blocks', 'C', 'A')]
     assert not client.deleted_links
 
 
@@ -460,7 +465,7 @@ def test_missing_add(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured['added'] == ['NEW']
     assert captured['mode'] is OnExistingKey.SKIP
     assert result.added is added
-    assert client.created_links == [('Blocks', 'A', 'JIRA-9')]
+    assert client.created_links == [('Blocks', 'JIRA-9', 'A')]
 
 
 def test_input_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:

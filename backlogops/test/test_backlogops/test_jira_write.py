@@ -777,7 +777,13 @@ def test_link_spec_none() -> None:
 
 
 def test_dep_link_written(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a Blocks dependency links with the current issue inward."""
+    """Test a depends-on Blocks link makes the dependency block the item.
+
+    ``A`` depends on ``B``, so ``B`` must be the link's inward (from) issue
+    and ``A`` its outward (to) issue, which Jira shows as ``A`` being
+    blocked by ``B``. This is the inverse of the default map reading the
+    dependency from ``inwardIssue.key``.
+    """
     client = _WriteClient()
     connections = _connections(monkeypatch, client)
     blocked = _item('A')
@@ -785,7 +791,7 @@ def test_dep_link_written(monkeypatch: pytest.MonkeyPatch) -> None:
     result = add_backlog_to_jira(connections, 'w', [blocked, _item('B')],
                                  on_existing_key=OnExistingKey.SKIP,
                                  stderr_file=NO)
-    assert client.link_log.links == [('Blocks', 'JIRA-1', 'JIRA-2')]
+    assert client.link_log.links == [('Blocks', 'JIRA-2', 'JIRA-1')]
     assert not result.failed_links
 
 
@@ -797,7 +803,7 @@ def test_dep_link_external(monkeypatch: pytest.MonkeyPatch) -> None:
     item.depends_on_f2s = ['EXT']
     add_backlog_to_jira(connections, 'w', [item],
                         on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
-    assert client.link_log.links == [('Blocks', 'JIRA-1', 'EXT')]
+    assert client.link_log.links == [('Blocks', 'EXT', 'JIRA-1')]
 
 
 def test_all_dep_links(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -810,9 +816,9 @@ def test_all_dep_links(monkeypatch: pytest.MonkeyPatch) -> None:
     item.depends_on_s2s = ['E3']
     add_backlog_to_jira(connections, 'w', [item],
                         on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
-    assert ('Blocks', 'JIRA-1', 'E1') in client.link_log.links
-    assert ('Relates', 'E2', 'JIRA-1') in client.link_log.links
-    assert ('Precedes', 'JIRA-1', 'E3') in client.link_log.links
+    assert ('Blocks', 'E1', 'JIRA-1') in client.link_log.links
+    assert ('Relates', 'JIRA-1', 'E2') in client.link_log.links
+    assert ('Precedes', 'E3', 'JIRA-1') in client.link_log.links
     assert len(client.link_log.links) == 3
 
 
@@ -862,7 +868,7 @@ def test_subtask_parent_skip(monkeypatch: pytest.MonkeyPatch) -> None:
     assert client.created[1]['parent'] == {'key': 'JIRA-1'}
     assert all('parent' not in fields
                for _, fields in client.link_log.updates)
-    assert ('Blocks', 'JIRA-2', 'JIRA-1') in client.link_log.links
+    assert ('Blocks', 'JIRA-1', 'JIRA-2') in client.link_log.links
 
 
 def test_link_fail_reported(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -881,7 +887,7 @@ def test_link_fail_reported(monkeypatch: pytest.MonkeyPatch) -> None:
     assert failed.item.key == 'JIRA-1'
     assert failed.relation == 'Blocks'
     assert 'HTTP 400' in failed.reason
-    assert ('Blocks', 'JIRA-1', 'EXT') in client.link_log.links
+    assert ('Blocks', 'EXT', 'JIRA-1') in client.link_log.links
     assert 'JIRA-1' in errors.getvalue()
 
 

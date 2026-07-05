@@ -496,6 +496,16 @@ MISSING_MODE_TEXT = {
 """Label shown for each missing-name mode in the release-update dialog."""
 
 
+LINK_MODE_TEXT = {
+    'reconcile': 'Reconcile (also remove links the backlog no longer has)',
+    'add': 'Only add missing links'}
+"""Label shown for each link-update mode in the backlog-update dialog.
+
+The keys mirror the CLI ``--links`` values; ``reconcile`` maps to
+:class:`LinkUpdate.RECONCILE` and ``add`` to :class:`LinkUpdate.ADD_MISSING`.
+"""
+
+
 # pylint: disable-next=too-few-public-methods
 class _JiraReleaseUpdateDialog(_ModalDialog):
     """Modal dialog for the release-update preset, mode and selection."""
@@ -589,7 +599,7 @@ class _JiraBacklogUpdateDialog(_ModalDialog):
         names = sorted(self._fields)
         self._preset = tk.StringVar(self._win, names[0] if names else '')
         self._mode = tk.StringVar(self._win, OnMissingKey.RAISE.name)
-        self._reconcile = tk.BooleanVar(self._win, True)
+        self._links = tk.StringVar(self._win, 'reconcile')
         self._picks: dict[str, tk.BooleanVar] = {}
         self._fields_frame = tk.Frame(self._win)
         self._build(names)
@@ -599,9 +609,7 @@ class _JiraBacklogUpdateDialog(_ModalDialog):
         """Add the preset, the mode radios, the links box and the fields."""
         self._build_preset(names)
         self._build_mode()
-        tk.Checkbutton(self._win, variable=self._reconcile,
-                       text='Also remove Jira links the backlog no longer has '
-                       '(reconcile)').pack(anchor='w', padx=12, pady=(8, 2))
+        self._build_links()
         tk.Label(self._win, text='Columns to update:'
                  ).pack(anchor='w', padx=12, pady=(8, 2))
         self._fields_frame.pack(anchor='w', fill='x')
@@ -623,6 +631,14 @@ class _JiraBacklogUpdateDialog(_ModalDialog):
                  ).pack(anchor='w', padx=12, pady=(8, 2))
         for mode, text in MISSING_MODE_TEXT.items():
             tk.Radiobutton(self._win, variable=self._mode, value=mode.name,
+                           text=text).pack(anchor='w', padx=24)
+
+    def _build_links(self) -> None:
+        """Add the radios choosing how parent and dependency links update."""
+        tk.Label(self._win, text='Parent and dependency links:'
+                 ).pack(anchor='w', padx=12, pady=(8, 2))
+        for value, text in LINK_MODE_TEXT.items():
+            tk.Radiobutton(self._win, variable=self._links, value=value,
                            text=text).pack(anchor='w', padx=24)
 
     def _build_fields(self) -> None:
@@ -653,7 +669,7 @@ class _JiraBacklogUpdateDialog(_ModalDialog):
                                  parent=self._win)
             return
         self.options = JiraBacklogUpdateOptions(name, OnMissingKey[
-            self._mode.get()], fields, self._reconcile.get())
+            self._mode.get()], fields, self._links.get() == 'reconcile')
         super()._confirm()
 
 

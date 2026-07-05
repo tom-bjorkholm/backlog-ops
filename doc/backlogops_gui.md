@@ -82,6 +82,7 @@
   * [ask\_jira\_read\_options](#backlogops_gui.io_dialogs.ask_jira_read_options)
   * [ask\_jira\_write\_options](#backlogops_gui.io_dialogs.ask_jira_write_options)
   * [MISSING\_MODE\_TEXT](#backlogops_gui.io_dialogs.MISSING_MODE_TEXT)
+  * [LINK\_MODE\_TEXT](#backlogops_gui.io_dialogs.LINK_MODE_TEXT)
   * [ask\_release\_update](#backlogops_gui.io_dialogs.ask_release_update)
   * [ask\_backlog\_update](#backlogops_gui.io_dialogs.ask_backlog_update)
   * [ask\_jira\_passphrase](#backlogops_gui.io_dialogs.ask_jira_passphrase)
@@ -1186,6 +1187,15 @@ Ask which write preset and skip choice, or None when cancelled.
 #### MISSING\_MODE\_TEXT
 
 Label shown for each missing-name mode in the release-update dialog.
+
+<a id="backlogops_gui.io_dialogs.LINK_MODE_TEXT"></a>
+
+#### LINK\_MODE\_TEXT
+
+Label shown for each link-update mode in the backlog-update dialog.
+
+The keys mirror the CLI ``--links`` values; ``reconcile`` maps to
+:class:`LinkUpdate.RECONCILE` and ``add`` to :class:`LinkUpdate.ADD_MISSING`.
 
 <a id="backlogops_gui.io_dialogs.ask_release_update"></a>
 

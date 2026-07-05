@@ -94,9 +94,13 @@ class _LinkSpec:
 
     ``field`` is the internal dependency field name, ``link_type`` is the
     Jira issue link type name to create (such as ``Blocks``), and
-    ``dep_is_inward`` says the dependency is the inward issue on the
-    current issue, so the link is created with the current issue as the
-    inward side and the dependency as the outward side.
+    ``dep_is_inward`` says the dependency is read from the inward side of
+    the current issue's link (``inwardIssue.key``), which means the
+    dependency is the link's inward issue and the current issue is its
+    outward issue. A Jira link is created from its inward issue to its
+    outward issue, so such a link is created from the dependency to the
+    current issue (a ``Blocks`` link then reads as the current issue being
+    blocked by the dependency).
     """
 
     field: str

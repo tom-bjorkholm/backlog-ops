@@ -362,9 +362,15 @@ def _apply_one_dep(work: _Work, spec: _LinkSpec, attr: JiraAttrPath) -> bool:
 
 
 def _create_dep_link(work: _Work, spec: _LinkSpec, dep: str) -> None:
-    """Create one Jira issue link for a dependency in the spec's direction."""
-    inward, outward = ((work.item.key, dep) if spec.dep_is_inward
-                       else (dep, work.item.key))
+    """Create one Jira issue link for a dependency in the spec's direction.
+
+    A Jira link is created from its inward issue to its outward issue. When
+    the dependency is the inward issue (the dependency blocks the item) the
+    link is created from the dependency to the item, so the item ends up
+    blocked by the dependency, the exact inverse of the read.
+    """
+    inward, outward = ((dep, work.item.key) if spec.dep_is_inward
+                       else (work.item.key, dep))
     template = FailedLink(copy.deepcopy(work.item), dep, spec.link_type, '')
     _try_link(work.acc.links, template, work.ctx.stderr_file,
               partial(work.ctx.base.client.create_issue_link, spec.link_type,
