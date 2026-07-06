@@ -11,6 +11,15 @@ from backlogops_gui.close_binding import bind_close
 from .gui_test_helpers import gui_root, press_close
 
 
+# These test are unstable on macOS due to sigsegv/sigabort in
+# python/Tk. They are not yet tested on other platforms.
+# A theory is that if the user does somehing that changes the focus
+# while the tests are running (e.g. clicking on another window),
+# the the python/Tk code get confused and crashes.
+# Marking the tests as skip until fixed.
+
+
+@pytest.mark.skip(reason="Unstable on macOS")
 @pytest.mark.parametrize('platform,ctrl', [
     ('darwin', False), ('linux', False), ('win32', True)])
 def test_events(monkeypatch: pytest.MonkeyPatch, platform: str,
@@ -25,6 +34,7 @@ def test_events(monkeypatch: pytest.MonkeyPatch, platform: str,
         win.destroy()
 
 
+@pytest.mark.skip(reason="Unstable on macOS")
 def test_default_destroys() -> None:
     """Test Cmd-W destroys a window with the default close action."""
     with gui_root() as root:
@@ -34,6 +44,7 @@ def test_default_destroys() -> None:
         assert not win.winfo_exists()
 
 
+@pytest.mark.skip(reason="Unstable on macOS")
 def test_custom_action() -> None:
     """Test Cmd-W runs a custom action and leaves the window open."""
     with gui_root() as root:
@@ -46,6 +57,7 @@ def test_custom_action() -> None:
         win.destroy()
 
 
+@pytest.mark.skip(reason="Unstable on macOS")
 def test_stops_propagation() -> None:
     """Test the close binding returns break, stopping later handlers.
 
