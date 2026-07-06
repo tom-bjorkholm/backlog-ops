@@ -4,21 +4,32 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+from pathlib import Path
+from typing import Callable
 import tkinter as tk
 import pytest
-from backlogops import OnMissingKey
+from backlogops import JiraMoveToEnd, NoTextIO, OnMissingKey
 from backlogops_gui.jira_dialogs import (
-    JiraBacklogUpdateDialog, JiraBacklogUpdateOptions, JiraReadDialog,
-    JiraReadOptions, JiraReleaseUpdateDialog, JiraReleaseUpdateOptions,
-    PassphraseDialog, ask_backlog_update, ask_jira_passphrase,
-    ask_jira_read_options, ask_release_update)
+    JiraBacklogUpdateDialog, JiraBacklogUpdateOptions, JiraRankDialog,
+    JiraRankOptions, JiraReadDialog, JiraReadOptions, JiraReleaseUpdateDialog,
+    JiraReleaseUpdateOptions, PassphraseDialog, ask_backlog_update,
+    ask_jira_passphrase, ask_jira_rank, ask_jira_read_options,
+    ask_release_update)
 from backlogops_gui.modal_dialog import ModalDialog
 from .gui_test_helpers import MsgRecorder, gui_root
 from .dialog_test_helpers import cancel_show, no_wait
 
 MESSAGEBOX = 'backlogops_gui.jira_dialogs.messagebox'
+FILE_DIALOG = 'backlogops_gui.jira_dialogs.filedialog.askopenfilename'
 _BL_FIELDS = {'p': ['title', 'status'], 'q': ['title', 'team']}
 """Two presets mapped to their updatable fields for the dialog tests."""
+
+
+def _pick(path: str) -> Callable[..., str]:
+    """Return a file chooser stand-in that returns the given path."""
+    def choose(**_kwargs: object) -> str:
+        return path
+    return choose
 
 
 def test_jira_options() -> None:
@@ -187,3 +198,61 @@ def test_pass_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ModalDialog, '_show', cancel_show)
     with gui_root() as root:
         assert ask_jira_passphrase(root) is None
+
+
+def test_rank_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the rank dialog prefills the filter and stores the choice."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    with gui_root() as root:
+        dialog = JiraRankDialog(root, {'a': 'fa', 'b': 'fb'}, NoTextIO())
+        # pylint: disable-next=protected-access
+        dialog._preset.set('b')
+        # pylint: disable-next=protected-access
+        dialog._preset_changed(object())
+        # pylint: disable-next=protected-access
+        assert dialog._filter.get() == 'fb'
+        # pylint: disable-next=protected-access
+        dialog._filter.set('project = X')
+        # pylint: disable-next=protected-access
+        dialog._end.set(JiraMoveToEnd.LAST.name)
+        # pylint: disable-next=protected-access
+        dialog._text.insert('1.0', 'X Y')
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options == JiraRankOptions('b', 'project = X',
+                                                 ['X', 'Y'],
+                                                 JiraMoveToEnd.LAST)
+
+
+def test_rank_load(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the load button fills the key box from a key list file."""
+    keyfile = tmp_path / 'k.txt'
+    keyfile.write_text('K1 K2\n', encoding='utf-8')
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(FILE_DIALOG, _pick(str(keyfile)))
+    with gui_root() as root:
+        dialog = JiraRankDialog(root, {'a': 'fa'}, NoTextIO())
+        # pylint: disable-next=protected-access
+        dialog._load()
+        # pylint: disable-next=protected-access
+        assert dialog._text.get('1.0', 'end').split() == ['K1', 'K2']
+
+
+def test_rank_needs_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test confirming with no keys keeps the rank dialog open."""
+    rec = MsgRecorder()
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(MESSAGEBOX, rec)
+    with gui_root() as root:
+        dialog = JiraRankDialog(root, {'a': 'fa'}, NoTextIO())
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None
+        assert rec.calls
+
+
+def test_rank_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the rank dialog returns nothing."""
+    monkeypatch.setattr(ModalDialog, '_show', cancel_show)
+    with gui_root() as root:
+        assert ask_jira_rank(root, {'a': 'fa'}, NoTextIO()) is None

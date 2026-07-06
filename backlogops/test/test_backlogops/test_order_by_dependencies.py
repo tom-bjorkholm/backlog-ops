@@ -7,7 +7,8 @@
 from typing import Optional, Sequence
 import pytest
 from backlogops import (
-    Backlog, BacklogItem, Status, order_by_dependencies, DependencyMode)
+    Backlog, BacklogItem, Status, order_by_dependencies, DependencyMode,
+    precedence_relations)
 from backlogops.order_by_dependencies import _merge_even, _space_around_limit
 from backlogops.no_text_io import NoTextIO
 
@@ -199,3 +200,13 @@ def test_all_deps_respected() -> None:
     position = {key: index for index, key in enumerate(order)}
     assert position['A'] < position['B'] < position['C'] < position['E']
     assert position['E'] < position['D']
+
+
+def test_precedence_relations() -> None:
+    """Test the before/after relations cover dependencies and parents."""
+    backlog = [_item('E'), _item('C', f2s=['A']), _item('A'),
+               _item('S', parent='E')]
+    before, after = precedence_relations(backlog)
+    assert 'A' in before['C'] and 'C' in after['A']
+    assert 'E' in before['S'] and 'S' in after['E']
+    assert before['A'] == set()

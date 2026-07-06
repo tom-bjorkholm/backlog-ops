@@ -50,13 +50,16 @@
   * [ask\_read\_options](#backlogops_gui.format_dialogs.ask_read_options)
   * [ask\_write\_options](#backlogops_gui.format_dialogs.ask_write_options)
 * [backlogops\_gui.jira\_dialogs](#backlogops_gui.jira_dialogs)
+  * [KEY\_READ\_ERRORS](#backlogops_gui.jira_dialogs.KEY_READ_ERRORS)
   * [MISSING\_MODE\_TEXT](#backlogops_gui.jira_dialogs.MISSING_MODE_TEXT)
   * [LINK\_MODE\_TEXT](#backlogops_gui.jira_dialogs.LINK_MODE_TEXT)
+  * [RANK\_END\_TEXT](#backlogops_gui.jira_dialogs.RANK_END_TEXT)
   * [JiraPresetOptions](#backlogops_gui.jira_dialogs.JiraPresetOptions)
   * [JiraReadOptions](#backlogops_gui.jira_dialogs.JiraReadOptions)
   * [JiraWriteOptions](#backlogops_gui.jira_dialogs.JiraWriteOptions)
   * [JiraReleaseUpdateOptions](#backlogops_gui.jira_dialogs.JiraReleaseUpdateOptions)
   * [JiraBacklogUpdateOptions](#backlogops_gui.jira_dialogs.JiraBacklogUpdateOptions)
+  * [JiraRankOptions](#backlogops_gui.jira_dialogs.JiraRankOptions)
   * [JiraReadDialog](#backlogops_gui.jira_dialogs.JiraReadDialog)
     * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraReadDialog.__init__)
   * [ask\_jira\_read\_options](#backlogops_gui.jira_dialogs.ask_jira_read_options)
@@ -69,6 +72,9 @@
   * [JiraBacklogUpdateDialog](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog)
     * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog.__init__)
   * [ask\_backlog\_update](#backlogops_gui.jira_dialogs.ask_backlog_update)
+  * [JiraRankDialog](#backlogops_gui.jira_dialogs.JiraRankDialog)
+    * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraRankDialog.__init__)
+  * [ask\_jira\_rank](#backlogops_gui.jira_dialogs.ask_jira_rank)
   * [PassphraseDialog](#backlogops_gui.jira_dialogs.PassphraseDialog)
     * [\_\_init\_\_](#backlogops_gui.jira_dialogs.PassphraseDialog.__init__)
   * [ask\_jira\_passphrase](#backlogops_gui.jira_dialogs.ask_jira_passphrase)
@@ -115,6 +121,9 @@
     * [build\_body](#backlogops_gui.application.BacklogApp.build_body)
     * [refresh\_log](#backlogops_gui.application.BacklogApp.refresh_log)
   * [main](#backlogops_gui.application.main)
+* [backlogops\_gui.jira\_rank](#backlogops_gui.jira_rank)
+  * [JiraRanker](#backlogops_gui.jira_rank.JiraRanker)
+    * [rank\_action](#backlogops_gui.jira_rank.JiraRanker.rank_action)
 * [backlogops\_gui.tcltk\_version](#backlogops_gui.tcltk_version)
   * [warning\_for\_version](#backlogops_gui.tcltk_version.warning_for_version)
   * [check\_tcltk\_version](#backlogops_gui.tcltk_version.check_tcltk_version)
@@ -741,6 +750,12 @@ preset, what to do with a missing item key, which columns to update, and
 how parent and dependency links are reconciled. A separate dialog collects
 the masked pass phrase for an encrypted Jira API token.
 
+<a id="backlogops_gui.jira_dialogs.KEY_READ_ERRORS"></a>
+
+#### KEY\_READ\_ERRORS
+
+Errors caught when loading a key list file into the rank dialog.
+
 <a id="backlogops_gui.jira_dialogs.MISSING_MODE_TEXT"></a>
 
 #### MISSING\_MODE\_TEXT
@@ -755,6 +770,12 @@ Label shown for each link-update mode in the backlog-update dialog.
 
 The keys mirror the CLI ``--links`` values; ``reconcile`` maps to
 :class:`LinkUpdate.RECONCILE` and ``add`` to :class:`LinkUpdate.ADD_MISSING`.
+
+<a id="backlogops_gui.jira_dialogs.RANK_END_TEXT"></a>
+
+#### RANK\_END\_TEXT
+
+Label shown for each end in the rank-items dialog.
 
 <a id="backlogops_gui.jira_dialogs.JiraPresetOptions"></a>
 
@@ -810,6 +831,17 @@ class JiraBacklogUpdateOptions(JiraPresetOptions)
 ```
 
 The preset, missing-key mode, fields and link policy for updating.
+
+<a id="backlogops_gui.jira_dialogs.JiraRankOptions"></a>
+
+## JiraRankOptions Objects
+
+```python
+@dataclass
+class JiraRankOptions(JiraPresetOptions)
+```
+
+The preset, filter, keys and end chosen for ranking items in Jira.
 
 <a id="backlogops_gui.jira_dialogs.JiraReadDialog"></a>
 
@@ -943,6 +975,38 @@ def ask_backlog_update(
 ```
 
 Ask the preset, mode, fields and link policy, None when cancelled.
+
+<a id="backlogops_gui.jira_dialogs.JiraRankDialog"></a>
+
+## JiraRankDialog Objects
+
+```python
+class JiraRankDialog(ModalDialog)
+```
+
+Modal dialog collecting the preset, filter, keys and end to rank.
+
+<a id="backlogops_gui.jira_dialogs.JiraRankDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, preset_filters: Mapping[str, str],
+             sink: TextIO) -> None
+```
+
+Build, show and wait for the rank-items dialog.
+
+<a id="backlogops_gui.jira_dialogs.ask_jira_rank"></a>
+
+#### ask\_jira\_rank
+
+```python
+def ask_jira_rank(parent: tk.Misc, preset_filters: Mapping[str, str],
+                  sink: TextIO) -> Optional[JiraRankOptions]
+```
+
+Ask the preset, filter, keys and end to rank, None when cancelled.
 
 <a id="backlogops_gui.jira_dialogs.PassphraseDialog"></a>
 
@@ -1518,6 +1582,40 @@ Start the backlog operations GUI.
 
 - `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
 
+<a id="backlogops_gui.jira_rank"></a>
+
+# backlogops\_gui.jira\_rank
+
+Move issues to the front or end of a Jira backlog by rank.
+
+The ranker offers a handler that asks for a preset, the keys to move and
+which end to move them to, then ranks them in Jira on a worker thread and
+hands the result back to the GUI thread. It is available only when a
+configuration with Jira presets is loaded. The backlog and the current
+ranking come from Jira through the preset, not from the shown backlog, so
+the handler does not need the shown data.
+
+<a id="backlogops_gui.jira_rank.JiraRanker"></a>
+
+## JiraRanker Objects
+
+```python
+class JiraRanker(JiraAction)
+```
+
+Moves issues to the front or end of a Jira backlog by rank.
+
+<a id="backlogops_gui.jira_rank.JiraRanker.rank_action"></a>
+
+#### rank\_action
+
+```python
+def rank_action(
+) -> Optional[Callable[[Callable[[RankedInJira], None]], None]]
+```
+
+Return the rank handler, or None when it is unavailable.
+
 <a id="backlogops_gui.tcltk_version"></a>
 
 # backlogops\_gui.tcltk\_version
@@ -1875,7 +1973,9 @@ def __init__(
                  None]] = None,
     update_backlog: Optional[
         Callable[[BacklogReleases, Callable[[UpdatedBacklogInJira], None]],
-                 None]] = None
+                 None]] = None,
+    rank_in_jira: Optional[Callable[[Callable[[RankedInJira], None]],
+                                    None]] = None
 ) -> None
 ```
 
@@ -1908,6 +2008,10 @@ Build the window, its menu and the two tables.
 - `update_backlog` - Handler that updates the shown backlog in Jira
   and calls back with the result, or None when updating is
   unavailable (no configuration or no write presets).
+- `rank_in_jira` - Handler that asks for keys and an end and moves
+  those issues in the Jira rank order, calling back with the
+  result, or None when ranking is unavailable (no
+  configuration or no Jira presets).
 
 <a id="backlogops_gui.blog_version_reporter"></a>
 
@@ -2499,11 +2603,11 @@ Ask the user to fill the given table rows and return them.
 
 The Jira read, write and update collaborators of the application.
 
-The Jira menu actions of a backlog window are split across three
+The Jira menu actions of a backlog window are split across four
 collaborators so each stays focused as the Jira support grows.
 :class:`JiraActions` groups them behind one attribute of the application,
-so the application talks to ``self.jira.reader``, ``self.jira.writer`` and
-``self.jira.updater``.
+so the application talks to ``self.jira.reader``, ``self.jira.writer``,
+``self.jira.updater`` and ``self.jira.ranker``.
 
 <a id="backlogops_gui.jira_actions.JiraActions"></a>
 
@@ -2513,7 +2617,7 @@ so the application talks to ``self.jira.reader``, ``self.jira.writer`` and
 class JiraActions()
 ```
 
-Groups the Jira read, write and update collaborators.
+Groups the Jira read, write, update and rank collaborators.
 
 <a id="backlogops_gui.jira_actions.JiraActions.__init__"></a>
 
@@ -2523,7 +2627,7 @@ Groups the Jira read, write and update collaborators.
 def __init__(app: 'BacklogApp') -> None
 ```
 
-Create the reader, writer and updater for the application.
+Create the reader, writer, updater and ranker for the app.
 
 <a id="backlogops_gui.file_choosers"></a>
 

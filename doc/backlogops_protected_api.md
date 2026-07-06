@@ -19,6 +19,15 @@
   * [format\_backlog](#backlogops.apply_format_rules.format_backlog)
   * [\_format\_release](#backlogops.apply_format_rules._format_release)
   * [format\_releases](#backlogops.apply_format_rules.format_releases)
+* [backlogops.jira\_rank\_by\_keys](#backlogops.jira_rank_by_keys)
+  * [JiraKeyError](#backlogops.jira_rank_by_keys.JiraKeyError)
+    * [\_\_init\_\_](#backlogops.jira_rank_by_keys.JiraKeyError.__init__)
+  * [JiraTooManyLoops](#backlogops.jira_rank_by_keys.JiraTooManyLoops)
+    * [\_\_init\_\_](#backlogops.jira_rank_by_keys.JiraTooManyLoops.__init__)
+  * [\_raise\_for\_missing](#backlogops.jira_rank_by_keys._raise_for_missing)
+  * [\_order\_in\_jira](#backlogops.jira_rank_by_keys._order_in_jira)
+  * [\_chain\_pass](#backlogops.jira_rank_by_keys._chain_pass)
+  * [jira\_rank\_by\_keys\_raw](#backlogops.jira_rank_by_keys.jira_rank_by_keys_raw)
 * [backlogops.backlog\_helpers](#backlogops.backlog_helpers)
   * [FORBIDDEN\_KEY\_CHARS](#backlogops.backlog_helpers.FORBIDDEN_KEY_CHARS)
   * [CONTROL\_CHAR\_NAMES](#backlogops.backlog_helpers.CONTROL_CHAR_NAMES)
@@ -413,6 +422,22 @@
   * [update\_backlog\_in\_jira](#backlogops.jira_update_backlog.update_backlog_in_jira)
   * [updatable\_backlog\_fields](#backlogops.jira_update_backlog.updatable_backlog_fields)
   * [format\_backlog\_updates](#backlogops.jira_update_backlog.format_backlog_updates)
+* [backlogops.jira\_rank\_move\_keys](#backlogops.jira_rank_move_keys)
+  * [JiraMoveToEnd](#backlogops.jira_rank_move_keys.JiraMoveToEnd)
+  * [RankedInJira](#backlogops.jira_rank_move_keys.RankedInJira)
+  * [BadJiraRankFilter](#backlogops.jira_rank_move_keys.BadJiraRankFilter)
+    * [\_\_init\_\_](#backlogops.jira_rank_move_keys.BadJiraRankFilter.__init__)
+  * [\_ensure\_rank\_order](#backlogops.jira_rank_move_keys._ensure_rank_order)
+  * [\_children](#backlogops.jira_rank_move_keys._children)
+  * [\_descendants](#backlogops.jira_rank_move_keys._descendants)
+  * [\_family](#backlogops.jira_rank_move_keys._family)
+  * [\_block\_order](#backlogops.jira_rank_move_keys._block_order)
+  * [\_rank\_plan](#backlogops.jira_rank_move_keys._rank_plan)
+  * [\_present\_and\_absent](#backlogops.jira_rank_move_keys._present_and_absent)
+  * [\_split\_absent](#backlogops.jira_rank_move_keys._split_absent)
+  * [\_classify](#backlogops.jira_rank_move_keys._classify)
+  * [jira\_rank\_move\_keys](#backlogops.jira_rank_move_keys.jira_rank_move_keys)
+  * [format\_rank\_result](#backlogops.jira_rank_move_keys.format_rank_result)
 * [backlogops.io\_config](#backlogops.io_config)
   * [EXTENSION\_FORMATS](#backlogops.io_config.EXTENSION_FORMATS)
   * [PRESET\_NAME\_RE](#backlogops.io_config.PRESET_NAME_RE)
@@ -681,6 +706,7 @@
   * [\_arrange\_by\_mode](#backlogops.order_by_dependencies._arrange_by_mode)
   * [\_start\_reachable](#backlogops.order_by_dependencies._start_reachable)
   * [\_precedence](#backlogops.order_by_dependencies._precedence)
+  * [precedence\_relations](#backlogops.order_by_dependencies.precedence_relations)
   * [\_space\_one](#backlogops.order_by_dependencies._space_one)
   * [\_apply\_space\_around](#backlogops.order_by_dependencies._apply_space_around)
   * [order\_by\_dependencies](#backlogops.order_by_dependencies.order_by_dependencies)
@@ -1161,6 +1187,174 @@ planned date; the other cells are left unformatted.
 **Returns**:
 
   The formatted release rows, ready for TableIO.
+
+<a id="backlogops.jira_rank_by_keys"></a>
+
+# backlogops.jira\_rank\_by\_keys
+
+Rank issues in Jira into the relative order of a key list.
+
+This is the low-level primitive under
+:func:`backlogops.jira_rank_move_keys.jira_rank_move_keys`. Given the keys
+in the wanted relative order, it drives the Jira ranking so that those
+issues end up in that order relative to each other, using the Jira client's
+``rank`` call. A ``rank`` call places one issue immediately before or after
+another, so the order is built by ranking each key next to its neighbour.
+
+The Jira ranking is eventually consistent and can, after moving several
+issues, forget an ordering constraint set earlier. So the wanted order is
+enforced in a read-verify loop: a deterministic chaining pass is applied,
+the current order is read back from Jira, and the pass is repeated until the
+read order matches the wanted order. The loop is bounded, and a run that
+does not converge raises :class:`JiraTooManyLoops` rather than looping
+forever.
+
+<a id="backlogops.jira_rank_by_keys.JiraKeyError"></a>
+
+## JiraKeyError Objects
+
+```python
+class JiraKeyError(KeyError)
+```
+
+Exception raised when an issue key is not found in Jira.
+
+<a id="backlogops.jira_rank_by_keys.JiraKeyError.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(key_name: str,
+             *,
+             connection_name: Optional[str] = None,
+             message: Optional[str] = None) -> None
+```
+
+Store the key and connection and build the error message.
+
+<a id="backlogops.jira_rank_by_keys.JiraTooManyLoops"></a>
+
+## JiraTooManyLoops Objects
+
+```python
+class JiraTooManyLoops(RuntimeError)
+```
+
+Exception raised when a Jira ranking does not converge in time.
+
+The wanted order is enforced in a bounded read-verify loop. When the
+order read back from Jira still does not match the wanted order after
+the last allowed loop, this exception is raised instead of looping
+forever.
+
+<a id="backlogops.jira_rank_by_keys.JiraTooManyLoops.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(max_loops: int,
+             *,
+             connection_name: Optional[str] = None,
+             message: Optional[str] = None) -> None
+```
+
+Store the loop count and connection and build the message.
+
+<a id="backlogops.jira_rank_by_keys._raise_for_missing"></a>
+
+#### \_raise\_for\_missing
+
+```python
+def _raise_for_missing(client: JIRA, keys: Sequence[str],
+                       connection_name: str) -> None
+```
+
+Raise JiraKeyError for the first key that is absent from Jira.
+
+<a id="backlogops.jira_rank_by_keys._order_in_jira"></a>
+
+#### \_order\_in\_jira
+
+```python
+def _order_in_jira(client: JIRA, keys: Sequence[str],
+                   connection_name: str) -> list[str]
+```
+
+Return the current rank order of the given keys, read from Jira.
+
+The keys are searched with an ``ORDER BY Rank ASC`` filter, so the
+result lists exactly those keys in their current rank order.
+
+**Raises**:
+
+- `JiraKeyError` - If a key is not present in Jira.
+
+<a id="backlogops.jira_rank_by_keys._chain_pass"></a>
+
+#### \_chain\_pass
+
+```python
+def _chain_pass(client: JIRA, keys: Sequence[str], move_before: bool) -> None
+```
+
+Rank each key next to its neighbour to build the wanted order.
+
+When ``move_before`` is True each key is ranked before the next key,
+working from the second last key to the first, so the last key stays
+put and the block ends up just before it. When it is False each key is
+ranked after the previous key, working from the second key to the last,
+so the first key stays put and the block ends up just after it.
+
+<a id="backlogops.jira_rank_by_keys.jira_rank_by_keys_raw"></a>
+
+#### jira\_rank\_by\_keys\_raw
+
+```python
+def jira_rank_by_keys_raw(connections: JiraConnections,
+                          connection_name: str,
+                          issue_keys: Sequence[str],
+                          *,
+                          move_before: bool = True) -> None
+```
+
+Rank issues in Jira into the relative order of a key list.
+
+The issues named by ``issue_keys`` are ranked in Jira so that they end
+up in the given order relative to each other. Only these issues are
+moved; issues not in the list are moved only as a side effect of an
+insertion. Parent and child relations and dependencies are not
+considered here; the caller supplies the final wanted order.
+
+``move_before`` selects which key of the list stays put and thereby
+where the block lands relative to issues that are not in the list. When
+True each key is ranked before the next one, so the last key stays put
+and the block ends up just before it. When False each key is ranked
+after the previous one, so the first key stays put and the block ends
+up just after it.
+
+The order is enforced in a bounded read-verify loop, because the Jira
+ranking can forget an earlier constraint after later moves: a chaining
+pass is applied, the order is read back, and the pass is repeated until
+the read order matches or the loop limit is reached. A list of fewer
+than two keys needs no ranking and returns at once.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients.
+- `connection_name` - The name of the connection to rank in.
+- `issue_keys` - The issue keys in the wanted relative order. The keys
+  must be unique.
+- `move_before` - Whether to rank each key before the next one (True) or
+  after the previous one (False), as described above.
+  
+
+**Raises**:
+
+- `KeyError` - If the configuration has no such connection.
+- `JiraKeyError` - If an issue key is not present in Jira.
+- `JiraTooManyLoops` - If the ranking does not converge within the loop
+  limit.
+- `JIRAError` - If a Jira ranking call fails.
 
 <a id="backlogops.backlog_helpers"></a>
 
@@ -7383,6 +7577,285 @@ a heading with its count, then one line per entry, or a ``(none)`` line
 when empty. The CLI prints this text and the GUI shows it in a
 copy-pasteable pop-up.
 
+<a id="backlogops.jira_rank_move_keys"></a>
+
+# backlogops.jira\_rank\_move\_keys
+
+Move named issues to the front or the end of a Jira backlog by rank.
+
+A backlog in Jira is the set of issues a filter reads in their Jira rank
+order. :func:`jira_rank_move_keys` moves the named issues, together with
+the issues they pull along, to the front or the end of that backlog, and
+leaves every other issue in its existing Jira rank order.
+
+The moved block is the named issues, all their descendants (the items below
+them in the parent and child hierarchy) and their dependencies. For a move
+to the front the dependencies pulled along are the prerequisites of the
+block, so everything the named issues need is ranked before them. For a
+move to the end they are the dependents of the block, so everything that
+needs the named issues is ranked after them. The block is ordered by
+:func:`backlogops.order_by_dependencies.order_by_dependencies`, so a parent
+is ranked before its child and a prerequisite before its dependent. The new
+order is written to Jira through
+:func:`backlogops.jira_rank_by_keys.jira_rank_by_keys_raw`.
+
+<a id="backlogops.jira_rank_move_keys.JiraMoveToEnd"></a>
+
+## JiraMoveToEnd Objects
+
+```python
+class JiraMoveToEnd(Enum)
+```
+
+Which end of the Jira backlog the named issues are moved to.
+
+<a id="backlogops.jira_rank_move_keys.RankedInJira"></a>
+
+## RankedInJira Objects
+
+```python
+class RankedInJira(NamedTuple)
+```
+
+The result of moving named issues in the Jira rank order.
+
+Fields:
+    keys_ranked_ok: The named issue keys that were found in the backlog
+                    and re-ranked in Jira.
+    keys_not_in_jira: The named issue keys that do not exist in Jira.
+    keys_not_in_filter: The named issue keys that exist in Jira but
+                        were not read by the filter, so they are not
+                        part of the backlog.
+
+<a id="backlogops.jira_rank_move_keys.BadJiraRankFilter"></a>
+
+## BadJiraRankFilter Objects
+
+```python
+class BadJiraRankFilter(ValueError)
+```
+
+Raised when a filter cannot be used for ranking in Jira.
+
+A filter used for ranking must read the backlog in its Jira rank
+order, so it may only order by rank ascending. This is raised when the
+filter orders by anything else.
+
+<a id="backlogops.jira_rank_move_keys.BadJiraRankFilter.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(*, jql_text: str, message: str) -> None
+```
+
+Store the filter and the reason and build the message.
+
+<a id="backlogops.jira_rank_move_keys._ensure_rank_order"></a>
+
+#### \_ensure\_rank\_order
+
+```python
+def _ensure_rank_order(jql: str) -> str
+```
+
+Return the filter with an ``ORDER BY Rank ASC`` clause enforced.
+
+A filter with no ORDER BY clause has one appended. A filter that
+already orders by rank ascending is returned unchanged. Any other
+ORDER BY clause is rejected, because it would not read the backlog in
+its Jira rank order.
+
+**Raises**:
+
+- `BadJiraRankFilter` - If the filter orders by anything but rank.
+
+<a id="backlogops.jira_rank_move_keys._children"></a>
+
+#### \_children
+
+```python
+def _children(backlog: Backlog) -> dict[str, list[str]]
+```
+
+Return the child keys of each parent key, in backlog order.
+
+<a id="backlogops.jira_rank_move_keys._descendants"></a>
+
+#### \_descendants
+
+```python
+def _descendants(backlog: Backlog, roots: Sequence[str]) -> set[str]
+```
+
+Return the transitive descendant keys of the given root keys.
+
+<a id="backlogops.jira_rank_move_keys._family"></a>
+
+#### \_family
+
+```python
+def _family(backlog: Backlog, named: Sequence[str],
+            move_to_end: JiraMoveToEnd) -> set[str]
+```
+
+Return the keys to move: the named keys, descendants and their deps.
+
+The named keys and all their descendants are always included. For a
+move to the front the transitive prerequisites of that set are added,
+so everything the named issues need is ranked before them. For a move
+to the end the transitive dependents are added, so everything that
+needs the named issues is ranked after them.
+
+<a id="backlogops.jira_rank_move_keys._block_order"></a>
+
+#### \_block\_order
+
+```python
+def _block_order(backlog: Backlog, block: set[str],
+                 stderr_file: TextIO) -> list[str]
+```
+
+Return the block keys ordered by dependencies, parent before child.
+
+The block items are taken in their current backlog rank order and
+reordered by :func:`order_by_dependencies`, so a parent is ranked
+before its child and a prerequisite before its dependent.
+
+<a id="backlogops.jira_rank_move_keys._rank_plan"></a>
+
+#### \_rank\_plan
+
+```python
+def _rank_plan(backlog: Backlog, named: Sequence[str],
+               move_to_end: JiraMoveToEnd,
+               stderr_file: TextIO) -> tuple[list[str], bool]
+```
+
+Return the key list and move_before flag for the raw ranking call.
+
+The moved block (the named keys with their descendants and pulled
+dependencies) is ordered by dependencies. For a move to the front the
+ordered block is followed by the first remaining key and ranked before
+it; for a move to the end the last remaining key is followed by the
+ordered block and ranked after it. This keeps every remaining item in
+its existing Jira rank order and moves only the block.
+
+<a id="backlogops.jira_rank_move_keys._present_and_absent"></a>
+
+#### \_present\_and\_absent
+
+```python
+def _present_and_absent(requested: Sequence[str],
+                        backlog: Backlog) -> tuple[list[str], list[str]]
+```
+
+Split requested keys into those in the backlog and those not in it.
+
+Duplicate requests are collapsed, keeping the first occurrence, so the
+two returned lists together hold each requested key once.
+
+<a id="backlogops.jira_rank_move_keys._split_absent"></a>
+
+#### \_split\_absent
+
+```python
+def _split_absent(client: JIRA,
+                  absent: Sequence[str]) -> tuple[list[str], list[str]]
+```
+
+Split absent keys into not-in-Jira and excluded-by-filter keys.
+
+<a id="backlogops.jira_rank_move_keys._classify"></a>
+
+#### \_classify
+
+```python
+def _classify(connections: JiraConnections, connection_name: str,
+              requested: Sequence[str],
+              backlog: Backlog) -> tuple[RankedInJira, list[str]]
+```
+
+Classify requested keys against the backlog and existing Jira issues.
+
+Returns the full result and the list of found keys, so the caller can
+rank the found keys and still return the complete classification.
+
+<a id="backlogops.jira_rank_move_keys.jira_rank_move_keys"></a>
+
+#### jira\_rank\_move\_keys
+
+```python
+def jira_rank_move_keys(connections: JiraConnections,
+                        preset_name: str,
+                        issue_keys: Sequence[str],
+                        *,
+                        filter_override: Optional[str] = None,
+                        move_to_end: JiraMoveToEnd = JiraMoveToEnd.FIRST,
+                        levels: Optional[Levels] = None,
+                        status_map: Optional[dict[str, Status]] = None,
+                        stderr_file: TextIO = sys.stderr) -> RankedInJira
+```
+
+Move named issues to the front or the end of a Jira backlog by rank.
+
+The preset names the connection and the column maps, and its filter
+(or ``filter_override`` when given) reads the backlog in its Jira rank
+order. The named issues, their descendants and their dependencies are
+moved as one block to the front (``FIRST``) or the end (``LAST``) of
+that backlog, ordered so that a parent is ranked before its child and a
+prerequisite before its dependent. Every other issue keeps its existing
+Jira rank order. A named key that is not part of the backlog is not
+ranked but reported, either as not existing in Jira or as excluded by
+the filter.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients and the configuration
+  holding the preset.
+- `preset_name` - The name of the preset to use.
+- `issue_keys` - The keys of the issues to move, in no required order.
+- `filter_override` - A Jira filter to use instead of the preset's. It
+  may only order by rank ascending; a missing ORDER BY clause is
+  added.
+- `move_to_end` - Whether to move the named issues to the front
+  (``FIRST``, the default) or the end (``LAST``) of the backlog.
+- `levels` - The levels used to resolve a string level, or None for the
+  default levels.
+- `status_map` - Extra Jira status names mapped to Status members, or
+  None. Needed when the Jira statuses are not the built-in names.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The keys that were re-ranked and the named keys that were not part
+  of the backlog.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or a referenced connection or map is
+  missing.
+- `BadJiraRankFilter` - If the filter orders by anything but rank.
+- `JiraTooManyLoops` - If the ranking does not converge within the loop
+  limit.
+- `JIRAError` - If a Jira call fails.
+
+<a id="backlogops.jira_rank_move_keys.format_rank_result"></a>
+
+#### format\_rank\_result
+
+```python
+def format_rank_result(result: RankedInJira) -> str
+```
+
+Return a listing of the ranked, not-in-Jira and not-in-filter keys.
+
+Each section has a heading with its count, then one indented key per
+line, or a ``(none)`` line when it is empty. The CLI prints this text
+and the GUI shows it in a copy-pasteable pop-up.
+
 <a id="backlogops.io_config"></a>
 
 # backlogops.io\_config
@@ -11249,6 +11722,37 @@ def _precedence(
 ```
 
 Return the must-start-before and must-start-after item relations.
+
+<a id="backlogops.order_by_dependencies.precedence_relations"></a>
+
+#### precedence\_relations
+
+```python
+def precedence_relations(
+        backlog: Backlog) -> tuple[dict[str, set[str]], dict[str, set[str]]]
+```
+
+Return the must-start-before and must-start-after key relations.
+
+The first mapping gives, for each item key, the keys of the items that
+must start before that item can start, that is its transitive
+prerequisites. The second mapping gives, for each item key, the keys of
+the items that can only start after that item has started, that is its
+transitive dependents. Both combine the explicit dependency lists with
+the implicit parent relations, as documented for
+:func:`backlogops.backlog.build_dependency_graph`. A parent is a start
+prerequisite of its child, so a child is a start dependent of its
+parent.
+
+**Arguments**:
+
+- `backlog` - The backlog to take the relations from.
+  
+
+**Returns**:
+
+  The must-start-before and must-start-after relations, each as a
+  mapping from an item key to the set of related item keys.
 
 <a id="backlogops.order_by_dependencies._space_one"></a>
 

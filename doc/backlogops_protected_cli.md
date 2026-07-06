@@ -87,6 +87,12 @@
   * [\_level\_value](#backlogops_cli.extract_keys._level_value)
   * [\_emit](#backlogops_cli.extract_keys._emit)
   * [main](#backlogops_cli.extract_keys.main)
+* [backlogops\_cli.rank\_in\_jira](#backlogops_cli.rank_in_jira)
+  * [build\_parser](#backlogops_cli.rank_in_jira.build_parser)
+  * [\_passphrase](#backlogops_cli.rank_in_jira._passphrase)
+  * [\_rank](#backlogops_cli.rank_in_jira._rank)
+  * [\_run](#backlogops_cli.rank_in_jira._run)
+  * [main](#backlogops_cli.rank_in_jira.main)
 * [backlogops\_cli.\_wizard\_io](#backlogops_cli._wizard_io)
   * [build\_wizard\_parser](#backlogops_cli._wizard_io.build_wizard_parser)
   * [\_check\_overwrite](#backlogops_cli._wizard_io._check_overwrite)
@@ -1320,6 +1326,86 @@ Extract the backlog keys at the given levels and emit them.
 
   ``0`` on success, ``1`` when the backlog cannot be read or the
   keys cannot be written.
+
+<a id="backlogops_cli.rank_in_jira"></a>
+
+# backlogops\_cli.rank\_in\_jira
+
+Move key-list items to the front or end of a Jira backlog by rank.
+
+The command reads a key list from a file and moves the named issues,
+together with the issues they pull along, to the front (the default) or the
+end of the backlog read by a named preset of the backlog-ops configuration.
+The backlog is the issues the preset filter reads in their Jira rank order;
+``--filter`` overrides that filter for one run and may only order by rank.
+
+The named issues, their descendants and their dependencies are moved as one
+block, ordered so that a parent is ranked before its child and a
+prerequisite before its dependent, while every other issue keeps its Jira
+rank order. The re-ranked keys and the named keys that are not part of the
+backlog are printed to stdout unless ``-q``/``--quiet`` is given. An
+encrypted Jira token is unlocked by a pass phrase asked on the terminal only
+when it is needed.
+
+<a id="backlogops_cli.rank_in_jira.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the rank-in-Jira command.
+
+<a id="backlogops_cli.rank_in_jira._passphrase"></a>
+
+#### \_passphrase
+
+```python
+def _passphrase() -> str
+```
+
+Ask for the Jira token pass phrase on the terminal.
+
+<a id="backlogops_cli.rank_in_jira._rank"></a>
+
+#### \_rank
+
+```python
+def _rank(parsed: argparse.Namespace,
+          config: BacklogOpsConfig) -> RankedInJira
+```
+
+Move the key-list items in the Jira rank order using the preset.
+
+<a id="backlogops_cli.rank_in_jira._run"></a>
+
+#### \_run
+
+```python
+def _run(parsed: argparse.Namespace) -> int
+```
+
+Read the key list, rank the items in Jira and print the result.
+
+<a id="backlogops_cli.rank_in_jira.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Move key-list items in the Jira rank order and report the outcome.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the items cannot be ranked.
 
 <a id="backlogops_cli._wizard_io"></a>
 

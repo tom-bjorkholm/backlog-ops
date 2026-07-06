@@ -83,6 +83,13 @@ def _bl_update_recorder(store: list[object]) -> Callable[..., None]:
     return handler
 
 
+def _rank_recorder(store: list[object]) -> Callable[..., None]:
+    """Return a rank handler recording that it was invoked."""
+    def handler(on_done: object) -> None:
+        store.append(on_done)
+    return handler
+
+
 def test_window_uses_gui_maps(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the window passes the GUI column maps to both tables."""
     with gui_root() as root:
@@ -164,6 +171,34 @@ def test_backlog_update_menu() -> None:
         # pylint: disable-next=protected-access
         window._backlog_update()
         assert got and got[0] is DATA
+
+
+def test_rank_menu() -> None:
+    """Test the rank-items menu item is present and delegates."""
+    with gui_root() as root:
+        got: list[object] = []
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
+                               rank_in_jira=_rank_recorder(got))
+        assert 'Rank items in Jira…' in _jira_menu_labels(window)
+        # pylint: disable-next=protected-access
+        window._rank_jira()
+        assert len(got) == 1
+
+
+def test_rank_absent() -> None:
+    """Test the rank-items item is disabled without a handler."""
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK)
+        # pylint: disable-next=protected-access
+        menubar = window._win.nametowidget(window._win.cget('menu'))
+        menu = menubar.nametowidget(menubar.entrycget(1, 'menu'))
+        last = menu.index('end')
+        assert last is not None
+        states = {menu.entrycget(index, 'label'):
+                  menu.entrycget(index, 'state')
+                  for index in range(last + 1)
+                  if menu.type(index) != 'separator'}
+        assert states['Rank items in Jira…'] == 'disabled'
 
 
 def test_cmd_w_closes() -> None:

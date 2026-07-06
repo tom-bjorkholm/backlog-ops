@@ -38,6 +38,9 @@
 * [backlogops\_cli.extract\_keys](#backlogops_cli.extract_keys)
   * [build\_parser](#backlogops_cli.extract_keys.build_parser)
   * [main](#backlogops_cli.extract_keys.main)
+* [backlogops\_cli.rank\_in\_jira](#backlogops_cli.rank_in_jira)
+  * [build\_parser](#backlogops_cli.rank_in_jira.build_parser)
+  * [main](#backlogops_cli.rank_in_jira.main)
 * [backlogops\_cli.bloc\_version\_reporter](#backlogops_cli.bloc_version_reporter)
   * [BloCliVersionReporter](#backlogops_cli.bloc_version_reporter.BloCliVersionReporter)
     * [package\_names](#backlogops_cli.bloc_version_reporter.BloCliVersionReporter.package_names)
@@ -584,6 +587,55 @@ Extract the backlog keys at the given levels and emit them.
 
   ``0`` on success, ``1`` when the backlog cannot be read or the
   keys cannot be written.
+
+<a id="backlogops_cli.rank_in_jira"></a>
+
+# backlogops\_cli.rank\_in\_jira
+
+Move key-list items to the front or end of a Jira backlog by rank.
+
+The command reads a key list from a file and moves the named issues,
+together with the issues they pull along, to the front (the default) or the
+end of the backlog read by a named preset of the backlog-ops configuration.
+The backlog is the issues the preset filter reads in their Jira rank order;
+``--filter`` overrides that filter for one run and may only order by rank.
+
+The named issues, their descendants and their dependencies are moved as one
+block, ordered so that a parent is ranked before its child and a
+prerequisite before its dependent, while every other issue keeps its Jira
+rank order. The re-ranked keys and the named keys that are not part of the
+backlog are printed to stdout unless ``-q``/``--quiet`` is given. An
+encrypted Jira token is unlocked by a pass phrase asked on the terminal only
+when it is needed.
+
+<a id="backlogops_cli.rank_in_jira.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the rank-in-Jira command.
+
+<a id="backlogops_cli.rank_in_jira.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Move key-list items in the Jira rank order and report the outcome.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the items cannot be ranked.
 
 <a id="backlogops_cli.bloc_version_reporter"></a>
 

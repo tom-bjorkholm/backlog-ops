@@ -284,6 +284,30 @@ def _precedence(backlog: Backlog) -> tuple[dict[str, set[str]],
     return before, after
 
 
+def precedence_relations(backlog: Backlog) -> tuple[dict[str, set[str]],
+                                                    dict[str, set[str]]]:
+    """Return the must-start-before and must-start-after key relations.
+
+    The first mapping gives, for each item key, the keys of the items that
+    must start before that item can start, that is its transitive
+    prerequisites. The second mapping gives, for each item key, the keys of
+    the items that can only start after that item has started, that is its
+    transitive dependents. Both combine the explicit dependency lists with
+    the implicit parent relations, as documented for
+    :func:`backlogops.backlog.build_dependency_graph`. A parent is a start
+    prerequisite of its child, so a child is a start dependent of its
+    parent.
+
+    Args:
+        backlog: The backlog to take the relations from.
+
+    Returns:
+        The must-start-before and must-start-after relations, each as a
+        mapping from an item key to the set of related item keys.
+    """
+    return _precedence(backlog)
+
+
 def _space_one(order: Sequence[str], key: str, prereqs: set[str],
                dependents: set[str]) -> list[str]:
     """Reposition one key to maximize the space to its dependencies.

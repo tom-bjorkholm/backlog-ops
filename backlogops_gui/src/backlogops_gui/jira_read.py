@@ -45,11 +45,6 @@ class JiraReader(JiraAction):
         self._start(options.preset_name, 'Reading from Jira',
                     lambda: self._read_worker(options))
 
-    def _preset_filters(self) -> dict[str, str]:
-        """Return Jira preset names mapped to their default filters."""
-        presets = self._config().get_jira_config().presets
-        return {name: preset.def_filter for name, preset in presets.items()}
-
     def _read_worker(self, options: JiraReadOptions) -> None:
         """Read Jira data on a worker and schedule the GUI update."""
         name = options.preset_name

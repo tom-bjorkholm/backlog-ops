@@ -224,6 +224,9 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.preset_wizard
      Create an input or output preset config file via a wizard
 
+  python3 -m backlogops_cli.rank_in_jira
+     Move key-list items first or last in the Jira rank order
+
   python3 -m backlogops_cli.read_jira
      Read a backlog and releases from Jira and store to a file
 
@@ -239,10 +242,3 @@ backlogops_cli serves 2 purposes:
 ````
 
 ## Test summary
-
-- Test result: 1991 passed in 41s
-- No flake8 warnings.
-- No mypy errors found.
-- No python layout warnings.
-- Built version(s): 0.2.1
-- Build and test using Python 3.14.6

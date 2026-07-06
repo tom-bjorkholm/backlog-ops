@@ -20,8 +20,9 @@ from typing import Callable, Literal, Optional, TextIO
 from tableio import ValueFmt
 from backlogops import (
     AddedReleasesToJira, AddedToJira, AvailableTeams, BacklogReleases,
-    GuiDisplayConfig, Levels, OutputFormatConfig, UpdatedBacklogInJira,
-    UpdatedReleasesInJira, format_release_result, format_release_updates)
+    GuiDisplayConfig, Levels, OutputFormatConfig, RankedInJira,
+    UpdatedBacklogInJira, UpdatedReleasesInJira, format_rank_result,
+    format_release_result, format_release_updates)
 from backlogops_gui.backlog_actions import (
     adjust_content, apply_add_result, apply_update_result, estimate_date,
     extract_keys, order_by_deps, order_by_keys, order_by_release, order_dates,
@@ -61,7 +62,9 @@ class BacklogWindow:
                  update_backlog: Optional[Callable[
                      [BacklogReleases,
                       Callable[[UpdatedBacklogInJira], None]],
-                     None]] = None) -> None:
+                     None]] = None,
+                 rank_in_jira: Optional[Callable[
+                     [Callable[[RankedInJira], None]], None]] = None) -> None:
         """Build the window, its menu and the two tables.
 
         Args:
@@ -90,6 +93,10 @@ class BacklogWindow:
             update_backlog: Handler that updates the shown backlog in Jira
                 and calls back with the result, or None when updating is
                 unavailable (no configuration or no write presets).
+            rank_in_jira: Handler that asks for keys and an end and moves
+                those issues in the Jira rank order, calling back with the
+                result, or None when ranking is unavailable (no
+                configuration or no Jira presets).
         """
         self._data = data
         self._presets = presets
@@ -102,6 +109,7 @@ class BacklogWindow:
         self._add_releases = add_releases
         self._update_releases = update_releases
         self._update_backlog = update_backlog
+        self._rank_in_jira = rank_in_jira
         self._win = tk.Toplevel(root)
         self._win.title(title)
         bind_close(self._win)
@@ -206,6 +214,11 @@ class BacklogWindow:
                      and self._warning is None else 'disabled')
         menu.add_command(label='Update releases in Jira…',
                          command=self._releases_update, state=upd_state)
+        rank_state: Literal['normal', 'disabled']
+        rank_state = ('normal' if self._rank_in_jira is not None
+                      and self._warning is None else 'disabled')
+        menu.add_command(label='Rank items in Jira…', command=self._rank_jira,
+                         state=rank_state)
 
     def _add_table(self, heading: str, columns: list[str],
                    rows: list[list[ValueFmt]], narrow: bool) -> tk.Widget:
@@ -350,3 +363,17 @@ class BacklogWindow:
     def _show_update_report(self, text: str) -> None:
         """Show the backlog update result text in a copy-pasteable pop-up."""
         show_text_report(self._win, 'Update backlog in Jira', text)
+
+    def _rank_jira(self) -> None:
+        """Move chosen issues in the Jira rank order and show the result."""
+        if self._rank_in_jira is not None:
+            self._rank_in_jira(self._on_ranked)
+
+    def _on_ranked(self, result: RankedInJira) -> None:
+        """Show the ranked and skipped keys in a copy-pasteable pop-up.
+
+        Ranking changes only the Jira rank of issues, not the shown
+        backlog, so no rebuild of the tables is needed.
+        """
+        show_text_report(self._win, 'Rank items in Jira',
+                         format_rank_result(result))

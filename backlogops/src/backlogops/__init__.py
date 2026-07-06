@@ -31,7 +31,7 @@ from backlogops.backlog_ops_config import (
     BacklogOpsConfig, read_backlog_ops_config, write_backlog_ops_config,
     get_backlog_ops_config, DEF_STATUS_INPUT_MAP)
 from backlogops.order_by_dependencies import (
-    order_by_dependencies, DependencyMode)
+    order_by_dependencies, DependencyMode, precedence_relations)
 from backlogops.estimate_ready_date import (
     estimate_ready_date, set_plan_from_estimate)
 from backlogops.release_backlog_updates import (
@@ -88,6 +88,11 @@ from backlogops.jira_update_releases import (
 from backlogops.jira_update_backlog import (
     update_backlog_in_jira, UpdatedBacklogInJira, LinkUpdate,
     format_backlog_updates, updatable_backlog_fields)
+from backlogops.jira_rank_by_keys import (
+    jira_rank_by_keys_raw, JiraKeyError, JiraTooManyLoops)
+from backlogops.jira_rank_move_keys import (
+    jira_rank_move_keys, JiraMoveToEnd, RankedInJira, BadJiraRankFilter,
+    format_rank_result)
 
 __all__ = [
     'Backlog', 'BacklogItem', 'Status', 'get_backlog', 'get_backlog_item',
@@ -101,7 +106,7 @@ __all__ = [
     'AvailableTeams', 'AvailableTeamsConfig', 'read_available_teams',
     'write_available_teams', 'BacklogOpsConfig', 'read_backlog_ops_config',
     'write_backlog_ops_config', 'get_backlog_ops_config',
-    'order_by_dependencies',
+    'order_by_dependencies', 'precedence_relations',
     'DependencyMode', 'GuiDisplayConfig', 'InputFormatConfig',
     'OutputFormatConfig', 'resolve_input_config', 'resolve_output_config',
     'make_input_config', 'make_output_config',
@@ -138,4 +143,6 @@ __all__ = [
     'update_releases_in_jira', 'UpdatedReleasesInJira',
     'format_release_updates', 'update_backlog_in_jira',
     'UpdatedBacklogInJira', 'LinkUpdate', 'format_backlog_updates',
-    'updatable_backlog_fields']
+    'updatable_backlog_fields', 'jira_rank_by_keys_raw', 'JiraKeyError',
+    'JiraTooManyLoops', 'jira_rank_move_keys', 'JiraMoveToEnd',
+    'RankedInJira', 'BadJiraRankFilter', 'format_rank_result']

@@ -52,6 +52,11 @@ class JiraAction:
         """Return the Jira preset names of the configuration, sorted."""
         return sorted(self._config().get_jira_config().presets)
 
+    def _preset_filters(self) -> dict[str, str]:
+        """Return Jira preset names mapped to their default filters."""
+        presets = self._config().get_jira_config().presets
+        return {name: preset.def_filter for name, preset in presets.items()}
+
     def _connections(self) -> JiraConnections:
         """Return the Jira connections of the configuration."""
         return JiraConnections(self._config().get_jira_config())

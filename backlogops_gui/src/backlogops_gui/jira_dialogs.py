@@ -14,13 +14,16 @@ the masked pass phrase for an encrypted Jira API token.
 # MIT License
 
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 from dataclasses import dataclass
 from collections.abc import Mapping
-from typing import Optional, Sequence
-from backlogops import OnMissingKey
+from typing import Optional, Sequence, TextIO
+from backlogops import JiraMoveToEnd, OnMissingKey, read_key_list
 from backlogops_gui.gui_style import style_input
 from backlogops_gui.modal_dialog import ModalDialog
+
+KEY_READ_ERRORS = (ValueError, TypeError, KeyError, OSError)
+"""Errors caught when loading a key list file into the rank dialog."""
 
 MISSING_MODE_TEXT = {
     OnMissingKey.RAISE: 'Stop with an error',
@@ -37,6 +40,12 @@ LINK_MODE_TEXT = {
 The keys mirror the CLI ``--links`` values; ``reconcile`` maps to
 :class:`LinkUpdate.RECONCILE` and ``add`` to :class:`LinkUpdate.ADD_MISSING`.
 """
+
+
+RANK_END_TEXT = {
+    JiraMoveToEnd.FIRST: 'First (top of the backlog)',
+    JiraMoveToEnd.LAST: 'Last (bottom of the backlog)'}
+"""Label shown for each end in the rank-items dialog."""
 
 
 @dataclass
@@ -75,6 +84,15 @@ class JiraBacklogUpdateOptions(JiraPresetOptions):
     on_missing: OnMissingKey
     fields: list[str]
     reconcile_links: bool
+
+
+@dataclass
+class JiraRankOptions(JiraPresetOptions):
+    """The preset, filter, keys and end chosen for ranking items in Jira."""
+
+    issue_filter: str
+    keys: list[str]
+    move_to_end: JiraMoveToEnd
 
 
 # pylint: disable-next=too-few-public-methods
@@ -352,6 +370,115 @@ def ask_backlog_update(parent: tk.Misc,
                        ) -> Optional[JiraBacklogUpdateOptions]:
     """Ask the preset, mode, fields and link policy, None when cancelled."""
     dialog = JiraBacklogUpdateDialog(parent, preset_fields)
+    if dialog.cancelled:
+        return None
+    return dialog.options
+
+
+# pylint: disable-next=too-few-public-methods,too-many-instance-attributes
+class JiraRankDialog(ModalDialog):
+    """Modal dialog collecting the preset, filter, keys and end to rank."""
+
+    def __init__(self, parent: tk.Misc, preset_filters: Mapping[str, str],
+                 sink: TextIO) -> None:
+        """Build, show and wait for the rank-items dialog."""
+        super().__init__(parent, 'Rank items in Jira')
+        self.options: Optional[JiraRankOptions] = None
+        self._sink = sink
+        self._filters = dict(preset_filters)
+        names = sorted(self._filters)
+        first = names[0] if names else ''
+        self._preset = tk.StringVar(self._win, first)
+        self._filter = tk.StringVar(self._win, self._filters.get(first, ''))
+        self._end = tk.StringVar(self._win, JiraMoveToEnd.FIRST.name)
+        self._text = self._build(names)
+        self._show()
+
+    def _build(self, names: Sequence[str]) -> tk.Text:
+        """Add the preset, filter, end radios and the key entry box."""
+        self._build_preset(names)
+        self._build_filter()
+        self._build_end()
+        return self._build_keys()
+
+    def _build_preset(self, names: Sequence[str]) -> None:
+        """Add the Jira preset label and read-only chooser."""
+        tk.Label(self._win, text='Jira preset:').pack(anchor='w', padx=12,
+                                                      pady=(10, 2))
+        box = ttk.Combobox(self._win, textvariable=self._preset,
+                           values=list(names), state='readonly', width=35)
+        box.bind('<<ComboboxSelected>>', self._preset_changed)
+        style_input(box)
+        box.pack(anchor='w', padx=12)
+
+    def _build_filter(self) -> None:
+        """Add the editable issue filter, prefilled from the preset."""
+        tk.Label(self._win, text='Jira issue filter:'
+                 ).pack(anchor='w', padx=12, pady=(8, 2))
+        entry = tk.Entry(self._win, textvariable=self._filter, width=80)
+        style_input(entry)
+        entry.pack(anchor='w', padx=12, fill='x')
+
+    def _build_end(self) -> None:
+        """Add the radios choosing which end to move the items to."""
+        tk.Label(self._win, text='Move the items to:'
+                 ).pack(anchor='w', padx=12, pady=(8, 2))
+        for end, text in RANK_END_TEXT.items():
+            tk.Radiobutton(self._win, variable=self._end, value=end.name,
+                           text=text).pack(anchor='w', padx=24)
+
+    def _build_keys(self) -> tk.Text:
+        """Add the key entry label, text box and load-from-file button."""
+        tk.Label(self._win,
+                 text='Keys to move (separated by spaces or newlines):'
+                 ).pack(anchor='w', padx=12, pady=(8, 2))
+        text = tk.Text(self._win, width=40, height=8)
+        style_input(text)
+        text.pack(padx=12, pady=2)
+        tk.Button(self._win, text='Load from file…',
+                  command=self._load).pack(anchor='w', padx=12, pady=4)
+        return text
+
+    def _preset_changed(self, _event: object) -> None:
+        """Show the selected preset's default issue filter."""
+        self._filter.set(self._filters.get(self._preset.get(), ''))
+
+    def _load(self) -> None:
+        """Read a key list file into the text box, reporting failures."""
+        name = filedialog.askopenfilename(parent=self._win,
+                                          title='Read key list')
+        if not name:
+            return
+        try:
+            keys = read_key_list(name, stderr_file=self._sink)
+        except KEY_READ_ERRORS as error:
+            messagebox.showerror('Could not read key list', str(error),
+                                 parent=self._win)
+            return
+        self._text.delete('1.0', 'end')
+        self._text.insert('end', '\n'.join(keys))
+
+    def _confirm(self) -> None:
+        """Store the preset, filter, keys and end, requiring preset+keys."""
+        name = self._preset.get()
+        if not name:
+            messagebox.showerror('No Jira preset', 'Select a Jira preset.',
+                                 parent=self._win)
+            return
+        keys = self._text.get('1.0', 'end').split()
+        if not keys:
+            messagebox.showerror('No keys', 'Enter at least one key.',
+                                 parent=self._win)
+            return
+        self.options = JiraRankOptions(name, self._filter.get(), keys,
+                                       JiraMoveToEnd[self._end.get()])
+        super()._confirm()
+
+
+def ask_jira_rank(parent: tk.Misc, preset_filters: Mapping[str, str],
+                  sink: TextIO) -> Optional[JiraRankOptions]:
+    """Ask the preset, filter, keys and end to rank, None when cancelled."""
+    dialog = JiraRankDialog(parent, preset_filters, sink)
     if dialog.cancelled:
         return None
     return dialog.options

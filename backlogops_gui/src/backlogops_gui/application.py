@@ -395,7 +395,8 @@ class BacklogApp:
                       self.jira.writer.backlog_action(),
                       self.jira.writer.releases_action(),
                       self.jira.updater.releases_action(),
-                      self.jira.updater.backlog_action())
+                      self.jira.updater.backlog_action(),
+                      self.jira.ranker.rank_action())
 
     def report_versions(self) -> None:
         """Report version information into the log on a worker thread.
