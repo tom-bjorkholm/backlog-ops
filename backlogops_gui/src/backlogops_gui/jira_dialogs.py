@@ -2,12 +2,14 @@
 """Modal dialogs collecting the options for the Jira operations.
 
 Reading from Jira picks a Jira preset and an editable issue filter. Adding
-to Jira picks a write preset and whether to skip items whose key already
-exists. Updating releases picks a preset, what to do with a missing
-release name, and which releases to update. Updating the backlog picks a
-preset, what to do with a missing item key, which columns to update, and
-how parent and dependency links are reconciled. A separate dialog collects
-the masked pass phrase for an encrypted Jira API token.
+to Jira picks a write preset, whether to skip items whose key already
+exists, and optionally a rank anchor. Updating releases picks a preset,
+what to do with a missing release name, and which releases to update.
+Updating the backlog picks a preset, what to do with a missing item key,
+which columns to update, how parent and dependency links are reconciled,
+and optionally a rank anchor. Ranking items picks a preset, filter, keys,
+an anchor and whether to honour relations. A separate dialog collects the
+masked pass phrase for an encrypted Jira API token.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -18,7 +20,7 @@ from tkinter import filedialog, messagebox, ttk
 from dataclasses import dataclass
 from collections.abc import Mapping
 from typing import Optional, Sequence, TextIO
-from backlogops import JiraMoveToEnd, OnMissingKey, read_key_list
+from backlogops import JiraRankAnchor, OnMissingKey, read_key_list
 from backlogops_gui.gui_style import style_input
 from backlogops_gui.modal_dialog import ModalDialog
 
@@ -42,10 +44,20 @@ The keys mirror the CLI ``--links`` values; ``reconcile`` maps to
 """
 
 
-RANK_END_TEXT = {
-    JiraMoveToEnd.FIRST: 'First (top of the backlog)',
-    JiraMoveToEnd.LAST: 'Last (bottom of the backlog)'}
-"""Label shown for each end in the rank-items dialog."""
+RANK_ANCHOR_TEXT = {
+    JiraRankAnchor.BACKLOG_TOP: 'Top of the backlog',
+    JiraRankAnchor.BACKLOG_BOTTOM: 'Bottom of the backlog',
+    JiraRankAnchor.FIRST_KEY: 'Keep the first listed item fixed',
+    JiraRankAnchor.LAST_KEY: 'Keep the last listed item fixed'}
+"""Label shown for each anchor in the rank dialogs."""
+
+
+def _anchor_radios(win: tk.Misc, var: tk.StringVar) -> None:
+    """Add the four rank-anchor radios bound to ``var`` to ``win``."""
+    tk.Label(win, text='Rank anchor:').pack(anchor='w', padx=12, pady=(8, 2))
+    for anchor, text in RANK_ANCHOR_TEXT.items():
+        tk.Radiobutton(win, variable=var, value=anchor.name,
+                       text=text).pack(anchor='w', padx=24)
 
 
 @dataclass
@@ -64,9 +76,10 @@ class JiraReadOptions(JiraPresetOptions):
 
 @dataclass
 class JiraWriteOptions(JiraPresetOptions):
-    """The Jira write preset and existing-key choice for adding to Jira."""
+    """The Jira write preset, existing-key choice and rank anchor to add."""
 
     skip_existing: bool
+    rank_anchor: Optional[JiraRankAnchor]
 
 
 @dataclass
@@ -79,20 +92,22 @@ class JiraReleaseUpdateOptions(JiraPresetOptions):
 
 @dataclass
 class JiraBacklogUpdateOptions(JiraPresetOptions):
-    """The preset, missing-key mode, fields and link policy for updating."""
+    """The preset, missing-key mode, fields, links and rank for updating."""
 
     on_missing: OnMissingKey
     fields: list[str]
     reconcile_links: bool
+    rank_anchor: Optional[JiraRankAnchor]
 
 
 @dataclass
 class JiraRankOptions(JiraPresetOptions):
-    """The preset, filter, keys and end chosen for ranking items in Jira."""
+    """The preset, filter, keys, anchor and relations chosen for ranking."""
 
     issue_filter: str
     keys: list[str]
-    move_to_end: JiraMoveToEnd
+    anchor: JiraRankAnchor
+    honor_relations: bool
 
 
 # pylint: disable-next=too-few-public-methods
@@ -162,11 +177,14 @@ class JiraWriteDialog(ModalDialog):
         names = sorted(presets)
         self._preset = tk.StringVar(self._win, names[0] if names else '')
         self._skip = tk.BooleanVar(self._win, False)
+        self._rank = tk.BooleanVar(self._win, False)
+        self._anchor = tk.StringVar(self._win,
+                                    JiraRankAnchor.BACKLOG_BOTTOM.name)
         self._build(names)
         self._show()
 
     def _build(self, names: Sequence[str]) -> None:
-        """Add the preset chooser and the skip-existing checkbox."""
+        """Add the preset chooser, skip checkbox and rank controls."""
         tk.Label(self._win, text='Jira write preset:'
                  ).pack(anchor='w', padx=12, pady=(10, 2))
         box = ttk.Combobox(self._win, textvariable=self._preset,
@@ -176,16 +194,22 @@ class JiraWriteDialog(ModalDialog):
         tk.Checkbutton(self._win, variable=self._skip,
                        text='Skip items whose key already exists in Jira'
                        ).pack(anchor='w', padx=12, pady=(8, 2))
+        tk.Checkbutton(self._win, variable=self._rank,
+                       text='Also set the Jira rank order to match this '
+                       'backlog').pack(anchor='w', padx=12, pady=(8, 2))
+        _anchor_radios(self._win, self._anchor)
 
     def _confirm(self) -> None:
-        """Store the selected preset and skip choice, requiring a preset."""
+        """Store the preset, skip and rank choices, requiring a preset."""
         name = self._preset.get()
         if not name:
             messagebox.showerror('No Jira preset',
                                  'Select a Jira write preset.',
                                  parent=self._win)
             return
-        self.options = JiraWriteOptions(name, self._skip.get())
+        anchor = (JiraRankAnchor[self._anchor.get()] if self._rank.get()
+                  else None)
+        self.options = JiraWriteOptions(name, self._skip.get(), anchor)
         super()._confirm()
 
 
@@ -292,20 +316,31 @@ class JiraBacklogUpdateDialog(ModalDialog):
         self._preset = tk.StringVar(self._win, names[0] if names else '')
         self._mode = tk.StringVar(self._win, OnMissingKey.RAISE.name)
         self._links = tk.StringVar(self._win, 'reconcile')
+        self._rank = tk.BooleanVar(self._win, False)
+        self._anchor = tk.StringVar(self._win,
+                                    JiraRankAnchor.BACKLOG_BOTTOM.name)
         self._picks: dict[str, tk.BooleanVar] = {}
         self._fields_frame = tk.Frame(self._win)
         self._build(names)
         self._show()
 
     def _build(self, names: Sequence[str]) -> None:
-        """Add the preset, the mode radios, the links box and the fields."""
+        """Add the preset, mode radios, links box, rank controls and fields."""
         self._build_preset(names)
         self._build_mode()
         self._build_links()
+        self._build_rank()
         tk.Label(self._win, text='Columns to update:'
                  ).pack(anchor='w', padx=12, pady=(8, 2))
         self._fields_frame.pack(anchor='w', fill='x')
         self._build_fields()
+
+    def _build_rank(self) -> None:
+        """Add the opt-in rank checkbox and the anchor radios."""
+        tk.Checkbutton(self._win, variable=self._rank,
+                       text='Also set the Jira rank order to match this '
+                       'backlog').pack(anchor='w', padx=12, pady=(8, 2))
+        _anchor_radios(self._win, self._anchor)
 
     def _build_preset(self, names: Sequence[str]) -> None:
         """Add the Jira preset label and read-only chooser."""
@@ -360,8 +395,11 @@ class JiraBacklogUpdateDialog(ModalDialog):
             messagebox.showerror('No columns', 'Select at least one column.',
                                  parent=self._win)
             return
-        self.options = JiraBacklogUpdateOptions(name, OnMissingKey[
-            self._mode.get()], fields, self._links.get() == 'reconcile')
+        anchor = (JiraRankAnchor[self._anchor.get()] if self._rank.get()
+                  else None)
+        self.options = JiraBacklogUpdateOptions(
+            name, OnMissingKey[self._mode.get()], fields,
+            self._links.get() == 'reconcile', anchor)
         super()._confirm()
 
 
@@ -377,7 +415,7 @@ def ask_backlog_update(parent: tk.Misc,
 
 # pylint: disable-next=too-few-public-methods,too-many-instance-attributes
 class JiraRankDialog(ModalDialog):
-    """Modal dialog collecting the preset, filter, keys and end to rank."""
+    """Modal dialog for the preset, filter, keys, anchor and relations."""
 
     def __init__(self, parent: tk.Misc, preset_filters: Mapping[str, str],
                  sink: TextIO) -> None:
@@ -390,15 +428,16 @@ class JiraRankDialog(ModalDialog):
         first = names[0] if names else ''
         self._preset = tk.StringVar(self._win, first)
         self._filter = tk.StringVar(self._win, self._filters.get(first, ''))
-        self._end = tk.StringVar(self._win, JiraMoveToEnd.FIRST.name)
+        self._anchor = tk.StringVar(self._win, JiraRankAnchor.BACKLOG_TOP.name)
+        self._honor = tk.BooleanVar(self._win, False)
         self._text = self._build(names)
         self._show()
 
     def _build(self, names: Sequence[str]) -> tk.Text:
-        """Add the preset, filter, end radios and the key entry box."""
+        """Add the preset, filter, anchor controls and the key entry box."""
         self._build_preset(names)
         self._build_filter()
-        self._build_end()
+        self._build_anchor()
         return self._build_keys()
 
     def _build_preset(self, names: Sequence[str]) -> None:
@@ -419,13 +458,12 @@ class JiraRankDialog(ModalDialog):
         style_input(entry)
         entry.pack(anchor='w', padx=12, fill='x')
 
-    def _build_end(self) -> None:
-        """Add the radios choosing which end to move the items to."""
-        tk.Label(self._win, text='Move the items to:'
-                 ).pack(anchor='w', padx=12, pady=(8, 2))
-        for end, text in RANK_END_TEXT.items():
-            tk.Radiobutton(self._win, variable=self._end, value=end.name,
-                           text=text).pack(anchor='w', padx=24)
+    def _build_anchor(self) -> None:
+        """Add the anchor radios and the honour-relations checkbox."""
+        _anchor_radios(self._win, self._anchor)
+        tk.Checkbutton(self._win, variable=self._honor,
+                       text='Honour dependencies and parent/child relations'
+                       ).pack(anchor='w', padx=12, pady=(8, 2))
 
     def _build_keys(self) -> tk.Text:
         """Add the key entry label, text box and load-from-file button."""
@@ -471,13 +509,14 @@ class JiraRankDialog(ModalDialog):
                                  parent=self._win)
             return
         self.options = JiraRankOptions(name, self._filter.get(), keys,
-                                       JiraMoveToEnd[self._end.get()])
+                                       JiraRankAnchor[self._anchor.get()],
+                                       self._honor.get())
         super()._confirm()
 
 
 def ask_jira_rank(parent: tk.Misc, preset_filters: Mapping[str, str],
                   sink: TextIO) -> Optional[JiraRankOptions]:
-    """Ask the preset, filter, keys and end to rank, None when cancelled."""
+    """Ask the preset, filter, keys, anchor and relations; None if cancel."""
     dialog = JiraRankDialog(parent, preset_filters, sink)
     if dialog.cancelled:
         return None

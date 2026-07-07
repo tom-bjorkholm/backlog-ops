@@ -231,12 +231,11 @@
   * [updatable\_backlog\_fields](#backlogops.jira_update_backlog.updatable_backlog_fields)
   * [format\_backlog\_updates](#backlogops.jira_update_backlog.format_backlog_updates)
 * [backlogops.jira\_rank\_move\_keys](#backlogops.jira_rank_move_keys)
-  * [JiraMoveToEnd](#backlogops.jira_rank_move_keys.JiraMoveToEnd)
   * [RankedInJira](#backlogops.jira_rank_move_keys.RankedInJira)
-  * [BadJiraRankFilter](#backlogops.jira_rank_move_keys.BadJiraRankFilter)
-    * [\_\_init\_\_](#backlogops.jira_rank_move_keys.BadJiraRankFilter.__init__)
   * [jira\_rank\_move\_keys](#backlogops.jira_rank_move_keys.jira_rank_move_keys)
   * [format\_rank\_result](#backlogops.jira_rank_move_keys.format_rank_result)
+* [backlogops.jira\_write\_format](#backlogops.jira_write_format)
+  * [format\_add\_result](#backlogops.jira_write_format.format_add_result)
 * [backlogops.io\_config](#backlogops.io_config)
   * [EXTENSION\_FORMATS](#backlogops.io_config.EXTENSION_FORMATS)
   * [PRESET\_NAME\_RE](#backlogops.io_config.PRESET_NAME_RE)
@@ -302,7 +301,6 @@
   * [StatusMismatch](#backlogops.jira_write.StatusMismatch)
   * [AddedToJira](#backlogops.jira_write.AddedToJira)
   * [add\_backlog\_to\_jira](#backlogops.jira_write.add_backlog_to_jira)
-  * [format\_add\_result](#backlogops.jira_write.format_add_result)
   * [apply\_jira\_keys](#backlogops.jira_write.apply_jira_keys)
   * [jira\_custom\_fields](#backlogops.jira_write.jira_custom_fields)
   * [jira\_editable\_fields](#backlogops.jira_write.jira_editable_fields)
@@ -353,6 +351,13 @@
     * [get\_status\_format](#backlogops.format_rules.FormatRules.get_status_format)
     * [turn\_off\_cell\_format](#backlogops.format_rules.FormatRules.turn_off_cell_format)
     * [cell\_format\_used](#backlogops.format_rules.FormatRules.cell_format_used)
+* [backlogops.jira\_rank\_backlog](#backlogops.jira_rank_backlog)
+  * [JiraRankAnchor](#backlogops.jira_rank_backlog.JiraRankAnchor)
+  * [BadJiraRankFilter](#backlogops.jira_rank_backlog.BadJiraRankFilter)
+    * [\_\_init\_\_](#backlogops.jira_rank_backlog.BadJiraRankFilter.__init__)
+  * [RankEnv](#backlogops.jira_rank_backlog.RankEnv)
+  * [jira\_rank\_backlog](#backlogops.jira_rank_backlog.jira_rank_backlog)
+  * [rank\_backlog\_or\_warn](#backlogops.jira_rank_backlog.rank_backlog_or_warn)
 * [backlogops.io\_preset\_wizard](#backlogops.io_preset_wizard)
   * [preset\_wizard](#backlogops.io_preset_wizard.preset_wizard)
 
@@ -4787,6 +4792,7 @@ def update_backlog_in_jira(
         on_missing_key: OnMissingKey,
         fields_to_update: list[str],
         link_update: LinkUpdate = LinkUpdate.RECONCILE,
+        rank_anchor: Optional[JiraRankAnchor] = None,
         levels: Optional[Levels] = None,
         status_map: Optional[dict[str, Status]] = None,
         stderr_file: TextIO = sys.stderr) -> UpdatedBacklogInJira
@@ -4821,6 +4827,10 @@ items are still processed. The argument backlog is never modified.
   full set of updatable fields of a preset.
 - `link_update` - Whether to only add missing links or also remove the
   Jira links the backlog no longer has.
+- `rank_anchor` - When given, the backlog items present in Jira are also
+  ranked in Jira in the backlog order, at this anchor; None (the
+  default) leaves the Jira rank order alone. A ranking Jira
+  refuses is reported as a warning and does not undo the update.
 - `levels` - The levels used to resolve the issue type when adding a
   missing item, or None for the default levels.
 - `status_map` - Extra Jira status names mapped to internal statuses,
@@ -4897,33 +4907,25 @@ copy-pasteable pop-up.
 
 # backlogops.jira\_rank\_move\_keys
 
-Move named issues to the front or the end of a Jira backlog by rank.
+Move named issues to a chosen anchor of a Jira backlog by rank.
 
 A backlog in Jira is the set of issues a filter reads in their Jira rank
-order. :func:`jira_rank_move_keys` moves the named issues, together with
-the issues they pull along, to the front or the end of that backlog, and
+order. :func:`jira_rank_move_keys` moves the named issues to a chosen
+:class:`~backlogops.jira_rank_backlog.JiraRankAnchor` of that backlog and
 leaves every other issue in its existing Jira rank order.
 
-The moved block is the named issues, all their descendants (the items below
-them in the parent and child hierarchy) and their dependencies. For a move
-to the front the dependencies pulled along are the prerequisites of the
-block, so everything the named issues need is ranked before them. For a
-move to the end they are the dependents of the block, so everything that
-needs the named issues is ranked after them. The block is ordered by
+By default only the named issues are moved, in the order they are listed.
+When relations are honoured the moved block is instead the named issues,
+all their descendants (the items below them in the parent and child
+hierarchy) and their dependencies: for a top or first-key anchor the
+prerequisites of the block are pulled along, so everything the named issues
+need is ranked before them, and for a bottom or last-key anchor the
+dependents are pulled along, so everything that needs the named issues is
+ranked after them. That block is ordered by
 :func:`backlogops.order_by_dependencies.order_by_dependencies`, so a parent
 is ranked before its child and a prerequisite before its dependent. The new
 order is written to Jira through
 :func:`backlogops.jira_rank_by_keys.jira_rank_by_keys_raw`.
-
-<a id="backlogops.jira_rank_move_keys.JiraMoveToEnd"></a>
-
-## JiraMoveToEnd Objects
-
-```python
-class JiraMoveToEnd(Enum)
-```
-
-Which end of the Jira backlog the named issues are moved to.
 
 <a id="backlogops.jira_rank_move_keys.RankedInJira"></a>
 
@@ -4943,30 +4945,6 @@ Fields:
                         were not read by the filter, so they are not
                         part of the backlog.
 
-<a id="backlogops.jira_rank_move_keys.BadJiraRankFilter"></a>
-
-## BadJiraRankFilter Objects
-
-```python
-class BadJiraRankFilter(ValueError)
-```
-
-Raised when a filter cannot be used for ranking in Jira.
-
-A filter used for ranking must read the backlog in its Jira rank
-order, so it may only order by rank ascending. This is raised when the
-filter orders by anything else.
-
-<a id="backlogops.jira_rank_move_keys.BadJiraRankFilter.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(*, jql_text: str, message: str) -> None
-```
-
-Store the filter and the reason and build the message.
-
 <a id="backlogops.jira_rank_move_keys.jira_rank_move_keys"></a>
 
 #### jira\_rank\_move\_keys
@@ -4977,35 +4955,42 @@ def jira_rank_move_keys(connections: JiraConnections,
                         issue_keys: Sequence[str],
                         *,
                         filter_override: Optional[str] = None,
-                        move_to_end: JiraMoveToEnd = JiraMoveToEnd.FIRST,
+                        anchor: JiraRankAnchor = JiraRankAnchor.BACKLOG_TOP,
+                        honor_relations: bool = False,
                         levels: Optional[Levels] = None,
                         status_map: Optional[dict[str, Status]] = None,
                         stderr_file: TextIO = sys.stderr) -> RankedInJira
 ```
 
-Move named issues to the front or the end of a Jira backlog by rank.
+Move named issues to a chosen anchor of a Jira backlog by rank.
 
 The preset names the connection and the column maps, and its filter
 (or ``filter_override`` when given) reads the backlog in its Jira rank
-order. The named issues, their descendants and their dependencies are
-moved as one block to the front (``FIRST``) or the end (``LAST``) of
-that backlog, ordered so that a parent is ranked before its child and a
-prerequisite before its dependent. Every other issue keeps its existing
-Jira rank order. A named key that is not part of the backlog is not
-ranked but reported, either as not existing in Jira or as excluded by
-the filter.
+order. By default only the named issues are moved, in the order they are
+listed. When ``honor_relations`` is set the named issues, their
+descendants and their dependencies are moved as one block, ordered so
+that a parent is ranked before its child and a prerequisite before its
+dependent. The ``anchor`` chooses where the moved keys land, as
+described on :class:`~backlogops.jira_rank_backlog.JiraRankAnchor`.
+Every other issue keeps its existing Jira rank order. A named key that
+is not part of the backlog is not ranked but reported, either as not
+existing in Jira or as excluded by the filter.
 
 **Arguments**:
 
 - `connections` - The pool of live Jira clients and the configuration
   holding the preset.
 - `preset_name` - The name of the preset to use.
-- `issue_keys` - The keys of the issues to move, in no required order.
+- `issue_keys` - The keys of the issues to move. Without honouring
+  relations they are ranked in this order.
 - `filter_override` - A Jira filter to use instead of the preset's. It
   may only order by rank ascending; a missing ORDER BY clause is
   added.
-- `move_to_end` - Whether to move the named issues to the front
-  (``FIRST``, the default) or the end (``LAST``) of the backlog.
+- `anchor` - Where the moved keys land in the Jira rank order.
+- `honor_relations` - Whether to also move the descendants and
+  dependencies of the named issues and order the block parent
+  before child (True), or to rank only the listed keys in the
+  listed order (False, the default).
 - `levels` - The levels used to resolve a string level, or None for the
   default levels.
 - `status_map` - Extra Jira status names mapped to Status members, or
@@ -5041,6 +5026,35 @@ Return a listing of the ranked, not-in-Jira and not-in-filter keys.
 Each section has a heading with its count, then one indented key per
 line, or a ``(none)`` line when it is empty. The CLI prints this text
 and the GUI shows it in a copy-pasteable pop-up.
+
+<a id="backlogops.jira_write_format"></a>
+
+# backlogops.jira\_write\_format
+
+Format the result of a Jira write operation into a text listing.
+
+These helpers turn the named tuples returned by the add and update
+operations into a labelled, copy-pasteable listing. Each section shows a
+heading with its count, then one line per entry or a ``(none)`` line when
+it is empty. The CLI prints the listing and the GUI shows it in a pop-up.
+
+The functions live apart from the write logic in
+:mod:`backlogops.jira_write` so that the write, update and rank modules can
+share them without depending on each other in a cycle.
+
+<a id="backlogops.jira_write_format.format_add_result"></a>
+
+#### format\_add\_result
+
+```python
+def format_add_result(result: AddedToJira) -> str
+```
+
+Return a listing of the added, present, failed and unmatched items.
+
+Each section has a heading with its count, then one ``key  title`` line
+per item, or a ``(none)`` line when the section is empty. The CLI
+prints this text and the GUI shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.io_config"></a>
 
@@ -6232,6 +6246,7 @@ def add_backlog_to_jira(connections: JiraConnections,
                         backlog: Backlog,
                         *,
                         on_existing_key: OnExistingKey,
+                        rank_anchor: Optional[JiraRankAnchor] = None,
                         levels: Optional[Levels] = None,
                         status_map: Optional[dict[str, Status]] = None,
                         stderr_file: TextIO = sys.stderr) -> AddedToJira
@@ -6268,6 +6283,11 @@ backlog is never modified.
 - `backlog` - The backlog items to add. Not modified.
 - `on_existing_key` - Whether to raise or skip when a key already
   exists in Jira.
+- `rank_anchor` - When given, the supplied items present in Jira are
+  also ranked in Jira in the supplied backlog order, at this
+  anchor; None (the default) leaves the Jira rank order alone. A
+  ranking Jira refuses is reported as a warning and does not undo
+  the completed add.
 - `levels` - The levels used to resolve the issue type from the item
   level, or None for the default levels.
 - `status_map` - Extra Jira status names mapped to internal statuses,
@@ -6292,20 +6312,6 @@ backlog is never modified.
   project.
 - `ExistsInJiraError` - In ``RAISE`` mode, if any key already exists in
   Jira.
-
-<a id="backlogops.jira_write.format_add_result"></a>
-
-#### format\_add\_result
-
-```python
-def format_add_result(result: AddedToJira) -> str
-```
-
-Return a listing of the added, present, failed and unmatched items.
-
-Each section has a heading with its count, then one ``key  title`` line
-per item, or a ``(none)`` line when the section is empty. The CLI
-prints this text and the GUI shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.jira_write.apply_jira_keys"></a>
 
@@ -7368,6 +7374,158 @@ def cell_format_used() -> bool
 ```
 
 Return True if any cell formatting is used.
+
+<a id="backlogops.jira_rank_backlog"></a>
+
+# backlogops.jira\_rank\_backlog
+
+Rank a backlog in Jira into its given order at a chosen anchor.
+
+:func:`jira_rank_backlog` ranks the items of a backlog in Jira so that they
+end up in the order they appear in the backlog, relative to each other. It
+is a convenience wrapper over
+:func:`backlogops.jira_rank_by_keys.jira_rank_by_keys_raw` that takes a
+backlog and a :class:`JiraRankAnchor` instead of a key list and a
+``move_before`` flag.
+
+The anchor chooses where the ordered block lands. ``FIRST_KEY`` keeps the
+first item's Jira rank fixed and ranks the rest after it, and ``LAST_KEY``
+keeps the last item's rank fixed and ranks the rest before it; neither reads
+the rest of the backlog. ``BACKLOG_TOP`` and ``BACKLOG_BOTTOM`` place the
+block at the top or the bottom of the backlog the preset filter reads, so
+the current filter result is read to find that end while every other issue
+keeps its rank.
+
+This module also holds the shared :class:`JiraRankAnchor` enum, the
+:class:`BadJiraRankFilter` error and the filter and placement helpers used
+by :func:`backlogops.jira_rank_move_keys.jira_rank_move_keys`.
+
+<a id="backlogops.jira_rank_backlog.JiraRankAnchor"></a>
+
+## JiraRankAnchor Objects
+
+```python
+class JiraRankAnchor(Enum)
+```
+
+The fixed reference point a ranking is arranged around.
+
+``BACKLOG_TOP`` and ``BACKLOG_BOTTOM`` place the ranked items at the top
+or bottom of the whole backlog the filter reads. ``FIRST_KEY`` keeps the
+first listed key fixed and ranks the rest after it, and ``LAST_KEY``
+keeps the last listed key fixed and ranks the rest before it.
+
+<a id="backlogops.jira_rank_backlog.BadJiraRankFilter"></a>
+
+## BadJiraRankFilter Objects
+
+```python
+class BadJiraRankFilter(ValueError)
+```
+
+Raised when a filter cannot be used for ranking in Jira.
+
+A filter used for ranking must read the backlog in its Jira rank
+order, so it may only order by rank ascending. This is raised when the
+filter orders by anything else.
+
+<a id="backlogops.jira_rank_backlog.BadJiraRankFilter.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(*, jql_text: str, message: str) -> None
+```
+
+Store the filter and the reason and build the message.
+
+<a id="backlogops.jira_rank_backlog.RankEnv"></a>
+
+## RankEnv Objects
+
+```python
+@dataclass(frozen=True)
+class RankEnv()
+```
+
+The connection, preset and options for a post-write ranking.
+
+Bundles the arguments the add and update operations share when they
+also rank, so :func:`rank_backlog_or_warn` stays a short call. An
+``anchor`` of None ranks nothing.
+
+<a id="backlogops.jira_rank_backlog.jira_rank_backlog"></a>
+
+#### jira\_rank\_backlog
+
+```python
+def jira_rank_backlog(connections: JiraConnections,
+                      preset_name: str,
+                      backlog: Backlog,
+                      *,
+                      anchor: JiraRankAnchor,
+                      filter_override: Optional[str] = None,
+                      levels: Optional[Levels] = None,
+                      status_map: Optional[dict[str, Status]] = None,
+                      stderr_file: TextIO = sys.stderr) -> None
+```
+
+Rank the backlog items in Jira into the order they appear in.
+
+The items are ranked in Jira so that they end up in the backlog's order
+relative to each other. Every item must already exist in Jira. The
+``anchor`` chooses where the ordered block lands, as described on
+:class:`JiraRankAnchor`. For ``BACKLOG_TOP`` and ``BACKLOG_BOTTOM`` the
+preset filter (or ``filter_override``) is read to find the backlog end;
+it may only order by rank ascending. A backlog of fewer than two items
+with a key-relative anchor needs no ranking and returns at once.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients and the configuration
+  holding the preset.
+- `preset_name` - The name of the Jira preset to use.
+- `backlog` - The items to rank, in the wanted order. Keys must be
+  unique and present in Jira. Not modified.
+- `anchor` - Where the ordered block lands in the Jira rank order.
+- `filter_override` - A Jira filter used instead of the preset's when an
+  end anchor reads the backlog; it may only order by rank.
+- `levels` - The levels used to resolve a string level while reading, or
+  None for the default levels.
+- `status_map` - Extra Jira status names mapped to Status members, or
+  None. Needed when the Jira statuses are not the built-in names.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or a referenced connection or map is
+  missing.
+- `BadJiraRankFilter` - If an end anchor reads a filter that orders by
+  anything but rank.
+- `JiraKeyError` - If an item key is not present in Jira.
+- `JiraTooManyLoops` - If the ranking does not converge within the loop
+  limit.
+- `JIRAError` - If a Jira ranking call fails.
+
+<a id="backlogops.jira_rank_backlog.rank_backlog_or_warn"></a>
+
+#### rank\_backlog\_or\_warn
+
+```python
+def rank_backlog_or_warn(env: RankEnv, present: Backlog,
+                         key_map: dict[str, str]) -> None
+```
+
+Rank the present items in Jira in order, reporting a refusal.
+
+This is used after adding or updating a backlog to also set its Jira
+rank order. Each present item's key is remapped through ``key_map``, so
+an item added in the same run is ranked by its assigned Jira key, and
+the items are ranked in their given order at the environment's anchor
+using the preset filter. An anchor of None ranks nothing. A ranking
+Jira refuses is reported as a warning and does not undo the completed
+add or update.
 
 <a id="backlogops.io_preset_wizard"></a>
 

@@ -90,7 +90,8 @@
   * [KEY\_READ\_ERRORS](#backlogops_gui.jira_dialogs.KEY_READ_ERRORS)
   * [MISSING\_MODE\_TEXT](#backlogops_gui.jira_dialogs.MISSING_MODE_TEXT)
   * [LINK\_MODE\_TEXT](#backlogops_gui.jira_dialogs.LINK_MODE_TEXT)
-  * [RANK\_END\_TEXT](#backlogops_gui.jira_dialogs.RANK_END_TEXT)
+  * [RANK\_ANCHOR\_TEXT](#backlogops_gui.jira_dialogs.RANK_ANCHOR_TEXT)
+  * [\_anchor\_radios](#backlogops_gui.jira_dialogs._anchor_radios)
   * [JiraPresetOptions](#backlogops_gui.jira_dialogs.JiraPresetOptions)
   * [JiraReadOptions](#backlogops_gui.jira_dialogs.JiraReadOptions)
   * [JiraWriteOptions](#backlogops_gui.jira_dialogs.JiraWriteOptions)
@@ -119,6 +120,7 @@
   * [JiraBacklogUpdateDialog](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog)
     * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog.__init__)
     * [\_build](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build)
+    * [\_build\_rank](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_rank)
     * [\_build\_preset](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_preset)
     * [\_build\_mode](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_mode)
     * [\_build\_links](#backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_links)
@@ -131,7 +133,7 @@
     * [\_build](#backlogops_gui.jira_dialogs.JiraRankDialog._build)
     * [\_build\_preset](#backlogops_gui.jira_dialogs.JiraRankDialog._build_preset)
     * [\_build\_filter](#backlogops_gui.jira_dialogs.JiraRankDialog._build_filter)
-    * [\_build\_end](#backlogops_gui.jira_dialogs.JiraRankDialog._build_end)
+    * [\_build\_anchor](#backlogops_gui.jira_dialogs.JiraRankDialog._build_anchor)
     * [\_build\_keys](#backlogops_gui.jira_dialogs.JiraRankDialog._build_keys)
     * [\_preset\_changed](#backlogops_gui.jira_dialogs.JiraRankDialog._preset_changed)
     * [\_load](#backlogops_gui.jira_dialogs.JiraRankDialog._load)
@@ -1319,12 +1321,14 @@ Ask how to write a file, or None when the dialog is cancelled.
 Modal dialogs collecting the options for the Jira operations.
 
 Reading from Jira picks a Jira preset and an editable issue filter. Adding
-to Jira picks a write preset and whether to skip items whose key already
-exists. Updating releases picks a preset, what to do with a missing
-release name, and which releases to update. Updating the backlog picks a
-preset, what to do with a missing item key, which columns to update, and
-how parent and dependency links are reconciled. A separate dialog collects
-the masked pass phrase for an encrypted Jira API token.
+to Jira picks a write preset, whether to skip items whose key already
+exists, and optionally a rank anchor. Updating releases picks a preset,
+what to do with a missing release name, and which releases to update.
+Updating the backlog picks a preset, what to do with a missing item key,
+which columns to update, how parent and dependency links are reconciled,
+and optionally a rank anchor. Ranking items picks a preset, filter, keys,
+an anchor and whether to honour relations. A separate dialog collects the
+masked pass phrase for an encrypted Jira API token.
 
 <a id="backlogops_gui.jira_dialogs.KEY_READ_ERRORS"></a>
 
@@ -1347,11 +1351,21 @@ Label shown for each link-update mode in the backlog-update dialog.
 The keys mirror the CLI ``--links`` values; ``reconcile`` maps to
 :class:`LinkUpdate.RECONCILE` and ``add`` to :class:`LinkUpdate.ADD_MISSING`.
 
-<a id="backlogops_gui.jira_dialogs.RANK_END_TEXT"></a>
+<a id="backlogops_gui.jira_dialogs.RANK_ANCHOR_TEXT"></a>
 
-#### RANK\_END\_TEXT
+#### RANK\_ANCHOR\_TEXT
 
-Label shown for each end in the rank-items dialog.
+Label shown for each anchor in the rank dialogs.
+
+<a id="backlogops_gui.jira_dialogs._anchor_radios"></a>
+
+#### \_anchor\_radios
+
+```python
+def _anchor_radios(win: tk.Misc, var: tk.StringVar) -> None
+```
+
+Add the four rank-anchor radios bound to ``var`` to ``win``.
 
 <a id="backlogops_gui.jira_dialogs.JiraPresetOptions"></a>
 
@@ -1384,7 +1398,7 @@ The Jira preset and issue filter selected for reading from Jira.
 class JiraWriteOptions(JiraPresetOptions)
 ```
 
-The Jira write preset and existing-key choice for adding to Jira.
+The Jira write preset, existing-key choice and rank anchor to add.
 
 <a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateOptions"></a>
 
@@ -1406,7 +1420,7 @@ The preset, missing-name mode and selected names for updating.
 class JiraBacklogUpdateOptions(JiraPresetOptions)
 ```
 
-The preset, missing-key mode, fields and link policy for updating.
+The preset, missing-key mode, fields, links and rank for updating.
 
 <a id="backlogops_gui.jira_dialogs.JiraRankOptions"></a>
 
@@ -1417,7 +1431,7 @@ The preset, missing-key mode, fields and link policy for updating.
 class JiraRankOptions(JiraPresetOptions)
 ```
 
-The preset, filter, keys and end chosen for ranking items in Jira.
+The preset, filter, keys, anchor and relations chosen for ranking.
 
 <a id="backlogops_gui.jira_dialogs.JiraReadDialog"></a>
 
@@ -1509,7 +1523,7 @@ Build, show and wait for the Jira write dialog.
 def _build(names: Sequence[str]) -> None
 ```
 
-Add the preset chooser and the skip-existing checkbox.
+Add the preset chooser, skip checkbox and rank controls.
 
 <a id="backlogops_gui.jira_dialogs.JiraWriteDialog._confirm"></a>
 
@@ -1519,7 +1533,7 @@ Add the preset chooser and the skip-existing checkbox.
 def _confirm() -> None
 ```
 
-Store the selected preset and skip choice, requiring a preset.
+Store the preset, skip and rank choices, requiring a preset.
 
 <a id="backlogops_gui.jira_dialogs.ask_jira_write_options"></a>
 
@@ -1648,7 +1662,17 @@ Build, show and wait for the backlog-update dialog.
 def _build(names: Sequence[str]) -> None
 ```
 
-Add the preset, the mode radios, the links box and the fields.
+Add the preset, mode radios, links box, rank controls and fields.
+
+<a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_rank"></a>
+
+#### \_build\_rank
+
+```python
+def _build_rank() -> None
+```
+
+Add the opt-in rank checkbox and the anchor radios.
 
 <a id="backlogops_gui.jira_dialogs.JiraBacklogUpdateDialog._build_preset"></a>
 
@@ -1730,7 +1754,7 @@ Ask the preset, mode, fields and link policy, None when cancelled.
 class JiraRankDialog(ModalDialog)
 ```
 
-Modal dialog collecting the preset, filter, keys and end to rank.
+Modal dialog for the preset, filter, keys, anchor and relations.
 
 <a id="backlogops_gui.jira_dialogs.JiraRankDialog.__init__"></a>
 
@@ -1751,7 +1775,7 @@ Build, show and wait for the rank-items dialog.
 def _build(names: Sequence[str]) -> tk.Text
 ```
 
-Add the preset, filter, end radios and the key entry box.
+Add the preset, filter, anchor controls and the key entry box.
 
 <a id="backlogops_gui.jira_dialogs.JiraRankDialog._build_preset"></a>
 
@@ -1773,15 +1797,15 @@ def _build_filter() -> None
 
 Add the editable issue filter, prefilled from the preset.
 
-<a id="backlogops_gui.jira_dialogs.JiraRankDialog._build_end"></a>
+<a id="backlogops_gui.jira_dialogs.JiraRankDialog._build_anchor"></a>
 
-#### \_build\_end
+#### \_build\_anchor
 
 ```python
-def _build_end() -> None
+def _build_anchor() -> None
 ```
 
-Add the radios choosing which end to move the items to.
+Add the anchor radios and the honour-relations checkbox.
 
 <a id="backlogops_gui.jira_dialogs.JiraRankDialog._build_keys"></a>
 
@@ -1832,7 +1856,7 @@ def ask_jira_rank(parent: tk.Misc, preset_filters: Mapping[str, str],
                   sink: TextIO) -> Optional[JiraRankOptions]
 ```
 
-Ask the preset, filter, keys and end to rank, None when cancelled.
+Ask the preset, filter, keys, anchor and relations; None if cancel.
 
 <a id="backlogops_gui.jira_dialogs.PassphraseDialog"></a>
 

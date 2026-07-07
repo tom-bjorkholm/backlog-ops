@@ -8,13 +8,13 @@ from pathlib import Path
 from typing import Callable
 import tkinter as tk
 import pytest
-from backlogops import JiraMoveToEnd, NoTextIO, OnMissingKey
+from backlogops import JiraRankAnchor, NoTextIO, OnMissingKey
 from backlogops_gui.jira_dialogs import (
     JiraBacklogUpdateDialog, JiraBacklogUpdateOptions, JiraRankDialog,
     JiraRankOptions, JiraReadDialog, JiraReadOptions, JiraReleaseUpdateDialog,
-    JiraReleaseUpdateOptions, PassphraseDialog, ask_backlog_update,
-    ask_jira_passphrase, ask_jira_rank, ask_jira_read_options,
-    ask_release_update)
+    JiraReleaseUpdateOptions, JiraWriteDialog, JiraWriteOptions,
+    PassphraseDialog, ask_backlog_update, ask_jira_passphrase, ask_jira_rank,
+    ask_jira_read_options, ask_release_update)
 from backlogops_gui.modal_dialog import ModalDialog
 from .gui_test_helpers import MsgRecorder, gui_root
 from .dialog_test_helpers import cancel_show, no_wait
@@ -42,9 +42,12 @@ def test_jira_options() -> None:
     assert update.on_missing is OnMissingKey.ADD
     assert update.selected == ['R1']
     backlog = JiraBacklogUpdateOptions('scrum', OnMissingKey.RAISE, ['title'],
-                                       True)
+                                       True, JiraRankAnchor.BACKLOG_TOP)
     assert backlog.fields == ['title']
     assert backlog.reconcile_links is True
+    assert backlog.rank_anchor is JiraRankAnchor.BACKLOG_TOP
+    write = JiraWriteOptions('scrum', False, None)
+    assert write.skip_existing is False and write.rank_anchor is None
 
 
 def test_jira_select_filter(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -137,8 +140,41 @@ def test_bl_update_ok(monkeypatch: pytest.MonkeyPatch, link: str,
         # pylint: disable-next=protected-access
         dialog._confirm()
         expected = JiraBacklogUpdateOptions('p', OnMissingKey.ADD, ['title'],
-                                            reconcile)
+                                            reconcile, None)
         assert dialog.options == expected
+
+
+def test_bl_update_rank(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test ticking the rank box stores the chosen anchor, else None."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    with gui_root() as root:
+        dialog = JiraBacklogUpdateDialog(root, _BL_FIELDS)
+        # pylint: disable-next=protected-access
+        dialog._rank.set(True)
+        # pylint: disable-next=protected-access
+        dialog._anchor.set(JiraRankAnchor.FIRST_KEY.name)
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is not None
+        assert dialog.options.rank_anchor is JiraRankAnchor.FIRST_KEY
+
+
+def test_write_dialog_rank(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the write dialog stores the anchor only when the box is ticked."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    with gui_root() as root:
+        dialog = JiraWriteDialog(root, ['p', 'q'])
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is not None
+        assert dialog.options.rank_anchor is None
+        # pylint: disable-next=protected-access
+        dialog._rank.set(True)
+        # pylint: disable-next=protected-access
+        dialog._anchor.set(JiraRankAnchor.BACKLOG_TOP.name)
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options.rank_anchor is JiraRankAnchor.BACKLOG_TOP
 
 
 def test_bl_switch_fields(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -214,14 +250,16 @@ def test_rank_ok(monkeypatch: pytest.MonkeyPatch) -> None:
         # pylint: disable-next=protected-access
         dialog._filter.set('project = X')
         # pylint: disable-next=protected-access
-        dialog._end.set(JiraMoveToEnd.LAST.name)
+        dialog._anchor.set(JiraRankAnchor.BACKLOG_BOTTOM.name)
+        # pylint: disable-next=protected-access
+        dialog._honor.set(True)
         # pylint: disable-next=protected-access
         dialog._text.insert('1.0', 'X Y')
         # pylint: disable-next=protected-access
         dialog._confirm()
-        assert dialog.options == JiraRankOptions('b', 'project = X',
-                                                 ['X', 'Y'],
-                                                 JiraMoveToEnd.LAST)
+        expected = JiraRankOptions('b', 'project = X', ['X', 'Y'],
+                                   JiraRankAnchor.BACKLOG_BOTTOM, True)
+        assert dialog.options == expected
 
 
 def test_rank_load(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -19,9 +19,9 @@ from backlogops import (
     AddedToJira, AvailableTeams, BacklogItem, BacklogOpsConfig,
     BacklogReleases, DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP,
     FormatRules, ItemNotInJiraError, JiraConnectConfig, JiraIOConfig,
-    JiraPreset, LinkUpdate, OnMissingKey, Release, Status, TokenStorage,
-    UpdatedBacklogInJira, allow_overwrite, resolve_output_config,
-    write_backlog_ops_config, write_backlog_releases)
+    JiraPreset, JiraRankAnchor, LinkUpdate, OnMissingKey, Release, Status,
+    TokenStorage, UpdatedBacklogInJira, allow_overwrite,
+    resolve_output_config, write_backlog_ops_config, write_backlog_releases)
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import update_backlog_in_jira
@@ -80,11 +80,12 @@ def _fake_update(captured: dict[str, object], result: UpdatedBacklogInJira
                on_missing_key: OnMissingKey, fields_to_update: list[str],
                link_update: LinkUpdate,
                **kwargs: object) -> UpdatedBacklogInJira:
-        """Record the resolved fields, missing mode and link policy."""
-        _ = (connections, preset, backlog, kwargs)
+        """Record the resolved fields, missing mode, links and rank anchor."""
+        _ = (connections, preset, backlog)
         captured['fields'] = fields_to_update
         captured['mode'] = on_missing_key
         captured['link'] = link_update
+        captured['rank'] = kwargs.get('rank_anchor')
         return result
     return update
 
@@ -241,3 +242,22 @@ def test_requires_config(tmp_path: Path) -> None:
     code = update_backlog_in_jira.main(['-i', str(tmp_path / 'in.csv'), '-p',
                                         'w', '-s', 'all'])
     assert code == 1
+
+
+def test_rank_flag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test --rank passes the chosen anchor to the update."""
+    captured = _patch(monkeypatch, _result())
+    _prepare(tmp_path)
+    code = update_backlog_in_jira.main(
+        _args(tmp_path, '-s', 'all', '--rank', 'first-key'))
+    assert code == 0
+    assert captured['rank'] is JiraRankAnchor.FIRST_KEY
+
+
+def test_no_rank_default(tmp_path: Path,
+                         monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test no --rank leaves the rank anchor unset."""
+    captured = _patch(monkeypatch, _result())
+    _prepare(tmp_path)
+    update_backlog_in_jira.main(_args(tmp_path, '-s', 'all'))
+    assert captured['rank'] is None

@@ -105,7 +105,7 @@ def _fields_stub(_connections: object, _name: str) -> list[str]:
 def _bl_upd_opts(_parent: object, _fields: object) -> JiraBacklogUpdateOptions:
     """Return backlog-update options as if the dialog was confirmed."""
     return JiraBacklogUpdateOptions('scrum', OnMissingKey.RAISE,
-                                    ['title', 'status'], True)
+                                    ['title', 'status'], True, None)
 
 
 def _no_bl_upd_opts(_parent: object, _fields: object) -> None:

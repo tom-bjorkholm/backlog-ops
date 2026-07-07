@@ -37,7 +37,8 @@ from typing import Callable, NamedTuple, Optional, TextIO
 from jira import JIRA, JIRAError
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap
-from backlogops.jira_write import OnExistingKey, _jira_reason, _labeled_lines
+from backlogops.jira_write import OnExistingKey, _jira_reason
+from backlogops.jira_write_format import _labeled_lines
 from backlogops.releases import Release, Releases
 
 _VERSION_CREATE_FIELDS = frozenset({

@@ -3,8 +3,9 @@
 
 The Jira ranking itself is replaced by a stand-in so the command can be
 tested without a Jira server: the tests check the command reads the key
-list, passes the chosen end and filter, prints the result unless quiet,
-reports a bad filter as a failure, and is discovered by the list command.
+list, passes the chosen anchor, relations flag and filter, prints the
+result unless quiet, reports a bad filter as a failure, and is discovered by
+the list command.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -14,7 +15,7 @@ from pathlib import Path
 from typing import Callable
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, BadJiraRankFilter, JiraMoveToEnd,
+    AvailableTeams, BacklogOpsConfig, BadJiraRankFilter, JiraRankAnchor,
     RankedInJira, write_backlog_ops_config)
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
@@ -35,17 +36,20 @@ def _key_file(path: Path) -> None:
     path.write_text('B A\n', encoding='utf-8')
 
 
+# pylint: disable-next=too-many-arguments
 def _fake_rank(captured: dict[str, object]) -> Callable[..., RankedInJira]:
     """Return a stand-in rank that records its arguments."""
     def rank(connections: object, preset_name: str, keys: object, *,
-             filter_override: object = None, move_to_end: object = None,
-             levels: object = None, status_map: object = None) -> RankedInJira:
-        """Record the preset, keys, filter and end and return a result."""
+             filter_override: object = None, anchor: object = None,
+             honor_relations: bool = False, levels: object = None,
+             status_map: object = None) -> RankedInJira:
+        """Record the preset, keys, filter, anchor and relations flag."""
         _ = (connections, levels, status_map)
         captured['preset'] = preset_name
         captured['keys'] = list(keys)  # type: ignore[call-overload]
         captured['filter'] = filter_override
-        captured['to_end'] = move_to_end
+        captured['anchor'] = anchor
+        captured['honor'] = honor_relations
         return RankedInJira(['B', 'A'], [], [])
     return rank
 
@@ -84,23 +88,39 @@ def test_requires_args(args: list[str]) -> None:
 
 def test_ranks_and_prints(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                           capsys: pytest.CaptureFixture[str]) -> None:
-    """Test the command ranks first by default and prints the result."""
+    """Test the command ranks at the top by default and prints the result."""
     captured = _patch(monkeypatch)
     _prepare(tmp_path)
     code = rank_in_jira.main(_args(tmp_path))
     assert code == 0
     assert captured['keys'] == ['B', 'A']
-    assert captured['to_end'] is JiraMoveToEnd.FIRST
+    assert captured['anchor'] is JiraRankAnchor.BACKLOG_TOP
+    assert captured['honor'] is False
     assert captured['filter'] is None
     assert 'Ranked in Jira (2):' in capsys.readouterr().out
 
 
-def test_to_end_last(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test --to-end last selects the LAST end."""
+@pytest.mark.parametrize('value,anchor', [
+    ('backlog-top', JiraRankAnchor.BACKLOG_TOP),
+    ('backlog-bottom', JiraRankAnchor.BACKLOG_BOTTOM),
+    ('first-key', JiraRankAnchor.FIRST_KEY),
+    ('last-key', JiraRankAnchor.LAST_KEY)])
+def test_anchor_choice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                       value: str, anchor: JiraRankAnchor) -> None:
+    """Test each --anchor value selects the matching anchor."""
     captured = _patch(monkeypatch)
     _prepare(tmp_path)
-    rank_in_jira.main(_args(tmp_path, '--to-end', 'last'))
-    assert captured['to_end'] is JiraMoveToEnd.LAST
+    rank_in_jira.main(_args(tmp_path, '--anchor', value))
+    assert captured['anchor'] is anchor
+
+
+def test_honor_relations(tmp_path: Path,
+                         monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test --honor-relations enables honouring dependencies and children."""
+    captured = _patch(monkeypatch)
+    _prepare(tmp_path)
+    rank_in_jira.main(_args(tmp_path, '--honor-relations'))
+    assert captured['honor'] is True
 
 
 def test_filter_passed(tmp_path: Path,

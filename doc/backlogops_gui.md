@@ -53,7 +53,7 @@
   * [KEY\_READ\_ERRORS](#backlogops_gui.jira_dialogs.KEY_READ_ERRORS)
   * [MISSING\_MODE\_TEXT](#backlogops_gui.jira_dialogs.MISSING_MODE_TEXT)
   * [LINK\_MODE\_TEXT](#backlogops_gui.jira_dialogs.LINK_MODE_TEXT)
-  * [RANK\_END\_TEXT](#backlogops_gui.jira_dialogs.RANK_END_TEXT)
+  * [RANK\_ANCHOR\_TEXT](#backlogops_gui.jira_dialogs.RANK_ANCHOR_TEXT)
   * [JiraPresetOptions](#backlogops_gui.jira_dialogs.JiraPresetOptions)
   * [JiraReadOptions](#backlogops_gui.jira_dialogs.JiraReadOptions)
   * [JiraWriteOptions](#backlogops_gui.jira_dialogs.JiraWriteOptions)
@@ -743,12 +743,14 @@ Ask how to write a file, or None when the dialog is cancelled.
 Modal dialogs collecting the options for the Jira operations.
 
 Reading from Jira picks a Jira preset and an editable issue filter. Adding
-to Jira picks a write preset and whether to skip items whose key already
-exists. Updating releases picks a preset, what to do with a missing
-release name, and which releases to update. Updating the backlog picks a
-preset, what to do with a missing item key, which columns to update, and
-how parent and dependency links are reconciled. A separate dialog collects
-the masked pass phrase for an encrypted Jira API token.
+to Jira picks a write preset, whether to skip items whose key already
+exists, and optionally a rank anchor. Updating releases picks a preset,
+what to do with a missing release name, and which releases to update.
+Updating the backlog picks a preset, what to do with a missing item key,
+which columns to update, how parent and dependency links are reconciled,
+and optionally a rank anchor. Ranking items picks a preset, filter, keys,
+an anchor and whether to honour relations. A separate dialog collects the
+masked pass phrase for an encrypted Jira API token.
 
 <a id="backlogops_gui.jira_dialogs.KEY_READ_ERRORS"></a>
 
@@ -771,11 +773,11 @@ Label shown for each link-update mode in the backlog-update dialog.
 The keys mirror the CLI ``--links`` values; ``reconcile`` maps to
 :class:`LinkUpdate.RECONCILE` and ``add`` to :class:`LinkUpdate.ADD_MISSING`.
 
-<a id="backlogops_gui.jira_dialogs.RANK_END_TEXT"></a>
+<a id="backlogops_gui.jira_dialogs.RANK_ANCHOR_TEXT"></a>
 
-#### RANK\_END\_TEXT
+#### RANK\_ANCHOR\_TEXT
 
-Label shown for each end in the rank-items dialog.
+Label shown for each anchor in the rank dialogs.
 
 <a id="backlogops_gui.jira_dialogs.JiraPresetOptions"></a>
 
@@ -808,7 +810,7 @@ The Jira preset and issue filter selected for reading from Jira.
 class JiraWriteOptions(JiraPresetOptions)
 ```
 
-The Jira write preset and existing-key choice for adding to Jira.
+The Jira write preset, existing-key choice and rank anchor to add.
 
 <a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateOptions"></a>
 
@@ -830,7 +832,7 @@ The preset, missing-name mode and selected names for updating.
 class JiraBacklogUpdateOptions(JiraPresetOptions)
 ```
 
-The preset, missing-key mode, fields and link policy for updating.
+The preset, missing-key mode, fields, links and rank for updating.
 
 <a id="backlogops_gui.jira_dialogs.JiraRankOptions"></a>
 
@@ -841,7 +843,7 @@ The preset, missing-key mode, fields and link policy for updating.
 class JiraRankOptions(JiraPresetOptions)
 ```
 
-The preset, filter, keys and end chosen for ranking items in Jira.
+The preset, filter, keys, anchor and relations chosen for ranking.
 
 <a id="backlogops_gui.jira_dialogs.JiraReadDialog"></a>
 
@@ -984,7 +986,7 @@ Ask the preset, mode, fields and link policy, None when cancelled.
 class JiraRankDialog(ModalDialog)
 ```
 
-Modal dialog collecting the preset, filter, keys and end to rank.
+Modal dialog for the preset, filter, keys, anchor and relations.
 
 <a id="backlogops_gui.jira_dialogs.JiraRankDialog.__init__"></a>
 
@@ -1006,7 +1008,7 @@ def ask_jira_rank(parent: tk.Misc, preset_filters: Mapping[str, str],
                   sink: TextIO) -> Optional[JiraRankOptions]
 ```
 
-Ask the preset, filter, keys and end to rank, None when cancelled.
+Ask the preset, filter, keys, anchor and relations; None if cancel.
 
 <a id="backlogops_gui.jira_dialogs.PassphraseDialog"></a>
 

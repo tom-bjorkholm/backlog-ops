@@ -1,12 +1,13 @@
 #! /usr/local/bin/python3
-"""Tests for moving named issues to the front or end of a Jira backlog.
+"""Tests for moving named issues to a chosen anchor of a Jira backlog.
 
 The backlog read is replaced by a fixed one and a stand-in Jira client
 holds the rank order, so a test drives the whole move without a Jira
-server: the tests check that descendants and dependencies are pulled with
-the named issues, that a prerequisite is not pulled to the end, how keys
-that are not part of the backlog are classified, and how the filter is
-validated.
+server. The tests check that by default only the listed keys are ranked in
+the listed order, that honouring relations pulls descendants and
+dependencies with the named issues, how the four anchors place the moved
+keys, how keys that are not part of the backlog are classified, and how the
+filter is validated.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -16,9 +17,8 @@ import importlib
 from typing import Callable, Optional
 import pytest
 from backlogops import (
-    Backlog, BacklogItem, BacklogReleases, BadJiraRankFilter, JiraMoveToEnd,
+    Backlog, BacklogItem, BacklogReleases, BadJiraRankFilter, JiraRankAnchor,
     RankedInJira, Status, format_rank_result, jira_rank_move_keys)
-from backlogops.jira_rank_move_keys import _ensure_rank_order
 from .jira_rank_helpers import FakeRankClient
 from .jira_write_helpers import connections_for
 
@@ -45,16 +45,18 @@ def _reader(backlog: Backlog) -> Callable[..., BacklogReleases]:
     return read
 
 
+# pylint: disable-next=too-many-arguments
 def _move(monkeypatch: pytest.MonkeyPatch, backlog: Backlog, keys: list[str],
-          move_to_end: JiraMoveToEnd, exist: Optional[list[str]] = None
+          anchor: JiraRankAnchor, *, honor: bool = False,
+          exist: Optional[list[str]] = None
           ) -> tuple[RankedInJira, FakeRankClient]:
     """Run a move over a fixed backlog and return the result and client."""
     order = [item.key for item in backlog]
     client = FakeRankClient(order, exist=order if exist is None else exist)
     connections = connections_for(monkeypatch, client)
     monkeypatch.setattr(_MODULE, 'read_backlog_from_jira', _reader(backlog))
-    result = jira_rank_move_keys(connections, 'w', keys,
-                                 move_to_end=move_to_end)
+    result = jira_rank_move_keys(connections, 'w', keys, anchor=anchor,
+                                 honor_relations=honor)
     return result, client
 
 
@@ -64,47 +66,83 @@ def _tree() -> Backlog:
             _item('S2', 1, 'E')]
 
 
+def test_only_listed_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the default move ranks only the listed key, not its children."""
+    result, client = _move(monkeypatch, _tree(), ['E'],
+                           JiraRankAnchor.BACKLOG_BOTTOM)
+    assert client.order == ['A', 'B', 'S1', 'S2', 'E']
+    assert result.keys_ranked_ok == ['E']
+
+
+def test_listed_order_kept(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the listed keys are ranked in the order they are given."""
+    backlog = [_item('A'), _item('B'), _item('C'), _item('D')]
+    _, client = _move(monkeypatch, backlog, ['C', 'A'],
+                      JiraRankAnchor.BACKLOG_TOP)
+    assert client.order[:2] == ['C', 'A']
+
+
 def test_first_children(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a parent moved first brings its children to the front."""
-    result, client = _move(monkeypatch, _tree(), ['E'], JiraMoveToEnd.FIRST)
+    """Test a parent moved to the top brings its children when honoured."""
+    result, client = _move(monkeypatch, _tree(), ['E'],
+                           JiraRankAnchor.BACKLOG_TOP, honor=True)
     assert client.order == ['E', 'S1', 'S2', 'A', 'B']
     assert result.keys_ranked_ok == ['E']
 
 
 def test_last_children(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a parent moved last brings its children to the end."""
-    result, client = _move(monkeypatch, _tree(), ['E'], JiraMoveToEnd.LAST)
+    """Test a parent moved to the bottom brings its children when honoured."""
+    result, client = _move(monkeypatch, _tree(), ['E'],
+                           JiraRankAnchor.BACKLOG_BOTTOM, honor=True)
     assert client.order == ['A', 'B', 'E', 'S1', 'S2']
     assert result.keys_ranked_ok == ['E']
 
 
 def test_first_pulls_dep(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a prerequisite is pulled to the front with the named item."""
+    """Test a prerequisite is pulled to the top with the named item."""
     backlog = [_item('A'), _item('C'), _item('B', 1, None, ['A'])]
-    result, client = _move(monkeypatch, backlog, ['B'], JiraMoveToEnd.FIRST)
+    result, client = _move(monkeypatch, backlog, ['B'],
+                           JiraRankAnchor.BACKLOG_TOP, honor=True)
     assert client.order == ['A', 'B', 'C']
     assert result.keys_ranked_ok == ['B']
 
 
 def test_last_keeps_prereq(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a prerequisite is not pulled to the end with the named item."""
+    """Test a prerequisite is not pulled to the bottom with the item."""
     backlog = [_item('A'), _item('B', 1, None, ['A']), _item('C')]
-    _, client = _move(monkeypatch, backlog, ['B'], JiraMoveToEnd.LAST)
+    _, client = _move(monkeypatch, backlog, ['B'],
+                      JiraRankAnchor.BACKLOG_BOTTOM, honor=True)
     assert client.order == ['A', 'C', 'B']
+
+
+def test_first_key_anchor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test FIRST_KEY keeps the first listed key and orders the rest after."""
+    backlog = [_item('A'), _item('B'), _item('C'), _item('D')]
+    _, client = _move(monkeypatch, backlog, ['C', 'A'],
+                      JiraRankAnchor.FIRST_KEY)
+    assert client.order == ['B', 'C', 'A', 'D']
+
+
+def test_last_key_anchor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test LAST_KEY keeps the last listed key and orders the rest before."""
+    backlog = [_item('A'), _item('B'), _item('C'), _item('D')]
+    _, client = _move(monkeypatch, backlog, ['C', 'A'],
+                      JiraRankAnchor.LAST_KEY)
+    assert client.order == ['C', 'A', 'B', 'D']
 
 
 def test_classify_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test keys missing from the backlog are classified and reported."""
     backlog = [_item('A'), _item('B')]
     result, _ = _move(monkeypatch, backlog, ['A', 'GONE', 'OTHER'],
-                      JiraMoveToEnd.FIRST, exist=['A', 'B', 'OTHER'])
+                      JiraRankAnchor.BACKLOG_TOP, exist=['A', 'B', 'OTHER'])
     assert result == RankedInJira(['A'], ['GONE'], ['OTHER'])
 
 
 def test_no_found_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test naming only absent keys ranks nothing."""
     result, client = _move(monkeypatch, [_item('A')], ['GONE'],
-                           JiraMoveToEnd.FIRST, exist=['A'])
+                           JiraRankAnchor.BACKLOG_TOP, exist=['A'])
     assert result.keys_ranked_ok == []
     assert not client.rank_calls
 
@@ -124,26 +162,6 @@ def test_status_map_sent(monkeypatch: pytest.MonkeyPatch) -> None:
     status = {'To Do': Status.TODO}
     jira_rank_move_keys(connections, 'w', ['A'], status_map=status)
     assert captured['status_map'] == status
-
-
-@pytest.mark.parametrize('given,expected', [
-    ('project = X', 'project = X ORDER BY Rank ASC'),
-    ('project = X ORDER BY Rank ASC', 'project = X ORDER BY Rank ASC'),
-    ('project = X order by rank', 'project = X order by rank'),
-    ('project = X ORDER BY rank asc', 'project = X ORDER BY rank asc')])
-def test_ensure_rank_order(given: str, expected: str) -> None:
-    """Test the filter gets or keeps an order-by-rank-ascending clause."""
-    assert _ensure_rank_order(given) == expected
-
-
-@pytest.mark.parametrize('given', [
-    'project = X ORDER BY priority',
-    'project = X order by rank desc',
-    'project = X ORDER BY key, rank'])
-def test_bad_filter(given: str) -> None:
-    """Test a filter ordering by anything but rank is rejected."""
-    with pytest.raises(BadJiraRankFilter):
-        _ensure_rank_order(given)
 
 
 def test_bad_filter_run(monkeypatch: pytest.MonkeyPatch) -> None:

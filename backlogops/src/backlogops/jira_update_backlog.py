@@ -45,17 +45,21 @@ from jira import JIRA, Issue, JIRAError
 from backlogops.backlog import Backlog, BacklogItem, Status
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType
+from backlogops.jira_rank_backlog import (
+    JiraRankAnchor, RankEnv, rank_backlog_or_warn)
 from backlogops.jira_read import (
     _backlog_row, _coerce_all, _field_id, _filtered_values, _walk)
 from backlogops.jira_write import (
     AddedToJira, FailedItem, ItemNotInJiraError, OnExistingKey, OnMissingKey,
     StatusMismatch, _WriteContext, _build_ctx, _editable_field_ids,
-    _failed_section, _internal_value, _jira_reason, _jira_status_name,
-    _link_section, _maps_to, _outcome_prefix, _report_status_mismatch,
-    _result_section, _skipped_names, _status_section, _try_link,
-    _try_transitions, add_backlog_to_jira)
+    _internal_value, _jira_reason, _jira_status_name, _maps_to,
+    _report_status_mismatch, _skipped_names, _try_link, _try_transitions,
+    add_backlog_to_jira)
 from backlogops.jira_write_fields import (
     FailedLink, _LinkSpec, _dep_link_attrs, _parent_fields, _place_value)
+from backlogops.jira_write_format import (
+    _failed_section, _link_section, _outcome_prefix, _result_section,
+    _status_section)
 from backlogops.levels import Levels
 
 _IDENTITY_FIELDS = frozenset({'key', 'level'})
@@ -484,11 +488,23 @@ def _run_updates(ctx: _UpdateCtx, backlog: Backlog, existing: dict[str, Issue],
                                 added)
 
 
-# pylint: disable-next=too-many-arguments
+def _present_after_update(backlog: Backlog, existing: dict[str, Issue],
+                          added: AddedToJira) -> Backlog:
+    """Return the supplied items present in Jira, in supplied order.
+
+    An item is present when its key matched an existing Jira issue or was
+    added in the same run; a missing item left alone under ``IGNORE`` is not.
+    """
+    present_keys = set(existing) | set(added.key_map)
+    return [item for item in backlog if item.key in present_keys]
+
+
+# pylint: disable-next=too-many-arguments,too-many-locals
 def update_backlog_in_jira(connections: JiraConnections, preset_name: str,
                            backlog: Backlog, *, on_missing_key: OnMissingKey,
                            fields_to_update: list[str],
                            link_update: LinkUpdate = LinkUpdate.RECONCILE,
+                           rank_anchor: Optional[JiraRankAnchor] = None,
                            levels: Optional[Levels] = None,
                            status_map: Optional[dict[str, Status]] = None,
                            stderr_file: TextIO = sys.stderr
@@ -521,6 +537,10 @@ def update_backlog_in_jira(connections: JiraConnections, preset_name: str,
             full set of updatable fields of a preset.
         link_update: Whether to only add missing links or also remove the
             Jira links the backlog no longer has.
+        rank_anchor: When given, the backlog items present in Jira are also
+            ranked in Jira in the backlog order, at this anchor; None (the
+            default) leaves the Jira rank order alone. A ranking Jira
+            refuses is reported as a warning and does not undo the update.
         levels: The levels used to resolve the issue type when adding a
             missing item, or None for the default levels.
         status_map: Extra Jira status names mapped to internal statuses,
@@ -546,7 +566,13 @@ def update_backlog_in_jira(connections: JiraConnections, preset_name: str,
                           on_missing_key, levels, status_map, stderr_file)
     update_ctx = _make_ctx(ctx, fields_to_update, added.key_map, link_update,
                            stderr_file)
-    return _run_updates(update_ctx, backlog, existing, on_missing_key, added)
+    result = _run_updates(update_ctx, backlog, existing, on_missing_key, added)
+    if rank_anchor is not None:
+        env = RankEnv(connections, preset_name, rank_anchor, levels,
+                      status_map, stderr_file)
+        present = _present_after_update(backlog, existing, added)
+        rank_backlog_or_warn(env, present, added.key_map)
+    return result
 
 
 def updatable_backlog_fields(connections: JiraConnections,

@@ -58,7 +58,7 @@ class JiraWriter(JiraAction):
             """Add the backlog to Jira with the chosen skip policy."""
             return add_backlog_to_jira(
                 self._connections(), name, data.backlog, on_existing_key=mode,
-                levels=config.get_levels(),
+                rank_anchor=options.rank_anchor, levels=config.get_levels(),
                 status_map=config.get_status_input_map(),
                 stderr_file=self._app.log)
 

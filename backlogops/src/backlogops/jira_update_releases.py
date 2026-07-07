@@ -30,8 +30,8 @@ from typing import NamedTuple, Optional, TextIO
 from jira.resources import Resource
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap
-from backlogops.jira_write import (
-    ItemNotInJiraError, OnMissingKey, _key_section, _outcome_prefix)
+from backlogops.jira_write import ItemNotInJiraError, OnMissingKey
+from backlogops.jira_write_format import _key_section, _outcome_prefix
 from backlogops.jira_write_releases import (
     FailedRelease, _ReleaseCtx, _failed_section, _release_context,
     _report_skipped, _run_version_write, _try_create_version, _version_kwargs)

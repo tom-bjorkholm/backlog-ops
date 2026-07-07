@@ -139,7 +139,9 @@ the parent and dependency links are updated: ``reconcile`` (the default) makes
 the Jira links match the backlog exactly, removing a Jira link the backlog no
 longer has and clearing a dropped parent, while ``add`` only adds the missing
 links and never removes one. ``--links`` governs only the links; the other
-selected fields are updated the same way under either value.
+selected fields are updated the same way under either value. With ``--rank``
+the items are also ranked in Jira to match the backlog order, at the chosen
+anchor.
 
 The updated, already-correct, ignored, added and failed items are printed
 to stdout as labelled lists, unless ``-q``/``--quiet`` is given. An
@@ -417,7 +419,8 @@ The command reads a backlog (or a backlog and its releases) from the input
 file, then adds the backlog items to Jira using a named preset of the
 backlog-ops configuration. By default it stops with an error when an
 item's key already exists in Jira; ``--skip-existing`` skips those items
-instead.
+instead. With ``--rank`` the items are also ranked in Jira to match the
+supplied backlog order, at the chosen anchor.
 
 The added items (carrying their new Jira keys) and the items already in
 Jira are printed to stdout as two labelled lists, unless ``-q``/``--quiet``
@@ -592,21 +595,23 @@ Extract the backlog keys at the given levels and emit them.
 
 # backlogops\_cli.rank\_in\_jira
 
-Move key-list items to the front or end of a Jira backlog by rank.
+Move key-list items to a chosen anchor of a Jira backlog by rank.
 
-The command reads a key list from a file and moves the named issues,
-together with the issues they pull along, to the front (the default) or the
-end of the backlog read by a named preset of the backlog-ops configuration.
+The command reads a key list from a file and moves the named issues to a
+chosen anchor of the backlog read by a named preset of the backlog-ops
+configuration. ``--anchor`` places them at the top (the default) or the
+bottom end of the backlog, or relative to the first or last key of the list.
 The backlog is the issues the preset filter reads in their Jira rank order;
 ``--filter`` overrides that filter for one run and may only order by rank.
 
-The named issues, their descendants and their dependencies are moved as one
-block, ordered so that a parent is ranked before its child and a
-prerequisite before its dependent, while every other issue keeps its Jira
-rank order. The re-ranked keys and the named keys that are not part of the
-backlog are printed to stdout unless ``-q``/``--quiet`` is given. An
-encrypted Jira token is unlocked by a pass phrase asked on the terminal only
-when it is needed.
+By default only the named issues are ranked, in the listed order. With
+``--honor-relations`` the named issues, their descendants and their
+dependencies are moved as one block, ordered so that a parent is ranked
+before its child and a prerequisite before its dependent. Every other issue
+keeps its Jira rank order. The re-ranked keys and the named keys that are
+not part of the backlog are printed to stdout unless ``-q``/``--quiet`` is
+given. An encrypted Jira token is unlocked by a pass phrase asked on the
+terminal only when it is needed.
 
 <a id="backlogops_cli.rank_in_jira.build_parser"></a>
 

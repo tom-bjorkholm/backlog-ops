@@ -19,6 +19,7 @@ from typing import Callable, Optional, cast
 import pytest
 from jira import JIRA, JIRAError
 import backlogops
+from backlogops import JiraRankAnchor, format_add_result
 from backlogops.backlog import BacklogItem, Status
 import backlogops.jira_connect as jc
 from backlogops.jira_connect import JiraConnections
@@ -28,12 +29,13 @@ from backlogops.jira_io_config import (
 from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, FailedItem,
     OnExistingKey, StatusMismatch, UnknownIssueTypeError, apply_jira_keys,
-    format_add_result, jira_custom_fields, jira_editable_fields,
+    jira_custom_fields, jira_editable_fields,
     _issue_type_meta, _status_from_name, _transition_target)
 from backlogops.jira_write_fields import FailedLink, _link_spec_for
 from backlogops.levels import DEFAULT_LEVELS, level_name
 from .jira_write_helpers import (
-    connections_for as _connections, jira_write_config as _config, NO)
+    connections_for as _connections, jira_write_config as _config, NO,
+    RankCall, capture_rank)
 
 FIELDS: list[dict[str, str]] = [
     {'id': 'customfield_10016', 'name': 'Story point estimate'},
@@ -903,3 +905,43 @@ def test_parent_link_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     assert [link.relation for link in result.failed_links] == ['parent']
     assert result.failed_links[0].target == 'JIRA-2'
     assert result.failed_links[0].item.key == 'JIRA-1'
+
+
+def test_add_rank_wiring(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the added items are ranked in supplied order with the key map."""
+    record = RankCall()
+    monkeypatch.setattr(backlogops.jira_write, 'rank_backlog_or_warn',
+                        capture_rank(record))
+    connections = _connections(monkeypatch, _WriteClient())
+    backlog = [_item('A'), _item('B')]
+    add_backlog_to_jira(connections, 'w', backlog,
+                        on_existing_key=OnExistingKey.SKIP,
+                        rank_anchor=JiraRankAnchor.BACKLOG_BOTTOM)
+    assert [item.key for item in record.present] == ['A', 'B']
+    assert record.key_map == {'A': 'JIRA-1', 'B': 'JIRA-2'}
+    assert record.anchor is JiraRankAnchor.BACKLOG_BOTTOM
+
+
+def test_rank_skips_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an item whose create failed is left out of the ranking."""
+    record = RankCall()
+    monkeypatch.setattr(backlogops.jira_write, 'rank_backlog_or_warn',
+                        capture_rank(record))
+    connections = _connections(monkeypatch, _WriteClient(fail_types={'Epic'}))
+    epic = BacklogItem(key='E', level=2, title='Epic 1', story_points=0,
+                       status=Status.TODO)
+    add_backlog_to_jira(connections, 'w', [_item('S'), epic],
+                        on_existing_key=OnExistingKey.SKIP,
+                        rank_anchor=JiraRankAnchor.BACKLOG_TOP, stderr_file=NO)
+    assert [item.key for item in record.present] == ['S']
+
+
+def test_add_no_rank_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the ranking is not run when no anchor is given."""
+    record = RankCall()
+    monkeypatch.setattr(backlogops.jira_write, 'rank_backlog_or_warn',
+                        capture_rank(record))
+    connections = _connections(monkeypatch, _WriteClient())
+    add_backlog_to_jira(connections, 'w', [_item('A')],
+                        on_existing_key=OnExistingKey.SKIP)
+    assert not record.called

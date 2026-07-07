@@ -13,9 +13,13 @@ one copy rather than duplicating them.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Callable, Optional
 import pytest
 from jira import JIRAError
+from backlogops import JiraRankAnchor
+from backlogops.backlog import BacklogItem
+from backlogops.jira_rank_backlog import RankEnv
 import backlogops.jira_connect as jc
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import (
@@ -25,6 +29,32 @@ from backlogops.jira_io_config import (
 from backlogops.no_text_io import NoTextIO
 
 NO = NoTextIO()
+
+
+@dataclass
+class RankCall:
+    """Records the arguments a captured rank_backlog_or_warn was given.
+
+    The add and update tests both replace ``rank_backlog_or_warn`` with a
+    stand-in, so this shared record and its capturing stand-in live here.
+    """
+
+    called: bool = False
+    present: list[BacklogItem] = field(default_factory=list)
+    key_map: dict[str, str] = field(default_factory=dict)
+    anchor: Optional[JiraRankAnchor] = None
+
+
+def capture_rank(record: RankCall) -> Callable[..., None]:
+    """Return a rank_backlog_or_warn stand-in recording its arguments."""
+    def stub(env: RankEnv, present: list[BacklogItem],
+             key_map: dict[str, str]) -> None:
+        """Record the ranking call instead of talking to Jira."""
+        record.called = True
+        record.present = list(present)
+        record.key_map = dict(key_map)
+        record.anchor = env.anchor
+    return stub
 
 
 def jira_write_config(project: str = 'PROJ',

@@ -20,11 +20,39 @@ from backlogops_cli._migrate_warn import (
     CliMigrateWarnHook, CliPresetMigrateWarnHook)
 from backlogops_cli.bloc_version_reporter import BloCliVersionReporter
 from backlogops import (
-    BacklogOpsConfig, BacklogReleases, FileExistsCb, FormatRules, Levels,
-    ReleaseChanges, ReleaseDateChanges, allow_overwrite,
-    format_content_changes, format_date_changes, get_backlog_ops_config,
-    read_backlog_releases, resolve_input_config, resolve_output_config,
-    write_backlog_releases, write_content_changes, write_date_changes)
+    BacklogOpsConfig, BacklogReleases, FileExistsCb, FormatRules,
+    JiraRankAnchor, Levels, ReleaseChanges, ReleaseDateChanges,
+    allow_overwrite, format_content_changes, format_date_changes,
+    get_backlog_ops_config, read_backlog_releases, resolve_input_config,
+    resolve_output_config, write_backlog_releases, write_content_changes,
+    write_date_changes)
+
+RANK_ANCHOR_CHOICES = {
+    'backlog-top': JiraRankAnchor.BACKLOG_TOP,
+    'backlog-bottom': JiraRankAnchor.BACKLOG_BOTTOM,
+    'first-key': JiraRankAnchor.FIRST_KEY,
+    'last-key': JiraRankAnchor.LAST_KEY}
+"""Command-line anchor names mapped to :class:`JiraRankAnchor` members."""
+
+
+def rank_anchor(value: Optional[str]) -> Optional[JiraRankAnchor]:
+    """Return the anchor for a CLI anchor name, or None for a None value."""
+    return None if value is None else RANK_ANCHOR_CHOICES[value]
+
+
+def add_rank_arg(parser: argparse.ArgumentParser) -> None:
+    """Add the optional ``--rank`` flag choosing a Jira rank anchor.
+
+    Shared by the add and update commands, where ranking is opt-in: without
+    ``--rank`` the Jira rank order is left unchanged.
+    """
+    parser.add_argument('--rank', dest='rank', default=None,
+                        choices=sorted(RANK_ANCHOR_CHOICES),
+                        help='Also set the Jira rank order to match the '
+                        'supplied backlog, placing the items at this anchor: '
+                        'backlog-top, backlog-bottom, first-key (keep the '
+                        'first item fixed) or last-key (keep the last item '
+                        'fixed). Omit to leave the Jira rank order unchanged.')
 
 
 def overwrite_callback(force: bool, in_stream: Optional[TextIO] = None,

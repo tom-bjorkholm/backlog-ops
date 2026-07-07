@@ -21,7 +21,7 @@ THREAD = 'backlogops_gui.jira_base.threading.Thread'
 
 def _write_opts(_parent: object, _presets: object) -> JiraWriteOptions:
     """Return write options as if the write dialog was confirmed."""
-    return JiraWriteOptions('scrum', False)
+    return JiraWriteOptions('scrum', False, None)
 
 
 def _no_write_opts(_parent: object, _presets: object) -> None:

@@ -45,10 +45,11 @@ class JiraRanker(JiraAction):
         status = config.get_status_input_map()
 
         def call() -> RankedInJira:
-            """Move the keys to the chosen end of the Jira backlog."""
+            """Move the keys to the chosen anchor of the Jira backlog."""
             return jira_rank_move_keys(self._connections(), name, options.keys,
                                        filter_override=options.issue_filter,
-                                       move_to_end=options.move_to_end,
+                                       anchor=options.anchor,
+                                       honor_relations=options.honor_relations,
                                        levels=levels, status_map=status,
                                        stderr_file=self._app.log)
 

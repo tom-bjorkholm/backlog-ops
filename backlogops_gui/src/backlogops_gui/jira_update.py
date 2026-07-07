@@ -104,7 +104,7 @@ class JiraUpdater(JiraAction):
                 self._connections(), name, data.backlog,
                 on_missing_key=options.on_missing,
                 fields_to_update=options.fields, link_update=link_update,
-                levels=config.get_levels(),
+                rank_anchor=options.rank_anchor, levels=config.get_levels(),
                 status_map=config.get_status_input_map(),
                 stderr_file=self._app.log)
 

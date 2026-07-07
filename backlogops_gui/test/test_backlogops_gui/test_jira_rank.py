@@ -14,7 +14,7 @@ failure is reported.
 from typing import Callable
 import pytest
 from backlogops import (
-    BacklogOpsConfig, BadJiraRankFilter, JiraMoveToEnd, RankedInJira)
+    BacklogOpsConfig, BadJiraRankFilter, JiraRankAnchor, RankedInJira)
 from backlogops_gui.jira_dialogs import JiraRankOptions
 from .jira_test_helpers import config, make_app, make_immediate, record_calls
 
@@ -26,7 +26,7 @@ THREAD = 'backlogops_gui.jira_base.threading.Thread'
 def _opts(_parent: object, _filters: object, _sink: object) -> JiraRankOptions:
     """Return rank options as if the rank dialog was confirmed."""
     return JiraRankOptions('scrum', 'project = SCRUM', ['A', 'B'],
-                           JiraMoveToEnd.FIRST)
+                           JiraRankAnchor.BACKLOG_TOP, False)
 
 
 def _no_opts(_parent: object, _filters: object, _sink: object) -> None:

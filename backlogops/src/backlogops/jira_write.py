@@ -62,6 +62,8 @@ from jira import JIRA, Issue, JIRAError
 from backlogops.backlog import Backlog, BacklogItem, DEPENDENCY_FIELDS, Status
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap, JiraIssueTypeMap
+from backlogops.jira_rank_backlog import (
+    JiraRankAnchor, RankEnv, rank_backlog_or_warn)
 from backlogops.jira_read import _coerce, _custom_ids, _resolve
 from backlogops.jira_write_fields import FailedLink, _LinkSpec, _link_specs, \
     _parent_fields, _place_value
@@ -770,6 +772,7 @@ def _write_new_items(ctx: _WriteContext, backlog: Backlog, existing: set[str],
 # pylint: disable-next=too-many-arguments
 def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
                         backlog: Backlog, *, on_existing_key: OnExistingKey,
+                        rank_anchor: Optional[JiraRankAnchor] = None,
                         levels: Optional[Levels] = None,
                         status_map: Optional[dict[str, Status]] = None,
                         stderr_file: TextIO = sys.stderr) -> AddedToJira:
@@ -803,6 +806,11 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
         backlog: The backlog items to add. Not modified.
         on_existing_key: Whether to raise or skip when a key already
             exists in Jira.
+        rank_anchor: When given, the supplied items present in Jira are
+            also ranked in Jira in the supplied backlog order, at this
+            anchor; None (the default) leaves the Jira rank order alone. A
+            ranking Jira refuses is reported as a warning and does not undo
+            the completed add.
         levels: The levels used to resolve the issue type from the item
             level, or None for the default levels.
         status_map: Extra Jira status names mapped to internal statuses,
@@ -830,7 +838,19 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
     existing = _existing_keys(ctx.client, backlog)
     if on_existing_key is OnExistingKey.RAISE and existing:
         _raise_existing(existing, stderr_file)
-    return _write_new_items(ctx, backlog, existing, stderr_file)
+    result = _write_new_items(ctx, backlog, existing, stderr_file)
+    if rank_anchor is not None:
+        env = RankEnv(connections, preset_name, rank_anchor, levels,
+                      status_map, stderr_file)
+        rank_backlog_or_warn(env, _present_after_add(result, backlog),
+                             result.key_map)
+    return result
+
+
+def _present_after_add(result: AddedToJira, backlog: Backlog) -> Backlog:
+    """Return the supplied items that reached Jira, in supplied order."""
+    failed = {fail.item.key for fail in result.failed}
+    return [item for item in backlog if item.key not in failed]
 
 
 def _build_ctx(connections: JiraConnections, preset_name: str,
@@ -862,88 +882,6 @@ def _build_ctx(connections: JiraConnections, preset_name: str,
                         custom_names=custom_names, types=types,
                         status_map=status_map)
     return ctx, set(type_meta)
-
-
-def _labeled_lines(heading: str, count: int, body: list[str]) -> list[str]:
-    """Return a heading with its count then the body, or a (none) line.
-
-    An empty body becomes a single ``  (none)`` line, so every section
-    shows either its items or that it has none. This is shared by the
-    add-backlog and add-releases result listings.
-    """
-    return [f'{heading} ({count}):', *(body or ['  (none)'])]
-
-
-def _result_section(heading: str, backlog: Backlog) -> list[str]:
-    """Return the heading and the key-and-title lines for one backlog."""
-    return _labeled_lines(heading, len(backlog),
-                          [f'  {item.key}  {item.title}' for item in backlog])
-
-
-def _key_section(heading: str, names: list[str]) -> list[str]:
-    """Return a heading with its count and one indented line per name.
-
-    This is shared by the backlog-update and release-update listings for
-    their key-only or name-only sections.
-    """
-    return _labeled_lines(heading, len(names), [f'  {n}' for n in names])
-
-
-def _outcome_prefix(updated: list[str], already_correct: list[str],
-                    ignored: list[str]) -> list[str]:
-    """Return the updated, already-correct and ignored key sections.
-
-    This is the shared start of the backlog-update and release-update
-    listings, before each adds its own trailing sections.
-    """
-    lines = _key_section('Updated in Jira', updated)
-    lines.append('')
-    lines.extend(_key_section('Already correct in Jira', already_correct))
-    lines.append('')
-    lines.extend(_key_section('Not in Jira (ignored)', ignored))
-    return lines
-
-
-def format_add_result(result: AddedToJira) -> str:
-    """Return a listing of the added, present, failed and unmatched items.
-
-    Each section has a heading with its count, then one ``key  title`` line
-    per item, or a ``(none)`` line when the section is empty. The CLI
-    prints this text and the GUI shows it in a copy-pasteable pop-up.
-    """
-    lines = _result_section('Added to Jira', result.stored)
-    lines.append('')
-    lines.extend(_result_section('Already in Jira', result.already_present))
-    lines.append('')
-    lines.extend(_failed_section('Failed to add', result.failed))
-    lines.append('')
-    lines.extend(_status_section('Status not set in Jira',
-                                 result.status_mismatch))
-    lines.append('')
-    lines.extend(_link_section('Links not written', result.failed_links))
-    return '\n'.join(lines)
-
-
-def _failed_section(heading: str, failed: list[FailedItem]) -> list[str]:
-    """Return the heading and the key, title and reason of each failure."""
-    body = [f'  {entry.item.key}  {entry.item.title}  - {entry.reason}'
-            for entry in failed]
-    return _labeled_lines(heading, len(failed), body)
-
-
-def _status_section(heading: str, mismatch: list[StatusMismatch]) -> list[str]:
-    """Return the heading and the key, title and status of each mismatch."""
-    body = [f'  {bad.item.key}  {bad.item.title}  - expected '
-            f'{bad.expected.name}, Jira status {bad.actual!r}'
-            for bad in mismatch]
-    return _labeled_lines(heading, len(mismatch), body)
-
-
-def _link_section(heading: str, links: list[FailedLink]) -> list[str]:
-    """Return the heading and the source, target and reason of each link."""
-    body = [f'  {link.item.key} -> {link.target}  ({link.relation})  '
-            f'- {link.reason}' for link in links]
-    return _labeled_lines(heading, len(links), body)
 
 
 def apply_jira_keys(backlog: Backlog, key_map: dict[str, str]) -> None:

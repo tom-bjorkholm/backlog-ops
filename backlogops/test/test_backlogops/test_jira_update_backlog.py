@@ -20,6 +20,7 @@ from typing import Callable, Optional
 import pytest
 from jira import JIRAError
 import backlogops
+from backlogops import JiraRankAnchor
 from backlogops.backlog import BacklogItem, Status
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_write import (
@@ -30,7 +31,8 @@ from backlogops import jira_update_backlog
 from backlogops.jira_update_backlog import (
     LinkUpdate, UpdatedBacklogInJira, format_backlog_updates,
     updatable_backlog_fields, update_backlog_in_jira)
-from .jira_write_helpers import connections_for as _connections, NO
+from .jira_write_helpers import (
+    connections_for as _connections, NO, RankCall, capture_rank)
 
 FIELDS: list[dict[str, str]] = [
     {'id': 'customfield_10016', 'name': 'Story point estimate'},
@@ -536,3 +538,44 @@ def test_reexport() -> None:
     assert backlogops.updatable_backlog_fields is updatable_backlog_fields
     assert 'update_backlog_in_jira' in backlogops.__all__
     assert 'LinkUpdate' in backlogops.__all__
+
+
+def test_update_rank_wiring(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test present items are ranked in supplied order at the anchor."""
+    record = RankCall()
+    monkeypatch.setattr(jira_update_backlog, 'rank_backlog_or_warn',
+                        capture_rank(record))
+    client = _Client({'A': _issue('A'), 'B': _issue('B')})
+    connections = _connections(monkeypatch, client)
+    update_backlog_in_jira(connections, 'w', [_item('A'), _item('B')],
+                           on_missing_key=OnMissingKey.IGNORE,
+                           fields_to_update=['title'],
+                           rank_anchor=JiraRankAnchor.BACKLOG_TOP)
+    assert [item.key for item in record.present] == ['A', 'B']
+    assert not record.key_map
+    assert record.anchor is JiraRankAnchor.BACKLOG_TOP
+
+
+def test_rank_skips_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an item not present in Jira is left out of the ranking."""
+    record = RankCall()
+    monkeypatch.setattr(jira_update_backlog, 'rank_backlog_or_warn',
+                        capture_rank(record))
+    connections = _connections(monkeypatch, _Client({'A': _issue('A')}))
+    update_backlog_in_jira(connections, 'w', [_item('A'), _item('B')],
+                           on_missing_key=OnMissingKey.IGNORE,
+                           fields_to_update=['title'],
+                           rank_anchor=JiraRankAnchor.BACKLOG_TOP)
+    assert [item.key for item in record.present] == ['A']
+
+
+def test_no_rank_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the ranking is not run when no anchor is given."""
+    record = RankCall()
+    monkeypatch.setattr(jira_update_backlog, 'rank_backlog_or_warn',
+                        capture_rank(record))
+    connections = _connections(monkeypatch, _Client({'A': _issue('A')}))
+    update_backlog_in_jira(connections, 'w', [_item('A')],
+                           on_missing_key=OnMissingKey.IGNORE,
+                           fields_to_update=['title'])
+    assert not record.called

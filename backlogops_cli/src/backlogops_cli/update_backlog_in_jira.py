@@ -16,7 +16,9 @@ the parent and dependency links are updated: ``reconcile`` (the default) makes
 the Jira links match the backlog exactly, removing a Jira link the backlog no
 longer has and clearing a dropped parent, while ``add`` only adds the missing
 links and never removes one. ``--links`` governs only the links; the other
-selected fields are updated the same way under either value.
+selected fields are updated the same way under either value. With ``--rank``
+the items are also ranked in Jira to match the backlog order, at the chosen
+anchor.
 
 The updated, already-correct, ignored, added and failed items are printed
 to stdout as labelled lists, unless ``-q``/``--quiet`` is given. An
@@ -37,7 +39,8 @@ from backlogops import (
     OnMissingKey, UpdatedBacklogInJira, format_backlog_updates,
     update_backlog_in_jira, updatable_backlog_fields)
 from backlogops_cli._command_io import (
-    add_config_arg, add_input_args, parsed_args, read_input, required_config)
+    add_config_arg, add_input_args, add_rank_arg, parsed_args, rank_anchor,
+    read_input, required_config)
 
 DESCRIPTION = 'Update a backlog in Jira, changing only the chosen columns'
 
@@ -66,6 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
                         'reconcile (default) makes Jira match the backlog, '
                         'removing links it no longer has; add only adds '
                         'missing links.')
+    add_rank_arg(parser)
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
                         help='Do not print the result lists to stdout.')
     return parser
@@ -123,6 +127,7 @@ def _update(parsed: argparse.Namespace, config: BacklogOpsConfig,
                                     on_missing_key=mode,
                                     fields_to_update=fields,
                                     link_update=link_update,
+                                    rank_anchor=rank_anchor(parsed.rank),
                                     levels=config.get_levels(),
                                     status_map=config.get_status_input_map())
     _report_summary(result)

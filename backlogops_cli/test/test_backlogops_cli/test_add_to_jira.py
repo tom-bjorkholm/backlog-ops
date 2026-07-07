@@ -16,9 +16,10 @@ from typing import Callable
 import pytest
 from backlogops import (
     AddedToJira, AvailableTeams, BacklogItem, BacklogOpsConfig,
-    BacklogReleases, ExistsInJiraError, FormatRules, OnExistingKey, Release,
-    Status, allow_overwrite, read_backlog_releases, resolve_input_config,
-    resolve_output_config, write_backlog_ops_config, write_backlog_releases)
+    BacklogReleases, ExistsInJiraError, FormatRules, JiraRankAnchor,
+    OnExistingKey, Release, Status, allow_overwrite, read_backlog_releases,
+    resolve_input_config, resolve_output_config, write_backlog_ops_config,
+    write_backlog_releases)
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import add_to_jira
@@ -60,9 +61,10 @@ def _fake_add(captured: dict[str, object],
     """Return a stand-in add that records the mode and returns ``result``."""
     def add(connections: object, preset_name: str, backlog: object, *,
             on_existing_key: OnExistingKey, **kwargs: object) -> AddedToJira:
-        """Record the on-existing mode and return the canned result."""
-        _ = (connections, preset_name, backlog, kwargs)
+        """Record the on-existing mode and rank anchor, return the result."""
+        _ = (connections, preset_name, backlog)
         captured['mode'] = on_existing_key
+        captured['rank'] = kwargs.get('rank_anchor')
         return result
     return add
 
@@ -169,3 +171,25 @@ def test_requires_config(tmp_path: Path) -> None:
     """Test the command fails when no configuration can be found."""
     code = add_to_jira.main(['-i', str(tmp_path / 'in.csv'), '-p', 'w'])
     assert code == 1
+
+
+def test_rank_flag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test --rank passes the chosen anchor to the add."""
+    captured = _patch(monkeypatch, _result())
+    _config_file(tmp_path / 'ops.cfg')
+    _write_input(tmp_path / 'in.csv')
+    add_to_jira.main(['-i', str(tmp_path / 'in.csv'), '-p', 'w',
+                      '-c', str(tmp_path / 'ops.cfg'),
+                      '--rank', 'backlog-bottom'])
+    assert captured['rank'] is JiraRankAnchor.BACKLOG_BOTTOM
+
+
+def test_no_rank_default(tmp_path: Path,
+                         monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test no --rank leaves the rank anchor unset."""
+    captured = _patch(monkeypatch, _result())
+    _config_file(tmp_path / 'ops.cfg')
+    _write_input(tmp_path / 'in.csv')
+    add_to_jira.main(['-i', str(tmp_path / 'in.csv'), '-p', 'w',
+                      '-c', str(tmp_path / 'ops.cfg')])
+    assert captured['rank'] is None

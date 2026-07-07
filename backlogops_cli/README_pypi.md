@@ -225,7 +225,7 @@ backlogops_cli serves 2 purposes:
      Create an input or output preset config file via a wizard
 
   python3 -m backlogops_cli.rank_in_jira
-     Move key-list items first or last in the Jira rank order
+     Move key-list items to a chosen anchor in the Jira rank order
 
   python3 -m backlogops_cli.read_jira
      Read a backlog and releases from Jira and store to a file

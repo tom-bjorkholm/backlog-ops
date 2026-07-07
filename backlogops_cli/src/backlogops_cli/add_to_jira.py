@@ -5,7 +5,8 @@ The command reads a backlog (or a backlog and its releases) from the input
 file, then adds the backlog items to Jira using a named preset of the
 backlog-ops configuration. By default it stops with an error when an
 item's key already exists in Jira; ``--skip-existing`` skips those items
-instead.
+instead. With ``--rank`` the items are also ranked in Jira to match the
+supplied backlog order, at the chosen anchor.
 
 The added items (carrying their new Jira keys) and the items already in
 Jira are printed to stdout as two labelled lists, unless ``-q``/``--quiet``
@@ -28,8 +29,8 @@ from backlogops import (
     FormatRules, JiraConnections, OnExistingKey, add_backlog_to_jira,
     format_add_result, resolve_output_config, write_backlog_releases)
 from backlogops_cli._command_io import (
-    add_config_arg, add_input_args, overwrite_callback, parsed_args,
-    read_input, required_config)
+    add_config_arg, add_input_args, add_rank_arg, overwrite_callback,
+    parsed_args, rank_anchor, read_input, required_config)
 from backlogops_cli._migrate_warn import CliPresetMigrateWarnHook
 
 DESCRIPTION = 'Add a backlog to Jira, creating a new issue per item'
@@ -46,6 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
                         action='store_true',
                         help='Skip items whose key already exists in Jira '
                         '(the default stops with an error instead).')
+    add_rank_arg(parser)
     parser.add_argument('--added-file', dest='added_file', metavar='FILE',
                         help='Write the added items, with their new Jira '
                         'keys, to this file. Omit to not write it.')
@@ -77,6 +79,7 @@ def _add(parsed: argparse.Namespace, config: BacklogOpsConfig,
             else OnExistingKey.RAISE)
     result = add_backlog_to_jira(connections, parsed.preset, data.backlog,
                                  on_existing_key=mode,
+                                 rank_anchor=rank_anchor(parsed.rank),
                                  levels=config.get_levels(),
                                  status_map=config.get_status_input_map())
     print(f'Added {len(result.stored)} items to Jira; '

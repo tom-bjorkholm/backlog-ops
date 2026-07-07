@@ -1,19 +1,21 @@
 #! /usr/local/bin/python3
-"""Move key-list items to the front or end of a Jira backlog by rank.
+"""Move key-list items to a chosen anchor of a Jira backlog by rank.
 
-The command reads a key list from a file and moves the named issues,
-together with the issues they pull along, to the front (the default) or the
-end of the backlog read by a named preset of the backlog-ops configuration.
+The command reads a key list from a file and moves the named issues to a
+chosen anchor of the backlog read by a named preset of the backlog-ops
+configuration. ``--anchor`` places them at the top (the default) or the
+bottom end of the backlog, or relative to the first or last key of the list.
 The backlog is the issues the preset filter reads in their Jira rank order;
 ``--filter`` overrides that filter for one run and may only order by rank.
 
-The named issues, their descendants and their dependencies are moved as one
-block, ordered so that a parent is ranked before its child and a
-prerequisite before its dependent, while every other issue keeps its Jira
-rank order. The re-ranked keys and the named keys that are not part of the
-backlog are printed to stdout unless ``-q``/``--quiet`` is given. An
-encrypted Jira token is unlocked by a pass phrase asked on the terminal only
-when it is needed.
+By default only the named issues are ranked, in the listed order. With
+``--honor-relations`` the named issues, their descendants and their
+dependencies are moved as one block, ordered so that a parent is ranked
+before its child and a prerequisite before its dependent. Every other issue
+keeps its Jira rank order. The re-ranked keys and the named keys that are
+not part of the backlog are printed to stdout unless ``-q``/``--quiet`` is
+given. An encrypted Jira token is unlocked by a pass phrase asked on the
+terminal only when it is needed.
 """
 
 # PYTHON_ARGCOMPLETE_OK
@@ -26,14 +28,12 @@ from getpass import getpass
 from typing import Optional
 from jira import JIRAError
 from backlogops import (
-    BacklogOpsConfig, JiraConnections, JiraMoveToEnd, RankedInJira,
-    format_rank_result, jira_rank_move_keys, read_key_list)
+    BacklogOpsConfig, JiraConnections, RankedInJira, format_rank_result,
+    jira_rank_move_keys, read_key_list)
 from backlogops_cli._command_io import (
-    add_config_arg, parsed_args, required_config)
+    RANK_ANCHOR_CHOICES, add_config_arg, parsed_args, required_config)
 
-DESCRIPTION = 'Move key-list items first or last in the Jira rank order'
-
-_TO_END = {'first': JiraMoveToEnd.FIRST, 'last': JiraMoveToEnd.LAST}
+DESCRIPTION = 'Move key-list items to a chosen anchor in the Jira rank order'
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,10 +44,18 @@ def build_parser() -> argparse.ArgumentParser:
                         help='Name of the Jira preset in the configuration.')
     parser.add_argument('-k', '--key-list', dest='key_list', required=True,
                         help='Key list file naming the issues to move.')
-    parser.add_argument('--to-end', dest='to_end', choices=['first', 'last'],
-                        default='first',
-                        help="Move the items to the 'first' (default) or "
-                        "the 'last' end of the backlog.")
+    parser.add_argument('--anchor', dest='anchor',
+                        choices=sorted(RANK_ANCHOR_CHOICES),
+                        default='backlog-top',
+                        help="Where to place the moved items: the "
+                        "'backlog-top' (default) or 'backlog-bottom' end of "
+                        "the backlog, or relative to the 'first-key' or "
+                        "'last-key' of the key list.")
+    parser.add_argument('--honor-relations', dest='honor_relations',
+                        action='store_true',
+                        help='Also move descendants and dependencies and '
+                        'order parent before child; by default only the '
+                        'listed keys are ranked, in the listed order.')
     parser.add_argument('--filter', dest='filter', metavar='JQL', default=None,
                         help='JQL filter reading the backlog; it may only '
                         'order by rank. Omit to use the preset filter.')
@@ -70,7 +78,8 @@ def _rank(parsed: argparse.Namespace,
     keys = read_key_list(parsed.key_list)
     result = jira_rank_move_keys(connections, parsed.preset, keys,
                                  filter_override=parsed.filter,
-                                 move_to_end=_TO_END[parsed.to_end],
+                                 anchor=RANK_ANCHOR_CHOICES[parsed.anchor],
+                                 honor_relations=parsed.honor_relations,
                                  levels=config.get_levels(),
                                  status_map=config.get_status_input_map())
     print(f'Ranked {len(result.keys_ranked_ok)} items in Jira; '

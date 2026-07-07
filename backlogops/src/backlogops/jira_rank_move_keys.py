@@ -1,17 +1,19 @@
 #! /usr/local/bin/python3
-"""Move named issues to the front or the end of a Jira backlog by rank.
+"""Move named issues to a chosen anchor of a Jira backlog by rank.
 
 A backlog in Jira is the set of issues a filter reads in their Jira rank
-order. :func:`jira_rank_move_keys` moves the named issues, together with
-the issues they pull along, to the front or the end of that backlog, and
+order. :func:`jira_rank_move_keys` moves the named issues to a chosen
+:class:`~backlogops.jira_rank_backlog.JiraRankAnchor` of that backlog and
 leaves every other issue in its existing Jira rank order.
 
-The moved block is the named issues, all their descendants (the items below
-them in the parent and child hierarchy) and their dependencies. For a move
-to the front the dependencies pulled along are the prerequisites of the
-block, so everything the named issues need is ranked before them. For a
-move to the end they are the dependents of the block, so everything that
-needs the named issues is ranked after them. The block is ordered by
+By default only the named issues are moved, in the order they are listed.
+When relations are honoured the moved block is instead the named issues,
+all their descendants (the items below them in the parent and child
+hierarchy) and their dependencies: for a top or first-key anchor the
+prerequisites of the block are pulled along, so everything the named issues
+need is ranked before them, and for a bottom or last-key anchor the
+dependents are pulled along, so everything that needs the named issues is
+ranked after them. That block is ordered by
 :func:`backlogops.order_by_dependencies.order_by_dependencies`, so a parent
 is ranked before its child and a prerequisite before its dependent. The new
 order is written to Jira through
@@ -22,24 +24,18 @@ order is written to Jira through
 # MIT License
 
 import sys
-from enum import Enum, auto
 from typing import NamedTuple, Optional, Sequence, TextIO
 from jira import JIRA
 from backlogops.backlog import Backlog, Status
 from backlogops.jira_connect import JiraConnections
-from backlogops.jira_rank_by_keys import jira_rank_by_keys_raw
+from backlogops.jira_rank_backlog import (
+    JiraRankAnchor, _ensure_rank_order, _rank_keys)
 from backlogops.jira_read import read_backlog_from_jira, resolve_jql
-from backlogops.jira_write import _issue_exists, _key_section
+from backlogops.jira_write import _issue_exists
+from backlogops.jira_write_format import _key_section
 from backlogops.levels import Levels
 from backlogops.order_by_dependencies import (
     order_by_dependencies, precedence_relations)
-
-
-class JiraMoveToEnd(Enum):
-    """Which end of the Jira backlog the named issues are moved to."""
-
-    FIRST = auto()
-    LAST = auto()
 
 
 class RankedInJira(NamedTuple):
@@ -57,45 +53,6 @@ class RankedInJira(NamedTuple):
     keys_ranked_ok: list[str]
     keys_not_in_jira: list[str]
     keys_not_in_filter: list[str]
-
-
-class BadJiraRankFilter(ValueError):
-    """Raised when a filter cannot be used for ranking in Jira.
-
-    A filter used for ranking must read the backlog in its Jira rank
-    order, so it may only order by rank ascending. This is raised when the
-    filter orders by anything else.
-    """
-
-    def __init__(self, *, jql_text: str, message: str) -> None:
-        """Store the filter and the reason and build the message."""
-        self.jql_text = jql_text
-        self.reason_message = message
-        super().__init__(f"Filter '{jql_text}' is not usable for ranking "
-                         f'in Jira: {message}')
-
-
-def _ensure_rank_order(jql: str) -> str:
-    """Return the filter with an ``ORDER BY Rank ASC`` clause enforced.
-
-    A filter with no ORDER BY clause has one appended. A filter that
-    already orders by rank ascending is returned unchanged. Any other
-    ORDER BY clause is rejected, because it would not read the backlog in
-    its Jira rank order.
-
-    Raises:
-        BadJiraRankFilter: If the filter orders by anything but rank.
-    """
-    marker = 'order by'
-    index = jql.lower().rfind(marker)
-    if index == -1:
-        return f'{jql} ORDER BY Rank ASC'
-    clause = ' '.join(jql[index + len(marker):].lower().split())
-    if clause in ('rank', 'rank asc'):
-        return jql
-    raise BadJiraRankFilter(jql_text=jql,
-                            message="the only allowed ORDER BY clause is"
-                                    " 'Rank ASC'")
 
 
 def _children(backlog: Backlog) -> dict[str, list[str]]:
@@ -121,18 +78,20 @@ def _descendants(backlog: Backlog, roots: Sequence[str]) -> set[str]:
 
 
 def _family(backlog: Backlog, named: Sequence[str],
-            move_to_end: JiraMoveToEnd) -> set[str]:
+            anchor: JiraRankAnchor) -> set[str]:
     """Return the keys to move: the named keys, descendants and their deps.
 
-    The named keys and all their descendants are always included. For a
-    move to the front the transitive prerequisites of that set are added,
-    so everything the named issues need is ranked before them. For a move
-    to the end the transitive dependents are added, so everything that
-    needs the named issues is ranked after them.
+    The named keys and all their descendants are always included. For a top
+    or first-key anchor the transitive prerequisites of that set are added,
+    so everything the named issues need is ranked before them. For a bottom
+    or last-key anchor the transitive dependents are added, so everything
+    that needs the named issues is ranked after them.
     """
     base = set(named) | _descendants(backlog, named)
     before, after = precedence_relations(backlog)
-    related = before if move_to_end is JiraMoveToEnd.FIRST else after
+    toward_top = anchor in (JiraRankAnchor.BACKLOG_TOP,
+                            JiraRankAnchor.FIRST_KEY)
+    related = before if toward_top else after
     block = set(base)
     for key in base:
         block |= related.get(key, set())
@@ -152,26 +111,35 @@ def _block_order(backlog: Backlog, block: set[str],
     return [item.key for item in ordered]
 
 
-def _rank_plan(backlog: Backlog, named: Sequence[str],
-               move_to_end: JiraMoveToEnd,
-               stderr_file: TextIO) -> tuple[list[str], bool]:
-    """Return the key list and move_before flag for the raw ranking call.
+def _ordered_block(backlog: Backlog, found: Sequence[str],
+                   anchor: JiraRankAnchor, honor_relations: bool,
+                   stderr_file: TextIO) -> list[str]:
+    """Return the found keys as the ordered block to rank.
 
-    The moved block (the named keys with their descendants and pulled
-    dependencies) is ordered by dependencies. For a move to the front the
-    ordered block is followed by the first remaining key and ranked before
-    it; for a move to the end the last remaining key is followed by the
-    ordered block and ranked after it. This keeps every remaining item in
-    its existing Jira rank order and moves only the block.
+    Without honouring relations the found keys are ranked in the listed
+    order. Honouring relations expands them into their family and orders the
+    whole block by dependencies, parent before child.
     """
-    block = _family(backlog, named, move_to_end)
-    order = _block_order(backlog, block, stderr_file)
+    if not honor_relations:
+        return list(found)
+    block = _family(backlog, found, anchor)
+    return _block_order(backlog, block, stderr_file)
+
+
+def _rank_plan(backlog: Backlog, found: Sequence[str], anchor: JiraRankAnchor,
+               honor_relations: bool,
+               stderr_file: TextIO) -> tuple[list[str], list[str]]:
+    """Return the ordered block keys and the remaining backlog keys.
+
+    The ordered block is the keys to move in their wanted order. The rest
+    are every other backlog key in their existing Jira rank order, used to
+    find the backlog end for a top or bottom anchor.
+    """
+    ordered = _ordered_block(backlog, found, anchor, honor_relations,
+                             stderr_file)
+    block = set(ordered)
     rest = [item.key for item in backlog if item.key not in block]
-    if not rest:
-        return order, False
-    if move_to_end is JiraMoveToEnd.FIRST:
-        return order + [rest[0]], True
-    return [rest[-1]] + order, False
+    return ordered, rest
 
 
 def _present_and_absent(requested: Sequence[str], backlog: Backlog
@@ -206,49 +174,55 @@ def _split_absent(client: JIRA,
 
 
 def _classify(connections: JiraConnections, connection_name: str,
-              requested: Sequence[str],
-              backlog: Backlog) -> tuple[RankedInJira, list[str]]:
+              requested: Sequence[str], backlog: Backlog) -> RankedInJira:
     """Classify requested keys against the backlog and existing Jira issues.
 
-    Returns the full result and the list of found keys, so the caller can
-    rank the found keys and still return the complete classification.
+    The found keys are the ``keys_ranked_ok`` of the result, so the caller
+    ranks those and returns the same complete classification.
     """
     client = connections.client(connection_name)
     found, absent = _present_and_absent(requested, backlog)
     not_in_jira, not_in_filter = _split_absent(client, absent)
-    return RankedInJira(found, not_in_jira, not_in_filter), found
+    return RankedInJira(found, not_in_jira, not_in_filter)
 
 
 # pylint: disable-next=too-many-arguments
 def jira_rank_move_keys(connections: JiraConnections, preset_name: str,
                         issue_keys: Sequence[str], *,
                         filter_override: Optional[str] = None,
-                        move_to_end: JiraMoveToEnd = JiraMoveToEnd.FIRST,
+                        anchor: JiraRankAnchor = JiraRankAnchor.BACKLOG_TOP,
+                        honor_relations: bool = False,
                         levels: Optional[Levels] = None,
                         status_map: Optional[dict[str, Status]] = None,
                         stderr_file: TextIO = sys.stderr) -> RankedInJira:
-    """Move named issues to the front or the end of a Jira backlog by rank.
+    """Move named issues to a chosen anchor of a Jira backlog by rank.
 
     The preset names the connection and the column maps, and its filter
     (or ``filter_override`` when given) reads the backlog in its Jira rank
-    order. The named issues, their descendants and their dependencies are
-    moved as one block to the front (``FIRST``) or the end (``LAST``) of
-    that backlog, ordered so that a parent is ranked before its child and a
-    prerequisite before its dependent. Every other issue keeps its existing
-    Jira rank order. A named key that is not part of the backlog is not
-    ranked but reported, either as not existing in Jira or as excluded by
-    the filter.
+    order. By default only the named issues are moved, in the order they are
+    listed. When ``honor_relations`` is set the named issues, their
+    descendants and their dependencies are moved as one block, ordered so
+    that a parent is ranked before its child and a prerequisite before its
+    dependent. The ``anchor`` chooses where the moved keys land, as
+    described on :class:`~backlogops.jira_rank_backlog.JiraRankAnchor`.
+    Every other issue keeps its existing Jira rank order. A named key that
+    is not part of the backlog is not ranked but reported, either as not
+    existing in Jira or as excluded by the filter.
 
     Args:
         connections: The pool of live Jira clients and the configuration
             holding the preset.
         preset_name: The name of the preset to use.
-        issue_keys: The keys of the issues to move, in no required order.
+        issue_keys: The keys of the issues to move. Without honouring
+            relations they are ranked in this order.
         filter_override: A Jira filter to use instead of the preset's. It
             may only order by rank ascending; a missing ORDER BY clause is
             added.
-        move_to_end: Whether to move the named issues to the front
-            (``FIRST``, the default) or the end (``LAST``) of the backlog.
+        anchor: Where the moved keys land in the Jira rank order.
+        honor_relations: Whether to also move the descendants and
+            dependencies of the named issues and order the block parent
+            before child (True), or to rank only the listed keys in the
+            listed order (False, the default).
         levels: The levels used to resolve a string level, or None for the
             default levels.
         status_map: Extra Jira status names mapped to Status members, or
@@ -273,14 +247,13 @@ def jira_rank_move_keys(connections: JiraConnections, preset_name: str,
                                      filter_override=jql, levels=levels,
                                      status_map=status_map,
                                      stderr_file=stderr_file).backlog
-    result, found = _classify(connections, preset.connection_name, issue_keys,
-                              backlog)
-    if not found:
+    result = _classify(connections, preset.connection_name, issue_keys,
+                       backlog)
+    if not result.keys_ranked_ok:
         return result
-    raw_keys, move_before = _rank_plan(backlog, found, move_to_end,
-                                       stderr_file)
-    jira_rank_by_keys_raw(connections, preset.connection_name, raw_keys,
-                          move_before=move_before)
+    ordered, rest = _rank_plan(backlog, result.keys_ranked_ok, anchor,
+                               honor_relations, stderr_file)
+    _rank_keys(connections, preset.connection_name, ordered, anchor, rest)
     return result
 
 

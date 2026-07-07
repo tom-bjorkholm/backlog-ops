@@ -78,8 +78,9 @@ from backlogops.jira_write_fields import FailedLink
 from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, FailedItem,
     ItemNotInJiraError, OnExistingKey, OnMissingKey, StatusMismatch,
-    UnknownIssueTypeError, apply_jira_keys, format_add_result,
+    UnknownIssueTypeError, apply_jira_keys,
     jira_custom_fields, jira_editable_fields)
+from backlogops.jira_write_format import format_add_result
 from backlogops.jira_write_releases import (
     add_releases_to_jira, AddedReleasesToJira, FailedRelease,
     ReleaseExistsError, format_release_result)
@@ -90,9 +91,10 @@ from backlogops.jira_update_backlog import (
     format_backlog_updates, updatable_backlog_fields)
 from backlogops.jira_rank_by_keys import (
     jira_rank_by_keys_raw, JiraKeyError, JiraTooManyLoops)
+from backlogops.jira_rank_backlog import (
+    jira_rank_backlog, JiraRankAnchor, BadJiraRankFilter)
 from backlogops.jira_rank_move_keys import (
-    jira_rank_move_keys, JiraMoveToEnd, RankedInJira, BadJiraRankFilter,
-    format_rank_result)
+    jira_rank_move_keys, RankedInJira, format_rank_result)
 
 __all__ = [
     'Backlog', 'BacklogItem', 'Status', 'get_backlog', 'get_backlog_item',
@@ -144,5 +146,6 @@ __all__ = [
     'format_release_updates', 'update_backlog_in_jira',
     'UpdatedBacklogInJira', 'LinkUpdate', 'format_backlog_updates',
     'updatable_backlog_fields', 'jira_rank_by_keys_raw', 'JiraKeyError',
-    'JiraTooManyLoops', 'jira_rank_move_keys', 'JiraMoveToEnd',
-    'RankedInJira', 'BadJiraRankFilter', 'format_rank_result']
+    'JiraTooManyLoops', 'jira_rank_move_keys', 'jira_rank_backlog',
+    'JiraRankAnchor', 'RankedInJira', 'BadJiraRankFilter',
+    'format_rank_result']
