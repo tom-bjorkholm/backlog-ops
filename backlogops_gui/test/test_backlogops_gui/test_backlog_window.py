@@ -201,9 +201,7 @@ def test_rank_absent() -> None:
         assert states['Rank items in Jira…'] == 'disabled'
 
 
-# The test test_cmd_w_closes() fails if display is locked on macOS
-# Disabling for now, to be fixed later.
-@pytest.mark.skip(reason='Fails on macOS with display locked, to be fixed.')
+@pytest.mark.focus_sensitive
 def test_cmd_w_closes() -> None:
     """Test Cmd-W closes a backlog window."""
     with gui_root() as root:
