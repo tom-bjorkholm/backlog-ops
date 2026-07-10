@@ -156,8 +156,8 @@ def check_releases(releases: Releases,
 
     Raises:
         TypeError: If a field has the wrong type.
-        ValueError: If a name violates the key syntax constraint, or if
-            two releases share the same name.
+        ValueError: If a name violates the label syntax constraint, or
+            if two releases share the same name.
     """
     seen: set[str] = set()
     for release in releases:

@@ -35,8 +35,12 @@ is in the menus.
 
 - File
 
-    - Read backlog...: Read in a file with a backlog and list of releases.
-      A new backlog window will be opened with the read in backlog.
+    - Read backlog from file...: Read in a file with a backlog and list
+      of releases. A new backlog window will be opened with the read in
+      backlog.
+
+    - Read backlog from Jira...: Read a backlog and list of releases from
+      Jira. A new backlog window will be opened with the read in backlog.
 
     - New demo backlog: Create a demo backlog with some backlog items and
       releases. A new backlog window will be opened with the demo backlog.
@@ -44,6 +48,9 @@ is in the menus.
     - Exit: Close the application.
 
 - Configuration
+
+    - Load configuration file...: Load a configuration file, replacing the
+      configuration currently active in the application.
 
     - Run configuration wizard...: this lets you configure the teams that work on
       the backlog and also other aspects like the dates the company is
@@ -92,3 +99,19 @@ one with the list of releases. You will want to use the menus.
     - Save to file...
 
     - Close
+
+- Jira
+
+    - Add backlog to Jira...
+
+    - Update backlog in Jira...
+
+    - Add releases to Jira...
+
+    - Update releases in Jira...
+
+    - Order releases in Jira...
+
+    - Rename releases in Jira...
+
+    - Rank items in Jira...

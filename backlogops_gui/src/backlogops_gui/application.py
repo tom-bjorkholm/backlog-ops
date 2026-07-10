@@ -1,12 +1,12 @@
 #! /usr/local/bin/python3
 """Tkinter application for backlog operations.
 
-The application opens a main window whose menu reads a backlog from a file,
-loads or replaces the active configuration from a file, runs the teams
-configuration wizard, creates a stand-alone input or output
+The application opens a main window whose menu reads a backlog from a file
+or from Jira, loads or replaces the active configuration from a file, runs
+the teams configuration wizard, creates a stand-alone input or output
 preset file, migrates a stand-alone preset file to the current format,
-writes the running configuration to a file, and creates a
-demonstration backlog. Each backlog opens in its own
+writes the running configuration to a file, and creates a demonstration
+backlog. Each backlog opens in its own
 window. On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
@@ -60,11 +60,12 @@ WRAP_LENGTH = 520
 LOG_REFRESH_MS = 800
 HEADING_FONT = ('TkDefaultFont', 14, 'bold')
 INSTRUCTIONS = (
-    'Use the menus to read a backlog file, run the teams wizard, create a '
-    'stand-alone input or output preset file, migrate a preset file to the '
-    'current format, write the current configuration to a file, or create a '
-    'demonstration backlog. Each backlog opens in its own window. On macOS '
-    'the menu bar is at the top of the display.')
+    'Use the menus to read a backlog from a file or from Jira, load a '
+    'configuration file, run the teams wizard, create a stand-alone input '
+    'or output preset file, migrate a preset file to the current format, '
+    'write the current configuration to a file, or create a demonstration '
+    'backlog. Each backlog opens in its own window. On macOS the menu bar '
+    'is at the top of the display.')
 DESCRIPTION = 'Graphical user interface for backlog operations'
 CONFIG_ERRORS = (FileNotFoundError, NotADirectoryError, RuntimeError,
                  ValueError, TypeError, KeyError, OSError)

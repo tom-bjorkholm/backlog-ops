@@ -69,6 +69,23 @@ The following functionality is available in all 3 packages:
 - A wizard to create a backlog-ops configuration file with the workforce, named
   input and output presets, level names, and status name mapping.
 
+- Read a backlog and releases from Jira into a backlog and release table.
+
+- Write a backlog to Jira, creating a new Jira issue for each backlog item.
+
+- Update a backlog that is already in Jira, changing only the chosen columns.
+
+- Add the releases to Jira as Jira versions.
+
+- Update the releases in Jira, setting their dates to the planned release dates.
+
+- Order the releases in Jira by date, by a name list, or by the input order.
+
+- Rename releases in Jira, changing the Jira version names.
+
+- Move backlog items to a chosen anchor in the Jira rank order, following a key
+  list.
+
 ## The operating model
 
 The operating model that most of the functionality is designed for is that the
@@ -104,9 +121,9 @@ the library:
   before the parent item starts, and the parent item cannot finish before all
   its children have finished.
 
-- `release` The release of the backlog item. Optional. Must be unique among the
-  releases. Must not be empty, must not start or end with whitespace, and must
-  not contain tabs, newlines or control characters.
+- `release` The release of the backlog item. Optional. Must not be empty string,
+  must not start or end with whitespace, and must not contain tabs, newlines or
+  control characters.
 
 - `team` The team responsible for the backlog item. Optional. Must not be empty
   string. Must be a valid team name. If None the item can be done by any team.
@@ -146,6 +163,12 @@ To install backlogops-gui on Microsoft Windows, run the following command:
 pip install --upgrade backlogops-gui
 ````
 
+## Using backlogops documentation
+
+For a better understanding of how to use the library, CLI or GUI, see the user
+documentation:
+[Using backlogops](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc//using_backlogops/README.md)
+
 ## API documentation
 
 For more detailed code documentation, see the API documentation:
@@ -154,13 +177,13 @@ For more detailed code documentation, see the API documentation:
 
 - [Library protected API](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_protected_api.md)
 
-- [Library public CLI](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_cli.md)
+- [Public CLI code documentation](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_cli.md)
 
-- [Library protected CLI](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_protected_cli.md)
+- [Protected CLI code documentation](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_protected_cli.md)
 
-- [Library public GUI](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_gui.md)
+- [Public GUI code documentation](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_gui.md)
 
-- [Library protected GUI](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_protected_gui.md)
+- [Protected GUI code documentation](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_protected_gui.md)
 
 ## Graphical user interface for backlog manipulation
 
@@ -199,8 +222,12 @@ is in the menus.
 
 - File
 
-    - Read backlog...: Read in a file with a backlog and list of releases.
-      A new backlog window will be opened with the read in backlog.
+    - Read backlog from file...: Read in a file with a backlog and list
+      of releases. A new backlog window will be opened with the read in
+      backlog.
+
+    - Read backlog from Jira...: Read a backlog and list of releases from
+      Jira. A new backlog window will be opened with the read in backlog.
 
     - New demo backlog: Create a demo backlog with some backlog items and
       releases. A new backlog window will be opened with the demo backlog.
@@ -208,6 +235,9 @@ is in the menus.
     - Exit: Close the application.
 
 - Configuration
+
+    - Load configuration file...: Load a configuration file, replacing the
+      configuration currently active in the application.
 
     - Run configuration wizard...: this lets you configure the teams that work on
       the backlog and also other aspects like the dates the company is
@@ -257,9 +287,25 @@ one with the list of releases. You will want to use the menus.
 
     - Close
 
+- Jira
+
+    - Add backlog to Jira...
+
+    - Update backlog in Jira...
+
+    - Add releases to Jira...
+
+    - Update releases in Jira...
+
+    - Order releases in Jira...
+
+    - Rename releases in Jira...
+
+    - Rank items in Jira...
+
 ## Test summary
 
-- Test result: 2284 passed, 7 deselected in 48s
+- Test result: 2284 passed, 7 deselected in 44s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

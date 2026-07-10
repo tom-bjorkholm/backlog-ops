@@ -122,8 +122,9 @@ Internally there are four statuses: `TODO`, `IN_PROGRESS`, `DONE`,
 `REJECTED`. Your files and Jira use many more words. `status_input_map` maps
 each incoming word to one of the four. A sensible default map is created for
 you (`Backlog`, `To Do` → `TODO`; `In Progress`, `In Review`, `Testing`,
-`Blocked`, `On Hold` → `IN_PROGRESS`; `Closed` → `DONE`; `Rejected` →
-`REJECTED`), and you extend it with whatever words your workflow uses.
+`Blocked`, `On Hold`, `Implementing` → `IN_PROGRESS`; `Closed` → `DONE`;
+`Rejected` → `REJECTED`), and you extend it with whatever words your
+workflow uses.
 
 ### Input and output presets
 
@@ -312,8 +313,9 @@ calendar, named presets, levels and the status map.
 
 - **CLI:** `python3 -m backlogops_cli.config_wizard`
 - **GUI:** *Configuration → Run configuration wizard…* On the very first
-  start-up, when no configuration file exists yet, the GUI launches this
-  wizard automatically.
+  start-up, when no configuration file exists yet, the GUI shows a *No
+  configuration* dialog offering to run the configuration wizard, load an
+  existing configuration file, or exit.
 - **Library:**
   [`backlog_ops_wizard`](../backlogops_api.md#backlogops.backlog_ops_wizard.backlog_ops_wizard).
 

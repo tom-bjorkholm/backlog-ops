@@ -5,8 +5,7 @@
 This repo holds source code and build scripts for 3 Python packages:
 
 - backlogops: a collection of library functions to manipulate backlogs
-  that are stored in different tools like spreadsheets (and hopefully
-  soon Jira)
+  that are stored in different tools like spreadsheets and Jira.
   **An early version exists, with functionality expanding.**
 
 - backlogops-cli: Command line interface to use the functions in the
@@ -122,7 +121,7 @@ they are included as parts of README_pypi.md.
 
 ## Test summary
 
-- Test result: 2284 passed, 7 deselected in 48s
+- Test result: 2284 passed, 7 deselected in 44s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

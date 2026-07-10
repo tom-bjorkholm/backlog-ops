@@ -4773,8 +4773,8 @@ to be unique.
 **Raises**:
 
 - `TypeError` - If a field has the wrong type.
-- `ValueError` - If a name violates the key syntax constraint, or if
-  two releases share the same name.
+- `ValueError` - If a name violates the label syntax constraint, or
+  if two releases share the same name.
 
 <a id="backlogops.releases.order_releases_by_date"></a>
 

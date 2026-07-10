@@ -59,4 +59,23 @@ from backlogops import (
 - `check_backlog_consistency`: validate the backlog and releases for
   consistency.
 
+### Jira
+
+- `read_backlog_from_jira`: read a backlog and its releases from Jira.
+
+- `add_backlog_to_jira`, `update_backlog_in_jira`: create Jira issues
+  for the backlog items, or update selected fields of existing issues.
+
+- `add_releases_to_jira`, `update_releases_in_jira`: create Jira
+  versions for the releases, or update their dates.
+
+- `order_releases_in_jira`, `rename_releases_in_jira`: order and rename
+  the Jira versions.
+
+- `jira_rank_backlog`, `jira_rank_move_keys`: rank backlog items in the
+  Jira rank order.
+
+- `JiraIOConfig`, `JiraPreset`: the Jira connection and preset
+  configuration.
+
 For the full set of public names see the API documentation linked above.

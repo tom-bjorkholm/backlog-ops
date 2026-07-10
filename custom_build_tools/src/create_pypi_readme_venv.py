@@ -93,7 +93,21 @@ B2 = [
     'format.',
     'A wizard to create a backlog-ops configuration file with the '
     'workforce, named input and output presets, level names, and status '
-    'name mapping.'
+    'name mapping.',
+    'Read a backlog and releases from Jira into a backlog and release '
+    'table.',
+    'Write a backlog to Jira, creating a new Jira issue for each '
+    'backlog item.',
+    'Update a backlog that is already in Jira, changing only the '
+    'chosen columns.',
+    'Add the releases to Jira as Jira versions.',
+    'Update the releases in Jira, setting their dates to the planned '
+    'release dates.',
+    'Order the releases in Jira by date, by a name list, or by the '
+    'input order.',
+    'Rename releases in Jira, changing the Jira version names.',
+    'Move backlog items to a chosen anchor in the Jira rank order, '
+    'following a key list.'
 ]
 P3 = 'The operating model that most of the functionality is designed for ' \
      'is that the teams work off a single backlog in the order of the ' \
@@ -122,9 +136,9 @@ B4 = {'key': 'The key of the backlog item. Required. Must be unique. '
       'item starts, and the parent item cannot finish before all '
       'its children have finished.',
       'release': 'The release of the backlog item. Optional. '
-      'Must be unique among the releases. Must not be empty, must not '
-      'start or end with whitespace, and must not contain tabs, '
-      'newlines or control characters.',
+      'Must not be empty string, must not start or end with '
+      'whitespace, and must not contain tabs, newlines or control '
+      'characters.',
       'team': 'The team responsible for the backlog item. Optional. '
       'Must not be empty string. Must be a valid team name. '
       'If None the item can be done by any team. If not None. '
@@ -191,10 +205,15 @@ UC1 = DOCS_ROOT + 'backlogops_cli.md'
 UC2 = DOCS_ROOT + 'backlogops_protected_cli.md'
 UG1 = DOCS_ROOT + 'backlogops_gui.md'
 UG2 = DOCS_ROOT + 'backlogops_protected_gui.md'
+UB1 = DOCS_ROOT + '/using_backlogops/README.md'
 
 
 def _write_api_docs(mft: MultiFormat) -> None:
     """Write the API docs section."""
+    mft.new_heading(level=2, text='Using backlogops documentation')
+    mft.new_paragraph(text='For a better understanding of how to use the '
+                      'library, CLI or GUI, see the user documentation:')
+    mft.add_url(url=UB1, text='Using backlogops')
     mft.new_heading(level=2, text='API documentation')
     mft.new_paragraph(text='For more detailed code documentation, '
                       'see the API documentation:')
@@ -203,13 +222,13 @@ def _write_api_docs(mft: MultiFormat) -> None:
     mft.new_bullet_item('')
     mft.add_url(url=UL2, text='Library protected API')
     mft.new_bullet_item('')
-    mft.add_url(url=UC1, text='Library public CLI')
+    mft.add_url(url=UC1, text='Public CLI code documentation')
     mft.new_bullet_item('')
-    mft.add_url(url=UC2, text='Library protected CLI')
+    mft.add_url(url=UC2, text='Protected CLI code documentation')
     mft.new_bullet_item('')
-    mft.add_url(url=UG1, text='Library public GUI')
+    mft.add_url(url=UG1, text='Public GUI code documentation')
     mft.new_bullet_item('')
-    mft.add_url(url=UG2, text='Library protected GUI')
+    mft.add_url(url=UG2, text='Protected GUI code documentation')
 
 
 def _read_include(readme_path: Path) -> str:

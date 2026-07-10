@@ -1459,12 +1459,12 @@ Store the application whose window, log and config are used.
 
 Tkinter application for backlog operations.
 
-The application opens a main window whose menu reads a backlog from a file,
-loads or replaces the active configuration from a file, runs the teams
-configuration wizard, creates a stand-alone input or output
+The application opens a main window whose menu reads a backlog from a file
+or from Jira, loads or replaces the active configuration from a file, runs
+the teams configuration wizard, creates a stand-alone input or output
 preset file, migrates a stand-alone preset file to the current format,
-writes the running configuration to a file, and creates a
-demonstration backlog. Each backlog opens in its own
+writes the running configuration to a file, and creates a demonstration
+backlog. Each backlog opens in its own
 window. On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
