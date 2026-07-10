@@ -33,7 +33,7 @@ dynamic = ["dependencies"]
 [project.urls]
 "Homepage" = "https://github.com/tom-bjorkholm/backlog-ops"
 "Source code" = "https://github.com/tom-bjorkholm/backlog-ops"
-"Documentation" = "https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/"
+"Documentation" = "https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/using_backlogops/README.md"
 
 [project.gui-scripts]
 backlogops-gui = "backlogops_gui.application:main"

@@ -122,8 +122,9 @@ B4 = {'key': 'The key of the backlog item. Required. Must be unique. '
       'item starts, and the parent item cannot finish before all '
       'its children have finished.',
       'release': 'The release of the backlog item. Optional. '
-      'Follows the same character rules as the key. '
-      'Must not be empty string.',
+      'Must be unique among the releases. Must not be empty, must not '
+      'start or end with whitespace, and must not contain tabs, '
+      'newlines or control characters.',
       'team': 'The team responsible for the backlog item. Optional. '
       'Must not be empty string. Must be a valid team name. '
       'If None the item can be done by any team. If not None. '

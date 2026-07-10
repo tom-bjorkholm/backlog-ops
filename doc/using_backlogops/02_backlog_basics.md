@@ -36,7 +36,7 @@ untouched):
 | `story_points` | yes | The size estimate. |
 | `status` | yes | One of `TODO`, `IN_PROGRESS`, `DONE`, `REJECTED`. |
 | `parent_key` | no | Key of a higher-level parent. Implies dependencies (below). |
-| `release` | no | Release name. Same character rules as `key`. |
+| `release` | no | Release name. Must not contain tabs, newlines or control characters. |
 | `team` | no | If set, only that team can do the item; if empty, any team. |
 | `depends_on_f2s` | no | Keys that must **finish** before this can **start**. |
 | `depends_on_f2f` | no | Keys that must **finish** before this can **finish**. |
@@ -48,7 +48,7 @@ untouched):
 
 Levels are integers; you give them names and aliases in the configuration
 (chapter 1). A **parent must sit at a higher level than its child**. In the
-default naming, level 0 is a task, 1 a story, 2 an epic.
+default naming, level 0 is a sub-task, 1 a story, 2 an epic.
 
 ### Dependencies
 
@@ -81,8 +81,8 @@ releases) live in one file.
 
 The quickest way to learn the tool is to generate a small, realistic backlog
 and run commands against it. The demo has three epics (`E1`–`E3`), twenty
-stories (`S1`–`S20`), two tasks (`T1`, `T2`), a handful of dependencies, and
-two releases: `Next` (planned one month out) and `Later` (no date). It is
+stories (`S1`–`S20`), two sub-tasks (`T1`, `T2`), a handful of dependencies,
+and two releases: `Next` (planned one month out) and `Later` (no date). It is
 deliberately **not** in dependency or release order, so the ordering commands
 have something to do — yet it passes every consistency check.
 

@@ -110,7 +110,7 @@ mean level 1):
 
 ```json
 "levels": [
-    {"level": 0, "name": "Task", "aliases": []},
+    {"level": 0, "name": "Sub-Task", "aliases": []},
     {"level": 1, "name": "Story", "aliases": ["Bug"]},
     {"level": 2, "name": "Epic", "aliases": []}
 ]
@@ -341,6 +341,11 @@ one). `--kind` selects what the input is: `config` (the backlog-ops file),
 
 - **CLI:** `python3 -m backlogops_cli.migrate_cfg -i old.cfg -o new.cfg -k config`
 - **GUI:** *Configuration → Migrate IO preset file…* (for preset files)
+
+When the GUI has read an old configuration file format, its internal
+representation of the configuration has already been migrated to the new
+format. Thus, when you save it using *Configuration → Write configuration…*
+it will be saved as migrated.
 
 ---
 
