@@ -1,4 +1,13 @@
-# API documentation
+# Documentation
+
+## User manual
+
+To learn how to use backlogops from the CLI and the GUI (and which library
+function is behind each action), start with the user manual:
+
+- [Using backlogops](using_backlogops/README.md)
+
+## API documentation
 
 For more detailed code documentation, see the API documentation:
 
