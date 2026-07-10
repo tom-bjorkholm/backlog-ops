@@ -143,6 +143,20 @@ def _returns(value: object) -> Callable[..., object]:
     return get
 
 
+def _load_ok(config: object) -> Callable[..., object]:
+    """Return an initial_config stub yielding the config and no error."""
+    def load(_path: object, _log: object) -> object:
+        return (config, None)
+    return load
+
+
+def _load_err(message: str) -> Callable[..., object]:
+    """Return an initial_config stub yielding no config and an error."""
+    def load(_path: object, _log: object) -> object:
+        return (None, message)
+    return load
+
+
 def _pick_csv(_parent: object) -> str:
     """Return a backlog file name as if the chooser was confirmed."""
     return 'file.csv'
@@ -777,6 +791,64 @@ def test_log_copy(monkeypatch: pytest.MonkeyPatch) -> None:
         # pylint: disable-next=protected-access
         app._copy_log(object())
         assert root.clipboard_get() == 'copy'
+
+
+def test_load_file_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test loading a chosen config replaces the active configuration."""
+    config = FakeConfig()
+    monkeypatch.setattr(application, 'choose_existing_config',
+                        lambda parent: 'teams.cfg')
+    monkeypatch.setattr(application, 'initial_config', _load_ok(config))
+    app = _app()
+    infos: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_info', _record(infos))
+    # pylint: disable-next=protected-access
+    app._load_config_file()
+    assert app.config is cast(BacklogOpsConfig, config)
+    assert app.config_source == 'teams.cfg'
+    assert infos == [('Configuration loaded',
+                      'Loaded configuration from teams.cfg.')]
+
+
+def test_load_file_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the load chooser leaves the config unchanged."""
+    monkeypatch.setattr(application, 'choose_existing_config', _pick_none)
+    app = _app()
+    # pylint: disable-next=protected-access
+    app._load_config_file()
+    assert app.config is None
+
+
+def test_load_file_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a load failure is reported and the config is unchanged."""
+    monkeypatch.setattr(application, 'choose_existing_config',
+                        lambda parent: 'bad.cfg')
+    monkeypatch.setattr(application, 'initial_config', _load_err('boom'))
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    # pylint: disable-next=protected-access
+    app._load_config_file()
+    assert app.config is None
+    assert errors == [('Configuration error', 'boom')]
+
+
+def test_copy_log_no_view() -> None:
+    """Test copying the log before the view exists is a safe no-op."""
+    app = _app()
+    # pylint: disable-next=protected-access
+    assert app._copy_log(object()) == 'break'
+
+
+def test_copy_log_no_sel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test copying with nothing selected breaks without an error."""
+    monkeypatch.setattr(application, 'check_tcltk_version', lambda root: None)
+    monkeypatch.setattr(application, 'check_python_version', lambda: None)
+    with gui_root() as root:
+        app = BacklogApp(root)
+        app.build_body()
+        # pylint: disable-next=protected-access
+        assert app._copy_log(object()) == 'break'
 
 
 def test_sched_destroyed() -> None:

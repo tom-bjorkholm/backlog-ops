@@ -20,6 +20,15 @@ def test_change_list_no_wm() -> None:
         window.destroy()
 
 
+def test_text_report_no_wm() -> None:
+    """Test the text report builds over a non-window parent."""
+    with gui_root() as root:
+        frame = tk.Frame(root)
+        window = show_text_report(frame, 'Report', 'body')
+        assert isinstance(window, tk.Toplevel)
+        window.destroy()
+
+
 def test_change_list_build() -> None:
     """Test the change list pop-up builds and can be dismissed."""
     with gui_root() as root:

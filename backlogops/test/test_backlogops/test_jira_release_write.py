@@ -13,15 +13,17 @@ server.
 
 import io
 from datetime import date
-from typing import Optional
+from types import SimpleNamespace
+from typing import Optional, cast
 import pytest
+from jira.resources import Resource
 import backlogops
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap
 from backlogops.jira_write import OnExistingKey
 from backlogops.jira_write_releases import (
     add_releases_to_jira, AddedReleasesToJira, FailedRelease,
-    ReleaseExistsError, format_release_result)
+    ReleaseExistsError, format_release_result, _by_name, _version_kwargs)
 from backlogops.releases import Release
 from .jira_write_helpers import (
     FakeJiraClient as _RelClient, attr_path as _attr,
@@ -141,6 +143,22 @@ def test_empty_releases(monkeypatch: pytest.MonkeyPatch) -> None:
     result = _add(connections, [], OnExistingKey.RAISE)
     assert result == AddedReleasesToJira([], [], [])
     assert not client.created
+
+
+def test_by_name_unnamed() -> None:
+    """Test a version without a string name is left out of the index."""
+    named = SimpleNamespace(name='R1')
+    unnamed = SimpleNamespace(name=None)
+    versions = cast(list[Resource], [named, unnamed])
+    assert _by_name(versions) == {'R1': named}
+
+
+def test_kwargs_empty_attr() -> None:
+    """Test a mapped field with no attribute path is skipped, not written."""
+    column_map: JiraColumnMap = {'name': _attr('name'), 'planned_date': ()}
+    kwargs, skipped = _version_kwargs(Release('R1', date(2026, 1, 1)),
+                                      column_map)
+    assert kwargs == {'name': 'R1'} and skipped == []
 
 
 def test_format_result() -> None:

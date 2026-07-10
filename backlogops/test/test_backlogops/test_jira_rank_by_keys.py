@@ -11,9 +11,19 @@ ranking that never converges raises, and that a missing key is reported.
 # MIT License
 
 import pytest
+from jira import JIRAError
 from backlogops import JiraKeyError, JiraTooManyLoops, jira_rank_by_keys_raw
-from .jira_rank_helpers import FakeRankClient
+from .jira_rank_helpers import FakeRankClient, RankIssue
 from .jira_write_helpers import connections_for
+
+
+class _SearchFailClient(FakeRankClient):
+    """A rank client whose search always fails though its keys exist."""
+
+    def search_issues(self, jql: str, **kwargs: object) -> list[RankIssue]:
+        """Raise as Jira does when the search request itself fails."""
+        _ = (jql, kwargs)
+        raise JIRAError(status_code=500, text='search failed')
 
 
 def test_chain_after(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -75,6 +85,14 @@ def test_absent_from_search(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(JiraKeyError) as info:
         jira_rank_by_keys_raw(connections, 'c', ['A', 'B', 'C'])
     assert info.value.key_name == 'C'
+
+
+def test_search_all_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a search error with all keys present re-raises the error."""
+    client = _SearchFailClient(['A', 'B', 'C'])
+    connections = connections_for(monkeypatch, client)
+    with pytest.raises(JIRAError):
+        jira_rank_by_keys_raw(connections, 'c', ['C', 'B', 'A'])
 
 
 def test_key_error_message() -> None:

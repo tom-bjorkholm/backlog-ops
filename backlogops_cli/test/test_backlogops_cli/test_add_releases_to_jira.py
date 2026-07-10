@@ -23,6 +23,7 @@ from backlogops import (
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import add_releases_to_jira
+from backlogops_cli.add_releases_to_jira import _passphrase
 
 NO = NoTextIO()
 
@@ -73,6 +74,13 @@ def _patch(monkeypatch: pytest.MonkeyPatch,
     monkeypatch.setattr(add_releases_to_jira, 'add_releases_to_jira',
                         _fake_add(captured, result))
     return captured
+
+
+def test_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the pass phrase prompt reads from getpass."""
+    monkeypatch.setattr(add_releases_to_jira, 'getpass',
+                        lambda _prompt: 'secret')
+    assert _passphrase() == 'secret'
 
 
 def test_in_command_list() -> None:

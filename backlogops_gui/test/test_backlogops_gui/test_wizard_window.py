@@ -113,6 +113,31 @@ def test_choice_preselect() -> None:
         window.close()
 
 
+def test_text_sensitive() -> None:
+    """Test a sensitive question masks the entry text."""
+    with gui_root() as root:
+        window = WizardWindow(tk.Frame(root))
+        # pylint: disable-next=protected-access
+        root.after(0, lambda: window._finish('secret'))
+        result = window.ask_text('PW?', None, False, sensitive=True)
+        assert result == 'secret'
+        # pylint: disable-next=protected-access
+        entries = [w for w in window._content.winfo_children()
+                   if isinstance(w, tk.Entry)]
+        assert entries and entries[0].cget('show') == '*'
+        window.close()
+
+
+def test_text_default() -> None:
+    """Test an empty answer falls back to the pre-filled default."""
+    with gui_root() as root:
+        window = WizardWindow(tk.Frame(root))
+        # pylint: disable-next=protected-access
+        root.after(0, lambda: window._finish(''))
+        assert window.ask_text('Name?', None, False, default='D') == 'D'
+        window.close()
+
+
 def test_binds_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the wizard window binds Cmd-W to its cancel action."""
     spy = CloseSpy()

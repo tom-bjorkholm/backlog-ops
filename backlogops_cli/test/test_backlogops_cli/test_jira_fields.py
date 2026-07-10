@@ -19,6 +19,7 @@ from backlogops.no_text_io import NoTextIO
 import backlogops.jira_connect as jc
 from backlogops_cli.list import command_modules
 from backlogops_cli import jira_fields
+from backlogops_cli.jira_fields import _passphrase, _print_pairs
 
 NO = NoTextIO()
 
@@ -68,6 +69,28 @@ def _config_file(path: Path) -> None:
     config.jira.release_column_maps = {'rel': {}}
     config.jira.presets = {'a': preset}
     write_backlog_ops_config(config, path, NO)
+
+
+def test_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the pass phrase prompt reads from getpass."""
+    monkeypatch.setattr(jira_fields, 'getpass', lambda _prompt: 'secret')
+    assert _passphrase() == 'secret'
+
+
+def test_print_none(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test an empty field list prints a (none) placeholder."""
+    _print_pairs('Heading', [])
+    out = capsys.readouterr().out
+    assert 'Heading' in out and '(none)' in out
+
+
+def test_bad_preset(tmp_path: Path,
+                    capsys: pytest.CaptureFixture[str]) -> None:
+    """Test an unknown preset reports an error and returns 1."""
+    _config_file(tmp_path / 'ops.cfg')
+    code = jira_fields.main(['-p', 'nope', '-c', str(tmp_path / 'ops.cfg')])
+    assert code == 1
+    assert 'Could not read Jira fields' in capsys.readouterr().err
 
 
 def test_in_command_list() -> None:

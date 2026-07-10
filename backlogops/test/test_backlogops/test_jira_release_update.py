@@ -21,8 +21,9 @@ from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap
 from backlogops.jira_write import ItemNotInJiraError, OnMissingKey
 from backlogops.jira_update_releases import (
-    UpdatedReleasesInJira, format_release_updates, update_releases_in_jira)
-from backlogops.jira_write_releases import FailedRelease
+    UpdatedReleasesInJira, format_release_updates, update_releases_in_jira,
+    _apply_one, _UpdateCtx, _UpdatedRel)
+from backlogops.jira_write_releases import FailedRelease, _release_context
 from backlogops.releases import Release
 from .jira_write_helpers import (
     FakeJiraClient as _UpdClient, attr_path as _attr,
@@ -207,6 +208,21 @@ def test_input_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
     _upd(connections, [release])
     assert release.name == 'R1'
     assert release.planned_date == date(2026, 1, 1)
+
+
+def test_apply_raise_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a missing release under raise mode is a no-op in the loop.
+
+    The raise mode has already raised before the loop, so a missing
+    release reaching ``_apply_one`` is left untouched.
+    """
+    client = _UpdClient()
+    connections = _connections(monkeypatch, client)
+    ctx = _UpdateCtx(_release_context(connections, 'w'), {},
+                     OnMissingKey.RAISE, NO)
+    acc = _UpdatedRel([], [], [], [], [])
+    _apply_one(ctx, Release('R1'), acc)
+    assert acc == _UpdatedRel([], [], [], [], [])
 
 
 def test_format_updates() -> None:

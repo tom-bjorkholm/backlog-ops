@@ -73,6 +73,25 @@ def test_already_ordered(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not client.moves
 
 
+def test_order_all_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test naming only absent versions orders nothing and reports them."""
+    client = _Client(existing=['R1'])
+    connections = _connections(monkeypatch, client)
+    result = _order(connections, ['RX', 'RY'])
+    assert result.ordered == [] and result.not_in_jira == ['RX', 'RY']
+    assert not client.moves
+
+
+def test_by_date_bad_date(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a version with an invalid release date is placed last."""
+    client = _Client(existing=['R1', 'R2'],
+                     current=_dated(('R1', 'not-a-date'),
+                                    ('R2', '2026-01-01')))
+    connections = _connections(monkeypatch, client)
+    result = order_jira_rel_by_date(connections, 'w', stderr_file=NO)
+    assert result.ordered == ['R2', 'R1']
+
+
 def test_by_date(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test ordering by release date puts the earliest first, undated last."""
     client = _Client(existing=['R1', 'R2', 'R3'],

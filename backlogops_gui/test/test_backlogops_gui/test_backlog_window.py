@@ -267,3 +267,83 @@ def test_bl_update_absent() -> None:
                   for index in range(last + 1)
                   if menu.type(index) != 'separator'}
         assert states['Update backlog in Jira…'] == 'disabled'
+
+
+def test_jira_add_menu() -> None:
+    """Test the add-to-Jira action delegates to its handler."""
+    with gui_root() as root:
+        got: list[object] = []
+        handlers = JiraHandlers(add_backlog=_bl_update_recorder(got))
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
+                               jira=handlers)
+        # pylint: disable-next=protected-access
+        window._jira_add()
+        assert got and got[0] is DATA
+
+
+def test_releases_add_menu() -> None:
+    """Test the add-releases action delegates to its handler."""
+    with gui_root() as root:
+        got: list[object] = []
+        handlers = JiraHandlers(add_releases=_bl_update_recorder(got))
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
+                               jira=handlers)
+        # pylint: disable-next=protected-access
+        window._releases_add()
+        assert got and got[0] is DATA
+
+
+def test_releases_update_menu() -> None:
+    """Test the update-releases action delegates to its handler."""
+    with gui_root() as root:
+        got: list[object] = []
+        handlers = JiraHandlers(update_releases=_bl_update_recorder(got))
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
+                               jira=handlers)
+        # pylint: disable-next=protected-access
+        window._releases_update()
+        assert got and got[0] is DATA
+
+
+_JIRA_ACTIONS = ['_jira_add', '_releases_add', '_releases_update',
+                 '_backlog_update', '_rank_jira', '_releases_order',
+                 '_releases_rename']
+"""The Jira action methods, each a no-op without its handler."""
+
+_JIRA_CALLBACKS = ['_on_jira_added', '_on_releases_added',
+                   '_on_releases_updated', '_on_backlog_updated',
+                   '_on_ranked', '_on_releases_ordered',
+                   '_on_releases_renamed']
+"""The Jira result callbacks, each reporting through a text pop-up."""
+
+
+def test_jira_no_handlers() -> None:
+    """Test each Jira action is a safe no-op without its handler."""
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK)
+        for name in _JIRA_ACTIONS:
+            getattr(window, name)()
+
+
+def test_result_callbacks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test each Jira result callback reports through a text pop-up."""
+    titles: list[str] = []
+
+    def report(_win: object, title: str, _text: object) -> None:
+        titles.append(title)
+
+    def apply_result(_data: object, _result: object, _refresh: object,
+                     show: Callable[[str], None]) -> None:
+        show('t')
+    monkeypatch.setattr(backlog_window, 'show_text_report', report)
+    monkeypatch.setattr(backlog_window, 'apply_add_result', apply_result)
+    monkeypatch.setattr(backlog_window, 'apply_update_result', apply_result)
+    for name in ('format_release_result', 'format_release_updates',
+                 'format_rank_result', 'format_order_result',
+                 'format_rename_result'):
+        monkeypatch.setattr(backlog_window, name, lambda result: 'txt')
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK)
+        for name in _JIRA_CALLBACKS:
+            getattr(window, name)(object())
+    assert len(titles) == 7

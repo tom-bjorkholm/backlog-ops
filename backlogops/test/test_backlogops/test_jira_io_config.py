@@ -22,6 +22,8 @@ from backlogops import (
     DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP, JiraAttrPath,
     JiraAttrType, JiraConnectConfig, JiraIOConfig, JiraPreset, JiraType,
     TokenStorage)
+from backlogops.jira_io_config import (
+    _ColumnMapsValidator, _IssueTypeMapsValidator, _issue_type_map_from_obj)
 from backlogops.jira_token import encrypt_token
 from backlogops.no_text_io import NoTextIO
 
@@ -273,6 +275,52 @@ def test_itmap_bad_value(bad_map: object) -> None:
                        'issue_type_maps': {'m': bad_map}})
     with pytest.raises((TypeError, ValueError)):
         _from_text(text)
+
+
+def test_bad_one_map() -> None:
+    """Test a single column map that is not a dict is rejected on read."""
+    with pytest.raises((TypeError, ValueError)):
+        _from_text(json.dumps({'backlog_column_maps': {'m': 'notadict'}}))
+
+
+def test_bad_maps_member() -> None:
+    """Test a non-dict column-maps member is rejected by the validator."""
+    validator = _ColumnMapsValidator()
+    with pytest.raises(TypeError):
+        validator.validate_member(_empty(), 'backlog_column_maps', 'notadict',
+                                  NO)
+
+
+def test_bad_itmaps_member() -> None:
+    """Test a non-dict issue-type maps member is rejected by the validator."""
+    validator = _IssueTypeMapsValidator()
+    with pytest.raises(TypeError):
+        validator.validate_member(_empty(), 'issue_type_maps', 'notadict', NO)
+
+
+@pytest.mark.parametrize('mapping', [{True: 'x'}, {1.5: 'x'}])
+def test_bad_itmap_key(mapping: dict[object, str]) -> None:
+    """Test a boolean or non-integer level key is rejected."""
+    with pytest.raises(TypeError):
+        _issue_type_map_from_obj('m', mapping, NO)
+
+
+def test_no_stored_token() -> None:
+    """Test reading an internal token that is not stored is rejected."""
+    conn = JiraConnectConfig(stderr_file=NO)
+    conn.token_storage = TokenStorage.CLEAR_INTERNAL
+    conn.stored_token = None
+    with pytest.raises(ValueError):
+        conn.get_token()
+
+
+def test_no_token_file() -> None:
+    """Test reading a file token with no path configured is rejected."""
+    conn = JiraConnectConfig(stderr_file=NO)
+    conn.token_storage = TokenStorage.CLEAR_FILE
+    conn.token_file_path = None
+    with pytest.raises(ValueError):
+        conn.get_token()
 
 
 def test_itmap_old_none() -> None:

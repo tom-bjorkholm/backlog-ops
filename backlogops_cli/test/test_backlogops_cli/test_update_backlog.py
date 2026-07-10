@@ -25,6 +25,7 @@ from backlogops import (
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import update_backlog_in_jira
+from backlogops_cli.update_backlog_in_jira import _passphrase
 
 NO = NoTextIO()
 
@@ -109,6 +110,13 @@ def _prepare(tmp_path: Path) -> None:
     """Write the configuration and the input file used by the tests."""
     _config_file(tmp_path / 'ops.cfg')
     _write_input(tmp_path / 'in.csv')
+
+
+def test_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the pass phrase prompt reads from getpass."""
+    monkeypatch.setattr(update_backlog_in_jira, 'getpass',
+                        lambda _prompt: 'secret')
+    assert _passphrase() == 'secret'
 
 
 def test_in_command_list() -> None:

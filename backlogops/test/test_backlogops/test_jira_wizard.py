@@ -14,15 +14,17 @@ import io
 from typing import Optional
 import pytest
 from tableio_cfg_json import WizardUiBridgeConsole
+from backlogops.backlog import Status
 from backlogops.backlog_ops_wizard import backlog_ops_wizard
 from backlogops.jira_io_config import (
     JiraAttrPath, JiraAttrType, default_jira_filter)
 from backlogops.jira_wizard import (
-    _PresetChoices, _build_connections, _build_issue_type_maps,
+    _PresetChoices, _ask_filter, _build_connections, _build_issue_type_maps,
     _build_preset_list)
 from backlogops.levels import DEFAULT_LEVELS
 from backlogops.wizard_helpers import (
-    _Navigator, _attr_from_cells, _jira_map_check, _parse_jira_map)
+    _Navigator, _attr_from_cells, _jira_map_check, _merge_status_defaults,
+    _parse_jira_map)
 
 _PREFIX = [''] * 7 + ['0', '0', '0', '0', '0'] + ['', '', '', '', '']
 """Default answers for the wizard stages that precede the Jira stage."""
@@ -138,6 +140,24 @@ def test_preset_def_filter() -> None:
     assert presets['p1'].def_filter == default_jira_filter('PROJ')
 
 
+def test_filter_no_project() -> None:
+    """Test a blank project asks the filter allowing an empty answer."""
+    nav = _Navigator(_console(['my filter']))
+    assert nav.run(lambda n: _ask_filter(n, '')) == 'my filter'
+
+
+def test_preset_skipped() -> None:
+    """Test partial Jira prerequisites skip the presets with a note."""
+    answers = (_PREFIX + ['1', 'main', 'cloud', 'https://x', 'me@x',
+                          'clear_internal', 'TOK', '0', '0', '0'])
+    out = io.StringIO()
+    text = '\n'.join(answers) + '\n'
+    console = WizardUiBridgeConsole(out, io.StringIO(text), io.StringIO())
+    config = backlog_ops_wizard(console)
+    assert not config.get_jira_config().presets
+    assert 'skipping presets' in out.getvalue()
+
+
 def test_preset_write_map() -> None:
     """Test choosing a separate backlog column map for writing."""
     answers = ['1', 'p1', 'c1', 'm1', 'yes', 'wr', 'm2', 'PROJ', 'filter']
@@ -222,6 +242,26 @@ def test_parse_jira_map() -> None:
 def test_parse_jira_half() -> None:
     """Test a row with a kind but no path rejects the whole table."""
     assert _parse_jira_map([['key', 'ATTRIBUTE', '']]) is None
+
+
+def test_parse_blank_field() -> None:
+    """Test a row with a blank internal field name is ignored."""
+    table: list[list[Optional[str]]] = [
+        ['', 'FIELD', 'status.name'], ['key', 'ATTRIBUTE', 'key']]
+    assert _parse_jira_map(table) == {
+        'key': (JiraAttrPath(JiraAttrType.ATTRIBUTE, ('key',)),)}
+
+
+def test_parse_jira_bad_kind() -> None:
+    """Test a row with both cells set but an invalid kind rejects it."""
+    assert _parse_jira_map([['key', 'BOGUS', 'x']]) is None
+
+
+def test_merge_status_recase() -> None:
+    """Test a re-cased default status name replaces the old casing."""
+    result = _merge_status_defaults({'Done': Status.DONE},
+                                    {'done': Status.IN_PROGRESS})
+    assert result == {'done': Status.IN_PROGRESS}
 
 
 def test_parse_jira_dup() -> None:

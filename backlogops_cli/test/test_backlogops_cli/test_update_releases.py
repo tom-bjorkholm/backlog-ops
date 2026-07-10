@@ -11,6 +11,7 @@ missing-name raise as a failure, and is discovered by the list command.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import argparse
 from pathlib import Path
 from typing import Callable
 import pytest
@@ -22,6 +23,7 @@ from backlogops import (
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import update_releases_in_jira
+from backlogops_cli.update_releases_in_jira import _passphrase, _select
 
 NO = NoTextIO()
 
@@ -84,6 +86,21 @@ def _args(tmp_path: Path, *extra: str) -> list[str]:
     """Return the base command arguments plus any extra flags."""
     return ['-i', str(tmp_path / 'in.csv'), '-p', 'w', '-c',
             str(tmp_path / 'ops.cfg'), *extra]
+
+
+def test_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the pass phrase prompt reads from getpass."""
+    monkeypatch.setattr(update_releases_in_jira, 'getpass',
+                        lambda _prompt: 'secret')
+    assert _passphrase() == 'secret'
+
+
+def test_select_missing(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test a named release absent from the input is reported."""
+    parsed = argparse.Namespace(only_listed=True, releases=['R1', 'GONE'])
+    result = _select(parsed, [Release('R1')])
+    assert [rel.name for rel in result] == ['R1']
+    assert 'GONE' in capsys.readouterr().err
 
 
 def test_in_command_list() -> None:

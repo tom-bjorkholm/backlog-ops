@@ -4,13 +4,26 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import tkinter as tk
 from typing import Callable, Optional, TextIO, cast
 import pytest
 from backlogops import BacklogOpsConfig, BacklogReleases
 from backlogops_gui import jira_read
+from backlogops_gui.application import BacklogApp
 from backlogops_gui.jira_dialogs import JiraReadOptions
 from .jira_test_helpers import (
     ImmediateThread, config, make_app, make_immediate, record_calls)
+
+
+# pylint: disable-next=too-few-public-methods
+class _DeadRoot:
+    """A root whose after raises as a destroyed window's would."""
+
+    def after(self, delay: int, callback: Callable[[], None]) -> None:
+        """Raise a TclError as a destroyed window does on after."""
+        _ = (delay, callback)
+        raise tk.TclError('window gone')
+
 
 DATA = BacklogReleases(backlog=[], releases=[])
 ASK_READ = 'backlogops_gui.jira_read.ask_jira_read_options'
@@ -183,6 +196,32 @@ def test_jira_pass_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(THREAD, _thread_recorder(made))
     app.jira.reader.read_backlog()
     assert not made
+
+
+def test_jira_token_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a failing token materialization is reported, no worker runs."""
+    app = make_app(config(encrypted=True))
+    monkeypatch.setattr(ASK_READ, _jira_opts)
+    monkeypatch.setattr(ASK_PASS, lambda parent: 'wrong')
+    made: list[object] = []
+    monkeypatch.setattr(THREAD, _thread_recorder(made))
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', record_calls(errors))
+    app.jira.reader.read_backlog()
+    assert not made
+    assert errors and errors[0][0] == 'Could not read Jira token'
+
+
+def test_jira_after_gone(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a result handoff to a destroyed window is swallowed."""
+    app = BacklogApp(cast(tk.Tk, _DeadRoot()), config())
+    monkeypatch.setattr(ASK_READ, _jira_opts)
+    monkeypatch.setattr(READ_JIRA, _read_data)
+    monkeypatch.setattr(THREAD, make_immediate)
+    opened: list[object] = []
+    monkeypatch.setattr(app, 'open_backlog', _opener(opened))
+    app.jira.reader.read_backlog()
+    assert not opened
 
 
 def test_read_jira_error(monkeypatch: pytest.MonkeyPatch) -> None:

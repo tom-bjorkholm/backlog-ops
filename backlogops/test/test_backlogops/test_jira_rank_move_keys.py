@@ -19,6 +19,7 @@ import pytest
 from backlogops import (
     Backlog, BacklogItem, BacklogReleases, BadJiraRankFilter, JiraRankAnchor,
     RankedInJira, Status, format_rank_result, jira_rank_move_keys)
+from backlogops.jira_rank_move_keys import _descendants, _present_and_absent
 from .jira_rank_helpers import FakeRankClient
 from .jira_write_helpers import connections_for
 
@@ -170,6 +171,19 @@ def test_bad_filter_run(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(BadJiraRankFilter):
         jira_rank_move_keys(connections, 'w', ['A'],
                             filter_override='project = X ORDER BY priority')
+
+
+def test_descendants_cycle() -> None:
+    """Test descendant search terminates on a parent-key cycle."""
+    backlog = [_item('A', parent='B'), _item('B', parent='A')]
+    assert _descendants(backlog, ['A']) == {'A', 'B'}
+
+
+def test_present_dedup() -> None:
+    """Test a duplicate requested key is collapsed to one occurrence."""
+    backlog = [_item('A'), _item('B')]
+    found, absent = _present_and_absent(['A', 'A', 'X', 'X'], backlog)
+    assert found == ['A'] and absent == ['X']
 
 
 def test_format_result() -> None:

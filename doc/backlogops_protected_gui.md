@@ -295,6 +295,7 @@
   * [apply\_update\_result](#backlogops_gui.backlog_actions.apply_update_result)
 * [backlogops\_gui.close\_binding](#backlogops_gui.close_binding)
   * [\_close\_events](#backlogops_gui.close_binding._close_events)
+  * [\_perform\_close](#backlogops_gui.close_binding._perform_close)
   * [bind\_close](#backlogops_gui.close_binding.bind_close)
 * [backlogops\_gui.backlog\_window](#backlogops_gui.backlog_window)
   * [JiraHandlers](#backlogops_gui.backlog_window.JiraHandlers)
@@ -3745,6 +3746,17 @@ def _close_events() -> list[str]
 ```
 
 Return the key patterns that close a window on this platform.
+
+<a id="backlogops_gui.close_binding._perform_close"></a>
+
+#### \_perform\_close
+
+```python
+def _perform_close(win: tk.Toplevel,
+                   on_close: Optional[Callable[[], None]]) -> str
+```
+
+Run the window's close action and stop further event handling.
 
 <a id="backlogops_gui.close_binding.bind_close"></a>
 

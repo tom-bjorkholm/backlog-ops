@@ -20,6 +20,7 @@ from backlogops import (
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import rename_releases_in_jira as rename_cmd
+from backlogops_cli.rename_releases_in_jira import _passphrase
 
 NO = NoTextIO()
 
@@ -56,6 +57,12 @@ def _patch(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
 def _args(tmp_path: Path, *extra: str) -> list[str]:
     """Return the base command line naming the preset and config."""
     return ['-p', 'w', '-c', str(tmp_path / 'ops.cfg'), *extra]
+
+
+def test_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the pass phrase prompt reads from getpass."""
+    monkeypatch.setattr(rename_cmd, 'getpass', lambda _prompt: 'secret')
+    assert _passphrase() == 'secret'
 
 
 def test_in_command_list() -> None:

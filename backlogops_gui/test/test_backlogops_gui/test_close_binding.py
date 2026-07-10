@@ -7,8 +7,36 @@
 import sys
 import tkinter as tk
 import pytest
-from backlogops_gui.close_binding import bind_close
+from backlogops_gui.close_binding import bind_close, _close_events, \
+    _perform_close
 from .gui_test_helpers import gui_root, press_close
+
+
+def test_events_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test Windows adds the Ctrl-W close shortcut, other platforms not."""
+    monkeypatch.setattr(sys, 'platform', 'win32')
+    assert _close_events() == ['<Command-w>', '<Control-w>']
+    monkeypatch.setattr(sys, 'platform', 'darwin')
+    assert _close_events() == ['<Command-w>']
+
+
+def test_close_default() -> None:
+    """Test the default close action destroys the window and breaks."""
+    with gui_root() as root:
+        win = tk.Toplevel(root)
+        assert _perform_close(win, None) == 'break'
+        assert not win.winfo_exists()
+
+
+def test_close_custom() -> None:
+    """Test a custom close action runs and leaves the window open."""
+    with gui_root() as root:
+        win = tk.Toplevel(root)
+        calls: list[int] = []
+        assert _perform_close(win, lambda: calls.append(1)) == 'break'
+        assert calls == [1]
+        assert win.winfo_exists()
+        win.destroy()
 
 
 @pytest.mark.focus_sensitive

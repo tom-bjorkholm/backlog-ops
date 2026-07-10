@@ -13,9 +13,7 @@ closed.
 # MIT License
 
 import io
-from dataclasses import dataclass, field
-from types import SimpleNamespace
-from typing import Callable, Optional, cast
+from typing import Optional, cast
 import pytest
 from jira import JIRA, JIRAError
 import backlogops
@@ -30,198 +28,15 @@ from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, FailedItem,
     OnExistingKey, StatusMismatch, UnknownIssueTypeError, apply_jira_keys,
     jira_custom_fields, jira_editable_fields,
-    _issue_type_meta, _status_from_name, _transition_target)
-from backlogops.jira_write_fields import FailedLink, _link_spec_for
+    _issue_type_meta, _status_from_name, _transition_target,
+    _types_from_createmeta, _types_from_dicts)
+from backlogops.jira_write_fields import (
+    FailedLink, _link_spec_for, _parent_fields, _place_value)
 from backlogops.levels import DEFAULT_LEVELS, level_name
 from .jira_write_helpers import (
+    attr_parent_config, connect_each as _connect_each,
     connections_for as _connections, jira_write_config as _config, NO,
-    RankCall, capture_rank)
-
-FIELDS: list[dict[str, str]] = [
-    {'id': 'customfield_10016', 'name': 'Story point estimate'},
-    {'id': 'customfield_10001', 'name': 'Team'}]
-"""Field descriptors resolving the two custom fields used on create."""
-
-_EDITABLE_DEFAULT: dict[str, str] = {
-    'description': 'Description',
-    'customfield_10016': 'Story point estimate',
-    'customfield_10001': 'Team', 'fixVersions': 'Fix versions'}
-"""Fields the fake issue's edit screen offers by default."""
-
-_ISSUE_TYPES_DEFAULT: dict[str, bool] = {
-    'Story': False, 'Epic': False, 'Subtask': True}
-"""Creatable issue types of the fake Jira, mapped to their subtask flag.
-
-An empty issue-type map instead models a Jira whose create metadata is
-unavailable, so that sub-task detection falls back to the lowest level.
-"""
-
-
-@dataclass
-class _Behavior:
-    """How the fake Jira answers create, edit and transition calls.
-
-    The create and edit knobs are set from the constructor; the status
-    and transition knobs default to a status matching a fresh TODO item
-    and no transitions, and a status test sets the ones it needs.
-    """
-
-    editable: dict[str, str]
-    issue_types: dict[str, bool]
-    fail_types: set[str]
-    init_status: str = 'TODO'
-    transitions: list[dict[str, object]] = field(default_factory=list)
-    fail_transition: bool = False
-    transitioned: list[tuple[str, str]] = field(default_factory=list)
-
-
-@dataclass
-class _LinkLog:
-    """Recorded update and link calls, and the link failure knobs.
-
-    ``updates`` records each ``update`` call as (key, fields), ``links``
-    records each created issue link as (type, inward, outward),
-    ``fail_parent`` makes a parent update fail, and ``fail_link_to`` names
-    the endpoint keys whose link creation should fail.
-    """
-
-    updates: list[tuple[str, dict[str, object]]] = field(default_factory=list)
-    links: list[tuple[str, str, str]] = field(default_factory=list)
-    fail_parent: bool = False
-    fail_link_to: set[str] = field(default_factory=set)
-
-
-class _WriteClient:
-    """A stand-in Jira client for the add-to-Jira tests."""
-
-    def __init__(self, existing: Optional[set[str]] = None, alive: bool = True,
-                 editable: Optional[dict[str, str]] = None,
-                 issue_types: Optional[dict[str, bool]] = None,
-                 fail_types: Optional[set[str]] = None) -> None:
-        """Start with the present keys, screens, types and failing types.
-
-        ``issue_types`` maps each creatable issue type name to whether it
-        is a sub-task; an empty map models unavailable create metadata.
-        The status and transition behaviour lives in ``behavior`` and a
-        status test sets the fields it needs.
-        """
-        self.existing = set() if existing is None else set(existing)
-        self.alive = alive
-        self.behavior = _Behavior(
-            editable=_EDITABLE_DEFAULT if editable is None else editable,
-            issue_types=(_ISSUE_TYPES_DEFAULT if issue_types is None
-                         else issue_types),
-            fail_types=set() if fail_types is None else fail_types)
-        self.created: list[dict[str, object]] = []
-        self.link_log = _LinkLog()
-        self.closed = 0
-
-    def myself(self) -> dict[str, str]:
-        """Report a live session, or raise when the client is dead."""
-        if not self.alive:
-            raise JIRAError(status_code=401, text='session closed')
-        return {'name': 'tester'}
-
-    def fields(self) -> list[dict[str, str]]:
-        """Return the canned field descriptors."""
-        return FIELDS
-
-    def issue(self, key: str) -> SimpleNamespace:
-        """Return the issue for a present key, or raise for an absent one."""
-        if key in self.existing:
-            return SimpleNamespace(key=key)
-        raise JIRAError(status_code=404, text='not found')
-
-    def _issue_type_values(self) -> list[dict[str, object]]:
-        """Return the issue types with their sub-task flags for metadata."""
-        return [{'name': name, 'subtask': subtask}
-                for name, subtask in sorted(self.behavior.issue_types.items())]
-
-    def createmeta_issuetypes(self, project: str) -> dict[str, object]:
-        """Return the project's creatable issue types as create metadata."""
-        _ = project
-        return {'values': self._issue_type_values()}
-
-    def createmeta(self, **kwargs: object) -> dict[str, object]:
-        """Return the creatable issue types via the older createmeta API."""
-        _ = kwargs
-        return {'projects': [{'issuetypes': self._issue_type_values()}]}
-
-    def create_issue(self, fields: dict[str, object]) -> SimpleNamespace:
-        """Record the create payload; the issue merges a later update.
-
-        Raises for an issue type in ``fail_types``, and for a sub-task
-        without a ``parent``, as Jira does when it refuses a create. The
-        returned issue's ``update`` merges its fields into the same record,
-        and it carries a ``fields.status`` set to the initial status, so
-        the status reconciliation can read and transition it.
-        """
-        issuetype = fields.get('issuetype')
-        name = issuetype.get('name') if isinstance(issuetype, dict) else None
-        if name in self.behavior.fail_types:
-            raise JIRAError(status_code=400, text='Specify a valid issue type')
-        if name is not None and self.behavior.issue_types.get(name) \
-                and 'parent' not in fields:
-            raise JIRAError(status_code=400, text='Issue type is a sub-task '
-                            'but parent issue key or id not specified.')
-        record = dict(fields)
-        self.created.append(record)
-        key = f'JIRA-{len(self.created)}'
-        status = SimpleNamespace(name=self.behavior.init_status)
-        return SimpleNamespace(key=key, update=self._updater(key, record),
-                               fields=SimpleNamespace(status=status))
-
-    def _updater(self, key: str, record: dict[str, object]
-                 ) -> Callable[..., None]:
-        """Return an update callback that records and may refuse a parent."""
-        def update(fields: dict[str, object]) -> None:
-            """Record the update, refusing a parent link when set to fail."""
-            if self.link_log.fail_parent and 'parent' in fields:
-                raise JIRAError(status_code=400, text='parent rejected')
-            record.update(fields)
-            self.link_log.updates.append((key, dict(fields)))
-        return update
-
-    def create_issue_link(self, link_type: str, inward: str, outward: str,
-                          comment: Optional[dict[str, object]] = None) -> None:
-        """Record a created issue link, or refuse a failing endpoint."""
-        _ = comment
-        if inward in self.link_log.fail_link_to or \
-                outward in self.link_log.fail_link_to:
-            raise JIRAError(status_code=400, text='link rejected')
-        self.link_log.links.append((link_type, inward, outward))
-
-    def editmeta(self, issue: str) -> dict[str, object]:
-        """Return the edit-screen field metadata for the issue."""
-        _ = issue
-        return {'fields': {fid: {'name': name}
-                           for fid, name in self.behavior.editable.items()}}
-
-    def transitions(self, issue: SimpleNamespace) -> list[dict[str, object]]:
-        """Return the configured available workflow transitions."""
-        _ = issue
-        return list(self.behavior.transitions)
-
-    def transition_issue(self, issue: SimpleNamespace,
-                         transition: str) -> None:
-        """Apply a transition, updating the status, or raise when set to."""
-        if self.behavior.fail_transition:
-            raise JIRAError(status_code=400, text='transition rejected')
-        target = self._target_of(transition)
-        if target is not None:
-            issue.fields.status.name = target
-        self.behavior.transitioned.append((issue.key, transition))
-
-    def _target_of(self, transition: str) -> Optional[str]:
-        """Return the target status name of a transition id, or None."""
-        for trans in self.behavior.transitions:
-            if trans.get('id') == transition:
-                return _transition_target(trans)
-        return None
-
-    def close(self) -> None:
-        """Count a close of the stand-in client."""
-        self.closed += 1
+    RankCall, capture_rank, WriteClient as _WriteClient)
 
 
 def _issue_config(mapping: dict[int, str], project: str = 'PROJ',
@@ -231,13 +46,6 @@ def _issue_config(mapping: dict[int, str], project: str = 'PROJ',
     config.issue_type_maps = {ref: mapping}
     config.presets['w'].issue_type_map_name = ref
     return config
-
-
-def _connect_each(clients: list[_WriteClient]
-                  ) -> Callable[[object, object], _WriteClient]:
-    """Return a stand-in ``_connect`` yielding each client in turn."""
-    supply = iter(clients)
-    return lambda connection, passphrase: next(supply)
 
 
 def _item(key: str) -> BacklogItem:
@@ -405,6 +213,19 @@ def test_close_clients(monkeypatch: pytest.MonkeyPatch) -> None:
     connections.client('c')
     connections.close()
     assert client.closed == 1
+
+
+def test_dead_close_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a dead client whose close raises is still replaced."""
+    dead = _WriteClient(alive=False)
+    dead.fail_close = True
+    live = _WriteClient()
+    monkeypatch.setattr(jc, '_connect', _connect_each([dead, live]))
+    connections = JiraConnections(_config(), None)
+    connections.client('c')
+    reused: object = connections.client('c')
+    assert reused is live
+    assert dead.closed == 1
 
 
 def test_format_result() -> None:
@@ -621,6 +442,110 @@ def test_types_via_createmeta() -> None:
     assert _issue_type_meta(client, 'P') == {'Story': False, 'Subtask': True}
 
 
+@pytest.mark.parametrize('items, expected', [
+    ('notalist', {}), (None, {}), ([1, 2], {}), ([{'no': 'name'}], {}),
+    ([{'name': 'Story', 'subtask': True}], {'Story': True})])
+def test_types_from_dicts(items: object, expected: dict[str, bool]) -> None:
+    """Test issue-type dicts map names to subtask flags, skipping junk."""
+    assert _types_from_dicts(items) == expected
+
+
+# pylint: disable-next=too-few-public-methods
+class _ProjClient:
+    """A client whose createmeta returns a non-dict project entry."""
+
+    def createmeta(self, **kwargs: object) -> dict[str, object]:
+        """Return a bad and a good project to test the dict guard."""
+        _ = kwargs
+        return {'projects': [42, {'issuetypes': [
+            {'name': 'Story', 'subtask': False}]}]}
+
+
+def test_types_bad_project() -> None:
+    """Test a non-dict project entry is skipped by createmeta parsing."""
+    client = cast(JIRA, _ProjClient())
+    assert _types_from_createmeta(client, 'P') == {'Story': False}
+
+
+def _title_only_config() -> JiraIOConfig:
+    """Return a config whose backlog map has only create-screen fields."""
+    config = _config()
+    config.backlog_column_maps = {'bk': {
+        'title': (JiraAttrPath(JiraAttrType.FIELD, ('summary',)),),
+        'level': (JiraAttrPath(JiraAttrType.FIELD, ('issuetype', 'name')),)}}
+    return config
+
+
+def test_create_no_update(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an all-create-field issue skips the follow-up update."""
+    client = _WriteClient()
+    connections = _connections(monkeypatch, client, _title_only_config())
+    add_backlog_to_jira(connections, 'w', [_leveled('A', 1)],
+                        on_existing_key=OnExistingKey.SKIP, stderr_file=NO)
+    assert client.created[0]['summary'] == 'T A'
+    assert not client.link_log.updates
+
+
+def test_create_no_editable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update fields none of which are editable are all skipped."""
+    client = _WriteClient(editable={})
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.story_points = 8
+    errors = io.StringIO()
+    add_backlog_to_jira(connections, 'w', [item],
+                        on_existing_key=OnExistingKey.SKIP, stderr_file=errors)
+    assert not client.link_log.updates
+    assert 'customfield_10016' in errors.getvalue()
+
+
+def test_status_empty_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an empty Jira status name reports a mismatch with no actual."""
+    client = _WriteClient()
+    client.behavior.init_status = ''
+    connections = _connections(monkeypatch, client)
+    result = add_backlog_to_jira(connections, 'w', [_item('A')],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 status_map=SMAP, stderr_file=NO)
+    assert [bad.actual for bad in result.status_mismatch] == [None]
+
+
+@pytest.mark.parametrize('trans, expected', [
+    ({'to': {'name': 'Done'}}, 'Done'), ({}, None), ({'to': 'x'}, None),
+    ({'to': {'name': 5}}, None)])
+def test_transition_target(trans: dict[str, object],
+                           expected: Optional[str]) -> None:
+    """Test the transition target status name is read, else None."""
+    assert _transition_target(trans) == expected
+
+
+def test_trans_list_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a transition-listing error leaves a reported status mismatch."""
+    client = _WriteClient()
+    client.behavior.init_status = 'To Do'
+    client.behavior.transition_fault = 'list'
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.status = Status.DONE
+    result = add_backlog_to_jira(connections, 'w', [item],
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 status_map=SMAP, stderr_file=NO)
+    assert [bad.item.key for bad in result.status_mismatch] == ['JIRA-1']
+
+
+def test_parent_no_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a parent_key mapped to no writable field writes no link."""
+    client = _WriteClient()
+    connections = _connections(monkeypatch, client, attr_parent_config())
+    backlog = [_leveled('C', 1, 'P'), _leveled('P', 2)]
+    result = add_backlog_to_jira(connections, 'w', backlog,
+                                 on_existing_key=OnExistingKey.SKIP,
+                                 stderr_file=NO)
+    assert not result.failed_links
+    assert all('parent' not in fields
+               for _, fields in client.link_log.updates)
+
+
 def test_reexport() -> None:
     """Test the package re-exports the add-to-Jira names."""
     assert backlogops.add_backlog_to_jira is add_backlog_to_jira
@@ -721,7 +646,7 @@ def test_status_trans_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _WriteClient()
     client.behavior.init_status = 'To Do'
     client.behavior.transitions = [_trans('31', 'Done')]
-    client.behavior.fail_transition = True
+    client.behavior.transition_fault = 'apply'
     connections = _connections(monkeypatch, client)
     item = _item('A')
     item.status = Status.DONE
@@ -776,6 +701,19 @@ def test_link_spec_none() -> None:
     """Test a field without an issuelinks path yields no link spec."""
     attrs = (JiraAttrPath(JiraAttrType.FIELD, ('parent', 'key')),)
     assert _link_spec_for('parent_key', attrs) is None
+
+
+def test_place_unresolved() -> None:
+    """Test an unresolvable custom field places no value."""
+    fields: dict[str, object] = {}
+    attr = JiraAttrPath(JiraAttrType.CUSTOM_FIELD, ('Nope',))
+    _place_value(fields, attr, 'V', {})
+    assert not fields
+
+
+def test_parent_unmapped() -> None:
+    """Test the parent fields are empty when parent_key is not mapped."""
+    assert not _parent_fields({}, {}, 'P')
 
 
 def test_dep_link_written(monkeypatch: pytest.MonkeyPatch) -> None:

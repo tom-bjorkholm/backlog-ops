@@ -111,6 +111,15 @@ def test_warn_on_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     assert 'WARNING' in sink.getvalue()
 
 
+def test_warn_anchor_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test rank_backlog_or_warn ranks nothing when the anchor is None."""
+    client = FakeRankClient(['A', 'B'])
+    connections = connections_for(monkeypatch, client)
+    env = RankEnv(connections, 'w', None)
+    rank_backlog_or_warn(env, [_item('A'), _item('B')], {})
+    assert not client.rank_calls
+
+
 @pytest.mark.parametrize('anchor,rest,expected', [
     (JiraRankAnchor.FIRST_KEY, ['X'], (['A', 'B'], False)),
     (JiraRankAnchor.LAST_KEY, ['X'], (['A', 'B'], True)),

@@ -28,7 +28,8 @@ import backlogops.jira_connect as jc
 from backlogops.jira_connect import JiraConnections, _connect
 from backlogops.jira_read import (
     build_backlog_releases, read_backlog_from_jira, read_jira_from_config,
-    resolve_jql, _coerce, _custom_ids, _resolve)
+    resolve_jql, _coerce, _coerce_field, _custom_ids, _filtered_values,
+    _resolve)
 
 NO = NoTextIO()
 
@@ -71,11 +72,43 @@ def _build(issue: SimpleNamespace, version: SimpleNamespace,
 @pytest.mark.parametrize('value, expected', [
     (None, None), ('x', 'x'), (5, 5), (5.0, 5.0),
     ([SimpleNamespace(name='V1'), SimpleNamespace(name='V2')], 'V1'),
+    ([None, SimpleNamespace(name='V2')], 'V2'),
     ([], None), (SimpleNamespace(name='S'), 'S'),
+    (SimpleNamespace(value=7), 7),
+    (SimpleNamespace(name=3, value='V'), 'V'),
+    (SimpleNamespace(), 'namespace()'),
     (date(2026, 1, 2), '2026-01-02')])
 def test_coerce(value: object, expected: object) -> None:
     """Test a Jira value is coerced to a plain cell value."""
     assert _coerce(value) == expected
+
+
+def test_dep_drops_empty() -> None:
+    """Test a dependency field drops empty values and joins the rest."""
+    assert _coerce_field('depends_on_f2s', [None, 'A', '', 'B']) == 'A B'
+
+
+def _links_attr() -> JiraAttrPath:
+    """Return the default Blocks issue-link filtered-field path."""
+    return JiraAttrPath(JiraAttrType.FILTERED_FIELD,
+                        ('issuelinks', 'type.name', 'Blocks',
+                         'inwardIssue.key'))
+
+
+def test_filtered_values() -> None:
+    """Test filtered values keep matching entries and skip the rest."""
+    link_a = SimpleNamespace(type=SimpleNamespace(name='Relates'),
+                             inwardIssue=SimpleNamespace(key='A'))
+    link_b = SimpleNamespace(type=SimpleNamespace(name='Blocks'),
+                             inwardIssue=SimpleNamespace(key='B'))
+    root = SimpleNamespace(issuelinks=[link_a, link_b])
+    assert _filtered_values(root, _links_attr()) == ['B']
+
+
+def test_filtered_not_list() -> None:
+    """Test a non-list list field yields no filtered values."""
+    root = SimpleNamespace(issuelinks='oops')
+    assert not _filtered_values(root, _links_attr())
 
 
 def test_custom_ids() -> None:

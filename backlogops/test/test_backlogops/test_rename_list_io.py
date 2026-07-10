@@ -92,6 +92,14 @@ def test_empty_table(tmp_path: Path) -> None:
     assert not read_renames(source, stderr_file=NO)
 
 
+def test_table_empty_row(tmp_path: Path) -> None:
+    """Test an empty table row between renames is skipped, not read."""
+    source = tmp_path / 'renames.csv'
+    source.write_text('R1,R9\n,\nR2,R8\n', encoding='utf-8')
+    assert read_renames(source, stderr_file=NO) == [
+        ReleaseRename('R1', 'R9'), ReleaseRename('R2', 'R8')]
+
+
 def test_reexport() -> None:
     """Test the package re-exports read_renames."""
     assert backlogops.read_renames is read_renames

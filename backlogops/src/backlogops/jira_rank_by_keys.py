@@ -157,7 +157,7 @@ def jira_rank_by_keys_raw(connections: JiraConnections, connection_name: str,
         return
     client = connections.client(connection_name)
     max_loops = 2 * len(keys)
-    for attempt in range(max_loops + 1):
+    for attempt in range(max_loops + 1):  # pragma: no branch
         if _order_in_jira(client, keys, connection_name) == keys:
             return
         if attempt == max_loops:

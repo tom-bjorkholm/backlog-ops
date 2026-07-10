@@ -16,23 +16,26 @@ full elsewhere.
 
 import io
 from types import SimpleNamespace
-from typing import Callable, Optional
+from typing import Callable, Optional, cast
 import pytest
-from jira import JIRAError
+from jira import Issue, JIRAError
 import backlogops
 from backlogops import JiraRankAnchor
 from backlogops.backlog import BacklogItem, Status
 from backlogops.jira_connect import JiraConnections
+from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, JiraColumnMap
 from backlogops.jira_write import (
     AddedToJira, FailedItem, ItemNotInJiraError, OnExistingKey, OnMissingKey,
     StatusMismatch)
-from backlogops.jira_write_fields import FailedLink
+from backlogops.jira_write_fields import FailedLink, _LinkSpec
 from backlogops import jira_update_backlog
 from backlogops.jira_update_backlog import (
     LinkUpdate, UpdatedBacklogInJira, format_backlog_updates,
-    updatable_backlog_fields, update_backlog_in_jira)
+    updatable_backlog_fields, update_backlog_in_jira, _clear_parent_fields,
+    _find_link_id)
 from .jira_write_helpers import (
-    connections_for as _connections, NO, RankCall, capture_rank)
+    attr_parent_config, connections_for as _connections, NO, RankCall,
+    capture_rank)
 
 FIELDS: list[dict[str, str]] = [
     {'id': 'customfield_10016', 'name': 'Story point estimate'},
@@ -318,6 +321,48 @@ def test_reconcile_clear(monkeypatch: pytest.MonkeyPatch) -> None:
     assert client.issues['A'].updates == [{'parent': None}]
 
 
+def test_parent_same(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a parent already matching the item needs no change."""
+    client = _Client({'A': _issue('A', parent='SAME')})
+    connections = _connections(monkeypatch, client)
+    item = _item('A', parent_key='SAME')
+    result = _upd(connections, [item], ['parent_key'])
+    assert result.already_correct == ['A']
+    assert client.issues['A'].updates == []
+
+
+@pytest.mark.parametrize('attr, expected', [
+    (None, {}),
+    (JiraAttrPath(JiraAttrType.CUSTOM_FIELD, ('customfield_10001',)),
+     {'customfield_10001': None}),
+    (JiraAttrPath(JiraAttrType.CUSTOM_FIELD, ('Unknown',)), {}),
+    (JiraAttrPath(JiraAttrType.FIELD, ('parent',)), {'parent': None}),
+    (JiraAttrPath(JiraAttrType.ATTRIBUTE, ('parent',)), {})])
+def test_clear_parent_fields(attr: Optional[JiraAttrPath],
+                             expected: dict[str, object]) -> None:
+    """Test the parent-clear fields depend on the mapped path kind."""
+    column_map: JiraColumnMap = (
+        {} if attr is None else {'parent_key': (attr,)})
+    assert _clear_parent_fields(column_map, {}) == expected
+
+
+def test_set_attr_parent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test setting a parent mapped to no writable field writes nothing."""
+    client = _Client({'A': _issue('A')})
+    connections = _connections(monkeypatch, client, attr_parent_config())
+    _upd(connections, [_item('A', parent_key='NEW')], ['parent_key'])
+    assert client.issues['A'].updates == []
+
+
+def test_clear_attr_parent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test clearing a parent mapped to no writable field writes nothing."""
+    client = _Client({'A': _issue('A')})
+    setattr(client.issues['A'], 'parent', 'OLD')
+    connections = _connections(monkeypatch, client, attr_parent_config())
+    _upd(connections, [_item('A', parent_key=None)], ['parent_key'])
+    assert client.issues['A'].updates == []
+
+
 def test_dep_add(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a missing dependency link makes the dependency block the item.
 
@@ -372,6 +417,35 @@ def test_dep_not_selected(monkeypatch: pytest.MonkeyPatch) -> None:
     item = _item('A', title='New', depends_on_f2s=[])
     result = _upd(connections, [item], ['title'])
     assert result.updated == ['A']
+    assert not client.deleted_links
+
+
+def _bad_id_link(dep: str) -> SimpleNamespace:
+    """Return a Blocks issuelink whose id is not a string."""
+    return SimpleNamespace(id=None, type=SimpleNamespace(name='Blocks'),
+                           inwardIssue=SimpleNamespace(key=dep))
+
+
+def test_find_link_id() -> None:
+    """Test the link id lookup matches type and side, else returns None."""
+    spec = _LinkSpec('depends_on_f2s', 'Blocks', True)
+    good = cast(Issue, SimpleNamespace(
+        fields=SimpleNamespace(issuelinks=[_blocks('B')])))
+    assert _find_link_id(good, spec, 'B') == 'L1'
+    assert _find_link_id(good, spec, 'OTHER') is None
+    no_list = cast(Issue, SimpleNamespace(
+        fields=SimpleNamespace(issuelinks=None)))
+    assert _find_link_id(no_list, spec, 'B') is None
+    bad = cast(Issue, SimpleNamespace(
+        fields=SimpleNamespace(issuelinks=[_bad_id_link('B')])))
+    assert _find_link_id(bad, spec, 'B') is None
+
+
+def test_remove_link_no_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test removing a link with no usable id deletes nothing."""
+    client = _Client({'A': _issue('A', links=[_bad_id_link('B')])})
+    connections = _connections(monkeypatch, client)
+    _upd(connections, [_item('A', depends_on_f2s=[])], ['depends_on_f2s'])
     assert not client.deleted_links
 
 

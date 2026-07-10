@@ -26,6 +26,13 @@ def _close_events() -> list[str]:
     return ['<Command-w>']
 
 
+def _perform_close(win: tk.Toplevel,
+                   on_close: Optional[Callable[[], None]]) -> str:
+    """Run the window's close action and stop further event handling."""
+    (win.destroy if on_close is None else on_close)()
+    return 'break'
+
+
 def bind_close(win: tk.Toplevel,
                on_close: Optional[Callable[[], None]] = None) -> None:
     """Bind the close-window key to run the window's close action.
@@ -36,9 +43,5 @@ def bind_close(win: tk.Toplevel,
             A window that cancels or aborts on close passes its own
             handler, so the key matches its window close button.
     """
-    def close(_event: object) -> str:
-        """Run the close action and stop further event handling."""
-        (win.destroy if on_close is None else on_close)()
-        return 'break'
     for event in _close_events():
-        win.bind(event, close)
+        win.bind(event, lambda _event: _perform_close(win, on_close))

@@ -16,14 +16,15 @@ from backlogops_gui.jira_dialogs import (
     JiraReleaseWriteDialog, JiraReleaseWriteOptions, JiraRenameDialog,
     JiraRenameOptions, JiraWriteDialog, JiraWriteOptions, PassphraseDialog,
     ask_backlog_update, ask_jira_order, ask_jira_passphrase, ask_jira_rank,
-    ask_jira_read_options, ask_jira_rename, ask_release_update,
-    ask_release_write)
+    ask_jira_read_options, ask_jira_rename, ask_jira_write_options,
+    ask_release_update, ask_release_write)
 from backlogops_gui.modal_dialog import ModalDialog
 from .gui_test_helpers import MsgRecorder, gui_root
-from .dialog_test_helpers import cancel_show, no_wait
+from .dialog_test_helpers import cancel_show, confirm_show, no_wait
 
 MESSAGEBOX = 'backlogops_gui.jira_dialogs.messagebox'
 FILE_DIALOG = 'backlogops_gui.jira_dialogs.filedialog.askopenfilename'
+READ_KEYS = 'backlogops_gui.jira_dialogs.read_key_list'
 _BL_FIELDS = {'p': ['title', 'status'], 'q': ['title', 'team']}
 """Two presets mapped to their updatable fields for the dialog tests."""
 
@@ -448,3 +449,177 @@ def test_order_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ModalDialog, '_show', cancel_show)
     with gui_root() as root:
         assert ask_jira_order(root, ['scrum']) is None
+
+
+def test_read_wrapper_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the read wrapper returns the confirmed options."""
+    monkeypatch.setattr(ModalDialog, '_show', confirm_show)
+    with gui_root() as root:
+        assert ask_jira_read_options(root, {'p': 'fp'}) == \
+            JiraReadOptions('p', 'fp')
+
+
+def test_write_wrapper_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the write wrapper returns the confirmed options."""
+    monkeypatch.setattr(ModalDialog, '_show', confirm_show)
+    with gui_root() as root:
+        assert ask_jira_write_options(root, ['p']) == \
+            JiraWriteOptions('p', False, None)
+
+
+def test_write_wrapper_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the write wrapper returns nothing when cancelled."""
+    monkeypatch.setattr(ModalDialog, '_show', cancel_show)
+    with gui_root() as root:
+        assert ask_jira_write_options(root, ['p']) is None
+
+
+def test_write_needs_p(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the write dialog requires a preset before confirming."""
+    rec = MsgRecorder()
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(MESSAGEBOX, rec)
+    with gui_root() as root:
+        dialog = JiraWriteDialog(root, [])
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None
+        assert rec.calls == [('No Jira preset',
+                              'Select a Jira write preset.')]
+
+
+def test_relw_wrapper_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the release-write wrapper returns the confirmed options."""
+    monkeypatch.setattr(ModalDialog, '_show', confirm_show)
+    with gui_root() as root:
+        assert ask_release_write(root, ['p']) == \
+            JiraReleaseWriteOptions('p', False)
+
+
+def test_relu_wrapper_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the release-update wrapper returns the confirmed options."""
+    monkeypatch.setattr(ModalDialog, '_show', confirm_show)
+    with gui_root() as root:
+        assert ask_release_update(root, ['p'], ['R1']) == \
+            JiraReleaseUpdateOptions('p', OnMissingKey.RAISE, ['R1'])
+
+
+def test_blu_wrapper_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the backlog-update wrapper returns the confirmed options."""
+    monkeypatch.setattr(ModalDialog, '_show', confirm_show)
+    with gui_root() as root:
+        assert ask_backlog_update(root, _BL_FIELDS) == \
+            JiraBacklogUpdateOptions('p', OnMissingKey.RAISE,
+                                     ['title', 'status'], True, None)
+
+
+def test_blu_needs_p(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the backlog-update dialog requires a preset."""
+    rec = MsgRecorder()
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(MESSAGEBOX, rec)
+    with gui_root() as root:
+        dialog = JiraBacklogUpdateDialog(root, {})
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None
+        assert rec.calls == [('No Jira preset', 'Select a Jira preset.')]
+
+
+def test_rank_wrapper_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the rank wrapper returns its unset options without a cancel."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    with gui_root() as root:
+        assert ask_jira_rank(root, {'a': 'fa'}, NoTextIO()) is None
+
+
+def test_rank_needs_p(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the rank dialog requires a preset before confirming."""
+    rec = MsgRecorder()
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(MESSAGEBOX, rec)
+    with gui_root() as root:
+        dialog = JiraRankDialog(root, {}, NoTextIO())
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None
+        assert rec.calls == [('No Jira preset', 'Select a Jira preset.')]
+
+
+def test_rank_load_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the key-list chooser leaves the box empty."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(FILE_DIALOG, _pick(''))
+    with gui_root() as root:
+        dialog = JiraRankDialog(root, {'a': 'fa'}, NoTextIO())
+        # pylint: disable-next=protected-access
+        dialog._load()
+        # pylint: disable-next=protected-access
+        assert dialog._text.get('1.0', 'end').strip() == ''
+
+
+def test_rank_load_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a key-list read failure is reported and fills nothing."""
+    rec = MsgRecorder()
+
+    def boom(name: str, stderr_file: object) -> list[str]:
+        """Raise as a failing key-list read would."""
+        _ = (name, stderr_file)
+        raise ValueError('bad list')
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(FILE_DIALOG, _pick('x.txt'))
+    monkeypatch.setattr(READ_KEYS, boom)
+    monkeypatch.setattr(MESSAGEBOX, rec)
+    with gui_root() as root:
+        dialog = JiraRankDialog(root, {'a': 'fa'}, NoTextIO())
+        # pylint: disable-next=protected-access
+        dialog._load()
+        assert rec.calls and rec.calls[0][0] == 'Could not read key list'
+
+
+def test_rename_wrapper_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the rename wrapper returns its unset options without a cancel."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    with gui_root() as root:
+        assert ask_jira_rename(root, ['scrum'], ['R1']) is None
+
+
+def test_rename_needs_p(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the rename dialog requires a preset before confirming."""
+    rec = MsgRecorder()
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(MESSAGEBOX, rec)
+    with gui_root() as root:
+        dialog = JiraRenameDialog(root, [], ['R1'])
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None
+        assert rec.calls == [('No Jira preset', 'Select a Jira preset.')]
+
+
+def test_order_wrapper_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the order wrapper returns the confirmed date-order options."""
+    monkeypatch.setattr(ModalDialog, '_show', confirm_show)
+    with gui_root() as root:
+        assert ask_jira_order(root, ['scrum']) == \
+            JiraOrderOptions('scrum', 'date', [])
+
+
+def test_order_needs_p(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the order dialog requires a preset before confirming."""
+    rec = MsgRecorder()
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(MESSAGEBOX, rec)
+    with gui_root() as root:
+        dialog = JiraOrderDialog(root, [])
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None
+        assert rec.calls == [('No Jira preset', 'Select a Jira preset.')]
+
+
+def test_pass_wrapper_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the pass phrase wrapper returns the entered (empty) phrase."""
+    monkeypatch.setattr(ModalDialog, '_show', confirm_show)
+    with gui_root() as root:
+        assert ask_jira_passphrase(root) == ''
