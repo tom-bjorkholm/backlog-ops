@@ -3,8 +3,9 @@
 
 The Jira rename itself is replaced by a stand-in so the command can be tested
 without a Jira server: the tests check the command builds the renames from
---old/--new and from a rename file, rejects giving both or neither, prints the
-result unless quiet, reports a failure and is discovered by the list command.
+--rename and from a rename file, that a name may contain spaces, that argparse
+requires exactly one way, prints the result unless quiet, reports a failure
+and is discovered by the list command.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -66,18 +67,28 @@ def test_in_command_list() -> None:
 def test_requires_preset() -> None:
     """Test the command requires the preset argument."""
     with pytest.raises(SystemExit):
-        rename_cmd.build_parser().parse_args([])
+        rename_cmd.build_parser().parse_args(['--rename', 'R1', 'R9'])
 
 
 def test_single_rename(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                        capsys: pytest.CaptureFixture[str]) -> None:
-    """Test --old/--new builds a single rename and prints the result."""
+    """Test --rename builds a single rename and prints the result."""
     captured = _patch(monkeypatch)
     _config_file(tmp_path / 'ops.cfg')
-    code = rename_cmd.main(_args(tmp_path, '--old', 'R1', '--new', 'R9'))
+    code = rename_cmd.main(_args(tmp_path, '--rename', 'R1', 'R9'))
     assert code == 0
     assert captured['renames'] == [ReleaseRename('R1', 'R9')]
     assert 'Renamed in Jira (1):' in capsys.readouterr().out
+
+
+def test_single_rename_spaces(tmp_path: Path,
+                              monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a --rename old and new name may contain spaces."""
+    captured = _patch(monkeypatch)
+    _config_file(tmp_path / 'ops.cfg')
+    rename_cmd.main(_args(tmp_path, '--rename', 'Release 1', 'Big Bang 2'))
+    assert captured['renames'] == [
+        ReleaseRename('Release 1', 'Big Bang 2')]
 
 
 def test_rename_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -91,31 +102,23 @@ def test_rename_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
                                    ReleaseRename('R2', 'R8')]
 
 
-def test_both_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test giving both --old/--new and --rename-file returns 1."""
-    _patch(monkeypatch)
-    _config_file(tmp_path / 'ops.cfg')
-    rename_file = tmp_path / 'renames.txt'
-    rename_file.write_text('R1\tR9\n', encoding='utf-8')
-    code = rename_cmd.main(_args(tmp_path, '--old', 'R1', '--new', 'R9',
-                                 '--rename-file', str(rename_file)))
-    assert code == 1
+def test_both_error() -> None:
+    """Test giving both --rename and --rename-file is rejected by argparse."""
+    with pytest.raises(SystemExit):
+        rename_cmd.build_parser().parse_args(
+            ['-p', 'w', '--rename', 'R1', 'R9', '--rename-file', 'r.txt'])
 
 
-def test_only_old_error(tmp_path: Path,
-                        monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test giving --old without --new returns 1."""
-    _patch(monkeypatch)
-    _config_file(tmp_path / 'ops.cfg')
-    assert rename_cmd.main(_args(tmp_path, '--old', 'R1')) == 1
+def test_one_value_error() -> None:
+    """Test --rename with only one value is rejected by argparse."""
+    with pytest.raises(SystemExit):
+        rename_cmd.build_parser().parse_args(['-p', 'w', '--rename', 'R1'])
 
 
-def test_neither_error(tmp_path: Path,
-                       monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test giving neither a pair nor a file returns 1."""
-    _patch(monkeypatch)
-    _config_file(tmp_path / 'ops.cfg')
-    assert rename_cmd.main(_args(tmp_path)) == 1
+def test_neither_error() -> None:
+    """Test giving neither a rename nor a file is rejected by argparse."""
+    with pytest.raises(SystemExit):
+        rename_cmd.build_parser().parse_args(['-p', 'w'])
 
 
 def test_quiet(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -123,7 +126,7 @@ def test_quiet(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     """Test -q suppresses the result listing on stdout."""
     _patch(monkeypatch)
     _config_file(tmp_path / 'ops.cfg')
-    rename_cmd.main(_args(tmp_path, '--old', 'R1', '--new', 'R9', '-q'))
+    rename_cmd.main(_args(tmp_path, '--rename', 'R1', 'R9', '-q'))
     assert 'Renamed in Jira' not in capsys.readouterr().out
 
 
@@ -135,4 +138,4 @@ def test_error_returns_1(tmp_path: Path,
         raise ValueError('boom')
     monkeypatch.setattr(rename_cmd, 'rename_releases_in_jira', _raise)
     _config_file(tmp_path / 'ops.cfg')
-    assert rename_cmd.main(_args(tmp_path, '--old', 'R1', '--new', 'R9')) == 1
+    assert rename_cmd.main(_args(tmp_path, '--rename', 'R1', 'R9')) == 1

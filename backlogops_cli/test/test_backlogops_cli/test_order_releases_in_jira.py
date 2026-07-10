@@ -2,9 +2,9 @@
 """Tests for the backlogops_cli order_releases_in_jira command.
 
 The Jira ordering itself is replaced by stand-ins so the command can be tested
-without a Jira server: the tests check the by-date, name-list and from-input
-order sources, that exactly one source is required, that from-input needs an
-input file, that the result is printed unless quiet, and that the command is
+without a Jira server: the tests check the by-date, name-list and input order
+sources, that a name may contain spaces, that argparse requires exactly one
+source, that the result is printed unless quiet, and that the command is
 discovered by the list command.
 """
 
@@ -82,7 +82,7 @@ def test_in_command_list() -> None:
 def test_requires_preset() -> None:
     """Test the command requires the preset argument."""
     with pytest.raises(SystemExit):
-        order_cmd.build_parser().parse_args([])
+        order_cmd.build_parser().parse_args(['--by-date'])
 
 
 def test_by_date(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -106,8 +106,19 @@ def test_name_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured['names'] == ['R1', 'R2']
 
 
+def test_name_list_spaces(tmp_path: Path,
+                          monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a --name-list release name may contain spaces."""
+    captured = _patch(monkeypatch)
+    _config_file(tmp_path / 'ops.cfg')
+    name_file = tmp_path / 'names.txt'
+    name_file.write_text('Release 1.0\nBig Bang 2.0\n', encoding='utf-8')
+    order_cmd.main(_args(tmp_path, '--name-list', str(name_file)))
+    assert captured['names'] == ['Release 1.0', 'Big Bang 2.0']
+
+
 def test_from_input(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test --from-input uses the input file's release order."""
+    """Test -i/--input uses the input file's release order."""
     captured = _patch(monkeypatch)
     _config_file(tmp_path / 'ops.cfg')
 
@@ -116,35 +127,28 @@ def test_from_input(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         return BacklogReleases(backlog=[],
                                releases=[Release('R1'), Release('R2')])
     monkeypatch.setattr(order_cmd, 'read_input', _fake_input)
-    order_cmd.main(_args(tmp_path, '--from-input', '-i',
-                         str(tmp_path / 'in.dat')))
+    order_cmd.main(_args(tmp_path, '-i', str(tmp_path / 'in.dat')))
     assert captured['names'] == ['R1', 'R2']
 
 
-def test_no_mode_error(tmp_path: Path,
-                       monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test giving no order source returns 1."""
-    _patch(monkeypatch)
-    _config_file(tmp_path / 'ops.cfg')
-    assert order_cmd.main(_args(tmp_path)) == 1
+def test_no_source() -> None:
+    """Test giving no order source is rejected by argparse."""
+    with pytest.raises(SystemExit):
+        order_cmd.build_parser().parse_args(['-p', 'w'])
 
 
-def test_two_modes_error(tmp_path: Path,
-                         monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test giving two order sources returns 1."""
-    _patch(monkeypatch)
-    _config_file(tmp_path / 'ops.cfg')
-    code = order_cmd.main(_args(tmp_path, '--by-date', '--from-input', '-i',
-                                str(tmp_path / 'in.dat')))
-    assert code == 1
+def test_two_sources() -> None:
+    """Test giving two order sources is rejected by argparse."""
+    with pytest.raises(SystemExit):
+        order_cmd.build_parser().parse_args(
+            ['-p', 'w', '--by-date', '-i', 'in.dat'])
 
 
-def test_from_input_no_file(tmp_path: Path,
-                            monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test --from-input without -i/--input returns 1."""
-    _patch(monkeypatch)
-    _config_file(tmp_path / 'ops.cfg')
-    assert order_cmd.main(_args(tmp_path, '--from-input')) == 1
+def test_name_list_and_input() -> None:
+    """Test --name-list and -i/--input are mutually exclusive."""
+    with pytest.raises(SystemExit):
+        order_cmd.build_parser().parse_args(
+            ['-p', 'w', '--name-list', 'n.txt', '-i', 'in.dat'])
 
 
 def test_quiet(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,

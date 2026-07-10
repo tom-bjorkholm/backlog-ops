@@ -132,7 +132,6 @@
 * [backlogops\_cli.order\_releases\_in\_jira](#backlogops_cli.order_releases_in_jira)
   * [build\_parser](#backlogops_cli.order_releases_in_jira.build_parser)
   * [\_passphrase](#backlogops_cli.order_releases_in_jira._passphrase)
-  * [\_check\_mode](#backlogops_cli.order_releases_in_jira._check_mode)
   * [\_names](#backlogops_cli.order_releases_in_jira._names)
   * [\_order](#backlogops_cli.order_releases_in_jira._order)
   * [\_run](#backlogops_cli.order_releases_in_jira._run)
@@ -1925,11 +1924,12 @@ extension when it is not already present.
 Order releases in Jira, changing the order of a project's versions.
 
 The command reorders the Jira versions of a named preset of the backlog-ops
-configuration. Exactly one order source must be given: ``--by-date`` orders
-the versions by their own release date, earliest first, with undated versions
-at the end; ``--name-list`` names a file whose names give the wanted order,
-like a key list; and ``--from-input`` uses the order of the releases in the
-backlog-and-releases input file named with ``-i``/``--input``.
+configuration. Exactly one order source must be given, and the three are
+mutually exclusive: ``--by-date`` orders the versions by their own release
+date, earliest first, with undated versions at the end; ``--name-list`` names
+a file whose lines give the wanted order, one release name per line; and
+``-i``/``--input`` names a backlog-and-releases input file whose release order
+is used. argparse enforces that exactly one of the three is given.
 
 With ``--by-date`` every version is ordered. With a name source, the named
 versions are moved to the front in the listed order and every other version
@@ -1948,6 +1948,11 @@ def build_parser() -> argparse.ArgumentParser
 
 Build the command line parser for the order-releases command.
 
+The three order sources form a required, mutually exclusive group, so
+argparse checks that exactly one of them is given. Giving the input file
+with ``-i``/``--input`` is itself the third source; ``-I`` only names its
+format.
+
 <a id="backlogops_cli.order_releases_in_jira._passphrase"></a>
 
 #### \_passphrase
@@ -1958,21 +1963,6 @@ def _passphrase() -> str
 
 Ask for the Jira token pass phrase on the terminal.
 
-<a id="backlogops_cli.order_releases_in_jira._check_mode"></a>
-
-#### \_check\_mode
-
-```python
-def _check_mode(parsed: argparse.Namespace) -> None
-```
-
-Check exactly one order source is given, with its needed options.
-
-**Raises**:
-
-- `ValueError` - If not exactly one of the three order sources is given,
-  or if ``--from-input`` is given without ``-i``/``--input``.
-
 <a id="backlogops_cli.order_releases_in_jira._names"></a>
 
 #### \_names
@@ -1982,6 +1972,9 @@ def _names(parsed: argparse.Namespace, config: BacklogOpsConfig) -> list[str]
 ```
 
 Return the wanted order of names from the chosen name source.
+
+Used only when ``--by-date`` is not given, so the source is either the
+``--name-list`` file or, otherwise, the ``-i``/``--input`` file.
 
 <a id="backlogops_cli.order_releases_in_jira._order"></a>
 
@@ -2261,10 +2254,10 @@ Update releases in Jira and report the outcome per release.
 Rename releases in Jira, changing Jira version names.
 
 The command renames Jira versions of a named preset of the backlog-ops
-configuration. A single rename is given with ``--old`` and ``--new``; a
-batch of renames is read from a two column file named with ``--rename-file``,
-whose first column holds the old names and second column the new names.
-Exactly one of the two ways must be given.
+configuration. A single rename is given with ``--rename OLD NEW``; a batch of
+renames is read from a two column file named with ``--rename-file``, whose
+first column holds the old names and second column the new names. The two
+ways are mutually exclusive and one is required, which argparse enforces.
 
 Each version is matched by its old name. An old name that is not a version, a
 new name that equals the old name, and a new name that is already a version
@@ -2284,6 +2277,10 @@ def build_parser() -> argparse.ArgumentParser
 
 Build the command line parser for the rename-releases command.
 
+The single rename and the batch file form a required, mutually exclusive
+group, so argparse checks that exactly one way is given. ``--rename``
+takes both names at once, so its old and new name always travel together.
+
 <a id="backlogops_cli.rename_releases_in_jira._passphrase"></a>
 
 #### \_passphrase
@@ -2302,15 +2299,11 @@ Ask for the Jira token pass phrase on the terminal.
 def _renames(parsed: argparse.Namespace) -> Sequence[ReleaseRename]
 ```
 
-Return the renames from --old/--new or the --rename-file.
+Return the renames from ``--rename`` or the ``--rename-file``.
 
-Exactly one way must be given: both an old and a new name, or a rename
-file, but not both and not neither.
-
-**Raises**:
-
-- `ValueError` - If neither or both ways are given, or only one of the
-  old and new names is given.
+argparse guarantees exactly one of the two is given, so a set
+``--rename`` yields the single rename and otherwise the rename file is
+read.
 
 <a id="backlogops_cli.rename_releases_in_jira._rename"></a>
 

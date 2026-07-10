@@ -2,10 +2,10 @@
 """Rename releases in Jira, changing Jira version names.
 
 The command renames Jira versions of a named preset of the backlog-ops
-configuration. A single rename is given with ``--old`` and ``--new``; a
-batch of renames is read from a two column file named with ``--rename-file``,
-whose first column holds the old names and second column the new names.
-Exactly one of the two ways must be given.
+configuration. A single rename is given with ``--rename OLD NEW``; a batch of
+renames is read from a two column file named with ``--rename-file``, whose
+first column holds the old names and second column the new names. The two
+ways are mutually exclusive and one is required, which argparse enforces.
 
 Each version is matched by its old name. An old name that is not a version, a
 new name that equals the old name, and a new name that is already a version
@@ -34,20 +34,25 @@ DESCRIPTION = 'Rename releases in Jira, changing Jira version names'
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the command line parser for the rename-releases command."""
+    """Build the command line parser for the rename-releases command.
+
+    The single rename and the batch file form a required, mutually exclusive
+    group, so argparse checks that exactly one way is given. ``--rename``
+    takes both names at once, so its old and new name always travel together.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     add_config_arg(parser)
     parser.add_argument('-p', '--preset', dest='preset', required=True,
                         help='Name of the Jira preset in the configuration.')
-    parser.add_argument('--old', dest='old', metavar='NAME',
-                        help='Current name of the version to rename; use '
-                        'together with --new for a single rename.')
-    parser.add_argument('--new', dest='new', metavar='NAME',
-                        help='New name to give the version named by --old.')
-    parser.add_argument('--rename-file', dest='rename_file', metavar='FILE',
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument('--rename', dest='rename', nargs=2,
+                        metavar=('OLD', 'NEW'),
+                        help='Single rename: the current name OLD and the new '
+                        'name NEW (each name may contain spaces).')
+    source.add_argument('--rename-file', dest='rename_file', metavar='FILE',
                         help='Two column file of old and new names for a '
-                        'batch of renames, with columns separated by tab.'
-                        '(Spaces are allowed in a relase name.)')
+                        'batch of renames, with columns separated by tab. '
+                        '(Spaces are allowed in a release name.)')
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
                         help='Do not print the result lists to stdout.')
     return parser
@@ -59,24 +64,15 @@ def _passphrase() -> str:
 
 
 def _renames(parsed: argparse.Namespace) -> Sequence[ReleaseRename]:
-    """Return the renames from --old/--new or the --rename-file.
+    """Return the renames from ``--rename`` or the ``--rename-file``.
 
-    Exactly one way must be given: both an old and a new name, or a rename
-    file, but not both and not neither.
-
-    Raises:
-        ValueError: If neither or both ways are given, or only one of the
-            old and new names is given.
+    argparse guarantees exactly one of the two is given, so a set
+    ``--rename`` yields the single rename and otherwise the rename file is
+    read.
     """
-    single = parsed.old is not None or parsed.new is not None
-    if single and parsed.rename_file is not None:
-        raise ValueError('Give either --old/--new or --rename-file, not both.')
-    if single:
-        if parsed.old is None or parsed.new is None:
-            raise ValueError('Give both --old and --new for a single rename.')
-        return [ReleaseRename(parsed.old, parsed.new)]
-    if parsed.rename_file is None:
-        raise ValueError('Give --old and --new, or --rename-file.')
+    if parsed.rename is not None:
+        old_name, new_name = parsed.rename
+        return [ReleaseRename(old_name, new_name)]
     return read_renames(parsed.rename_file)
 
 
