@@ -4,8 +4,8 @@
 The writer offers a handler for adding the shown backlog and a handler for
 adding the shown releases, each available only when a configuration with
 Jira presets is loaded. A handler asks for a write preset and whether to
-skip items whose key already exists, then adds on a worker thread and
-hands the result back to the GUI thread.
+skip items whose key already exists (releases are skipped by name), then
+adds on a worker thread and hands the result back to the GUI thread.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -17,7 +17,8 @@ from backlogops import (
     add_backlog_to_jira, add_releases_to_jira)
 from backlogops_gui.jira_base import JiraAction
 from backlogops_gui.jira_dialogs import (
-    JiraWriteOptions, ask_jira_write_options)
+    JiraReleaseWriteOptions, JiraWriteOptions, ask_jira_write_options,
+    ask_release_write)
 
 
 class JiraWriter(JiraAction):
@@ -33,14 +34,18 @@ class JiraWriter(JiraAction):
         """Return the add-releases handler, or None when unavailable."""
         return self._add_releases if self._available() else None
 
-    def _ask(self) -> Optional[JiraWriteOptions]:
-        """Ask for the write preset and skip-existing choice."""
+    def _ask_backlog(self) -> Optional[JiraWriteOptions]:
+        """Ask for the backlog write preset and skip-existing choice."""
         return ask_jira_write_options(self._app.root, self._presets())
+
+    def _ask_releases(self) -> Optional[JiraReleaseWriteOptions]:
+        """Ask for the release write preset and skip-existing choice."""
+        return ask_release_write(self._app.root, self._presets())
 
     def _add_backlog(self, data: BacklogReleases,
                      on_done: Callable[[AddedToJira], None]) -> None:
         """Ask for a preset and add the shown backlog to Jira."""
-        options = self._ask()
+        options = self._ask_backlog()
         if options is None:
             return
         self._start(options.preset_name, 'Adding backlog to Jira',
@@ -73,14 +78,14 @@ class JiraWriter(JiraAction):
     def _add_releases(self, data: BacklogReleases,
                       on_done: Callable[[AddedReleasesToJira], None]) -> None:
         """Ask for a preset and add the shown releases to Jira."""
-        options = self._ask()
+        options = self._ask_releases()
         if options is None:
             return
         self._start(options.preset_name, 'Adding releases to Jira',
                     lambda: self._releases_worker(options, data, on_done))
 
     def _releases_worker(
-            self, options: JiraWriteOptions, data: BacklogReleases,
+            self, options: JiraReleaseWriteOptions, data: BacklogReleases,
             on_done: Callable[[AddedReleasesToJira], None]) -> None:
         """Add the releases on a worker and schedule the GUI update."""
         name = options.preset_name

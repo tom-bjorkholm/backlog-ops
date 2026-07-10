@@ -13,9 +13,11 @@ from backlogops_gui.jira_dialogs import (
     JiraBacklogUpdateDialog, JiraBacklogUpdateOptions, JiraOrderDialog,
     JiraOrderOptions, JiraRankDialog, JiraRankOptions, JiraReadDialog,
     JiraReadOptions, JiraReleaseUpdateDialog, JiraReleaseUpdateOptions,
-    JiraRenameDialog, JiraRenameOptions, JiraWriteDialog, JiraWriteOptions,
-    PassphraseDialog, ask_backlog_update, ask_jira_order, ask_jira_passphrase,
-    ask_jira_rank, ask_jira_read_options, ask_jira_rename, ask_release_update)
+    JiraReleaseWriteDialog, JiraReleaseWriteOptions, JiraRenameDialog,
+    JiraRenameOptions, JiraWriteDialog, JiraWriteOptions, PassphraseDialog,
+    ask_backlog_update, ask_jira_order, ask_jira_passphrase, ask_jira_rank,
+    ask_jira_read_options, ask_jira_rename, ask_release_update,
+    ask_release_write)
 from backlogops_gui.modal_dialog import ModalDialog
 from .gui_test_helpers import MsgRecorder, gui_root
 from .dialog_test_helpers import cancel_show, no_wait
@@ -31,6 +33,12 @@ def _pick(path: str) -> Callable[..., str]:
     def choose(**_kwargs: object) -> str:
         return path
     return choose
+
+
+def _win_texts(win: tk.Misc, cls: type) -> list[str]:
+    """Return the text of each direct child of ``win`` of type ``cls``."""
+    return [str(child.cget('text')) for child in win.winfo_children()
+            if isinstance(child, cls)]
 
 
 def test_jira_options() -> None:
@@ -176,6 +184,64 @@ def test_write_dialog_rank(monkeypatch: pytest.MonkeyPatch) -> None:
         # pylint: disable-next=protected-access
         dialog._confirm()
         assert dialog.options.rank_anchor is JiraRankAnchor.BACKLOG_TOP
+
+
+def test_relw_options() -> None:
+    """Test the release-write options dataclass holds the selection."""
+    opts = JiraReleaseWriteOptions('scrum', True)
+    assert opts.preset_name == 'scrum'
+    assert opts.skip_existing is True
+
+
+def test_relw_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the release-write dialog stores the preset and skip choice."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    with gui_root() as root:
+        dialog = JiraReleaseWriteDialog(root, ['p', 'q'])
+        # pylint: disable-next=protected-access
+        assert dialog._win.title() == 'Add releases to Jira'
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options == JiraReleaseWriteOptions('p', False)
+        # pylint: disable-next=protected-access
+        dialog._skip.set(True)
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options == JiraReleaseWriteOptions('p', True)
+
+
+def test_relw_widgets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the dialog shows the release skip box and no rank controls."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    with gui_root() as root:
+        dialog = JiraReleaseWriteDialog(root, ['p'])
+        # pylint: disable-next=protected-access
+        checks = _win_texts(dialog._win, tk.Checkbutton)
+        # pylint: disable-next=protected-access
+        radios = _win_texts(dialog._win, tk.Radiobutton)
+        assert checks == ['Skip releases whose name already exists in Jira']
+        assert radios == []
+
+
+def test_relw_needs_p(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test confirming without a preset keeps the release dialog open."""
+    rec = MsgRecorder()
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(MESSAGEBOX, rec)
+    with gui_root() as root:
+        dialog = JiraReleaseWriteDialog(root, [])
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None
+        assert rec.calls == [('No Jira preset',
+                              'Select a Jira write preset.')]
+
+
+def test_relw_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the release-write dialog returns nothing."""
+    monkeypatch.setattr(ModalDialog, '_show', cancel_show)
+    with gui_root() as root:
+        assert ask_release_write(root, ['p']) is None
 
 
 def test_bl_switch_fields(monkeypatch: pytest.MonkeyPatch) -> None:

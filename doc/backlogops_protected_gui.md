@@ -101,6 +101,7 @@
   * [JiraPresetOptions](#backlogops_gui.jira_dialogs.JiraPresetOptions)
   * [JiraReadOptions](#backlogops_gui.jira_dialogs.JiraReadOptions)
   * [JiraWriteOptions](#backlogops_gui.jira_dialogs.JiraWriteOptions)
+  * [JiraReleaseWriteOptions](#backlogops_gui.jira_dialogs.JiraReleaseWriteOptions)
   * [JiraReleaseUpdateOptions](#backlogops_gui.jira_dialogs.JiraReleaseUpdateOptions)
   * [JiraBacklogUpdateOptions](#backlogops_gui.jira_dialogs.JiraBacklogUpdateOptions)
   * [JiraRankOptions](#backlogops_gui.jira_dialogs.JiraRankOptions)
@@ -117,6 +118,11 @@
     * [\_build](#backlogops_gui.jira_dialogs.JiraWriteDialog._build)
     * [\_confirm](#backlogops_gui.jira_dialogs.JiraWriteDialog._confirm)
   * [ask\_jira\_write\_options](#backlogops_gui.jira_dialogs.ask_jira_write_options)
+  * [JiraReleaseWriteDialog](#backlogops_gui.jira_dialogs.JiraReleaseWriteDialog)
+    * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraReleaseWriteDialog.__init__)
+    * [\_build](#backlogops_gui.jira_dialogs.JiraReleaseWriteDialog._build)
+    * [\_confirm](#backlogops_gui.jira_dialogs.JiraReleaseWriteDialog._confirm)
+  * [ask\_release\_write](#backlogops_gui.jira_dialogs.ask_release_write)
   * [JiraReleaseUpdateDialog](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog)
     * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog.__init__)
     * [\_build](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog._build)
@@ -379,7 +385,8 @@
   * [JiraWriter](#backlogops_gui.jira_write.JiraWriter)
     * [backlog\_action](#backlogops_gui.jira_write.JiraWriter.backlog_action)
     * [releases\_action](#backlogops_gui.jira_write.JiraWriter.releases_action)
-    * [\_ask](#backlogops_gui.jira_write.JiraWriter._ask)
+    * [\_ask\_backlog](#backlogops_gui.jira_write.JiraWriter._ask_backlog)
+    * [\_ask\_releases](#backlogops_gui.jira_write.JiraWriter._ask_releases)
     * [\_add\_backlog](#backlogops_gui.jira_write.JiraWriter._add_backlog)
     * [\_backlog\_worker](#backlogops_gui.jira_write.JiraWriter._backlog_worker)
     * [\_add\_releases](#backlogops_gui.jira_write.JiraWriter._add_releases)
@@ -1410,8 +1417,10 @@ Modal dialogs collecting the options for the Jira operations.
 
 Reading from Jira picks a Jira preset and an editable issue filter. Adding
 to Jira picks a write preset, whether to skip items whose key already
-exists, and optionally a rank anchor. Updating releases picks a preset,
-what to do with a missing release name, and which releases to update.
+exists, and optionally a rank anchor. Adding releases picks a write preset
+and whether to skip releases whose name already exists. Updating releases
+picks a preset, what to do with a missing release name, and which releases
+to update.
 Updating the backlog picks a preset, what to do with a missing item key,
 which columns to update, how parent and dependency links are reconciled,
 and optionally a rank anchor. Ranking items picks a preset, filter, keys,
@@ -1493,6 +1502,17 @@ class JiraWriteOptions(JiraPresetOptions)
 ```
 
 The Jira write preset, existing-key choice and rank anchor to add.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseWriteOptions"></a>
+
+## JiraReleaseWriteOptions Objects
+
+```python
+@dataclass
+class JiraReleaseWriteOptions(JiraPresetOptions)
+```
+
+The Jira write preset and existing-name choice for adding releases.
 
 <a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateOptions"></a>
 
@@ -1664,6 +1684,58 @@ def ask_jira_write_options(
 ```
 
 Ask which write preset and skip choice, or None when cancelled.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseWriteDialog"></a>
+
+## JiraReleaseWriteDialog Objects
+
+```python
+class JiraReleaseWriteDialog(ModalDialog)
+```
+
+Modal dialog for the release write preset and skip choice.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseWriteDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, presets: Sequence[str]) -> None
+```
+
+Build, show and wait for the add-releases dialog.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseWriteDialog._build"></a>
+
+#### \_build
+
+```python
+def _build(names: Sequence[str]) -> None
+```
+
+Add the write preset chooser and the skip-existing checkbox.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseWriteDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Store the preset and skip choice, requiring a preset.
+
+<a id="backlogops_gui.jira_dialogs.ask_release_write"></a>
+
+#### ask\_release\_write
+
+```python
+def ask_release_write(
+        parent: tk.Misc,
+        presets: Sequence[str]) -> Optional[JiraReleaseWriteOptions]
+```
+
+Ask which release write preset and skip choice, None if cancelled.
 
 <a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog"></a>
 
@@ -4669,8 +4741,8 @@ Add a shown backlog and its releases to Jira.
 The writer offers a handler for adding the shown backlog and a handler for
 adding the shown releases, each available only when a configuration with
 Jira presets is loaded. A handler asks for a write preset and whether to
-skip items whose key already exists, then adds on a worker thread and
-hands the result back to the GUI thread.
+skip items whose key already exists (releases are skipped by name), then
+adds on a worker thread and hands the result back to the GUI thread.
 
 <a id="backlogops_gui.jira_write.JiraWriter"></a>
 
@@ -4704,15 +4776,25 @@ def releases_action() -> Optional[Callable[
 
 Return the add-releases handler, or None when unavailable.
 
-<a id="backlogops_gui.jira_write.JiraWriter._ask"></a>
+<a id="backlogops_gui.jira_write.JiraWriter._ask_backlog"></a>
 
-#### \_ask
+#### \_ask\_backlog
 
 ```python
-def _ask() -> Optional[JiraWriteOptions]
+def _ask_backlog() -> Optional[JiraWriteOptions]
 ```
 
-Ask for the write preset and skip-existing choice.
+Ask for the backlog write preset and skip-existing choice.
+
+<a id="backlogops_gui.jira_write.JiraWriter._ask_releases"></a>
+
+#### \_ask\_releases
+
+```python
+def _ask_releases() -> Optional[JiraReleaseWriteOptions]
+```
+
+Ask for the release write preset and skip-existing choice.
 
 <a id="backlogops_gui.jira_write.JiraWriter._add_backlog"></a>
 
@@ -4752,7 +4834,7 @@ Ask for a preset and add the shown releases to Jira.
 #### \_releases\_worker
 
 ```python
-def _releases_worker(options: JiraWriteOptions, data: BacklogReleases,
+def _releases_worker(options: JiraReleaseWriteOptions, data: BacklogReleases,
                      on_done: Callable[[AddedReleasesToJira], None]) -> None
 ```
 

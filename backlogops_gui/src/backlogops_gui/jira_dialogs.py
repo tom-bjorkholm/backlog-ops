@@ -3,8 +3,10 @@
 
 Reading from Jira picks a Jira preset and an editable issue filter. Adding
 to Jira picks a write preset, whether to skip items whose key already
-exists, and optionally a rank anchor. Updating releases picks a preset,
-what to do with a missing release name, and which releases to update.
+exists, and optionally a rank anchor. Adding releases picks a write preset
+and whether to skip releases whose name already exists. Updating releases
+picks a preset, what to do with a missing release name, and which releases
+to update.
 Updating the backlog picks a preset, what to do with a missing item key,
 which columns to update, how parent and dependency links are reconciled,
 and optionally a rank anchor. Ranking items picks a preset, filter, keys,
@@ -88,6 +90,13 @@ class JiraWriteOptions(JiraPresetOptions):
 
     skip_existing: bool
     rank_anchor: Optional[JiraRankAnchor]
+
+
+@dataclass
+class JiraReleaseWriteOptions(JiraPresetOptions):
+    """The Jira write preset and existing-name choice for adding releases."""
+
+    skip_existing: bool
 
 
 @dataclass
@@ -244,6 +253,53 @@ def ask_jira_write_options(parent: tk.Misc, presets: Sequence[str]
                            ) -> Optional[JiraWriteOptions]:
     """Ask which write preset and skip choice, or None when cancelled."""
     dialog = JiraWriteDialog(parent, presets)
+    if dialog.cancelled:
+        return None
+    return dialog.options
+
+
+# pylint: disable-next=too-few-public-methods
+class JiraReleaseWriteDialog(ModalDialog):
+    """Modal dialog for the release write preset and skip choice."""
+
+    def __init__(self, parent: tk.Misc, presets: Sequence[str]) -> None:
+        """Build, show and wait for the add-releases dialog."""
+        super().__init__(parent, 'Add releases to Jira')
+        self.options: Optional[JiraReleaseWriteOptions] = None
+        names = sorted(presets)
+        self._preset = tk.StringVar(self._win, names[0] if names else '')
+        self._skip = tk.BooleanVar(self._win, False)
+        self._build(names)
+        self._show()
+
+    def _build(self, names: Sequence[str]) -> None:
+        """Add the write preset chooser and the skip-existing checkbox."""
+        tk.Label(self._win, text='Jira write preset:'
+                 ).pack(anchor='w', padx=12, pady=(10, 2))
+        box = ttk.Combobox(self._win, textvariable=self._preset,
+                           values=list(names), state='readonly', width=35)
+        style_input(box)
+        box.pack(anchor='w', padx=12)
+        tk.Checkbutton(self._win, variable=self._skip,
+                       text='Skip releases whose name already exists in Jira'
+                       ).pack(anchor='w', padx=12, pady=(8, 2))
+
+    def _confirm(self) -> None:
+        """Store the preset and skip choice, requiring a preset."""
+        name = self._preset.get()
+        if not name:
+            messagebox.showerror('No Jira preset',
+                                 'Select a Jira write preset.',
+                                 parent=self._win)
+            return
+        self.options = JiraReleaseWriteOptions(name, self._skip.get())
+        super()._confirm()
+
+
+def ask_release_write(parent: tk.Misc, presets: Sequence[str]
+                      ) -> Optional[JiraReleaseWriteOptions]:
+    """Ask which release write preset and skip choice, None if cancelled."""
+    dialog = JiraReleaseWriteDialog(parent, presets)
     if dialog.cancelled:
         return None
     return dialog.options

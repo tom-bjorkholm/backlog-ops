@@ -9,11 +9,13 @@ import pytest
 from backlogops import (
     AddedReleasesToJira, AddedToJira, BacklogItem, BacklogOpsConfig,
     BacklogReleases, ExistsInJiraError, Release, ReleaseExistsError, Status)
-from backlogops_gui.jira_dialogs import JiraWriteOptions
+from backlogops_gui.jira_dialogs import (
+    JiraReleaseWriteOptions, JiraWriteOptions)
 from .jira_test_helpers import config, make_app, make_immediate, record_calls
 
 DATA = BacklogReleases(backlog=[], releases=[])
 ASK_WRITE = 'backlogops_gui.jira_write.ask_jira_write_options'
+ASK_REL = 'backlogops_gui.jira_write.ask_release_write'
 ADD_BACKLOG = 'backlogops_gui.jira_write.add_backlog_to_jira'
 ADD_RELEASES = 'backlogops_gui.jira_write.add_releases_to_jira'
 THREAD = 'backlogops_gui.jira_base.threading.Thread'
@@ -22,6 +24,11 @@ THREAD = 'backlogops_gui.jira_base.threading.Thread'
 def _write_opts(_parent: object, _presets: object) -> JiraWriteOptions:
     """Return write options as if the write dialog was confirmed."""
     return JiraWriteOptions('scrum', False, None)
+
+
+def _rel_opts(_parent: object, _presets: object) -> JiraReleaseWriteOptions:
+    """Return release-write options as if the dialog was confirmed."""
+    return JiraReleaseWriteOptions('scrum', False)
 
 
 def _no_write_opts(_parent: object, _presets: object) -> None:
@@ -117,7 +124,7 @@ def test_rel_action_absent() -> None:
 def test_rel_write_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the handler adds the releases and hands back the result."""
     result = _add_releases_result()
-    monkeypatch.setattr(ASK_WRITE, _write_opts)
+    monkeypatch.setattr(ASK_REL, _rel_opts)
     monkeypatch.setattr(ADD_RELEASES, _fake_releases(result))
     monkeypatch.setattr(THREAD, make_immediate)
     app = make_app(config())
@@ -129,7 +136,7 @@ def test_rel_write_runs(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_rel_write_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test cancelling the releases write dialog adds nothing."""
-    monkeypatch.setattr(ASK_WRITE, _no_write_opts)
+    monkeypatch.setattr(ASK_REL, _no_write_opts)
     app = make_app(config())
     got: list[AddedReleasesToJira] = []
     # pylint: disable-next=protected-access
@@ -142,7 +149,7 @@ def test_rel_write_failed(monkeypatch: pytest.MonkeyPatch) -> None:
     def _raise(*_args: object, **_kwargs: object) -> AddedReleasesToJira:
         """Raise as the real add does when a name already exists."""
         raise ReleaseExistsError(['R1'])
-    monkeypatch.setattr(ASK_WRITE, _write_opts)
+    monkeypatch.setattr(ASK_REL, _rel_opts)
     monkeypatch.setattr(ADD_RELEASES, _raise)
     monkeypatch.setattr(THREAD, make_immediate)
     app = make_app(config())

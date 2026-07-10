@@ -61,6 +61,7 @@
   * [JiraPresetOptions](#backlogops_gui.jira_dialogs.JiraPresetOptions)
   * [JiraReadOptions](#backlogops_gui.jira_dialogs.JiraReadOptions)
   * [JiraWriteOptions](#backlogops_gui.jira_dialogs.JiraWriteOptions)
+  * [JiraReleaseWriteOptions](#backlogops_gui.jira_dialogs.JiraReleaseWriteOptions)
   * [JiraReleaseUpdateOptions](#backlogops_gui.jira_dialogs.JiraReleaseUpdateOptions)
   * [JiraBacklogUpdateOptions](#backlogops_gui.jira_dialogs.JiraBacklogUpdateOptions)
   * [JiraRankOptions](#backlogops_gui.jira_dialogs.JiraRankOptions)
@@ -72,6 +73,9 @@
   * [JiraWriteDialog](#backlogops_gui.jira_dialogs.JiraWriteDialog)
     * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraWriteDialog.__init__)
   * [ask\_jira\_write\_options](#backlogops_gui.jira_dialogs.ask_jira_write_options)
+  * [JiraReleaseWriteDialog](#backlogops_gui.jira_dialogs.JiraReleaseWriteDialog)
+    * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraReleaseWriteDialog.__init__)
+  * [ask\_release\_write](#backlogops_gui.jira_dialogs.ask_release_write)
   * [JiraReleaseUpdateDialog](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog)
     * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog.__init__)
   * [ask\_release\_update](#backlogops_gui.jira_dialogs.ask_release_update)
@@ -793,8 +797,10 @@ Modal dialogs collecting the options for the Jira operations.
 
 Reading from Jira picks a Jira preset and an editable issue filter. Adding
 to Jira picks a write preset, whether to skip items whose key already
-exists, and optionally a rank anchor. Updating releases picks a preset,
-what to do with a missing release name, and which releases to update.
+exists, and optionally a rank anchor. Adding releases picks a write preset
+and whether to skip releases whose name already exists. Updating releases
+picks a preset, what to do with a missing release name, and which releases
+to update.
 Updating the backlog picks a preset, what to do with a missing item key,
 which columns to update, how parent and dependency links are reconciled,
 and optionally a rank anchor. Ranking items picks a preset, filter, keys,
@@ -866,6 +872,17 @@ class JiraWriteOptions(JiraPresetOptions)
 ```
 
 The Jira write preset, existing-key choice and rank anchor to add.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseWriteOptions"></a>
+
+## JiraReleaseWriteOptions Objects
+
+```python
+@dataclass
+class JiraReleaseWriteOptions(JiraPresetOptions)
+```
+
+The Jira write preset and existing-name choice for adding releases.
 
 <a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateOptions"></a>
 
@@ -987,6 +1004,38 @@ def ask_jira_write_options(
 ```
 
 Ask which write preset and skip choice, or None when cancelled.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseWriteDialog"></a>
+
+## JiraReleaseWriteDialog Objects
+
+```python
+class JiraReleaseWriteDialog(ModalDialog)
+```
+
+Modal dialog for the release write preset and skip choice.
+
+<a id="backlogops_gui.jira_dialogs.JiraReleaseWriteDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, presets: Sequence[str]) -> None
+```
+
+Build, show and wait for the add-releases dialog.
+
+<a id="backlogops_gui.jira_dialogs.ask_release_write"></a>
+
+#### ask\_release\_write
+
+```python
+def ask_release_write(
+        parent: tk.Misc,
+        presets: Sequence[str]) -> Optional[JiraReleaseWriteOptions]
+```
+
+Ask which release write preset and skip choice, None if cancelled.
 
 <a id="backlogops_gui.jira_dialogs.JiraReleaseUpdateDialog"></a>
 
@@ -2449,8 +2498,8 @@ Add a shown backlog and its releases to Jira.
 The writer offers a handler for adding the shown backlog and a handler for
 adding the shown releases, each available only when a configuration with
 Jira presets is loaded. A handler asks for a write preset and whether to
-skip items whose key already exists, then adds on a worker thread and
-hands the result back to the GUI thread.
+skip items whose key already exists (releases are skipped by name), then
+adds on a worker thread and hands the result back to the GUI thread.
 
 <a id="backlogops_gui.jira_write.JiraWriter"></a>
 
