@@ -273,5 +273,5 @@ For the full set of public names see the API documentation linked above.
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.
-- Built version(s): 0.2.1
+- Built version(s): 0.3
 - Build and test using Python 3.14.6
