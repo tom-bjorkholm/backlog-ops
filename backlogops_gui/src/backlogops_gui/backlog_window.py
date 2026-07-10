@@ -15,14 +15,16 @@ so they can be tested without a display.
 # MIT License
 
 import tkinter as tk
+from dataclasses import dataclass
 from tkinter import messagebox, ttk
 from typing import Callable, Literal, Optional, TextIO
 from tableio import ValueFmt
 from backlogops import (
     AddedReleasesToJira, AddedToJira, AvailableTeams, BacklogReleases,
-    GuiDisplayConfig, Levels, OutputFormatConfig, RankedInJira,
-    UpdatedBacklogInJira, UpdatedReleasesInJira, format_rank_result,
-    format_release_result, format_release_updates)
+    GuiDisplayConfig, Levels, OrderedReleasesInJira, OutputFormatConfig,
+    RankedInJira, RenamedReleasesInJira, UpdatedBacklogInJira,
+    UpdatedReleasesInJira, format_order_result, format_rank_result,
+    format_release_result, format_release_updates, format_rename_result)
 from backlogops_gui.backlog_actions import (
     adjust_content, apply_add_result, apply_update_result, estimate_date,
     extract_keys, order_by_deps, order_by_keys, order_by_release, order_dates,
@@ -34,6 +36,37 @@ from backlogops_gui.table_view import (
 
 RELEASE_COLUMN_WIDTH = 110
 WARNING_WRAP = 760
+
+
+@dataclass
+class JiraHandlers:
+    """The optional Jira menu handlers a backlog window offers.
+
+    Each handler runs one Jira operation and calls back with its result, or
+    is None when that operation is unavailable (no configuration or no Jira
+    presets), which disables its menu item. Passing the handlers as one
+    group keeps the window constructor small.
+    """
+
+    add_backlog: Optional[Callable[
+        [BacklogReleases, Callable[[AddedToJira], None]], None]] = None
+    add_releases: Optional[Callable[
+        [BacklogReleases, Callable[[AddedReleasesToJira], None]],
+        None]] = None
+    update_releases: Optional[Callable[
+        [BacklogReleases, Callable[[UpdatedReleasesInJira], None]],
+        None]] = None
+    update_backlog: Optional[Callable[
+        [BacklogReleases, Callable[[UpdatedBacklogInJira], None]],
+        None]] = None
+    rank: Optional[Callable[
+        [Callable[[RankedInJira], None]], None]] = None
+    order_releases: Optional[Callable[
+        [BacklogReleases, Callable[[OrderedReleasesInJira], None]],
+        None]] = None
+    rename_releases: Optional[Callable[
+        [BacklogReleases, Callable[[RenamedReleasesInJira], None]],
+        None]] = None
 
 
 # pylint: disable-next=too-few-public-methods,too-many-instance-attributes
@@ -49,22 +82,7 @@ class BacklogWindow:
                  gui_display: Callable[
                      [], GuiDisplayConfig] = GuiDisplayConfig,
                  warning: Optional[str] = None,
-                 add_to_jira: Optional[Callable[
-                     [BacklogReleases, Callable[[AddedToJira], None]],
-                     None]] = None,
-                 add_releases: Optional[Callable[
-                     [BacklogReleases, Callable[[AddedReleasesToJira], None]],
-                     None]] = None,
-                 update_releases: Optional[Callable[
-                     [BacklogReleases,
-                      Callable[[UpdatedReleasesInJira], None]],
-                     None]] = None,
-                 update_backlog: Optional[Callable[
-                     [BacklogReleases,
-                      Callable[[UpdatedBacklogInJira], None]],
-                     None]] = None,
-                 rank_in_jira: Optional[Callable[
-                     [Callable[[RankedInJira], None]], None]] = None) -> None:
+                 jira: Optional[JiraHandlers] = None) -> None:
         """Build the window, its menu and the two tables.
 
         Args:
@@ -81,23 +99,11 @@ class BacklogWindow:
                 renaming for the tables.
             warning: Warning text to show over the tables. When present,
                 backlog operations are disabled and only saving remains.
-            add_to_jira: Handler that adds the shown backlog to Jira and
-                calls back with the result, or None when adding is
-                unavailable (no configuration or no write presets).
-            add_releases: Handler that adds the shown releases to Jira and
-                calls back with the result, or None when adding is
-                unavailable (no configuration or no write presets).
-            update_releases: Handler that updates the shown releases in Jira
-                and calls back with the result, or None when updating is
-                unavailable (no configuration or no write presets).
-            update_backlog: Handler that updates the shown backlog in Jira
-                and calls back with the result, or None when updating is
-                unavailable (no configuration or no write presets).
-            rank_in_jira: Handler that asks for keys and an end and moves
-                those issues in the Jira rank order, calling back with the
-                result, or None when ranking is unavailable (no
-                configuration or no Jira presets).
+            jira: The Jira menu handlers to offer, or None for none. Each
+                handler is None when its operation is unavailable, which
+                disables its menu item.
         """
+        handlers = jira if jira is not None else JiraHandlers()
         self._data = data
         self._presets = presets
         self._teams = teams
@@ -105,11 +111,13 @@ class BacklogWindow:
         self._levels = levels
         self._gui_display = gui_display
         self._warning = warning
-        self._add_to_jira = add_to_jira
-        self._add_releases = add_releases
-        self._update_releases = update_releases
-        self._update_backlog = update_backlog
-        self._rank_in_jira = rank_in_jira
+        self._add_to_jira = handlers.add_backlog
+        self._add_releases = handlers.add_releases
+        self._update_releases = handlers.update_releases
+        self._update_backlog = handlers.update_backlog
+        self._rank_in_jira = handlers.rank
+        self._order_releases = handlers.order_releases
+        self._rename_releases = handlers.rename_releases
         self._win = tk.Toplevel(root)
         self._win.title(title)
         bind_close(self._win)
@@ -214,6 +222,16 @@ class BacklogWindow:
                      and self._warning is None else 'disabled')
         menu.add_command(label='Update releases in Jira…',
                          command=self._releases_update, state=upd_state)
+        order_state: Literal['normal', 'disabled']
+        order_state = ('normal' if self._order_releases is not None
+                       and self._warning is None else 'disabled')
+        menu.add_command(label='Order releases in Jira…',
+                         command=self._releases_order, state=order_state)
+        rename_state: Literal['normal', 'disabled']
+        rename_state = ('normal' if self._rename_releases is not None
+                        and self._warning is None else 'disabled')
+        menu.add_command(label='Rename releases in Jira…',
+                         command=self._releases_rename, state=rename_state)
         rank_state: Literal['normal', 'disabled']
         rank_state = ('normal' if self._rank_in_jira is not None
                       and self._warning is None else 'disabled')
@@ -377,3 +395,31 @@ class BacklogWindow:
         """
         show_text_report(self._win, 'Rank items in Jira',
                          format_rank_result(result))
+
+    def _releases_order(self) -> None:
+        """Order the releases in Jira and show the result lists."""
+        if self._order_releases is not None:
+            self._order_releases(self._data, self._on_releases_ordered)
+
+    def _on_releases_ordered(self, result: OrderedReleasesInJira) -> None:
+        """Show the ordered and skipped release names in a pop-up.
+
+        Ordering changes only the Jira version order, not the shown
+        releases, so no rebuild of the tables is needed.
+        """
+        show_text_report(self._win, 'Order releases in Jira',
+                         format_order_result(result))
+
+    def _releases_rename(self) -> None:
+        """Rename the shown releases in Jira and show the result lists."""
+        if self._rename_releases is not None:
+            self._rename_releases(self._data, self._on_releases_renamed)
+
+    def _on_releases_renamed(self, result: RenamedReleasesInJira) -> None:
+        """Show the rename outcome per release in a pop-up.
+
+        Renaming changes only the Jira version names, not the shown
+        releases, so no rebuild of the tables is needed.
+        """
+        show_text_report(self._win, 'Rename releases in Jira',
+                         format_rename_result(result))

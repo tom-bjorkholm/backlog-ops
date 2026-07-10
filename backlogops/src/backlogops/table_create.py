@@ -1,11 +1,12 @@
 #! /usr/local/bin/python3
-"""Open a TableIO file for creating a single table output.
+"""Open a TableIO file for reading or creating a single table.
 
-Several writers create a file that holds one table whose format follows
-the file name extension (a key list, a list of changes, and so on). They
-all resolve the output configuration from the file name, request CREATE
-capabilities, and open a TableIO context. This helper holds that shared
-setup so each writer only describes the rows it writes.
+Several readers and writers work on a file that holds one table whose
+format follows the file name extension (a key list, a rename list, a list
+of changes, and so on). They all resolve the configuration from the file
+name, request the right capabilities, and open a TableIO context. These
+helpers hold that shared setup so each reader or writer only describes the
+rows it reads or writes.
 
 The writers accept an optional ``file_exists_callback``. TableIO calls it
 with the file name when a CREATE would overwrite an existing file:
@@ -24,7 +25,7 @@ from typing import Callable, Optional, TextIO
 from config_as_json import PathOrStr
 from tableio import FileAccess, TableIO, access_capabilities, \
     tio_config_create
-from backlogops.io_config import resolve_output_config
+from backlogops.io_config import resolve_input_config, resolve_output_config
 
 type FileExistsCb = Callable[[str], None]
 """Callback invoked with the file name when a CREATE would overwrite.
@@ -38,6 +39,31 @@ an existing file) and as a plain ``FileExistsCb`` for a concrete callback.
 def allow_overwrite(file_name: str) -> None:
     """File-exists callback that always allows overwriting the file."""
     _ = file_name
+
+
+@contextmanager
+def open_input_table(file_name: PathOrStr,
+                     stderr_file: TextIO = sys.stderr) -> Iterator[TableIO]:
+    """Yield a TableIO opened to read a one table file.
+
+    The input format is resolved from the file name extension and the file
+    is opened with READ access. The yielded TableIO is used to read the
+    table inside the ``with`` block.
+
+    Args:
+        file_name: The file to read.
+        stderr_file: The stream to report errors to.
+
+    Yields:
+        The TableIO ready to read one table from the file.
+    """
+    config = resolve_input_config(None, data_file=file_name,
+                                  stderr_file=stderr_file).tableio
+    capabilities = access_capabilities(FileAccess.READ, error_file=stderr_file)
+    with tio_config_create(config=config, file_name=file_name,
+                           file_access=FileAccess.READ,
+                           capabilities=capabilities) as tableio:
+        yield tableio
 
 
 @contextmanager

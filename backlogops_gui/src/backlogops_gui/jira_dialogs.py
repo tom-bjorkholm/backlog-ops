@@ -20,7 +20,8 @@ from tkinter import filedialog, messagebox, ttk
 from dataclasses import dataclass
 from collections.abc import Mapping
 from typing import Optional, Sequence, TextIO
-from backlogops import JiraRankAnchor, OnMissingKey, read_key_list
+from backlogops import (
+    JiraRankAnchor, OnMissingKey, ReleaseRename, read_key_list)
 from backlogops_gui.gui_style import style_input
 from backlogops_gui.modal_dialog import ModalDialog
 
@@ -50,6 +51,13 @@ RANK_ANCHOR_TEXT = {
     JiraRankAnchor.FIRST_KEY: 'Keep the first listed item fixed',
     JiraRankAnchor.LAST_KEY: 'Keep the last listed item fixed'}
 """Label shown for each anchor in the rank dialogs."""
+
+
+ORDER_MODE_TEXT = {
+    'date': 'By release date (earliest first, undated last)',
+    'window': 'By the order shown in this window',
+    'names': 'By the names entered below (one per line)'}
+"""Label shown for each order source in the release-order dialog."""
 
 
 def _anchor_radios(win: tk.Misc, var: tk.StringVar) -> None:
@@ -108,6 +116,25 @@ class JiraRankOptions(JiraPresetOptions):
     keys: list[str]
     anchor: JiraRankAnchor
     honor_relations: bool
+
+
+@dataclass
+class JiraRenameOptions(JiraPresetOptions):
+    """The preset and old-to-new renames chosen for renaming releases."""
+
+    renames: list[ReleaseRename]
+
+
+@dataclass
+class JiraOrderOptions(JiraPresetOptions):
+    """The preset, order source and typed names chosen for ordering.
+
+    ``mode`` is one of the keys of :data:`ORDER_MODE_TEXT`; ``names`` holds
+    the names entered by the user and is only used for the ``names`` mode.
+    """
+
+    mode: str
+    names: list[str]
 
 
 # pylint: disable-next=too-few-public-methods
@@ -518,6 +545,150 @@ def ask_jira_rank(parent: tk.Misc, preset_filters: Mapping[str, str],
                   sink: TextIO) -> Optional[JiraRankOptions]:
     """Ask the preset, filter, keys, anchor and relations; None if cancel."""
     dialog = JiraRankDialog(parent, preset_filters, sink)
+    if dialog.cancelled:
+        return None
+    return dialog.options
+
+
+# pylint: disable-next=too-few-public-methods
+class JiraRenameDialog(ModalDialog):
+    """Modal dialog for the rename preset and a new name per release."""
+
+    def __init__(self, parent: tk.Misc, presets: Sequence[str],
+                 release_names: Sequence[str]) -> None:
+        """Build, show and wait for the rename-releases dialog."""
+        super().__init__(parent, 'Rename releases in Jira')
+        self.options: Optional[JiraRenameOptions] = None
+        names = sorted(presets)
+        self._preset = tk.StringVar(self._win, names[0] if names else '')
+        self._new: dict[str, tk.StringVar] = {}
+        self._build(names, release_names)
+        self._show()
+
+    def _build(self, names: Sequence[str],
+               release_names: Sequence[str]) -> None:
+        """Add the preset chooser and a new-name entry per release."""
+        tk.Label(self._win, text='Jira preset:').pack(anchor='w', padx=12,
+                                                      pady=(10, 2))
+        box = ttk.Combobox(self._win, textvariable=self._preset,
+                           values=list(names), state='readonly', width=35)
+        style_input(box)
+        box.pack(anchor='w', padx=12)
+        tk.Label(self._win, text='New name for each release (blank keeps it):'
+                 ).pack(anchor='w', padx=12, pady=(8, 2))
+        for name in release_names:
+            self._add_rename_row(name)
+
+    def _add_rename_row(self, name: str) -> None:
+        """Add one labelled new-name entry for the release ``name``."""
+        row = tk.Frame(self._win)
+        row.pack(anchor='w', padx=24, fill='x')
+        tk.Label(row, text=name, width=24, anchor='w').pack(side='left')
+        var = tk.StringVar(self._win)
+        self._new[name] = var
+        entry = tk.Entry(row, textvariable=var, width=30)
+        style_input(entry)
+        entry.pack(side='left')
+
+    def _renames(self) -> list[ReleaseRename]:
+        """Return a rename for each entry that changes the release name."""
+        renames: list[ReleaseRename] = []
+        for old, var in self._new.items():
+            new = var.get().strip()
+            if new and new != old:
+                renames.append(ReleaseRename(old, new))
+        return renames
+
+    def _confirm(self) -> None:
+        """Store the preset and renames, requiring a preset and a rename."""
+        name = self._preset.get()
+        if not name:
+            messagebox.showerror('No Jira preset', 'Select a Jira preset.',
+                                 parent=self._win)
+            return
+        renames = self._renames()
+        if not renames:
+            messagebox.showerror('No renames', 'Enter at least one new name.',
+                                 parent=self._win)
+            return
+        self.options = JiraRenameOptions(name, renames)
+        super()._confirm()
+
+
+def ask_jira_rename(parent: tk.Misc, presets: Sequence[str],
+                    release_names: Sequence[str]
+                    ) -> Optional[JiraRenameOptions]:
+    """Ask the preset and renames, or None when cancelled."""
+    dialog = JiraRenameDialog(parent, presets, release_names)
+    if dialog.cancelled:
+        return None
+    return dialog.options
+
+
+# pylint: disable-next=too-few-public-methods
+class JiraOrderDialog(ModalDialog):
+    """Modal dialog for the order preset, order source and typed names."""
+
+    def __init__(self, parent: tk.Misc, presets: Sequence[str]) -> None:
+        """Build, show and wait for the order-releases dialog."""
+        super().__init__(parent, 'Order releases in Jira')
+        self.options: Optional[JiraOrderOptions] = None
+        names = sorted(presets)
+        self._preset = tk.StringVar(self._win, names[0] if names else '')
+        self._mode = tk.StringVar(self._win, 'date')
+        self._text = self._build(names)
+        self._show()
+
+    def _build(self, names: Sequence[str]) -> tk.Text:
+        """Add the preset chooser, the order-source radios and name box."""
+        tk.Label(self._win, text='Jira preset:').pack(anchor='w', padx=12,
+                                                      pady=(10, 2))
+        box = ttk.Combobox(self._win, textvariable=self._preset,
+                           values=list(names), state='readonly', width=35)
+        style_input(box)
+        box.pack(anchor='w', padx=12)
+        tk.Label(self._win, text='Order the releases:').pack(anchor='w',
+                                                             padx=12,
+                                                             pady=(8, 2))
+        for mode, text in ORDER_MODE_TEXT.items():
+            tk.Radiobutton(self._win, variable=self._mode, value=mode,
+                           text=text).pack(anchor='w', padx=24)
+        return self._build_names()
+
+    def _build_names(self) -> tk.Text:
+        """Add the name entry box used by the by-names order source."""
+        tk.Label(self._win, text='Names in wanted order (one per line):'
+                 ).pack(anchor='w', padx=12, pady=(8, 2))
+        text = tk.Text(self._win, width=40, height=8)
+        style_input(text)
+        text.pack(padx=12, pady=2)
+        return text
+
+    def _names(self) -> list[str]:
+        """Return the entered names, one per non-blank line."""
+        lines = self._text.get('1.0', 'end').splitlines()
+        return [name for name in (line.strip() for line in lines) if name]
+
+    def _confirm(self) -> None:
+        """Store the preset, order source and names, requiring a preset."""
+        name = self._preset.get()
+        if not name:
+            messagebox.showerror('No Jira preset', 'Select a Jira preset.',
+                                 parent=self._win)
+            return
+        names = self._names()
+        if self._mode.get() == 'names' and not names:
+            messagebox.showerror('No names', 'Enter at least one name.',
+                                 parent=self._win)
+            return
+        self.options = JiraOrderOptions(name, self._mode.get(), names)
+        super()._confirm()
+
+
+def ask_jira_order(parent: tk.Misc, presets: Sequence[str]
+                   ) -> Optional[JiraOrderOptions]:
+    """Ask the preset, order source and names, or None when cancelled."""
+    dialog = JiraOrderDialog(parent, presets)
     if dialog.cancelled:
         return None
     return dialog.options

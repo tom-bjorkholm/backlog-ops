@@ -33,8 +33,9 @@ import copy
 import sys
 from dataclasses import dataclass
 from datetime import date
-from typing import Callable, NamedTuple, Optional, TextIO
+from typing import Callable, NamedTuple, Optional, Sequence, TextIO
 from jira import JIRA, JIRAError
+from jira.resources import Resource
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap
 from backlogops.jira_write import OnExistingKey, _jira_reason
@@ -125,6 +126,21 @@ def _existing_names(client: JIRA, project: str) -> set[str]:
     versions = client.project_versions(project)
     return {name for name in (getattr(v, 'name', None) for v in versions)
             if isinstance(name, str)}
+
+
+def _by_name(versions: Sequence[Resource]) -> dict[str, Resource]:
+    """Index versions by their name, skipping any without a string name.
+
+    This is shared by the update, rename and order modules, which all match
+    a Jira version to a release by its name. A version is typed as the base
+    ``Resource`` so that its typed ``update`` method is used.
+    """
+    result: dict[str, Resource] = {}
+    for version in versions:
+        name = getattr(version, 'name', None)
+        if isinstance(name, str):
+            result[name] = version
+    return result
 
 
 def _iso(value: object) -> object:

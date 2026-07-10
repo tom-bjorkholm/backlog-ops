@@ -8,13 +8,14 @@ from pathlib import Path
 from typing import Callable
 import tkinter as tk
 import pytest
-from backlogops import JiraRankAnchor, NoTextIO, OnMissingKey
+from backlogops import JiraRankAnchor, NoTextIO, OnMissingKey, ReleaseRename
 from backlogops_gui.jira_dialogs import (
-    JiraBacklogUpdateDialog, JiraBacklogUpdateOptions, JiraRankDialog,
-    JiraRankOptions, JiraReadDialog, JiraReadOptions, JiraReleaseUpdateDialog,
-    JiraReleaseUpdateOptions, JiraWriteDialog, JiraWriteOptions,
-    PassphraseDialog, ask_backlog_update, ask_jira_passphrase, ask_jira_rank,
-    ask_jira_read_options, ask_release_update)
+    JiraBacklogUpdateDialog, JiraBacklogUpdateOptions, JiraOrderDialog,
+    JiraOrderOptions, JiraRankDialog, JiraRankOptions, JiraReadDialog,
+    JiraReadOptions, JiraReleaseUpdateDialog, JiraReleaseUpdateOptions,
+    JiraRenameDialog, JiraRenameOptions, JiraWriteDialog, JiraWriteOptions,
+    PassphraseDialog, ask_backlog_update, ask_jira_order, ask_jira_passphrase,
+    ask_jira_rank, ask_jira_read_options, ask_jira_rename, ask_release_update)
 from backlogops_gui.modal_dialog import ModalDialog
 from .gui_test_helpers import MsgRecorder, gui_root
 from .dialog_test_helpers import cancel_show, no_wait
@@ -294,3 +295,90 @@ def test_rank_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ModalDialog, '_show', cancel_show)
     with gui_root() as root:
         assert ask_jira_rank(root, {'a': 'fa'}, NoTextIO()) is None
+
+
+def test_release_ops_options() -> None:
+    """Test the rename and order option dataclasses hold the selection."""
+    rename = JiraRenameOptions('scrum', [ReleaseRename('R1', 'R9')])
+    assert rename.preset_name == 'scrum'
+    assert rename.renames == [ReleaseRename('R1', 'R9')]
+    order = JiraOrderOptions('scrum', 'names', ['R2', 'R1'])
+    assert order.mode == 'names' and order.names == ['R2', 'R1']
+
+
+def test_rename_confirm(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a filled new-name entry becomes a rename on confirm."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    with gui_root() as root:
+        dialog = JiraRenameDialog(root, ['scrum'], ['R1', 'R2'])
+        # pylint: disable-next=protected-access
+        dialog._new['R1'].set('R9')
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options == JiraRenameOptions('scrum',
+                                                   [ReleaseRename('R1', 'R9')])
+
+
+def test_rename_needs_a_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test confirming with no new name keeps the rename dialog open."""
+    rec = MsgRecorder()
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(MESSAGEBOX, rec)
+    with gui_root() as root:
+        dialog = JiraRenameDialog(root, ['scrum'], ['R1'])
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None and rec.calls
+
+
+def test_rename_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the rename dialog returns nothing."""
+    monkeypatch.setattr(ModalDialog, '_show', cancel_show)
+    with gui_root() as root:
+        assert ask_jira_rename(root, ['scrum'], ['R1']) is None
+
+
+def test_order_confirm(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the entered names and mode become the order options."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    with gui_root() as root:
+        dialog = JiraOrderDialog(root, ['scrum'])
+        # pylint: disable-next=protected-access
+        dialog._mode.set('names')
+        # pylint: disable-next=protected-access
+        dialog._text.insert('end', 'R2\nR1\n')
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options == JiraOrderOptions('scrum', 'names',
+                                                  ['R2', 'R1'])
+
+
+def test_order_date_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the date source needs no names and confirms with an empty list."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    with gui_root() as root:
+        dialog = JiraOrderDialog(root, ['scrum'])
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options == JiraOrderOptions('scrum', 'date', [])
+
+
+def test_order_names_needed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the by-names source with no names keeps the dialog open."""
+    rec = MsgRecorder()
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(MESSAGEBOX, rec)
+    with gui_root() as root:
+        dialog = JiraOrderDialog(root, ['scrum'])
+        # pylint: disable-next=protected-access
+        dialog._mode.set('names')
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None and rec.calls
+
+
+def test_order_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the order dialog returns nothing."""
+    monkeypatch.setattr(ModalDialog, '_show', cancel_show)
+    with gui_root() as root:
+        assert ask_jira_order(root, ['scrum']) is None

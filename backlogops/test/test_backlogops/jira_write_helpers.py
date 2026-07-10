@@ -108,9 +108,16 @@ class FakeVersion:
 
     def __init__(self, name: str, fail: bool = False,
                  fields: Optional[dict[str, object]] = None) -> None:
-        """Start with the name, the failing flag and the current fields."""
+        """Start with the name, the failing flag and the current fields.
+
+        The version id defaults to the name and its self link to
+        ``version/<name>``, so the order tests can move a version by id; a
+        ``fields`` entry may override either.
+        """
         self.name = name
         self.fail = fail
+        self.id = name
+        setattr(self, 'self', f'version/{name}')
         self.updated: dict[str, object] = {}
         for field_name, value in (fields or {}).items():
             setattr(self, field_name, value)
@@ -158,11 +165,31 @@ class FakeJiraClient:
                          for name in (existing or [])}
         self.fail_create = set() if fail_create is None else set(fail_create)
         self.created: list[dict[str, object]] = []
+        self.moves: list[tuple[str, Optional[str]]] = []
 
     def project_versions(self, project: str) -> list[FakeVersion]:
         """Return the project's versions as fake version resources."""
         _ = project
         return list(self.versions.values())
+
+    def move_version(self, version_id: str, after: Optional[str] = None,
+                     position: Optional[str] = None) -> FakeVersion:
+        """Move a version to the first or last position, recording the move.
+
+        The version is found by its id and reinserted at the front, or at
+        the back for the ``Last`` position, so the recorded version order
+        reflects the moves the order code makes.
+        """
+        _ = after
+        name = next(cur for cur, version in self.versions.items()
+                    if getattr(version, 'id') == version_id)
+        version = self.versions.pop(name)
+        if position == 'Last':
+            self.versions[name] = version
+        else:
+            self.versions = {name: version, **self.versions}
+        self.moves.append((version_id, position))
+        return version
 
     def create_version(self, name: str, project: str,
                        **kwargs: object) -> FakeVersion:

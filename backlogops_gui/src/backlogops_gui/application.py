@@ -39,7 +39,7 @@ from backlogops import (
     InputFormatConfig, Levels, OutputFormatConfig, Status, get_demo_backlog,
     get_backlog_ops_config, backlog_ops_wizard, preset_wizard)
 from backlogops_gui.backlog_io import read_backlog
-from backlogops_gui.backlog_window import BacklogWindow
+from backlogops_gui.backlog_window import BacklogWindow, JiraHandlers
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 from backlogops_gui.gui_wizard import TkWizardBridge
 from backlogops_gui.choice_dialogs import (
@@ -389,14 +389,17 @@ class BacklogApp:
     def open_backlog(self, data: BacklogReleases, title: str,
                      warning: Optional[str] = None) -> None:
         """Open one backlog and its releases in a new window."""
+        handlers = JiraHandlers(
+            add_backlog=self.jira.writer.backlog_action(),
+            add_releases=self.jira.writer.releases_action(),
+            update_releases=self.jira.updater.releases_action(),
+            update_backlog=self.jira.updater.backlog_action(),
+            rank=self.jira.ranker.rank_action(),
+            order_releases=self.jira.orderer.order_action(),
+            rename_releases=self.jira.renamer.rename_action())
         BacklogWindow(self.root, data, title, self.out_presets,
                       self.available_teams, self.log, self.levels,
-                      self.gui_display, warning,
-                      self.jira.writer.backlog_action(),
-                      self.jira.writer.releases_action(),
-                      self.jira.updater.releases_action(),
-                      self.jira.updater.backlog_action(),
-                      self.jira.ranker.rank_action())
+                      self.gui_display, warning, handlers)
 
     def report_versions(self) -> None:
         """Report version information into the log on a worker thread.

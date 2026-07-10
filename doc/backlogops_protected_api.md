@@ -78,6 +78,15 @@
   * [\_write\_text](#backlogops.key_list_io._write_text)
   * [\_write\_table](#backlogops.key_list_io._write_table)
   * [write\_key\_list](#backlogops.key_list_io.write_key_list)
+* [backlogops.rename\_list\_io](#backlogops.rename_list_io)
+  * [\_is\_text](#backlogops.rename_list_io._is_text)
+  * [\_text\_rename](#backlogops.rename_list_io._text_rename)
+  * [\_read\_text](#backlogops.rename_list_io._read_text)
+  * [\_check\_two\_columns](#backlogops.rename_list_io._check_two_columns)
+  * [\_cell](#backlogops.rename_list_io._cell)
+  * [\_table\_rename](#backlogops.rename_list_io._table_rename)
+  * [\_read\_table](#backlogops.rename_list_io._read_table)
+  * [read\_renames](#backlogops.rename_list_io.read_renames)
 * [backlogops.person](#backlogops.person)
   * [Person](#backlogops.person.Person)
     * [name](#backlogops.person.Person.name)
@@ -171,6 +180,7 @@
   * [get\_backlog\_ops\_config](#backlogops.backlog_ops_config.get_backlog_ops_config)
 * [backlogops.table\_create](#backlogops.table_create)
   * [allow\_overwrite](#backlogops.table_create.allow_overwrite)
+  * [open\_input\_table](#backlogops.table_create.open_input_table)
   * [create\_output\_table](#backlogops.table_create.create_output_table)
 * [backlogops.jira\_io\_config](#backlogops.jira_io_config)
   * [JiraType](#backlogops.jira_io_config.JiraType)
@@ -236,6 +246,17 @@
     * [check\_consistency](#backlogops.jira_io_config.JiraIOConfig.check_consistency)
     * [\_check\_preset\_refs](#backlogops.jira_io_config.JiraIOConfig._check_preset_refs)
     * [get\_preset](#backlogops.jira_io_config.JiraIOConfig.get_preset)
+* [backlogops.jira\_order\_releases](#backlogops.jira_order_releases)
+  * [OrderedReleasesInJira](#backlogops.jira_order_releases.OrderedReleasesInJira)
+  * [\_names\_in\_order](#backlogops.jira_order_releases._names_in_order)
+  * [\_apply\_order](#backlogops.jira_order_releases._apply_order)
+  * [\_split\_present](#backlogops.jira_order_releases._split_present)
+  * [order\_releases\_in\_jira](#backlogops.jira_order_releases.order_releases_in_jira)
+  * [\_release\_date](#backlogops.jira_order_releases._release_date)
+  * [\_date\_key](#backlogops.jira_order_releases._date_key)
+  * [\_by\_date\_order](#backlogops.jira_order_releases._by_date_order)
+  * [order\_jira\_rel\_by\_date](#backlogops.jira_order_releases.order_jira_rel_by_date)
+  * [format\_order\_result](#backlogops.jira_order_releases.format_order_result)
 * [backlogops.team](#backlogops.team)
   * [FteException](#backlogops.team.FteException)
     * [check\_consistency](#backlogops.team.FteException.check_consistency)
@@ -270,6 +291,18 @@
   * [check\_no\_cycles](#backlogops.backlog.check_no_cycles)
   * [check\_parent\_levels](#backlogops.backlog.check_parent_levels)
   * [check\_backlog\_consistency](#backlogops.backlog.check_backlog_consistency)
+* [backlogops.jira\_rename\_releases](#backlogops.jira_rename_releases)
+  * [ReleaseRename](#backlogops.jira_rename_releases.ReleaseRename)
+  * [FailedRename](#backlogops.jira_rename_releases.FailedRename)
+  * [RenamedReleasesInJira](#backlogops.jira_rename_releases.RenamedReleasesInJira)
+  * [\_RenameAcc](#backlogops.jira_rename_releases._RenameAcc)
+  * [\_do\_rename](#backlogops.jira_rename_releases._do_rename)
+  * [\_apply\_rename](#backlogops.jira_rename_releases._apply_rename)
+  * [rename\_releases\_in\_jira](#backlogops.jira_rename_releases.rename_releases_in_jira)
+  * [rename\_release\_in\_jira](#backlogops.jira_rename_releases.rename_release_in_jira)
+  * [\_rename\_section](#backlogops.jira_rename_releases._rename_section)
+  * [\_failed\_rename\_section](#backlogops.jira_rename_releases._failed_rename_section)
+  * [format\_rename\_result](#backlogops.jira_rename_releases.format_rename_result)
 * [backlogops.available\_teams\_config](#backlogops.available_teams_config)
   * [\_date\_to\_iso](#backlogops.available_teams_config._date_to_iso)
   * [\_week\_day\_name](#backlogops.available_teams_config._week_day_name)
@@ -537,6 +570,7 @@
   * [\_AddedRel](#backlogops.jira_write_releases._AddedRel)
   * [\_release\_context](#backlogops.jira_write_releases._release_context)
   * [\_existing\_names](#backlogops.jira_write_releases._existing_names)
+  * [\_by\_name](#backlogops.jira_write_releases._by_name)
   * [\_iso](#backlogops.jira_write_releases._iso)
   * [\_version\_kwargs](#backlogops.jira_write_releases._version_kwargs)
   * [\_report\_skipped](#backlogops.jira_write_releases._report_skipped)
@@ -2371,6 +2405,139 @@ the keys and a table file holds only data rows (list writing).
 - `PermissionError` - If the file is not writable.
 - `ValueError` - If the extension is not a supported table format.
 
+<a id="backlogops.rename_list_io"></a>
+
+# backlogops.rename\_list\_io
+
+Read a release rename list as its own two column file.
+
+A rename list pairs an old release name with the new name it should get.
+The file format is chosen from the file name extension: a ``.txt`` or
+``.dat`` file is plain UTF-8 text with one rename per line, the old and new
+name separated by a tab, and any extension that TableIO supports (such as
+``.csv``, ``.ods`` or ``.xlsx``) is a two column table whose first column
+holds the old names and second column the new names.
+
+A blank line, or a table row whose two cells are both empty, is skipped, so
+trailing empty rows a spreadsheet leaves are ignored. A tab is used to
+separate the two text fields because a release name may contain spaces but
+not a tab. Leading and trailing whitespace around a name is removed.
+
+<a id="backlogops.rename_list_io._is_text"></a>
+
+#### \_is\_text
+
+```python
+def _is_text(file_name: PathOrStr) -> bool
+```
+
+Return whether a rename list file is plain text rather than a table.
+
+<a id="backlogops.rename_list_io._text_rename"></a>
+
+#### \_text\_rename
+
+```python
+def _text_rename(line: str, stderr_file: TextIO) -> Optional[ReleaseRename]
+```
+
+Return the rename on one text line, or None for a blank line.
+
+<a id="backlogops.rename_list_io._read_text"></a>
+
+#### \_read\_text
+
+```python
+def _read_text(file_name: PathOrStr,
+               stderr_file: TextIO) -> list[ReleaseRename]
+```
+
+Return the renames of a plain text rename list file.
+
+<a id="backlogops.rename_list_io._check_two_columns"></a>
+
+#### \_check\_two\_columns
+
+```python
+def _check_two_columns(width: int, stderr_file: TextIO) -> None
+```
+
+Report a table that does not have exactly two columns.
+
+<a id="backlogops.rename_list_io._cell"></a>
+
+#### \_cell
+
+```python
+def _cell(value: Value) -> str
+```
+
+Return a table cell as a stripped string, empty for a None cell.
+
+<a id="backlogops.rename_list_io._table_rename"></a>
+
+#### \_table\_rename
+
+```python
+def _table_rename(row: list[Value],
+                  stderr_file: TextIO) -> Optional[ReleaseRename]
+```
+
+Return the rename in one table row, or None for an empty row.
+
+A shorter row (such as a blank row a spreadsheet leaves) is read as
+empty cells, so it is skipped rather than causing an index error.
+
+<a id="backlogops.rename_list_io._read_table"></a>
+
+#### \_read\_table
+
+```python
+def _read_table(file_name: PathOrStr,
+                stderr_file: TextIO) -> list[ReleaseRename]
+```
+
+Return the renames of a rename list stored as a two column table.
+
+<a id="backlogops.rename_list_io.read_renames"></a>
+
+#### read\_renames
+
+```python
+def read_renames(file_name: PathOrStr,
+                 *,
+                 stderr_file: TextIO = sys.stderr) -> list[ReleaseRename]
+```
+
+Read a release rename list from a file.
+
+The file type is chosen from the file name extension. A ``.txt`` or
+``.dat`` file is read as UTF-8 text with one tab-separated old and new
+name per line; any other extension is read as a two column TableIO
+table. A blank line, or a row whose two cells are both empty, is
+skipped.
+
+**Arguments**:
+
+- `file_name` - The file to read the rename list from.
+- `stderr_file` - The stream to report errors to.
+  
+
+**Returns**:
+
+  The renames in the order they appear in the file.
+  
+
+**Raises**:
+
+- `FileNotFoundError` - If the file does not exist.
+- `IsADirectoryError` - If the file is a directory.
+- `PermissionError` - If the file is not readable.
+- `UnicodeDecodeError` - If a text file is not valid UTF-8.
+- `ValueError` - If a line or row does not hold both an old and a new
+  name, if a table does not have exactly two columns, or if the
+  extension is not a supported table format.
+
 <a id="backlogops.person"></a>
 
 # backlogops.person
@@ -3768,13 +3935,14 @@ returned. If no file is found, an exception is raised.
 
 # backlogops.table\_create
 
-Open a TableIO file for creating a single table output.
+Open a TableIO file for reading or creating a single table.
 
-Several writers create a file that holds one table whose format follows
-the file name extension (a key list, a list of changes, and so on). They
-all resolve the output configuration from the file name, request CREATE
-capabilities, and open a TableIO context. This helper holds that shared
-setup so each writer only describes the rows it writes.
+Several readers and writers work on a file that holds one table whose
+format follows the file name extension (a key list, a rename list, a list
+of changes, and so on). They all resolve the configuration from the file
+name, request the right capabilities, and open a TableIO context. These
+helpers hold that shared setup so each reader or writer only describes the
+rows it reads or writes.
 
 The writers accept an optional ``file_exists_callback``. TableIO calls it
 with the file name when a CREATE would overwrite an existing file:
@@ -3791,6 +3959,32 @@ def allow_overwrite(file_name: str) -> None
 ```
 
 File-exists callback that always allows overwriting the file.
+
+<a id="backlogops.table_create.open_input_table"></a>
+
+#### open\_input\_table
+
+```python
+@contextmanager
+def open_input_table(file_name: PathOrStr,
+                     stderr_file: TextIO = sys.stderr) -> Iterator[TableIO]
+```
+
+Yield a TableIO opened to read a one table file.
+
+The input format is resolved from the file name extension and the file
+is opened with READ access. The yielded TableIO is used to read the
+table inside the ``with`` block.
+
+**Arguments**:
+
+- `file_name` - The file to read.
+- `stderr_file` - The stream to report errors to.
+  
+
+**Yields**:
+
+  The TableIO ready to read one table from the file.
 
 <a id="backlogops.table_create.create_output_table"></a>
 
@@ -4671,6 +4865,214 @@ Return the named Jira preset, used for reading and writing.
 
 - `KeyError` - If no preset of that name is configured.
 
+<a id="backlogops.jira_order_releases"></a>
+
+# backlogops.jira\_order\_releases
+
+Order releases in Jira, changing the order of a project's versions.
+
+A release is a Jira version, and a project keeps its versions in an ordered
+list. :func:`order_releases_in_jira` moves the versions named by a list of
+names to the front of that list in the given order, and
+:func:`order_jira_rel_by_date` orders every version by its release date,
+earliest first. In both cases the versions that are not moved keep their
+existing relative order and trail the ordered ones.
+
+The wanted order is imposed by moving each wanted version to the first
+position, working from the last wanted version to the first, so the first
+wanted version ends up on top and the block ends up leading the list. Only the
+absolute ``First`` position is used, so the order does not depend on the
+direction of a relative move. When the versions are already in the wanted
+order nothing is written to Jira. A name that is not a version is reported
+rather than moved.
+
+Ordering by date reads each version's own ``releaseDate`` and sorts earliest
+first; a version without a valid release date is placed at the end, and
+versions that share a date, or are all undated, keep their existing relative
+order.
+
+<a id="backlogops.jira_order_releases.OrderedReleasesInJira"></a>
+
+## OrderedReleasesInJira Objects
+
+```python
+class OrderedReleasesInJira(NamedTuple)
+```
+
+The result of ordering releases in Jira.
+
+Fields:
+    ordered: The version names placed into the wanted order, in that
+        order.
+    not_in_jira: The requested names that are not the name of any Jira
+        version, so they could not be ordered.
+
+<a id="backlogops.jira_order_releases._names_in_order"></a>
+
+#### \_names\_in\_order
+
+```python
+def _names_in_order(versions: Sequence[Resource]) -> list[str]
+```
+
+Return the version names in their current Jira order.
+
+<a id="backlogops.jira_order_releases._apply_order"></a>
+
+#### \_apply\_order
+
+```python
+def _apply_order(client: JIRA, versions: Sequence[Resource],
+                 wanted: Sequence[str]) -> None
+```
+
+Move the wanted versions to the front, keeping the others trailing.
+
+Nothing is written when the versions already lead with the wanted order.
+Otherwise each wanted version is moved to the first position from the last
+wanted name to the first, so the first wanted name ends up on top.
+
+<a id="backlogops.jira_order_releases._split_present"></a>
+
+#### \_split\_present
+
+```python
+def _split_present(
+        names: Sequence[str],
+        by_name: dict[str, Resource]) -> tuple[list[str], list[str]]
+```
+
+Split names into present version names and names not in Jira.
+
+Duplicate names are collapsed, keeping the first occurrence, so each name
+appears once across the two returned lists.
+
+<a id="backlogops.jira_order_releases.order_releases_in_jira"></a>
+
+#### order\_releases\_in\_jira
+
+```python
+def order_releases_in_jira(
+        connections: JiraConnections,
+        preset_name: str,
+        names: Sequence[str],
+        *,
+        stderr_file: TextIO = sys.stderr) -> OrderedReleasesInJira
+```
+
+Order releases in Jira to match a list of names.
+
+The project's versions are read once. The versions named by ``names``
+that exist are moved to the front of the version list in the listed
+order; every other version keeps its existing relative order and trails
+them. A name that is not a version is reported and not ordered. Nothing is
+written when the versions are already in the wanted order.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients and the configuration
+  holding the preset and its default project.
+- `preset_name` - The name of the Jira preset to use.
+- `names` - The version names in the wanted order. Duplicates are ignored
+  after their first occurrence.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The names placed into the wanted order and the names not in Jira.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or a referenced connection or map is
+  missing.
+- `JIRAError` - If a Jira move call fails.
+
+<a id="backlogops.jira_order_releases._release_date"></a>
+
+#### \_release\_date
+
+```python
+def _release_date(version: Resource) -> Optional[date]
+```
+
+Return a version's release date, or None when it has no valid one.
+
+<a id="backlogops.jira_order_releases._date_key"></a>
+
+#### \_date\_key
+
+```python
+def _date_key(version: Resource) -> tuple[bool, date]
+```
+
+Return a sort key ordering by release date, undated versions last.
+
+<a id="backlogops.jira_order_releases._by_date_order"></a>
+
+#### \_by\_date\_order
+
+```python
+def _by_date_order(versions: Sequence[Resource]) -> list[str]
+```
+
+Return the version names ordered by release date, earliest first.
+
+<a id="backlogops.jira_order_releases.order_jira_rel_by_date"></a>
+
+#### order\_jira\_rel\_by\_date
+
+```python
+def order_jira_rel_by_date(
+        connections: JiraConnections,
+        preset_name: str,
+        *,
+        stderr_file: TextIO = sys.stderr) -> OrderedReleasesInJira
+```
+
+Order releases in Jira by their release date, earliest first.
+
+The project's versions are read once and ordered by their own
+``releaseDate``, earliest first, with an undated version placed at the
+end. Versions that share a date, or are all undated, keep their existing
+relative order. Nothing is written when the versions are already in that
+order.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients and the configuration
+  holding the preset and its default project.
+- `preset_name` - The name of the Jira preset to use.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The version names in the resulting date order and an empty
+  not-in-Jira list, since every version is ordered.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or a referenced connection or map is
+  missing.
+- `JIRAError` - If a Jira move call fails.
+
+<a id="backlogops.jira_order_releases.format_order_result"></a>
+
+#### format\_order\_result
+
+```python
+def format_order_result(result: OrderedReleasesInJira) -> str
+```
+
+Return a listing of the ordered names and the names not in Jira.
+
+Each section has a heading with its count, then one indented name per
+line, or a ``(none)`` line when it is empty. The CLI prints this text and
+the GUI shows it in a copy-pasteable pop-up.
+
 <a id="backlogops.team"></a>
 
 # backlogops.team
@@ -5397,6 +5799,221 @@ cycles.
 - `ValueError` - If a field value violates a constraint, if keys are
   not unique, if a parent is not at a higher level than its
   child, or if there is a dependency cycle.
+
+<a id="backlogops.jira_rename_releases"></a>
+
+# backlogops.jira\_rename\_releases
+
+Rename releases in Jira, changing a Jira version's name.
+
+A release is a Jira version, and a version is matched by its name.
+:func:`rename_releases_in_jira` renames each version named by an old name to
+its new name, and :func:`rename_release_in_jira` renames a single one. The
+project's versions are read once and each rename is validated against them
+before anything is changed, so a rename whose old name is not a version, or
+whose new name is already taken, is reported rather than attempted. A rename
+Jira still refuses is collected with a concise reason and the other renames
+are still applied. The argument renames are never modified.
+
+A version is renamed through ``version.update(name=new_name)``, which is
+exactly what the Jira client's ``rename_version`` does once it has looked the
+version up; renaming the already-read version avoids a second lookup and lets
+the collision and missing-name checks report a clear outcome. A new name that
+is already a version name (including one claimed earlier in the same batch) is
+a collision and the rename is not attempted, so no two versions ever share a
+name. Renames are applied in the given order.
+
+<a id="backlogops.jira_rename_releases.ReleaseRename"></a>
+
+## ReleaseRename Objects
+
+```python
+class ReleaseRename(NamedTuple)
+```
+
+A request to rename a Jira release from one name to another.
+
+<a id="backlogops.jira_rename_releases.FailedRename"></a>
+
+## FailedRename Objects
+
+```python
+class FailedRename(NamedTuple)
+```
+
+A rename that could not be applied, with the failure reason.
+
+<a id="backlogops.jira_rename_releases.RenamedReleasesInJira"></a>
+
+## RenamedReleasesInJira Objects
+
+```python
+class RenamedReleasesInJira(NamedTuple)
+```
+
+The result of renaming releases in Jira.
+
+Fields:
+    renamed: The renames whose version was successfully renamed.
+    unchanged: Old names whose new name equals the old name, so the
+        version was left untouched.
+    missing: Old names that are not the name of any Jira version.
+    collisions: Renames whose new name is already a version name, so
+        the rename was not attempted to keep names unique.
+    failed: Renames Jira refused, each with a concise reason; the
+        argument renames are not changed by a failure.
+
+<a id="backlogops.jira_rename_releases._RenameAcc"></a>
+
+## \_RenameAcc Objects
+
+```python
+@dataclass
+class _RenameAcc()
+```
+
+Mutable accumulator of the rename results being built.
+
+<a id="backlogops.jira_rename_releases._do_rename"></a>
+
+#### \_do\_rename
+
+```python
+def _do_rename(version: Resource, rename: ReleaseRename, acc: _RenameAcc,
+               taken: set[str]) -> None
+```
+
+Rename one version, recording the outcome and updating taken names.
+
+On success the old name is freed and the new name is claimed, so a later
+rename in the same batch sees the current set of version names.
+
+<a id="backlogops.jira_rename_releases._apply_rename"></a>
+
+#### \_apply\_rename
+
+```python
+def _apply_rename(by_name: dict[str, Resource], taken: set[str],
+                  rename: ReleaseRename, acc: _RenameAcc) -> None
+```
+
+Validate and apply one rename, recording it in the accumulator.
+
+An unchanged name, a missing old name and a new name that is already
+taken are each recorded without touching Jira; otherwise the version is
+renamed.
+
+<a id="backlogops.jira_rename_releases.rename_releases_in_jira"></a>
+
+#### rename\_releases\_in\_jira
+
+```python
+def rename_releases_in_jira(
+        connections: JiraConnections,
+        preset_name: str,
+        renames: Sequence[ReleaseRename],
+        *,
+        stderr_file: TextIO = sys.stderr) -> RenamedReleasesInJira
+```
+
+Rename releases in Jira, matching each old name to a Jira version.
+
+The project's versions are read once and indexed by name. Each rename is
+validated against them and the names claimed by earlier renames of the
+batch: a new name equal to the old name is unchanged, an old name that is
+not a version is missing, and a new name that is already a version name is
+a collision. A valid rename changes the version's name; a rename Jira
+refuses is collected in ``failed`` with a concise reason, and the other
+renames are still applied. The argument renames are never modified.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients and the configuration
+  holding the preset and its default project.
+- `preset_name` - The name of the Jira preset to use.
+- `renames` - The old-name-to-new-name renames to apply, in order. Not
+  modified.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The applied, unchanged, missing, colliding and failed renames.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or a referenced connection or map is
+  missing.
+- `JIRAError` - If a Jira call other than a single rename fails.
+
+<a id="backlogops.jira_rename_releases.rename_release_in_jira"></a>
+
+#### rename\_release\_in\_jira
+
+```python
+def rename_release_in_jira(
+        connections: JiraConnections,
+        preset_name: str,
+        old_name: str,
+        new_name: str,
+        *,
+        stderr_file: TextIO = sys.stderr) -> RenamedReleasesInJira
+```
+
+Rename a single release in Jira from an old name to a new name.
+
+This is the single-rename form of :func:`rename_releases_in_jira` and
+returns the same result with exactly one rename classified.
+
+**Arguments**:
+
+- `connections` - The pool of live Jira clients and the configuration.
+- `preset_name` - The name of the Jira preset to use.
+- `old_name` - The current name of the version to rename.
+- `new_name` - The name to give the version.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The result classifying the single rename.
+
+<a id="backlogops.jira_rename_releases._rename_section"></a>
+
+#### \_rename\_section
+
+```python
+def _rename_section(heading: str,
+                    renames: Sequence[ReleaseRename]) -> list[str]
+```
+
+Return the heading and one ``old -> new`` line per rename.
+
+<a id="backlogops.jira_rename_releases._failed_rename_section"></a>
+
+#### \_failed\_rename\_section
+
+```python
+def _failed_rename_section(heading: str,
+                           failed: Sequence[FailedRename]) -> list[str]
+```
+
+Return the heading and the names and reason of each failed rename.
+
+<a id="backlogops.jira_rename_releases.format_rename_result"></a>
+
+#### format\_rename\_result
+
+```python
+def format_rename_result(result: RenamedReleasesInJira) -> str
+```
+
+Return a listing of the renamed, unchanged, missing and failed renames.
+
+Each section has a heading with its count, then one line per entry, or a
+``(none)`` line when the section is empty. The CLI prints this text and
+the GUI shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.available_teams_config"></a>
 
@@ -9212,6 +9829,20 @@ def _existing_names(client: JIRA, project: str) -> set[str]
 ```
 
 Return the names of the versions already in the project.
+
+<a id="backlogops.jira_write_releases._by_name"></a>
+
+#### \_by\_name
+
+```python
+def _by_name(versions: Sequence[Resource]) -> dict[str, Resource]
+```
+
+Index versions by their name, skipping any without a string name.
+
+This is shared by the update, rename and order modules, which all match
+a Jira version to a release by its name. A version is typed as the base
+``Resource`` so that its typed ``update`` method is used.
 
 <a id="backlogops.jira_write_releases._iso"></a>
 

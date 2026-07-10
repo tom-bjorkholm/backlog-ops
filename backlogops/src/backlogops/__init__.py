@@ -86,6 +86,13 @@ from backlogops.jira_write_releases import (
     ReleaseExistsError, format_release_result)
 from backlogops.jira_update_releases import (
     update_releases_in_jira, UpdatedReleasesInJira, format_release_updates)
+from backlogops.jira_rename_releases import (
+    rename_release_in_jira, rename_releases_in_jira, ReleaseRename,
+    FailedRename, RenamedReleasesInJira, format_rename_result)
+from backlogops.jira_order_releases import (
+    order_releases_in_jira, order_jira_rel_by_date, OrderedReleasesInJira,
+    format_order_result)
+from backlogops.rename_list_io import read_renames
 from backlogops.jira_update_backlog import (
     update_backlog_in_jira, UpdatedBacklogInJira, LinkUpdate,
     format_backlog_updates, updatable_backlog_fields)
@@ -143,7 +150,12 @@ __all__ = [
     'add_releases_to_jira', 'AddedReleasesToJira', 'FailedRelease',
     'ReleaseExistsError', 'format_release_result',
     'update_releases_in_jira', 'UpdatedReleasesInJira',
-    'format_release_updates', 'update_backlog_in_jira',
+    'format_release_updates', 'rename_release_in_jira',
+    'rename_releases_in_jira', 'ReleaseRename', 'FailedRename',
+    'RenamedReleasesInJira', 'format_rename_result',
+    'order_releases_in_jira', 'order_jira_rel_by_date',
+    'OrderedReleasesInJira', 'format_order_result', 'read_renames',
+    'update_backlog_in_jira',
     'UpdatedBacklogInJira', 'LinkUpdate', 'format_backlog_updates',
     'updatable_backlog_fields', 'jira_rank_by_keys_raw', 'JiraKeyError',
     'JiraTooManyLoops', 'jira_rank_move_keys', 'jira_rank_backlog',

@@ -10,7 +10,7 @@ import pytest
 from backlogops import (
     BacklogReleases, GuiDisplayConfig, NoTextIO, get_demo_backlog)
 from backlogops_gui import backlog_window
-from backlogops_gui.backlog_window import BacklogWindow
+from backlogops_gui.backlog_window import BacklogWindow, JiraHandlers
 from .gui_test_helpers import MsgRecorder, gui_root, press_close
 
 DATA = BacklogReleases(backlog=[], releases=[])
@@ -165,8 +165,9 @@ def test_backlog_update_menu() -> None:
     """Test the update-backlog menu item is present and delegates."""
     with gui_root() as root:
         got: list[object] = []
+        handlers = JiraHandlers(update_backlog=_bl_update_recorder(got))
         window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
-                               update_backlog=_bl_update_recorder(got))
+                               jira=handlers)
         assert 'Update backlog in Jira…' in _jira_menu_labels(window)
         # pylint: disable-next=protected-access
         window._backlog_update()
@@ -178,11 +179,37 @@ def test_rank_menu() -> None:
     with gui_root() as root:
         got: list[object] = []
         window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
-                               rank_in_jira=_rank_recorder(got))
+                               jira=JiraHandlers(rank=_rank_recorder(got)))
         assert 'Rank items in Jira…' in _jira_menu_labels(window)
         # pylint: disable-next=protected-access
         window._rank_jira()
         assert len(got) == 1
+
+
+def test_order_menu() -> None:
+    """Test the order-releases menu item is present and delegates."""
+    with gui_root() as root:
+        got: list[object] = []
+        handlers = JiraHandlers(order_releases=_bl_update_recorder(got))
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
+                               jira=handlers)
+        assert 'Order releases in Jira…' in _jira_menu_labels(window)
+        # pylint: disable-next=protected-access
+        window._releases_order()
+        assert got and got[0] is DATA
+
+
+def test_rename_menu() -> None:
+    """Test the rename-releases menu item is present and delegates."""
+    with gui_root() as root:
+        got: list[object] = []
+        handlers = JiraHandlers(rename_releases=_bl_update_recorder(got))
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
+                               jira=handlers)
+        assert 'Rename releases in Jira…' in _jira_menu_labels(window)
+        # pylint: disable-next=protected-access
+        window._releases_rename()
+        assert got and got[0] is DATA
 
 
 def test_rank_absent() -> None:

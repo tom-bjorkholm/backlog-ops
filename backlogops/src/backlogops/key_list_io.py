@@ -30,11 +30,10 @@ from typing import Optional, TextIO
 from collections.abc import Sequence
 import sys
 from config_as_json import PathOrStr
-from tableio import DictData, FileAccess, ListData, Value, \
-    access_capabilities, tio_config_create
+from tableio import DictData, ListData, Value
 from backlogops.backlog_helpers import report_bad_value
-from backlogops.io_config import resolve_input_config
-from backlogops.table_create import create_output_table, FileExistsCb
+from backlogops.table_create import (
+    FileExistsCb, create_output_table, open_input_table)
 
 TEXT_EXTENSIONS = {'.txt', '.dat'}
 """File name extensions read and written as plain UTF-8 text."""
@@ -110,12 +109,7 @@ def _keys_from_list(rows: ListData[Value], stderr_file: TextIO) -> list[str]:
 def _read_table(file_name: PathOrStr, skip_column_names: bool,
                 stderr_file: TextIO) -> list[str]:
     """Return the keys of a key list stored as a one column table."""
-    config = resolve_input_config(None, data_file=file_name,
-                                  stderr_file=stderr_file).tableio
-    capabilities = access_capabilities(FileAccess.READ, error_file=stderr_file)
-    with tio_config_create(config=config, file_name=file_name,
-                           file_access=FileAccess.READ,
-                           capabilities=capabilities) as tableio:
+    with open_input_table(file_name, stderr_file) as tableio:
         if skip_column_names:
             keys = _keys_from_dict(tableio.read_table_dictdata().data,
                                    stderr_file)

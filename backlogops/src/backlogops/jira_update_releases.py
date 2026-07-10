@@ -33,7 +33,7 @@ from backlogops.jira_io_config import JiraColumnMap
 from backlogops.jira_write import ItemNotInJiraError, OnMissingKey
 from backlogops.jira_write_format import _key_section, _outcome_prefix
 from backlogops.jira_write_releases import (
-    FailedRelease, _ReleaseCtx, _failed_section, _release_context,
+    FailedRelease, _ReleaseCtx, _by_name, _failed_section, _release_context,
     _report_skipped, _run_version_write, _try_create_version, _version_kwargs)
 from backlogops.releases import Release, Releases
 
@@ -87,12 +87,7 @@ class _UpdateCtx:
 
 def _versions_by_name(ctx: _ReleaseCtx) -> dict[str, Resource]:
     """Return the project's versions indexed by their name."""
-    result: dict[str, Resource] = {}
-    for version in ctx.client.project_versions(ctx.project):
-        name = getattr(version, 'name', None)
-        if isinstance(name, str):
-            result[name] = version
-    return result
+    return _by_name(ctx.client.project_versions(ctx.project))
 
 
 def _raise_missing(names: list[str], stderr_file: TextIO) -> None:

@@ -1,5 +1,8 @@
 # Table of Contents
 
+* [backlogops\_gui.jira\_rename](#backlogops_gui.jira_rename)
+  * [JiraRenamer](#backlogops_gui.jira_rename.JiraRenamer)
+    * [rename\_action](#backlogops_gui.jira_rename.JiraRenamer.rename_action)
 * [backlogops\_gui.jira\_update](#backlogops_gui.jira_update)
   * [JiraUpdater](#backlogops_gui.jira_update.JiraUpdater)
     * [releases\_action](#backlogops_gui.jira_update.JiraUpdater.releases_action)
@@ -54,12 +57,15 @@
   * [MISSING\_MODE\_TEXT](#backlogops_gui.jira_dialogs.MISSING_MODE_TEXT)
   * [LINK\_MODE\_TEXT](#backlogops_gui.jira_dialogs.LINK_MODE_TEXT)
   * [RANK\_ANCHOR\_TEXT](#backlogops_gui.jira_dialogs.RANK_ANCHOR_TEXT)
+  * [ORDER\_MODE\_TEXT](#backlogops_gui.jira_dialogs.ORDER_MODE_TEXT)
   * [JiraPresetOptions](#backlogops_gui.jira_dialogs.JiraPresetOptions)
   * [JiraReadOptions](#backlogops_gui.jira_dialogs.JiraReadOptions)
   * [JiraWriteOptions](#backlogops_gui.jira_dialogs.JiraWriteOptions)
   * [JiraReleaseUpdateOptions](#backlogops_gui.jira_dialogs.JiraReleaseUpdateOptions)
   * [JiraBacklogUpdateOptions](#backlogops_gui.jira_dialogs.JiraBacklogUpdateOptions)
   * [JiraRankOptions](#backlogops_gui.jira_dialogs.JiraRankOptions)
+  * [JiraRenameOptions](#backlogops_gui.jira_dialogs.JiraRenameOptions)
+  * [JiraOrderOptions](#backlogops_gui.jira_dialogs.JiraOrderOptions)
   * [JiraReadDialog](#backlogops_gui.jira_dialogs.JiraReadDialog)
     * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraReadDialog.__init__)
   * [ask\_jira\_read\_options](#backlogops_gui.jira_dialogs.ask_jira_read_options)
@@ -75,6 +81,12 @@
   * [JiraRankDialog](#backlogops_gui.jira_dialogs.JiraRankDialog)
     * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraRankDialog.__init__)
   * [ask\_jira\_rank](#backlogops_gui.jira_dialogs.ask_jira_rank)
+  * [JiraRenameDialog](#backlogops_gui.jira_dialogs.JiraRenameDialog)
+    * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraRenameDialog.__init__)
+  * [ask\_jira\_rename](#backlogops_gui.jira_dialogs.ask_jira_rename)
+  * [JiraOrderDialog](#backlogops_gui.jira_dialogs.JiraOrderDialog)
+    * [\_\_init\_\_](#backlogops_gui.jira_dialogs.JiraOrderDialog.__init__)
+  * [ask\_jira\_order](#backlogops_gui.jira_dialogs.ask_jira_order)
   * [PassphraseDialog](#backlogops_gui.jira_dialogs.PassphraseDialog)
     * [\_\_init\_\_](#backlogops_gui.jira_dialogs.PassphraseDialog.__init__)
   * [ask\_jira\_passphrase](#backlogops_gui.jira_dialogs.ask_jira_passphrase)
@@ -148,6 +160,7 @@
 * [backlogops\_gui.close\_binding](#backlogops_gui.close_binding)
   * [bind\_close](#backlogops_gui.close_binding.bind_close)
 * [backlogops\_gui.backlog\_window](#backlogops_gui.backlog_window)
+  * [JiraHandlers](#backlogops_gui.backlog_window.JiraHandlers)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
 * [backlogops\_gui.blog\_version\_reporter](#backlogops_gui.blog_version_reporter)
@@ -165,6 +178,9 @@
 * [backlogops\_gui.modal\_dialog](#backlogops_gui.modal_dialog)
   * [ModalDialog](#backlogops_gui.modal_dialog.ModalDialog)
     * [\_\_init\_\_](#backlogops_gui.modal_dialog.ModalDialog.__init__)
+* [backlogops\_gui.jira\_order](#backlogops_gui.jira_order)
+  * [JiraOrderer](#backlogops_gui.jira_order.JiraOrderer)
+    * [order\_action](#backlogops_gui.jira_order.JiraOrderer.order_action)
 * [backlogops\_gui.python\_version](#backlogops_gui.python_version)
   * [check\_python\_version](#backlogops_gui.python_version.check_python_version)
 * [backlogops\_gui.log\_buffer](#backlogops_gui.log_buffer)
@@ -206,6 +222,39 @@
   * [choose\_migrated\_preset](#backlogops_gui.file_choosers.choose_migrated_preset)
   * [choose\_key\_list\_output](#backlogops_gui.file_choosers.choose_key_list_output)
   * [choose\_changes\_output](#backlogops_gui.file_choosers.choose_changes_output)
+
+<a id="backlogops_gui.jira_rename"></a>
+
+# backlogops\_gui.jira\_rename
+
+Rename the shown releases in Jira.
+
+The renamer offers a handler that asks for a preset and a new name per shown
+release, then renames the matching Jira versions on a worker thread and hands
+the result back to the GUI thread. It is available only when a configuration
+with Jira presets is loaded. The shown release names are the old names; a
+blank entry keeps a release unchanged.
+
+<a id="backlogops_gui.jira_rename.JiraRenamer"></a>
+
+## JiraRenamer Objects
+
+```python
+class JiraRenamer(JiraAction)
+```
+
+Renames the shown releases in Jira.
+
+<a id="backlogops_gui.jira_rename.JiraRenamer.rename_action"></a>
+
+#### rename\_action
+
+```python
+def rename_action() -> Optional[Callable[
+    [BacklogReleases, Callable[[RenamedReleasesInJira], None]], None]]
+```
+
+Return the rename-releases handler, or None when unavailable.
 
 <a id="backlogops_gui.jira_update"></a>
 
@@ -779,6 +828,12 @@ The keys mirror the CLI ``--links`` values; ``reconcile`` maps to
 
 Label shown for each anchor in the rank dialogs.
 
+<a id="backlogops_gui.jira_dialogs.ORDER_MODE_TEXT"></a>
+
+#### ORDER\_MODE\_TEXT
+
+Label shown for each order source in the release-order dialog.
+
 <a id="backlogops_gui.jira_dialogs.JiraPresetOptions"></a>
 
 ## JiraPresetOptions Objects
@@ -844,6 +899,31 @@ class JiraRankOptions(JiraPresetOptions)
 ```
 
 The preset, filter, keys, anchor and relations chosen for ranking.
+
+<a id="backlogops_gui.jira_dialogs.JiraRenameOptions"></a>
+
+## JiraRenameOptions Objects
+
+```python
+@dataclass
+class JiraRenameOptions(JiraPresetOptions)
+```
+
+The preset and old-to-new renames chosen for renaming releases.
+
+<a id="backlogops_gui.jira_dialogs.JiraOrderOptions"></a>
+
+## JiraOrderOptions Objects
+
+```python
+@dataclass
+class JiraOrderOptions(JiraPresetOptions)
+```
+
+The preset, order source and typed names chosen for ordering.
+
+``mode`` is one of the keys of :data:`ORDER_MODE_TEXT`; ``names`` holds
+the names entered by the user and is only used for the ``names`` mode.
 
 <a id="backlogops_gui.jira_dialogs.JiraReadDialog"></a>
 
@@ -1009,6 +1089,70 @@ def ask_jira_rank(parent: tk.Misc, preset_filters: Mapping[str, str],
 ```
 
 Ask the preset, filter, keys, anchor and relations; None if cancel.
+
+<a id="backlogops_gui.jira_dialogs.JiraRenameDialog"></a>
+
+## JiraRenameDialog Objects
+
+```python
+class JiraRenameDialog(ModalDialog)
+```
+
+Modal dialog for the rename preset and a new name per release.
+
+<a id="backlogops_gui.jira_dialogs.JiraRenameDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, presets: Sequence[str],
+             release_names: Sequence[str]) -> None
+```
+
+Build, show and wait for the rename-releases dialog.
+
+<a id="backlogops_gui.jira_dialogs.ask_jira_rename"></a>
+
+#### ask\_jira\_rename
+
+```python
+def ask_jira_rename(
+        parent: tk.Misc, presets: Sequence[str],
+        release_names: Sequence[str]) -> Optional[JiraRenameOptions]
+```
+
+Ask the preset and renames, or None when cancelled.
+
+<a id="backlogops_gui.jira_dialogs.JiraOrderDialog"></a>
+
+## JiraOrderDialog Objects
+
+```python
+class JiraOrderDialog(ModalDialog)
+```
+
+Modal dialog for the order preset, order source and typed names.
+
+<a id="backlogops_gui.jira_dialogs.JiraOrderDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, presets: Sequence[str]) -> None
+```
+
+Build, show and wait for the order-releases dialog.
+
+<a id="backlogops_gui.jira_dialogs.ask_jira_order"></a>
+
+#### ask\_jira\_order
+
+```python
+def ask_jira_order(parent: tk.Misc,
+                   presets: Sequence[str]) -> Optional[JiraOrderOptions]
+```
+
+Ask the preset, order source and names, or None when cancelled.
 
 <a id="backlogops_gui.jira_dialogs.PassphraseDialog"></a>
 
@@ -1940,6 +2084,22 @@ extraction, the Jira operations, saving to a file and closing the window.
 The operations themselves live in :mod:`backlogops_gui.backlog_actions`,
 so they can be tested without a display.
 
+<a id="backlogops_gui.backlog_window.JiraHandlers"></a>
+
+## JiraHandlers Objects
+
+```python
+@dataclass
+class JiraHandlers()
+```
+
+The optional Jira menu handlers a backlog window offers.
+
+Each handler runs one Jira operation and calls back with its result, or
+is None when that operation is unavailable (no configuration or no Jira
+presets), which disables its menu item. Passing the handlers as one
+group keeps the window constructor small.
+
 <a id="backlogops_gui.backlog_window.BacklogWindow"></a>
 
 ## BacklogWindow Objects
@@ -1955,30 +2115,16 @@ A top-level window showing one backlog and its releases.
 #### \_\_init\_\_
 
 ```python
-def __init__(
-    root: tk.Misc,
-    data: BacklogReleases,
-    title: str,
-    presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
-    teams: Callable[[], Optional[AvailableTeams]],
-    sink: TextIO,
-    levels: Callable[[], Optional[Levels]] = lambda: None,
-    gui_display: Callable[[], GuiDisplayConfig] = GuiDisplayConfig,
-    warning: Optional[str] = None,
-    add_to_jira: Optional[Callable[
-        [BacklogReleases, Callable[[AddedToJira], None]], None]] = None,
-    add_releases: Optional[
-        Callable[[BacklogReleases, Callable[[AddedReleasesToJira], None]],
-                 None]] = None,
-    update_releases: Optional[
-        Callable[[BacklogReleases, Callable[[UpdatedReleasesInJira], None]],
-                 None]] = None,
-    update_backlog: Optional[
-        Callable[[BacklogReleases, Callable[[UpdatedBacklogInJira], None]],
-                 None]] = None,
-    rank_in_jira: Optional[Callable[[Callable[[RankedInJira], None]],
-                                    None]] = None
-) -> None
+def __init__(root: tk.Misc,
+             data: BacklogReleases,
+             title: str,
+             presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
+             teams: Callable[[], Optional[AvailableTeams]],
+             sink: TextIO,
+             levels: Callable[[], Optional[Levels]] = lambda: None,
+             gui_display: Callable[[], GuiDisplayConfig] = GuiDisplayConfig,
+             warning: Optional[str] = None,
+             jira: Optional[JiraHandlers] = None) -> None
 ```
 
 Build the window, its menu and the two tables.
@@ -1998,22 +2144,9 @@ Build the window, its menu and the two tables.
   renaming for the tables.
 - `warning` - Warning text to show over the tables. When present,
   backlog operations are disabled and only saving remains.
-- `add_to_jira` - Handler that adds the shown backlog to Jira and
-  calls back with the result, or None when adding is
-  unavailable (no configuration or no write presets).
-- `add_releases` - Handler that adds the shown releases to Jira and
-  calls back with the result, or None when adding is
-  unavailable (no configuration or no write presets).
-- `update_releases` - Handler that updates the shown releases in Jira
-  and calls back with the result, or None when updating is
-  unavailable (no configuration or no write presets).
-- `update_backlog` - Handler that updates the shown backlog in Jira
-  and calls back with the result, or None when updating is
-  unavailable (no configuration or no write presets).
-- `rank_in_jira` - Handler that asks for keys and an end and moves
-  those issues in the Jira rank order, calling back with the
-  result, or None when ranking is unavailable (no
-  configuration or no Jira presets).
+- `jira` - The Jira menu handlers to offer, or None for none. Each
+  handler is None when its operation is unavailable, which
+  disables its menu item.
 
 <a id="backlogops_gui.blog_version_reporter"></a>
 
@@ -2184,6 +2317,39 @@ def __init__(parent: tk.Misc, title: str) -> None
 ```
 
 Create the modal top-level window and its close handler.
+
+<a id="backlogops_gui.jira_order"></a>
+
+# backlogops\_gui.jira\_order
+
+Order the releases in Jira.
+
+The orderer offers a handler that asks for a preset and an order source, then
+reorders the Jira versions on a worker thread and hands the result back to the
+GUI thread. It is available only when a configuration with Jira presets is
+loaded. The order source is the release date, the order of the releases shown
+in the window, or a list of names entered in the dialog.
+
+<a id="backlogops_gui.jira_order.JiraOrderer"></a>
+
+## JiraOrderer Objects
+
+```python
+class JiraOrderer(JiraAction)
+```
+
+Orders the releases in Jira by date, window order or a name list.
+
+<a id="backlogops_gui.jira_order.JiraOrderer.order_action"></a>
+
+#### order\_action
+
+```python
+def order_action() -> Optional[Callable[
+    [BacklogReleases, Callable[[OrderedReleasesInJira], None]], None]]
+```
+
+Return the order-releases handler, or None when unavailable.
 
 <a id="backlogops_gui.python_version"></a>
 
@@ -2605,11 +2771,12 @@ Ask the user to fill the given table rows and return them.
 
 The Jira read, write and update collaborators of the application.
 
-The Jira menu actions of a backlog window are split across four
+The Jira menu actions of a backlog window are split across focused
 collaborators so each stays focused as the Jira support grows.
 :class:`JiraActions` groups them behind one attribute of the application,
 so the application talks to ``self.jira.reader``, ``self.jira.writer``,
-``self.jira.updater`` and ``self.jira.ranker``.
+``self.jira.updater``, ``self.jira.ranker``, ``self.jira.renamer`` and
+``self.jira.orderer``.
 
 <a id="backlogops_gui.jira_actions.JiraActions"></a>
 
@@ -2619,7 +2786,7 @@ so the application talks to ``self.jira.reader``, ``self.jira.writer``,
 class JiraActions()
 ```
 
-Groups the Jira read, write, update and rank collaborators.
+Groups the Jira read, write, update, rank, rename and order actions.
 
 <a id="backlogops_gui.jira_actions.JiraActions.__init__"></a>
 
@@ -2629,7 +2796,7 @@ Groups the Jira read, write, update and rank collaborators.
 def __init__(app: 'BacklogApp') -> None
 ```
 
-Create the reader, writer, updater and ranker for the app.
+Create the Jira collaborators for the app.
 
 <a id="backlogops_gui.file_choosers"></a>
 

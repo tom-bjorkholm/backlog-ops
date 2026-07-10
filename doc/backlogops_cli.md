@@ -60,6 +60,9 @@
 * [backlogops\_cli.preset\_wizard](#backlogops_cli.preset_wizard)
   * [build\_parser](#backlogops_cli.preset_wizard.build_parser)
   * [main](#backlogops_cli.preset_wizard.main)
+* [backlogops\_cli.order\_releases\_in\_jira](#backlogops_cli.order_releases_in_jira)
+  * [build\_parser](#backlogops_cli.order_releases_in_jira.build_parser)
+  * [main](#backlogops_cli.order_releases_in_jira.main)
 * [backlogops\_cli.order\_by\_keys](#backlogops_cli.order_by_keys)
   * [build\_parser](#backlogops_cli.order_by_keys.build_parser)
   * [main](#backlogops_cli.order_by_keys.main)
@@ -69,6 +72,9 @@
 * [backlogops\_cli.update\_releases\_in\_jira](#backlogops_cli.update_releases_in_jira)
   * [build\_parser](#backlogops_cli.update_releases_in_jira.build_parser)
   * [main](#backlogops_cli.update_releases_in_jira.main)
+* [backlogops\_cli.rename\_releases\_in\_jira](#backlogops_cli.rename_releases_in_jira)
+  * [build\_parser](#backlogops_cli.rename_releases_in_jira.build_parser)
+  * [main](#backlogops_cli.rename_releases_in_jira.main)
 * [backlogops\_cli.estimate\_ready\_date](#backlogops_cli.estimate_ready_date)
   * [build\_parser](#backlogops_cli.estimate_ready_date.build_parser)
   * [main](#backlogops_cli.estimate_ready_date.main)
@@ -908,6 +914,55 @@ extension when it is not already present.
   ``0`` on success, ``1`` when the wizard is abandoned or the preset
   cannot be written.
 
+<a id="backlogops_cli.order_releases_in_jira"></a>
+
+# backlogops\_cli.order\_releases\_in\_jira
+
+Order releases in Jira, changing the order of a project's versions.
+
+The command reorders the Jira versions of a named preset of the backlog-ops
+configuration. Exactly one order source must be given: ``--by-date`` orders
+the versions by their own release date, earliest first, with undated versions
+at the end; ``--name-list`` names a file whose names give the wanted order,
+like a key list; and ``--from-input`` uses the order of the releases in the
+backlog-and-releases input file named with ``-i``/``--input``.
+
+With ``--by-date`` every version is ordered. With a name source, the named
+versions are moved to the front in the listed order and every other version
+keeps its existing relative order and trails them; a name that is not a
+version is reported. The ordered names and the names not in Jira are printed
+to stdout unless ``-q``/``--quiet`` is given. An encrypted Jira token is
+unlocked by a pass phrase asked on the terminal only when it is needed.
+
+<a id="backlogops_cli.order_releases_in_jira.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the order-releases command.
+
+<a id="backlogops_cli.order_releases_in_jira.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Order releases in Jira and report the ordered and skipped names.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the order cannot be resolved or applied.
+
 <a id="backlogops_cli.order_by_keys"></a>
 
 # backlogops\_cli.order\_by\_keys
@@ -1047,6 +1102,55 @@ Update releases in Jira and report the outcome per release.
 
   ``0`` on success, ``1`` when the releases cannot be updated or a
   name is not present in Jira with the raise policy.
+
+<a id="backlogops_cli.rename_releases_in_jira"></a>
+
+# backlogops\_cli.rename\_releases\_in\_jira
+
+Rename releases in Jira, changing Jira version names.
+
+The command renames Jira versions of a named preset of the backlog-ops
+configuration. A single rename is given with ``--old`` and ``--new``; a
+batch of renames is read from a two column file named with ``--rename-file``,
+whose first column holds the old names and second column the new names.
+Exactly one of the two ways must be given.
+
+Each version is matched by its old name. An old name that is not a version, a
+new name that equals the old name, and a new name that is already a version
+name are reported rather than applied, and a rename Jira refuses is reported
+with its reason; the other renames are still applied. The renamed, unchanged,
+missing, colliding and failed renames are printed to stdout unless
+``-q``/``--quiet`` is given. An encrypted Jira token is unlocked by a pass
+phrase asked on the terminal only when it is needed.
+
+<a id="backlogops_cli.rename_releases_in_jira.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the rename-releases command.
+
+<a id="backlogops_cli.rename_releases_in_jira.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Rename releases in Jira and report the outcome per rename.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` on success, ``1`` when the renames cannot be read or applied.
 
 <a id="backlogops_cli.estimate_ready_date"></a>
 

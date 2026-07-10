@@ -218,6 +218,9 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.order_releases
      Order the releases by their planned or estimated date
 
+  python3 -m backlogops_cli.order_releases_in_jira
+     Order releases in Jira by date, a name list or the input order
+
   python3 -m backlogops_cli.plan_release_dates
      Set planned release dates from the estimated release dates
 
@@ -229,6 +232,9 @@ backlogops_cli serves 2 purposes:
 
   python3 -m backlogops_cli.read_jira
      Read a backlog and releases from Jira and store to a file
+
+  python3 -m backlogops_cli.rename_releases_in_jira
+     Rename releases in Jira, changing Jira version names
 
   python3 -m backlogops_cli.update_backlog_in_jira
      Update a backlog in Jira, changing only the chosen columns
