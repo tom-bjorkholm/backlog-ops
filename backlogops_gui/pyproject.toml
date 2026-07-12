@@ -4,7 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "backlogops-gui"
-version = "0.3.1"
 authors = [
   { name="Tom Björkholm", email="klausuler_linnet0q@icloud.com" },
 ]
@@ -28,7 +27,7 @@ classifiers = [
     "Topic :: Office/Business :: Scheduling",
     "Typing :: Typed"
 ]
-dynamic = ["dependencies"]
+dynamic = ["dependencies", "version"]
 
 [project.urls]
 "Homepage" = "https://github.com/tom-bjorkholm/backlog-ops"

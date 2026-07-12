@@ -18,7 +18,7 @@ setup(
     'cryptography >= 49.0.0',
     'jira[cli,opt] >= 3.10.5',
     'tableio >= 1.1',
-    'tableio-cfg-json >= 0.8',
+    'tableio-cfg-json >= 0.9',
     'versionreporter >= 0.4'
   ]
 )
