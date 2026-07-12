@@ -24,11 +24,10 @@ from backlogops.io_preset_wizard import preset_wizard
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType
 from backlogops.wizard_helpers import (
     _backlog_map_fields, _parse_column_renames, _parse_input_renames,
-    _parse_status_map, _read_int, _read_jira_map, _read_number,
-    _read_opt_date, _read_text, _status_target)
+    _parse_status_map, _read_int, _read_jira_map, _read_text, _status_target)
 from backlogops.wizard_helpers import (
     _Navigator, _is_nonneg, _parse_level_int, _parse_levels, _parse_schedule,
-    _read_end_date, _read_levels, _read_preset_name, _read_renames,
+    _read_levels, _read_preset_name, _read_renames,
     _read_schedule, _read_status_map, _read_unique_name, _rename_check,
     _sched_check, _split_aliases, _status_check)
 from backlogops.wizard_helpers import (
@@ -163,25 +162,35 @@ def test_duplicate_name() -> None:
 
 
 def test_reask_number() -> None:
-    """Test a non-numeric velocity is rejected and then accepted."""
+    """Test a non-numeric velocity re-asks the whole team form.
+
+    The team velocity, capacity and sprint length are one form, so a
+    non-numeric velocity re-asks all three fields; the second attempt
+    enters a valid velocity and keeps the capacity and sprint defaults.
+    """
     answers = (SCHED + ['0', '0']
                + ['1']
                + ['Phoenix']
-               + ['abc', '5']
-               + ['', '']
+               + ['abc', '', '']
+               + ['5', '', '']
                + ['0'])
     teams = _run(answers)
     assert teams.teams[0].velocity == 5.0
 
 
 def test_company_exc() -> None:
-    """Test a company exception with re-asked invalid date and end order."""
+    """Test a company exception form re-asks a bad date and a bad order.
+
+    The exception is one form of start date, end date, hours and the
+    new-work-days flag. The first attempt has an unparseable start date,
+    the second attempt an end date before the start date, and the third
+    attempt is valid, so the whole form is re-asked twice.
+    """
     answers = (SCHED
                + ['1']
-               + ['bad', '2026-01-01']
-               + ['2025-12-31', '2026-01-05']
-               + ['']
-               + ['maybe', 'n']
+               + ['bad', '2026-01-05', '', 'n']
+               + ['2026-01-06', '2026-01-05', '', 'n']
+               + ['2026-01-01', '2026-01-05', '', 'n']
                + ['0', '0'])
     teams = _run(answers)
     exception = teams.company_work_hours.exceptions[0]
@@ -207,17 +216,18 @@ def test_vacation() -> None:
 def test_team_with_extras() -> None:
     """Test a team with an alias, a dated member and an fte exception.
 
-    This exercises adding an alias, re-asking a membership end date that
-    is before the start date, and adding a full-time-equivalent exception.
+    This exercises adding an alias and an fte exception, and re-asking the
+    membership form whose end date is before its start date. The
+    membership form asks person, fte, start date and end date together, so
+    the bad end order re-asks all four fields.
     """
     answers = (SCHED + ['0']
                + ['1', 'Ada', '0']
                + ['1']
                + ['T']
                + ['1']
-               + ['Ada', '']
-               + ['2026-07-01']
-               + ['2026-06-01', '2026-07-10']
+               + ['Ada', '', '2026-07-01', '2026-06-01']
+               + ['Ada', '', '2026-07-01', '2026-07-10']
                + ['1']
                + ['2026-07-02', '2026-07-05', '0.5']
                + ['', '', '']
@@ -294,26 +304,9 @@ def test_read_text_reask() -> None:
     assert _read_text(_bridge(['', 'value']), 'Q', None, False) == 'value'
 
 
-def test_read_number_minimum() -> None:
-    """Test a value below the minimum is re-asked."""
-    assert _read_number(_bridge(['-1', '5']), 'Q', 1.0, 0.0, None) == 5.0
-
-
-def test_read_number_maximum() -> None:
-    """Test a value above the maximum is re-asked."""
-    assert _read_number(_bridge(['2', '0.5']), 'Q', 1.0, 0.0, 1.0) == 0.5
-
-
 def test_read_int_reask() -> None:
     """Test a non-integer and a too-small value are both re-asked."""
     assert _read_int(_bridge(['x', '0', '5']), 'Q', 10, 1, None) == 5
-
-
-def test_read_opt_date() -> None:
-    """Test an empty answer gives None and a bad date is re-asked."""
-    assert _read_opt_date(_bridge(['']), 'Q', None) is None
-    assert _read_opt_date(_bridge(['bad', '2026-01-02']), 'Q', None) == \
-        date(2026, 1, 2)
 
 
 def test_preset_wizard() -> None:
@@ -852,12 +845,6 @@ def test_status_check(table: list[list[Optional[str]]], pos: tuple[int, int],
                       ok: bool) -> None:
     """Test a status row is flagged for a bad target or a missing name."""
     assert _status_check(table, pos)[0] is ok
-
-
-def test_read_end_date_bad() -> None:
-    """Test an unparseable end date is re-asked until it is a valid date."""
-    bridge = _bridge(['nope', '2026-01-05'])
-    assert _read_end_date(bridge, 'Q', date(2026, 1, 1)) == date(2026, 1, 5)
 
 
 def test_read_name_empty() -> None:

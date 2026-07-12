@@ -330,6 +330,29 @@
   * [RELEASE\_HEADING](#backlogops.backlog_releases_io.RELEASE_HEADING)
   * [read\_backlog\_releases](#backlogops.backlog_releases_io.read_backlog_releases)
   * [write\_backlog\_releases](#backlogops.backlog_releases_io.write_backlog_releases)
+* [backlogops.wizard\_forms](#backlogops.wizard_forms)
+  * [FormField](#backlogops.wizard_forms.FormField)
+  * [FormResult](#backlogops.wizard_forms.FormResult)
+    * [\_\_init\_\_](#backlogops.wizard_forms.FormResult.__init__)
+    * [text](#backlogops.wizard_forms.FormResult.text)
+    * [opt\_text](#backlogops.wizard_forms.FormResult.opt_text)
+    * [flag](#backlogops.wizard_forms.FormResult.flag)
+    * [whole](#backlogops.wizard_forms.FormResult.whole)
+    * [number](#backlogops.wizard_forms.FormResult.number)
+    * [day](#backlogops.wizard_forms.FormResult.day)
+    * [opt\_day](#backlogops.wizard_forms.FormResult.opt_day)
+  * [run\_form](#backlogops.wizard_forms.run_form)
+  * [name\_error](#backlogops.wizard_forms.name_error)
+  * [text\_field](#backlogops.wizard_forms.text_field)
+  * [opt\_text\_field](#backlogops.wizard_forms.opt_text_field)
+  * [secret\_field](#backlogops.wizard_forms.secret_field)
+  * [name\_field](#backlogops.wizard_forms.name_field)
+  * [choice\_field](#backlogops.wizard_forms.choice_field)
+  * [yes\_no\_field](#backlogops.wizard_forms.yes_no_field)
+  * [int\_field](#backlogops.wizard_forms.int_field)
+  * [number\_field](#backlogops.wizard_forms.number_field)
+  * [date\_field](#backlogops.wizard_forms.date_field)
+  * [opt\_date\_field](#backlogops.wizard_forms.opt_date_field)
 * [backlogops.backlog\_ops\_wizard](#backlogops.backlog_ops_wizard)
   * [available\_teams\_wizard](#backlogops.backlog_ops_wizard.available_teams_wizard)
   * [backlog\_ops\_wizard](#backlogops.backlog_ops_wizard.backlog_ops_wizard)
@@ -7058,6 +7081,306 @@ omitted the default :class:`FormatRules` apply.
 - `file_exists_callback` - Called when the file already exists, as
   documented for :mod:`backlogops.table_create`.
   None refuses an existing file.
+
+<a id="backlogops.wizard_forms"></a>
+
+# backlogops.wizard\_forms
+
+Reusable building blocks for the one-screen backlog-ops wizard forms.
+
+A wizard form asks several related scalar questions on a single screen
+through the ``ask_form`` method of a ``WizardUiBridge``. Each question is a
+:class:`FormField` that pairs an ``AskField`` (what the bridge shows) with a
+validator and a parser. The builder functions (:func:`text_field`,
+:func:`date_field`, :func:`number_field` and friends) create the common
+field kinds, so a wizard only lists the fields and, when needed, a ``rule``.
+
+A ``rule`` is called with the current :class:`FormResult` after every change.
+It returns a message for a cross-field problem, such as two pass phrases that
+differ or an end date before its start date, and the keys of the fields that
+the answers so far make irrelevant. :func:`run_form` shows the fields,
+disables the irrelevant ones, blocks an invalid form and returns the typed
+answers as a :class:`FormResult`.
+
+Dates and decimals have no native field type, so they are asked as text
+fields validated here. :func:`_parse_date` and :func:`_num_text` are shared
+with the table-based wizard helpers.
+
+<a id="backlogops.wizard_forms.FormField"></a>
+
+## FormField Objects
+
+```python
+@dataclass(frozen=True)
+class FormField()
+```
+
+One form field: what to ask, how to validate and how to parse it.
+
+**Attributes**:
+
+- `key` - The name the wizard uses to read this field's answer.
+- `ask` - The question the bridge shows for the field.
+- `error` - Returns a message for an invalid answer, or None when valid.
+- `value` - Returns the typed answer, such as a date or a float.
+
+<a id="backlogops.wizard_forms.FormResult"></a>
+
+## FormResult Objects
+
+```python
+class FormResult()
+```
+
+Typed answers of a form, read by field key with strict getters.
+
+<a id="backlogops.wizard_forms.FormResult.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(values: dict[str, object]) -> None
+```
+
+Store the parsed value of each field, keyed by field key.
+
+<a id="backlogops.wizard_forms.FormResult.text"></a>
+
+#### text
+
+```python
+def text(key: str) -> str
+```
+
+Return a required text or choice answer as a string.
+
+<a id="backlogops.wizard_forms.FormResult.opt_text"></a>
+
+#### opt\_text
+
+```python
+def opt_text(key: str) -> Optional[str]
+```
+
+Return an optional text answer, or None when left blank.
+
+<a id="backlogops.wizard_forms.FormResult.flag"></a>
+
+#### flag
+
+```python
+def flag(key: str) -> bool
+```
+
+Return a yes/no answer as a boolean.
+
+<a id="backlogops.wizard_forms.FormResult.whole"></a>
+
+#### whole
+
+```python
+def whole(key: str) -> int
+```
+
+Return an integer answer.
+
+<a id="backlogops.wizard_forms.FormResult.number"></a>
+
+#### number
+
+```python
+def number(key: str) -> float
+```
+
+Return a decimal answer as a float.
+
+<a id="backlogops.wizard_forms.FormResult.day"></a>
+
+#### day
+
+```python
+def day(key: str) -> date
+```
+
+Return a required date answer.
+
+<a id="backlogops.wizard_forms.FormResult.opt_day"></a>
+
+#### opt\_day
+
+```python
+def opt_day(key: str) -> Optional[date]
+```
+
+Return an optional date answer, or None when left blank.
+
+<a id="backlogops.wizard_forms.run_form"></a>
+
+#### run\_form
+
+```python
+def run_form(
+    bridge: WizardUiBridge,
+    question: str,
+    fields: Sequence[FormField],
+    rule: Callable[[FormResult], tuple[Optional[str], set[str]]] = _no_rule
+) -> FormResult
+```
+
+Ask a whole form and return its validated, typed answers.
+
+The rule disables the fields that the current answers make irrelevant
+and reports any cross-field problem. A bridge that validates on submit
+returns only valid answers; a plain console bridge may return an
+invalid form, which is re-asked with the blocking message shown.
+
+<a id="backlogops.wizard_forms.name_error"></a>
+
+#### name\_error
+
+```python
+def name_error(name: Optional[str], used: set[str]) -> Optional[str]
+```
+
+Return why a preset-style name is invalid, or None when it is fine.
+
+<a id="backlogops.wizard_forms.text_field"></a>
+
+#### text\_field
+
+```python
+def text_field(key: str,
+               question: str,
+               *,
+               help_text: Optional[str] = None) -> FormField
+```
+
+Return a required free-text field.
+
+<a id="backlogops.wizard_forms.opt_text_field"></a>
+
+#### opt\_text\_field
+
+```python
+def opt_text_field(key: str,
+                   question: str,
+                   *,
+                   help_text: Optional[str] = None) -> FormField
+```
+
+Return an optional free-text field that may be left blank.
+
+<a id="backlogops.wizard_forms.secret_field"></a>
+
+#### secret\_field
+
+```python
+def secret_field(key: str,
+                 question: str,
+                 *,
+                 help_text: Optional[str] = None) -> FormField
+```
+
+Return a required masked field, such as a pass phrase.
+
+<a id="backlogops.wizard_forms.name_field"></a>
+
+#### name\_field
+
+```python
+def name_field(key: str,
+               question: str,
+               used: set[str],
+               *,
+               help_text: Optional[str] = None) -> FormField
+```
+
+Return a field for a unique letters-and-digits name.
+
+<a id="backlogops.wizard_forms.choice_field"></a>
+
+#### choice\_field
+
+```python
+def choice_field(key: str,
+                 question: str,
+                 choices: Sequence[str],
+                 *,
+                 default: Optional[str] = None,
+                 help_text: Optional[str] = None) -> FormField
+```
+
+Return a single-choice field, optionally with a default choice.
+
+<a id="backlogops.wizard_forms.yes_no_field"></a>
+
+#### yes\_no\_field
+
+```python
+def yes_no_field(key: str,
+                 question: str,
+                 default: bool,
+                 *,
+                 help_text: Optional[str] = None) -> FormField
+```
+
+Return a yes/no field with the given default.
+
+<a id="backlogops.wizard_forms.int_field"></a>
+
+#### int\_field
+
+```python
+def int_field(key: str,
+              question: str,
+              *,
+              default: int,
+              minimum: Optional[int] = None,
+              maximum: Optional[int] = None) -> FormField
+```
+
+Return an integer field pre-filled with its default.
+
+<a id="backlogops.wizard_forms.number_field"></a>
+
+#### number\_field
+
+```python
+def number_field(key: str,
+                 question: str,
+                 *,
+                 default: float,
+                 minimum: Optional[float] = None,
+                 maximum: Optional[float] = None) -> FormField
+```
+
+Return a decimal field pre-filled with its default.
+
+<a id="backlogops.wizard_forms.date_field"></a>
+
+#### date\_field
+
+```python
+def date_field(key: str,
+               question: str,
+               *,
+               help_text: Optional[str] = None) -> FormField
+```
+
+Return a required ISO date field, asked as validated text.
+
+<a id="backlogops.wizard_forms.opt_date_field"></a>
+
+#### opt\_date\_field
+
+```python
+def opt_date_field(key: str,
+                   question: str,
+                   *,
+                   help_text: Optional[str] = None) -> FormField
+```
+
+Return an optional ISO date field that may be left blank.
 
 <a id="backlogops.backlog_ops_wizard"></a>
 

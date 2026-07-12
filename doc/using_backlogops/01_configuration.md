@@ -226,10 +226,20 @@ choose a clear mode. The `token_storage` modes are:
 | `CLEAR_FILE` | Token in clear text in a separate file. Demo use only. |
 | `CLEAR_INTERNAL` | Token in clear text inside the config file. Demo use only. |
 
-With an encrypted mode you are asked for the pass phrase on the terminal
-(CLI) or in a dialog (GUI) only when a command actually needs to reach Jira.
-The clear modes print a warning, because anyone who reads the file reads your
-token.
+The configuration wizard asks for a whole connection on one screen: its
+name, deployment type, URL, login e-mail, token storage and the token
+details. The screen only shows the token fields that the chosen storage
+mode needs — the token file path for a file mode, the API token for an
+internal mode. For `ENCRYPTED_INTERNAL` it also asks for the pass phrase
+that encrypts the token, entered **twice and hidden while you type** so the
+two entries can be confirmed to match before the token is stored. The API
+token itself is only captured by the wizard for an internal mode; for a
+file mode you place the token file yourself.
+
+With an encrypted mode you are asked for the pass phrase again on the
+terminal (CLI) or in a dialog (GUI) only when a command actually needs to
+reach Jira. The clear modes print a warning, because anyone who reads the
+file reads your token.
 
 ### Column maps: how a field reaches a Jira value
 
@@ -309,7 +319,11 @@ You rarely write these files by hand. Three tools build and maintain them.
 ### The configuration wizard
 
 Builds a complete backlog-ops file interactively: the workforce, the company
-calendar, named presets, levels and the status map.
+calendar, named presets, levels and the status map. Related questions are
+grouped onto single forms — a team's velocity and sprint length, a work-hour
+exception's dates and hours, a team membership, and each Jira connection and
+preset — so in the GUI or textual interface you see them together and can
+fill them in any order before moving on.
 
 - **CLI:** `python3 -m backlogops_cli.config_wizard`
 - **GUI:** *Configuration → Run configuration wizard…* On the very first

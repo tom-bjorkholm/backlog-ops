@@ -13,15 +13,18 @@ parsing and the per-cell validation.
 import io
 from typing import Optional
 import pytest
-from tableio_cfg_json import WizardUiBridgeConsole
+from tableio_cfg_json import AskTextField, WizardUiBridgeConsole
 from backlogops.backlog import Status
 from backlogops.backlog_ops_wizard import backlog_ops_wizard
 from backlogops.jira_io_config import (
     JiraAttrPath, JiraAttrType, default_jira_filter)
+from backlogops.jira_io_config import TokenStorage
 from backlogops.jira_wizard import (
-    _PresetChoices, _ask_filter, _build_connections, _build_issue_type_maps,
-    _build_preset_list)
+    _PresetChoices, _build_connections, _build_issue_type_maps,
+    _build_preset_list, _connection_disabled, _connection_fields,
+    _connection_rule, _preset_rule)
 from backlogops.levels import DEFAULT_LEVELS
+from backlogops.wizard_forms import FormResult
 from backlogops.wizard_helpers import (
     _Navigator, _attr_from_cells, _jira_map_check, _merge_status_defaults,
     _parse_jira_map)
@@ -96,12 +99,31 @@ def test_jira_full() -> None:
 
 
 def test_conn_encrypted() -> None:
-    """Test an encrypted-internal connection stores the token encrypted."""
+    """Test an encrypted-internal connection stores the token encrypted.
+
+    The connection form asks the pass phrase twice, masked, so both the
+    pass phrase and its matching confirmation are supplied.
+    """
     answers = ['1', 'enc', 'cloud', 'https://x', 'me@x',
-               'encrypted_internal', 'SECRET', 'phrase']
+               'encrypted_internal', 'SECRET', 'phrase', 'phrase']
     conn = _Navigator(_console(answers)).run(_build_connections)['enc']
     assert conn.uses_encryption()
     assert conn.stored_token not in (None, 'SECRET')
+    assert conn.get_token() == 'SECRET'
+
+
+def test_conn_phrase_mismatch() -> None:
+    """Test two differing pass phrases re-ask the whole connection form.
+
+    The first attempt enters two different pass phrases, which the form's
+    rule rejects, so the whole form is re-asked and then completed with two
+    identical pass phrases.
+    """
+    answers = ['1', 'enc', 'cloud', 'https://x', 'me@x',
+               'encrypted_internal', 'SECRET', 'aa', 'bb',
+               'enc', 'cloud', 'https://x', 'me@x',
+               'encrypted_internal', 'SECRET', 'pp', 'pp']
+    conn = _Navigator(_console(answers)).run(_build_connections)['enc']
     assert conn.get_token() == 'SECRET'
 
 
@@ -140,10 +162,56 @@ def test_preset_def_filter() -> None:
     assert presets['p1'].def_filter == default_jira_filter('PROJ')
 
 
-def test_filter_no_project() -> None:
-    """Test a blank project asks the filter allowing an empty answer."""
-    nav = _Navigator(_console(['my filter']))
-    assert nav.run(lambda n: _ask_filter(n, '')) == 'my filter'
+@pytest.mark.parametrize('storage, disabled', [
+    (TokenStorage.CLEAR_FILE, {'api_token', 'passphrase', 'confirm'}),
+    (TokenStorage.ENCRYPTED_FILE, {'api_token', 'passphrase', 'confirm'}),
+    (TokenStorage.CLEAR_INTERNAL,
+     {'token_file_path', 'passphrase', 'confirm'}),
+    (TokenStorage.ENCRYPTED_INTERNAL, {'token_file_path'})])
+def test_conn_disabled(storage: TokenStorage, disabled: set[str]) -> None:
+    """Test each storage mode disables exactly the irrelevant token rows."""
+    file_mode = storage.name.endswith('_FILE')
+    encrypted = storage is TokenStorage.ENCRYPTED_INTERNAL
+    assert _connection_disabled(file_mode, encrypted) == disabled
+
+
+def _conn_result(storage: str, passphrase: str, confirm: str) -> FormResult:
+    """Return a connection FormResult with the given token answers."""
+    return FormResult({'token_storage': storage, 'passphrase': passphrase,
+                       'confirm': confirm})
+
+
+def test_conn_rule_mismatch() -> None:
+    """Test the connection rule flags two differing pass phrases."""
+    message, disabled = _connection_rule(
+        _conn_result('encrypted_internal', 'aa', 'bb'))
+    assert message is not None
+    assert 'token_file_path' in disabled
+
+
+def test_conn_rule_match() -> None:
+    """Test the connection rule passes two identical pass phrases."""
+    message, _ = _connection_rule(
+        _conn_result('encrypted_internal', 'pp', 'pp'))
+    assert message is None
+
+
+def test_conn_fields_masked() -> None:
+    """Test the connection form masks both pass-phrase fields."""
+    fields = {field.key: field for field in _connection_fields(set())}
+    for key in ('passphrase', 'confirm'):
+        ask = fields[key].ask
+        assert isinstance(ask, AskTextField)
+        assert ask.sensitive is True
+
+
+def test_preset_rule_disables() -> None:
+    """Test the preset rule disables the write and issue-type rows when off."""
+    values = FormResult({'separate_write': False, 'use_issue_type': False})
+    assert _preset_rule(True)(values) == (None, {'write_map',
+                                                 'issue_type_map'})
+    both_on = FormResult({'separate_write': True, 'use_issue_type': True})
+    assert _preset_rule(True)(both_on) == (None, set())
 
 
 def test_preset_skipped() -> None:

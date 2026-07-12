@@ -32,6 +32,8 @@ from backlogops.team import FteException, Membership, Team
 from backlogops.work_hours import CompanyWorkHours, ExceptionWorkHours
 from backlogops.wizard_helpers import _Navigator, _ask_level_display, \
     _backlog_map_fields
+from backlogops.wizard_forms import FormField, FormResult, choice_field, \
+    date_field, int_field, number_field, opt_date_field, yes_no_field
 from backlogops.io_preset_wizard import _build_input_presets, \
     _build_output_presets
 from backlogops.jira_wizard import _build_jira_config
@@ -197,16 +199,34 @@ def _build_exceptions(nav: _Navigator,
     return [nav.level(lambda: _ask_exception(nav)) for _ in range(count)]
 
 
+def _period_rule(values: FormResult) -> tuple[Optional[str], set[str]]:
+    """Reject an end date that falls before its start date."""
+    start = values.opt_day('start')
+    end = values.opt_day('end')
+    if start is not None and end is not None and end < start:
+        return 'The end date must not be before the start date.', set()
+    return None, set()
+
+
+def _exception_fields() -> list[FormField]:
+    """Return the fields of the one-screen work-hour exception form."""
+    return [
+        date_field('start', 'Start date'),
+        date_field('end', 'End date'),
+        number_field('hours', 'Work hours per day during the period',
+                     default=0.0, minimum=0.0),
+        yes_no_field('new_days', 'Does this add work on days that are '
+                     'normally free?', False)]
+
+
 def _ask_exception(nav: _Navigator) -> ExceptionWorkHours:
-    """Ask for one work-hour exception period."""
-    start_date = nav.ask_date('Start date')
-    end_date = nav.ask_end_date('End date', start_date)
-    hours = nav.ask_number('Work hours per day during the period', 0.0, 0.0,
-                           None)
-    new_work_days = nav.ask_yes_no(
-        'Does this add work on days that are normally free?', False)
-    return ExceptionWorkHours(start_date=start_date, end_date=end_date,
-                              hours_per_day=hours, new_work_days=new_work_days)
+    """Ask for one work-hour exception period on a single form."""
+    values = nav.ask_form('Configure the work-hour exception period.',
+                          _exception_fields(), _period_rule)
+    return ExceptionWorkHours(start_date=values.day('start'),
+                              end_date=values.day('end'),
+                              hours_per_day=values.number('hours'),
+                              new_work_days=values.flag('new_days'))
 
 
 def _build_persons(nav: _Navigator) -> dict[str, Person]:
@@ -234,22 +254,35 @@ def _build_teams(nav: _Navigator, person_names: list[str]) -> list[Team]:
             for _ in range(count)]
 
 
+def _team_fields(member_count: int) -> list[FormField]:
+    """Return the velocity, capacity and sprint fields of a team form.
+
+    The full-time-equivalent sum defaults to the number of members, the
+    common case where every member works full time.
+    """
+    return [
+        number_field('velocity', 'Team velocity', default=0.0, minimum=0.0),
+        number_field('sum_fte', 'Sum of full-time equivalents at that '
+                     'velocity', default=float(member_count)),
+        int_field('sprint', 'Sprint length in working days', default=10,
+                  minimum=1)]
+
+
 def _ask_team(nav: _Navigator, person_names: list[str]) -> Team:
     """Ask for one team and its memberships.
 
-    The team members are asked first, then the velocity and the matching
-    full-time-equivalent sum together. The sum defaults to the number of
-    members, the common case where every member works full time.
+    The team members are asked first, then the velocity, the matching
+    full-time-equivalent sum and the sprint length together on one form.
     """
     name = nav.ask_text('Team name')
     members = nav.level(lambda: _build_members(nav, person_names))
-    velocity = nav.ask_number('Team velocity', 0.0, 0.0, None)
-    sum_fte = nav.ask_number('Sum of full-time equivalents at that velocity',
-                             float(len(members)), None, None)
-    sprint_length = nav.ask_int('Sprint length in working days', 10, 1)
+    params = nav.ask_form('Configure the team velocity and sprint.',
+                          _team_fields(len(members)))
     aliases = nav.level(lambda: _build_aliases(nav))
-    return Team(name=name, velocity=velocity, sum_fte_at_velocity=sum_fte,
-                sprint_length=sprint_length, aliases=aliases, members=members)
+    return Team(name=name, velocity=params.number('velocity'),
+                sum_fte_at_velocity=params.number('sum_fte'),
+                sprint_length=params.whole('sprint'), aliases=aliases,
+                members=members)
 
 
 def _build_aliases(nav: _Navigator) -> list[str]:
@@ -279,15 +312,26 @@ def _build_members(nav: _Navigator,
     return members
 
 
+def _membership_fields(person_names: list[str]) -> list[FormField]:
+    """Return the fields of the one-screen team membership form."""
+    return [
+        choice_field('person', 'Select the person:', person_names),
+        number_field('fte', 'Full-time equivalent in this team', default=1.0,
+                     minimum=0.0, maximum=1.0),
+        opt_date_field('start', 'Membership start date'),
+        opt_date_field('end', 'Membership end date')]
+
+
 def _ask_membership(nav: _Navigator, person_names: list[str]) -> Membership:
-    """Ask for one team membership."""
-    person_name = nav.ask_choice('Select the person:', person_names)
-    fte = nav.ask_number('Full-time equivalent in this team', 1.0, 0.0, 1.0)
-    start_date = nav.ask_opt_date('Membership start date')
-    end_date = nav.ask_membership_end('Membership end date', start_date)
+    """Ask for one team membership on a form, then its FTE exceptions."""
+    values = nav.ask_form('Configure the team membership.',
+                          _membership_fields(person_names), _period_rule)
     fte_exceptions = nav.level(lambda: _build_fte_exceptions(nav))
-    return Membership(person_name=person_name, fte=fte, start_date=start_date,
-                      end_date=end_date, fte_exceptions=fte_exceptions)
+    return Membership(person_name=values.text('person'),
+                      fte=values.number('fte'),
+                      start_date=values.opt_day('start'),
+                      end_date=values.opt_day('end'),
+                      fte_exceptions=fte_exceptions)
 
 
 def _build_fte_exceptions(nav: _Navigator) -> list[FteException]:
@@ -296,10 +340,18 @@ def _build_fte_exceptions(nav: _Navigator) -> list[FteException]:
     return [nav.level(lambda: _ask_fte_exception(nav)) for _ in range(count)]
 
 
+def _fte_exception_fields() -> list[FormField]:
+    """Return the fields of the one-screen full-time-equivalent form."""
+    return [
+        date_field('start', 'Exception start date'),
+        date_field('end', 'Exception end date'),
+        number_field('fte', 'Full-time equivalent during the period',
+                     default=1.0, minimum=0.0, maximum=1.0)]
+
+
 def _ask_fte_exception(nav: _Navigator) -> FteException:
-    """Ask for one full-time-equivalent exception period."""
-    start_date = nav.ask_date('Exception start date')
-    end_date = nav.ask_end_date('Exception end date', start_date)
-    fte = nav.ask_number('Full-time equivalent during the period', 1.0, 0.0,
-                         1.0)
-    return FteException(start_date=start_date, end_date=end_date, fte=fte)
+    """Ask for one full-time-equivalent exception period on a single form."""
+    values = nav.ask_form('Configure the full-time-equivalent exception.',
+                          _fte_exception_fields(), _period_rule)
+    return FteException(start_date=values.day('start'),
+                        end_date=values.day('end'), fte=values.number('fte'))

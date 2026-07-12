@@ -4,31 +4,32 @@
 The :class:`_Navigator` drives a re-runnable wizard body, recording every
 answer so the body can be replayed to honour the bridge's back,
 cancel-level and abort requests: going back drops the most recently asked
-question, even across levels. The ``_read_*`` and ``_parse_*`` helpers ask
-and validate one wizard field each through any ``WizardUiBridge`` of
-``tableio_cfg_json``: scalar fields such as text, numbers and dates, and
-whole-table fields such as the weekly work-hours schedule, the column
-rename maps and the backlog item levels. The small domain helpers
-:func:`_ask_level_display` and :func:`_backlog_map_fields` are shared by
-the configuration and the preset wizards.
+question, even across levels. Its :meth:`_Navigator.ask_form` asks several
+related scalar questions on one screen through the reusable form toolkit in
+:mod:`backlogops.wizard_forms`; the remaining ``_read_*`` and ``_parse_*``
+helpers ask and validate the single-value and whole-table fields, such as a
+preset name, the weekly work-hours schedule, the column rename maps and the
+backlog item levels. The small domain helpers :func:`_ask_level_display`
+and :func:`_backlog_map_fields` are shared by the configuration and the
+preset wizards.
 
-Individual field values are validated as they are entered, and date ranges
-are kept non-empty. Cross-item rules that span a whole result are checked
-by the caller when the result is stored.
+Individual field values are validated as they are entered. Cross-item rules
+that span a whole result are checked by the caller when the result is
+stored.
 """
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
-from datetime import date
 from typing import Callable, Optional, Sequence, TextIO, TypeVar
 from tableio import FileAccess, access_capabilities
 from tableio_cfg_json import TableCell, TableColumn, TioJsonConfig, \
     WizardBack, WizardCancelLevel, WizardUiBridge, tio_json_config_wizard
 from backlogops.backlog import Status
-from backlogops.io_config import PRESET_NAME_RE
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
     JiraColumnMap, JiraIssueTypeMap
+from backlogops.wizard_forms import FormField, FormResult, name_error, \
+    run_form, _no_rule, _num_text
 from backlogops.levels import DEFAULT_LEVELS, Level, LevelDisplay, Levels, \
     levels_from_list
 from backlogops.person import Person
@@ -111,15 +112,6 @@ class _Navigator:
         assert isinstance(result, str)
         return result
 
-    def ask_number(self, question: str, default: float,
-                   minimum: Optional[float], maximum: Optional[float]
-                   ) -> float:
-        """Ask for a floating point value within optional bounds."""
-        result = self._ask(lambda: _read_number(self._ui, question, default,
-                                                minimum, maximum))
-        assert isinstance(result, float)
-        return result
-
     def ask_int(self, question: str, default: int, minimum: int,
                 maximum: Optional[int] = None) -> int:
         """Ask for a whole number within the given bounds."""
@@ -132,12 +124,6 @@ class _Navigator:
         """Ask how many items to collect, defaulting to none."""
         return self.ask_int(question, 0, 0, maximum)
 
-    def ask_yes_no(self, question: str, default: bool) -> bool:
-        """Ask a yes/no question through the bridge's dedicated control."""
-        result = self._ask(lambda: self._ui.ask_yes_no(question, default))
-        assert isinstance(result, bool)
-        return result
-
     def ask_choice(self, question: str, choices: Sequence[str],
                    default: Optional[str] = None) -> str:
         """Ask the user to pick one of choices through the bridge."""
@@ -147,31 +133,12 @@ class _Navigator:
         assert isinstance(result, str)
         return result
 
-    def ask_date(self, question: str) -> date:
-        """Ask for a required ISO 8601 date such as ``2026-06-13``."""
-        result = self._ask(lambda: _read_date(self._ui, question))
-        assert isinstance(result, date)
-        return result
-
-    def ask_end_date(self, question: str, start_date: date) -> date:
-        """Ask for an end date that is not before ``start_date``."""
-        result = self._ask(lambda: _read_end_date(self._ui, question,
-                                                  start_date))
-        assert isinstance(result, date)
-        return result
-
-    def ask_opt_date(self, question: str) -> Optional[date]:
-        """Ask for an optional ISO date; an empty answer returns ``None``."""
-        result = self._ask(lambda: _read_opt_date(self._ui, question, None))
-        assert result is None or isinstance(result, date)
-        return result
-
-    def ask_membership_end(self, question: str,
-                           start_date: Optional[date]) -> Optional[date]:
-        """Ask for an optional end date not before the start date."""
-        result = self._ask(lambda: _read_opt_date(self._ui, question,
-                                                  start_date))
-        assert result is None or isinstance(result, date)
+    def ask_form(self, question: str, fields: Sequence[FormField],
+                 rule: Callable[[FormResult], tuple[Optional[str], set[str]]]
+                 = _no_rule) -> FormResult:
+        """Ask a whole form on one screen and return its typed answers."""
+        result = self._ask(lambda: run_form(self._ui, question, fields, rule))
+        assert isinstance(result, FormResult)
         return result
 
     def ask_person_name(self, question: str,
@@ -271,14 +238,6 @@ class _Navigator:
         return self._cursor < len(self._answers)
 
 
-def _parse_date(answer: str) -> Optional[date]:
-    """Return the ISO date in ``answer``, or ``None`` when it is invalid."""
-    try:
-        return date.fromisoformat(answer)
-    except ValueError:
-        return None
-
-
 def _read_text(ui: WizardUiBridge, question: str, default: Optional[str],
                allow_empty: bool) -> str:
     """Ask for a text value with an optional default and re-ask on empty."""
@@ -295,27 +254,6 @@ def _read_text(ui: WizardUiBridge, question: str, default: Optional[str],
         reason = 'Please enter a non-empty value.'
 
 
-def _read_number(ui: WizardUiBridge, question: str, default: float,
-                 minimum: Optional[float], maximum: Optional[float]) -> float:
-    """Ask for a floating point value within optional bounds."""
-    reason: Optional[str] = None
-    while True:
-        answer = ui.ask_text(f'{question} [{default}]', reason, nullable=True)
-        if answer is None:
-            return default
-        try:
-            value = float(answer)
-        except ValueError:
-            reason = 'Please enter a number.'
-            continue
-        if minimum is not None and value < minimum:
-            reason = f'Please enter a value of at least {minimum}.'
-        elif maximum is not None and value > maximum:
-            reason = f'Please enter a value of at most {maximum}.'
-        else:
-            return value
-
-
 def _read_int(ui: WizardUiBridge, question: str, default: int, minimum: int,
               maximum: Optional[int]) -> int:
     """Ask for a whole number within the given bounds.
@@ -326,50 +264,6 @@ def _read_int(ui: WizardUiBridge, question: str, default: int, minimum: int,
     answer = ui.ask_int(f'{question} [{default}]', nullable=True,
                         min_value=minimum, max_value=maximum)
     return default if answer is None else answer
-
-
-def _read_date(ui: WizardUiBridge, question: str) -> date:
-    """Ask for a required ISO 8601 date such as ``2026-06-13``."""
-    reason: Optional[str] = None
-    while True:
-        answer = ui.ask_text(f'{question} (YYYY-MM-DD)', reason, nullable=True)
-        parsed = _parse_date(answer) if answer is not None else None
-        if parsed is not None:
-            return parsed
-        reason = 'Please enter a date as YYYY-MM-DD.'
-
-
-def _read_end_date(ui: WizardUiBridge, question: str, start_date: date
-                   ) -> date:
-    """Ask for an end date that is not before ``start_date``."""
-    reason: Optional[str] = None
-    while True:
-        answer = ui.ask_text(f'{question} (YYYY-MM-DD)', reason, nullable=True)
-        parsed = _parse_date(answer) if answer is not None else None
-        if parsed is None:
-            reason = 'Please enter a date as YYYY-MM-DD.'
-        elif parsed < start_date:
-            reason = 'The end date must not be before the start date.'
-        else:
-            return parsed
-
-
-def _read_opt_date(ui: WizardUiBridge, question: str,
-                   start_date: Optional[date]) -> Optional[date]:
-    """Ask for an optional ISO date not before an optional start date."""
-    reason: Optional[str] = None
-    while True:
-        answer = ui.ask_text(f'{question} (YYYY-MM-DD, blank for none)',
-                             reason, nullable=True)
-        if answer is None:
-            return None
-        parsed = _parse_date(answer)
-        if parsed is None:
-            reason = 'Please enter a date as YYYY-MM-DD, or leave blank.'
-        elif start_date is not None and parsed < start_date:
-            reason = 'The end date must not be before the start date.'
-        else:
-            return parsed
 
 
 def _read_unique_name(ui: WizardUiBridge, question: str,
@@ -400,11 +294,9 @@ def _read_preset_name(ui: WizardUiBridge, question: str, used: set[str]
     reason: Optional[str] = None
     while True:
         answer = ui.ask_text(question, reason, nullable=True)
-        if answer is None or PRESET_NAME_RE.match(answer) is None:
-            reason = 'Use only letters and digits for a preset name.'
-        elif answer in used:
-            reason = f'A preset named {answer!r} already exists.'
-        else:
+        reason = name_error(answer, used)
+        if reason is None:
+            assert answer is not None
             return answer
 
 
@@ -413,11 +305,6 @@ def _read_tableio(ui: WizardUiBridge, file_access: FileAccess
     """Ask for one TableIO endpoint configuration through the wizard."""
     capabilities = access_capabilities(file_access, error_file=ui.error_file())
     return tio_json_config_wizard(capabilities, file_access, ui)
-
-
-def _num_text(value: float) -> str:
-    """Return a compact decimal text for a default numeric value."""
-    return f'{value:g}'
 
 
 def _is_nonneg(text: Optional[str]) -> bool:

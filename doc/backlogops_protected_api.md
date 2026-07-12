@@ -544,26 +544,37 @@
     * [close](#backlogops.jira_connect.JiraConnections.close)
 * [backlogops.jira\_wizard](#backlogops.jira_wizard)
   * [\_PresetChoices](#backlogops.jira_wizard._PresetChoices)
-  * [\_ask\_enum](#backlogops.jira_wizard._ask_enum)
   * [\_counted\_named](#backlogops.jira_wizard._counted_named)
   * [\_build\_jira\_config](#backlogops.jira_wizard._build_jira_config)
   * [\_build\_issue\_type\_maps](#backlogops.jira_wizard._build_issue_type_maps)
   * [\_ask\_issue\_type\_map](#backlogops.jira_wizard._ask_issue_type_map)
   * [\_build\_presets](#backlogops.jira_wizard._build_presets)
   * [\_build\_connections](#backlogops.jira_wizard._build_connections)
+  * [\_enum\_choices](#backlogops.jira_wizard._enum_choices)
+  * [\_connection\_fields](#backlogops.jira_wizard._connection_fields)
+  * [\_connection\_rule](#backlogops.jira_wizard._connection_rule)
+  * [\_connection\_disabled](#backlogops.jira_wizard._connection_disabled)
+  * [\_phrase\_error](#backlogops.jira_wizard._phrase_error)
   * [\_ask\_connection](#backlogops.jira_wizard._ask_connection)
-  * [\_set\_token](#backlogops.jira_wizard._set_token)
+  * [\_store\_token](#backlogops.jira_wizard._store_token)
+  * [\_token\_phrase](#backlogops.jira_wizard._token_phrase)
   * [\_build\_backlog\_maps](#backlogops.jira_wizard._build_backlog_maps)
   * [\_build\_release\_maps](#backlogops.jira_wizard._build_release_maps)
   * [\_ask\_backlog\_map](#backlogops.jira_wizard._ask_backlog_map)
   * [\_ask\_release\_map](#backlogops.jira_wizard._ask_release_map)
   * [\_ask\_map](#backlogops.jira_wizard._ask_map)
   * [\_build\_preset\_list](#backlogops.jira_wizard._build_preset_list)
+  * [\_WRITE\_MAP\_Q](#backlogops.jira_wizard._WRITE_MAP_Q)
+  * [\_ISSUE\_MAP\_Q](#backlogops.jira_wizard._ISSUE_MAP_Q)
+  * [\_FILTER\_HELP](#backlogops.jira_wizard._FILTER_HELP)
+  * [\_issue\_type\_field](#backlogops.jira_wizard._issue_type_field)
+  * [\_preset\_fields](#backlogops.jira_wizard._preset_fields)
+  * [\_preset\_rule](#backlogops.jira_wizard._preset_rule)
   * [\_ask\_preset](#backlogops.jira_wizard._ask_preset)
-  * [\_ask\_write\_map](#backlogops.jira_wizard._ask_write_map)
-  * [\_ask\_issue\_type\_choice](#backlogops.jira_wizard._ask_issue_type_choice)
-  * [\_choice](#backlogops.jira_wizard._choice)
-  * [\_ask\_filter](#backlogops.jira_wizard._ask_filter)
+  * [\_preset\_from](#backlogops.jira_wizard._preset_from)
+  * [\_write\_map\_name](#backlogops.jira_wizard._write_map_name)
+  * [\_issue\_map\_name](#backlogops.jira_wizard._issue_map_name)
+  * [\_preset\_filter](#backlogops.jira_wizard._preset_filter)
 * [backlogops.jira\_write\_releases](#backlogops.jira_write_releases)
   * [\_VERSION\_CREATE\_FIELDS](#backlogops.jira_write_releases._VERSION_CREATE_FIELDS)
   * [ReleaseExistsError](#backlogops.jira_write_releases.ReleaseExistsError)
@@ -699,6 +710,44 @@
   * [\_backlog\_section](#backlogops.backlog_releases_io._backlog_section)
   * [\_ordered\_sections](#backlogops.backlog_releases_io._ordered_sections)
   * [write\_backlog\_releases](#backlogops.backlog_releases_io.write_backlog_releases)
+* [backlogops.wizard\_forms](#backlogops.wizard_forms)
+  * [FormField](#backlogops.wizard_forms.FormField)
+  * [FormResult](#backlogops.wizard_forms.FormResult)
+    * [\_\_init\_\_](#backlogops.wizard_forms.FormResult.__init__)
+    * [text](#backlogops.wizard_forms.FormResult.text)
+    * [opt\_text](#backlogops.wizard_forms.FormResult.opt_text)
+    * [flag](#backlogops.wizard_forms.FormResult.flag)
+    * [whole](#backlogops.wizard_forms.FormResult.whole)
+    * [number](#backlogops.wizard_forms.FormResult.number)
+    * [day](#backlogops.wizard_forms.FormResult.day)
+    * [opt\_day](#backlogops.wizard_forms.FormResult.opt_day)
+  * [\_no\_rule](#backlogops.wizard_forms._no_rule)
+  * [run\_form](#backlogops.wizard_forms.run_form)
+  * [\_values\_of](#backlogops.wizard_forms._values_of)
+  * [\_validate](#backlogops.wizard_forms._validate)
+  * [\_field\_errors](#backlogops.wizard_forms._field_errors)
+  * [\_message](#backlogops.wizard_forms._message)
+  * [\_answer\_text](#backlogops.wizard_forms._answer_text)
+  * [\_parse\_date](#backlogops.wizard_forms._parse_date)
+  * [\_num\_text](#backlogops.wizard_forms._num_text)
+  * [\_parse\_float](#backlogops.wizard_forms._parse_float)
+  * [name\_error](#backlogops.wizard_forms.name_error)
+  * [text\_field](#backlogops.wizard_forms.text_field)
+  * [opt\_text\_field](#backlogops.wizard_forms.opt_text_field)
+  * [secret\_field](#backlogops.wizard_forms.secret_field)
+  * [name\_field](#backlogops.wizard_forms.name_field)
+  * [choice\_field](#backlogops.wizard_forms.choice_field)
+  * [yes\_no\_field](#backlogops.wizard_forms.yes_no_field)
+  * [int\_field](#backlogops.wizard_forms.int_field)
+  * [number\_field](#backlogops.wizard_forms.number_field)
+  * [date\_field](#backlogops.wizard_forms.date_field)
+  * [opt\_date\_field](#backlogops.wizard_forms.opt_date_field)
+  * [\_no\_error](#backlogops.wizard_forms._no_error)
+  * [\_flag\_value](#backlogops.wizard_forms._flag_value)
+  * [\_int\_value](#backlogops.wizard_forms._int_value)
+  * [\_date\_value](#backlogops.wizard_forms._date_value)
+  * [\_number\_error](#backlogops.wizard_forms._number_error)
+  * [\_date\_error](#backlogops.wizard_forms._date_error)
 * [backlogops.backlog\_ops\_wizard](#backlogops.backlog_ops_wizard)
   * [\_GUI\_LEVEL\_QUESTION](#backlogops.backlog_ops_wizard._GUI_LEVEL_QUESTION)
   * [\_GUI\_COLUMN\_HEADER](#backlogops.backlog_ops_wizard._GUI_COLUMN_HEADER)
@@ -718,15 +767,20 @@
   * [\_levels\_or\_none](#backlogops.backlog_ops_wizard._levels_or_none)
   * [\_build\_company](#backlogops.backlog_ops_wizard._build_company)
   * [\_build\_exceptions](#backlogops.backlog_ops_wizard._build_exceptions)
+  * [\_period\_rule](#backlogops.backlog_ops_wizard._period_rule)
+  * [\_exception\_fields](#backlogops.backlog_ops_wizard._exception_fields)
   * [\_ask\_exception](#backlogops.backlog_ops_wizard._ask_exception)
   * [\_build\_persons](#backlogops.backlog_ops_wizard._build_persons)
   * [\_ask\_person](#backlogops.backlog_ops_wizard._ask_person)
   * [\_build\_teams](#backlogops.backlog_ops_wizard._build_teams)
+  * [\_team\_fields](#backlogops.backlog_ops_wizard._team_fields)
   * [\_ask\_team](#backlogops.backlog_ops_wizard._ask_team)
   * [\_build\_aliases](#backlogops.backlog_ops_wizard._build_aliases)
   * [\_build\_members](#backlogops.backlog_ops_wizard._build_members)
+  * [\_membership\_fields](#backlogops.backlog_ops_wizard._membership_fields)
   * [\_ask\_membership](#backlogops.backlog_ops_wizard._ask_membership)
   * [\_build\_fte\_exceptions](#backlogops.backlog_ops_wizard._build_fte_exceptions)
+  * [\_fte\_exception\_fields](#backlogops.backlog_ops_wizard._fte_exception_fields)
   * [\_ask\_fte\_exception](#backlogops.backlog_ops_wizard._ask_fte_exception)
 * [backlogops.order\_by\_dependencies](#backlogops.order_by_dependencies)
   * [DependencyMode](#backlogops.order_by_dependencies.DependencyMode)
@@ -774,15 +828,10 @@
     * [show](#backlogops.wizard_helpers._Navigator.show)
     * [error\_file](#backlogops.wizard_helpers._Navigator.error_file)
     * [ask\_text](#backlogops.wizard_helpers._Navigator.ask_text)
-    * [ask\_number](#backlogops.wizard_helpers._Navigator.ask_number)
     * [ask\_int](#backlogops.wizard_helpers._Navigator.ask_int)
     * [ask\_count](#backlogops.wizard_helpers._Navigator.ask_count)
-    * [ask\_yes\_no](#backlogops.wizard_helpers._Navigator.ask_yes_no)
     * [ask\_choice](#backlogops.wizard_helpers._Navigator.ask_choice)
-    * [ask\_date](#backlogops.wizard_helpers._Navigator.ask_date)
-    * [ask\_end\_date](#backlogops.wizard_helpers._Navigator.ask_end_date)
-    * [ask\_opt\_date](#backlogops.wizard_helpers._Navigator.ask_opt_date)
-    * [ask\_membership\_end](#backlogops.wizard_helpers._Navigator.ask_membership_end)
+    * [ask\_form](#backlogops.wizard_helpers._Navigator.ask_form)
     * [ask\_person\_name](#backlogops.wizard_helpers._Navigator.ask_person_name)
     * [ask\_preset\_name](#backlogops.wizard_helpers._Navigator.ask_preset_name)
     * [ask\_tableio](#backlogops.wizard_helpers._Navigator.ask_tableio)
@@ -794,18 +843,12 @@
     * [ask\_issue\_type\_map](#backlogops.wizard_helpers._Navigator.ask_issue_type_map)
     * [\_ask](#backlogops.wizard_helpers._Navigator._ask)
     * [\_replaying](#backlogops.wizard_helpers._Navigator._replaying)
-  * [\_parse\_date](#backlogops.wizard_helpers._parse_date)
   * [\_read\_text](#backlogops.wizard_helpers._read_text)
-  * [\_read\_number](#backlogops.wizard_helpers._read_number)
   * [\_read\_int](#backlogops.wizard_helpers._read_int)
-  * [\_read\_date](#backlogops.wizard_helpers._read_date)
-  * [\_read\_end\_date](#backlogops.wizard_helpers._read_end_date)
-  * [\_read\_opt\_date](#backlogops.wizard_helpers._read_opt_date)
   * [\_read\_unique\_name](#backlogops.wizard_helpers._read_unique_name)
   * [\_ask\_level\_display](#backlogops.wizard_helpers._ask_level_display)
   * [\_read\_preset\_name](#backlogops.wizard_helpers._read_preset_name)
   * [\_read\_tableio](#backlogops.wizard_helpers._read_tableio)
-  * [\_num\_text](#backlogops.wizard_helpers._num_text)
   * [\_is\_nonneg](#backlogops.wizard_helpers._is_nonneg)
   * [\_sched\_check](#backlogops.wizard_helpers._sched_check)
   * [\_parse\_schedule](#backlogops.wizard_helpers._parse_schedule)
@@ -9537,12 +9580,15 @@ them together, returning a :class:`JiraIOConfig`. It is used by the full
 configuration wizard in :mod:`backlogops.backlog_ops_wizard`, which passes
 in the configured levels so the issue-type map can be seeded from them.
 
-The API token is captured in the wizard only for an internal storage mode,
+Each connection and each preset is asked as one :meth:`_Navigator.ask_form`
+screen, so the related fields are answered together. The connection form's
+rule shows the token file path only for a file storage mode, the API token
+only for an internal mode, and the two masked pass phrases only for the
+internal encrypted mode, requiring the two pass phrases to match. The API
+token itself is captured in the wizard only for an internal storage mode,
 where the token must live in the configuration; for a file storage mode
-only the token file path is asked and the user places the file. An
-encrypted internal token is encrypted with a pass phrase entered in the
-wizard. Wizard input is not masked, so the token and pass phrase are
-visible while typed.
+only the token file path is asked and the user places the file. The API
+token is visible while typed; the pass phrases are masked.
 
 <a id="backlogops.jira_wizard._PresetChoices"></a>
 
@@ -9554,17 +9600,6 @@ class _PresetChoices()
 ```
 
 The named connections and maps a Jira preset may choose among.
-
-<a id="backlogops.jira_wizard._ask_enum"></a>
-
-#### \_ask\_enum
-
-```python
-def _ask_enum(nav: _Navigator, question: str, enum_cls: type[_E],
-              default: _E) -> _E
-```
-
-Ask the user to pick one member of an enum by its lower-case name.
 
 <a id="backlogops.jira_wizard._counted_named"></a>
 
@@ -9640,6 +9675,61 @@ def _build_connections(nav: _Navigator) -> dict[str, JiraConnectConfig]
 
 Ask for a counted list of named Jira connections.
 
+<a id="backlogops.jira_wizard._enum_choices"></a>
+
+#### \_enum\_choices
+
+```python
+def _enum_choices(enum_cls: type[JiraType] | type[TokenStorage]) -> list[str]
+```
+
+Return the lower-case names of an enum as choice-field options.
+
+<a id="backlogops.jira_wizard._connection_fields"></a>
+
+#### \_connection\_fields
+
+```python
+def _connection_fields(used: set[str]) -> list[FormField]
+```
+
+Return the fields of the one-screen Jira connection form.
+
+The token file path is only relevant for a file storage mode, the API
+token only for an internal mode, and the two masked pass phrases only
+for the internal encrypted mode; the connection rule disables the rows
+that the chosen storage mode makes irrelevant.
+
+<a id="backlogops.jira_wizard._connection_rule"></a>
+
+#### \_connection\_rule
+
+```python
+def _connection_rule(values: FormResult) -> tuple[Optional[str], set[str]]
+```
+
+Disable the irrelevant token rows and check the two pass phrases.
+
+<a id="backlogops.jira_wizard._connection_disabled"></a>
+
+#### \_connection\_disabled
+
+```python
+def _connection_disabled(file_mode: bool, encrypted: bool) -> set[str]
+```
+
+Return the connection rows irrelevant to the chosen storage mode.
+
+<a id="backlogops.jira_wizard._phrase_error"></a>
+
+#### \_phrase\_error
+
+```python
+def _phrase_error(values: FormResult, encrypted: bool) -> Optional[str]
+```
+
+Return a message when the two pass phrases differ, else None.
+
 <a id="backlogops.jira_wizard._ask_connection"></a>
 
 #### \_ask\_connection
@@ -9649,17 +9739,29 @@ def _ask_connection(nav: _Navigator,
                     used: set[str]) -> tuple[str, JiraConnectConfig]
 ```
 
-Ask one Jira connection: name, type, URL, email and token storage.
+Ask one Jira connection and its token storage on a single form.
 
-<a id="backlogops.jira_wizard._set_token"></a>
+<a id="backlogops.jira_wizard._store_token"></a>
 
-#### \_set\_token
+#### \_store\_token
 
 ```python
-def _set_token(nav: _Navigator, connection: JiraConnectConfig) -> None
+def _store_token(nav: _Navigator, connection: JiraConnectConfig,
+                 values: FormResult) -> None
 ```
 
-Ask the token file path, or the token itself for an internal mode.
+Store the token from the form, by file path or internal storage.
+
+<a id="backlogops.jira_wizard._token_phrase"></a>
+
+#### \_token\_phrase
+
+```python
+def _token_phrase(connection: JiraConnectConfig,
+                  values: FormResult) -> Optional[Callable[[], str]]
+```
+
+Return a pass-phrase supplier for an encrypted token, else None.
 
 <a id="backlogops.jira_wizard._build_backlog_maps"></a>
 
@@ -9725,6 +9827,60 @@ def _build_preset_list(nav: _Navigator,
 
 Ask for a counted list of named Jira presets.
 
+<a id="backlogops.jira_wizard._WRITE_MAP_Q"></a>
+
+#### \_WRITE\_MAP\_Q
+
+Form question offering a separate backlog write map.
+
+<a id="backlogops.jira_wizard._ISSUE_MAP_Q"></a>
+
+#### \_ISSUE\_MAP\_Q
+
+Form question offering a level-to-issue-type write map.
+
+<a id="backlogops.jira_wizard._FILTER_HELP"></a>
+
+#### \_FILTER\_HELP
+
+Help shown for the blank-defaulting issue filter field.
+
+<a id="backlogops.jira_wizard._issue_type_field"></a>
+
+#### \_issue\_type\_field
+
+```python
+def _issue_type_field(choices: _PresetChoices) -> FormField
+```
+
+Return the choice field for the level-to-issue-type write map.
+
+<a id="backlogops.jira_wizard._preset_fields"></a>
+
+#### \_preset\_fields
+
+```python
+def _preset_fields(used: set[str], choices: _PresetChoices) -> list[FormField]
+```
+
+Return the fields of the one-screen Jira preset form.
+
+The write-map choice is disabled unless a separate write map is asked
+for, and the level-to-issue-type rows appear and are enabled only when
+issue-type maps exist and the user opts to use one.
+
+<a id="backlogops.jira_wizard._preset_rule"></a>
+
+#### \_preset\_rule
+
+```python
+def _preset_rule(
+    has_issue_type: bool
+) -> Callable[[FormResult], tuple[Optional[str], set[str]]]
+```
+
+Return a rule that disables the write and issue-type rows when off.
+
 <a id="backlogops.jira_wizard._ask_preset"></a>
 
 #### \_ask\_preset
@@ -9734,47 +9890,48 @@ def _ask_preset(nav: _Navigator, used: set[str],
                 choices: _PresetChoices) -> tuple[str, JiraPreset]
 ```
 
-Ask one preset: name, connection, maps, project and filter.
+Ask one preset on a single form: name, connection, maps and filter.
 
-<a id="backlogops.jira_wizard._ask_write_map"></a>
+<a id="backlogops.jira_wizard._preset_from"></a>
 
-#### \_ask\_write\_map
-
-```python
-def _ask_write_map(nav: _Navigator, backlog: list[str]) -> str
-```
-
-Ask an optional separate backlog column map for writing to Jira.
-
-<a id="backlogops.jira_wizard._ask_issue_type_choice"></a>
-
-#### \_ask\_issue\_type\_choice
+#### \_preset\_from
 
 ```python
-def _ask_issue_type_choice(nav: _Navigator, issue_type_maps: list[str]) -> str
+def _preset_from(nav: _Navigator, values: FormResult,
+                 choices: _PresetChoices) -> tuple[str, JiraPreset]
 ```
 
-Ask an optional level-to-issue-type map for writing to Jira.
+Build a named preset from the answers of the preset form.
 
-<a id="backlogops.jira_wizard._choice"></a>
+<a id="backlogops.jira_wizard._write_map_name"></a>
 
-#### \_choice
+#### \_write\_map\_name
 
 ```python
-def _choice(nav: _Navigator, question: str, choices: list[str]) -> str
+def _write_map_name(values: FormResult) -> str
 ```
 
-Ask a choice among ``choices``, defaulting to the first option.
+Return the chosen backlog write map, or empty to reuse the read map.
 
-<a id="backlogops.jira_wizard._ask_filter"></a>
+<a id="backlogops.jira_wizard._issue_map_name"></a>
 
-#### \_ask\_filter
+#### \_issue\_map\_name
 
 ```python
-def _ask_filter(nav: _Navigator, project: str) -> str
+def _issue_map_name(values: FormResult, choices: _PresetChoices) -> str
 ```
 
-Ask the default issue filter, suggesting the project filter.
+Return the chosen issue-type map, or empty when none is used.
+
+<a id="backlogops.jira_wizard._preset_filter"></a>
+
+#### \_preset\_filter
+
+```python
+def _preset_filter(values: FormResult) -> str
+```
+
+Return the entered filter, or the project rank filter when blank.
 
 <a id="backlogops.jira_write_releases"></a>
 
@@ -11931,6 +12088,464 @@ omitted the default :class:`FormatRules` apply.
   documented for :mod:`backlogops.table_create`.
   None refuses an existing file.
 
+<a id="backlogops.wizard_forms"></a>
+
+# backlogops.wizard\_forms
+
+Reusable building blocks for the one-screen backlog-ops wizard forms.
+
+A wizard form asks several related scalar questions on a single screen
+through the ``ask_form`` method of a ``WizardUiBridge``. Each question is a
+:class:`FormField` that pairs an ``AskField`` (what the bridge shows) with a
+validator and a parser. The builder functions (:func:`text_field`,
+:func:`date_field`, :func:`number_field` and friends) create the common
+field kinds, so a wizard only lists the fields and, when needed, a ``rule``.
+
+A ``rule`` is called with the current :class:`FormResult` after every change.
+It returns a message for a cross-field problem, such as two pass phrases that
+differ or an end date before its start date, and the keys of the fields that
+the answers so far make irrelevant. :func:`run_form` shows the fields,
+disables the irrelevant ones, blocks an invalid form and returns the typed
+answers as a :class:`FormResult`.
+
+Dates and decimals have no native field type, so they are asked as text
+fields validated here. :func:`_parse_date` and :func:`_num_text` are shared
+with the table-based wizard helpers.
+
+<a id="backlogops.wizard_forms.FormField"></a>
+
+## FormField Objects
+
+```python
+@dataclass(frozen=True)
+class FormField()
+```
+
+One form field: what to ask, how to validate and how to parse it.
+
+**Attributes**:
+
+- `key` - The name the wizard uses to read this field's answer.
+- `ask` - The question the bridge shows for the field.
+- `error` - Returns a message for an invalid answer, or None when valid.
+- `value` - Returns the typed answer, such as a date or a float.
+
+<a id="backlogops.wizard_forms.FormResult"></a>
+
+## FormResult Objects
+
+```python
+class FormResult()
+```
+
+Typed answers of a form, read by field key with strict getters.
+
+<a id="backlogops.wizard_forms.FormResult.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(values: dict[str, object]) -> None
+```
+
+Store the parsed value of each field, keyed by field key.
+
+<a id="backlogops.wizard_forms.FormResult.text"></a>
+
+#### text
+
+```python
+def text(key: str) -> str
+```
+
+Return a required text or choice answer as a string.
+
+<a id="backlogops.wizard_forms.FormResult.opt_text"></a>
+
+#### opt\_text
+
+```python
+def opt_text(key: str) -> Optional[str]
+```
+
+Return an optional text answer, or None when left blank.
+
+<a id="backlogops.wizard_forms.FormResult.flag"></a>
+
+#### flag
+
+```python
+def flag(key: str) -> bool
+```
+
+Return a yes/no answer as a boolean.
+
+<a id="backlogops.wizard_forms.FormResult.whole"></a>
+
+#### whole
+
+```python
+def whole(key: str) -> int
+```
+
+Return an integer answer.
+
+<a id="backlogops.wizard_forms.FormResult.number"></a>
+
+#### number
+
+```python
+def number(key: str) -> float
+```
+
+Return a decimal answer as a float.
+
+<a id="backlogops.wizard_forms.FormResult.day"></a>
+
+#### day
+
+```python
+def day(key: str) -> date
+```
+
+Return a required date answer.
+
+<a id="backlogops.wizard_forms.FormResult.opt_day"></a>
+
+#### opt\_day
+
+```python
+def opt_day(key: str) -> Optional[date]
+```
+
+Return an optional date answer, or None when left blank.
+
+<a id="backlogops.wizard_forms._no_rule"></a>
+
+#### \_no\_rule
+
+```python
+def _no_rule(_values: FormResult) -> tuple[Optional[str], set[str]]
+```
+
+Enable every field and report no cross-field problem.
+
+<a id="backlogops.wizard_forms.run_form"></a>
+
+#### run\_form
+
+```python
+def run_form(
+    bridge: WizardUiBridge,
+    question: str,
+    fields: Sequence[FormField],
+    rule: Callable[[FormResult], tuple[Optional[str], set[str]]] = _no_rule
+) -> FormResult
+```
+
+Ask a whole form and return its validated, typed answers.
+
+The rule disables the fields that the current answers make irrelevant
+and reports any cross-field problem. A bridge that validates on submit
+returns only valid answers; a plain console bridge may return an
+invalid form, which is re-asked with the blocking message shown.
+
+<a id="backlogops.wizard_forms._values_of"></a>
+
+#### \_values\_of
+
+```python
+def _values_of(fields: Sequence[FormField],
+               answers: Sequence[AnswerField]) -> dict[str, object]
+```
+
+Return the typed value of every field, keyed by field key.
+
+<a id="backlogops.wizard_forms._validate"></a>
+
+#### \_validate
+
+```python
+def _validate(fields: Sequence[FormField], rule: Callable[[FormResult],
+                                                          tuple[Optional[str],
+                                                                set[str]]],
+              answers: list[AnswerField],
+              changed: int) -> PartFormValidationResult
+```
+
+Run the rule and the field checks into one validation result.
+
+<a id="backlogops.wizard_forms._field_errors"></a>
+
+#### \_field\_errors
+
+```python
+def _field_errors(fields: Sequence[FormField], answers: list[AnswerField],
+                  disabled_keys: set[str]) -> dict[int, str]
+```
+
+Return the own error of every enabled field, keyed by row index.
+
+<a id="backlogops.wizard_forms._message"></a>
+
+#### \_message
+
+```python
+def _message(errors: dict[int, str], rule_message: Optional[str],
+             changed: int) -> str
+```
+
+Return the most relevant message to show below the form.
+
+<a id="backlogops.wizard_forms._answer_text"></a>
+
+#### \_answer\_text
+
+```python
+def _answer_text(answer: AnswerField) -> Optional[str]
+```
+
+Return the string an answer holds, or None when it holds none.
+
+<a id="backlogops.wizard_forms._parse_date"></a>
+
+#### \_parse\_date
+
+```python
+def _parse_date(answer: str) -> Optional[date]
+```
+
+Return the ISO date in ``answer``, or None when it is invalid.
+
+<a id="backlogops.wizard_forms._num_text"></a>
+
+#### \_num\_text
+
+```python
+def _num_text(value: float) -> str
+```
+
+Return a compact decimal text for a default numeric value.
+
+<a id="backlogops.wizard_forms._parse_float"></a>
+
+#### \_parse\_float
+
+```python
+def _parse_float(text: Optional[str]) -> Optional[float]
+```
+
+Return the float in ``text``, or None when it is not a number.
+
+<a id="backlogops.wizard_forms.name_error"></a>
+
+#### name\_error
+
+```python
+def name_error(name: Optional[str], used: set[str]) -> Optional[str]
+```
+
+Return why a preset-style name is invalid, or None when it is fine.
+
+<a id="backlogops.wizard_forms.text_field"></a>
+
+#### text\_field
+
+```python
+def text_field(key: str,
+               question: str,
+               *,
+               help_text: Optional[str] = None) -> FormField
+```
+
+Return a required free-text field.
+
+<a id="backlogops.wizard_forms.opt_text_field"></a>
+
+#### opt\_text\_field
+
+```python
+def opt_text_field(key: str,
+                   question: str,
+                   *,
+                   help_text: Optional[str] = None) -> FormField
+```
+
+Return an optional free-text field that may be left blank.
+
+<a id="backlogops.wizard_forms.secret_field"></a>
+
+#### secret\_field
+
+```python
+def secret_field(key: str,
+                 question: str,
+                 *,
+                 help_text: Optional[str] = None) -> FormField
+```
+
+Return a required masked field, such as a pass phrase.
+
+<a id="backlogops.wizard_forms.name_field"></a>
+
+#### name\_field
+
+```python
+def name_field(key: str,
+               question: str,
+               used: set[str],
+               *,
+               help_text: Optional[str] = None) -> FormField
+```
+
+Return a field for a unique letters-and-digits name.
+
+<a id="backlogops.wizard_forms.choice_field"></a>
+
+#### choice\_field
+
+```python
+def choice_field(key: str,
+                 question: str,
+                 choices: Sequence[str],
+                 *,
+                 default: Optional[str] = None,
+                 help_text: Optional[str] = None) -> FormField
+```
+
+Return a single-choice field, optionally with a default choice.
+
+<a id="backlogops.wizard_forms.yes_no_field"></a>
+
+#### yes\_no\_field
+
+```python
+def yes_no_field(key: str,
+                 question: str,
+                 default: bool,
+                 *,
+                 help_text: Optional[str] = None) -> FormField
+```
+
+Return a yes/no field with the given default.
+
+<a id="backlogops.wizard_forms.int_field"></a>
+
+#### int\_field
+
+```python
+def int_field(key: str,
+              question: str,
+              *,
+              default: int,
+              minimum: Optional[int] = None,
+              maximum: Optional[int] = None) -> FormField
+```
+
+Return an integer field pre-filled with its default.
+
+<a id="backlogops.wizard_forms.number_field"></a>
+
+#### number\_field
+
+```python
+def number_field(key: str,
+                 question: str,
+                 *,
+                 default: float,
+                 minimum: Optional[float] = None,
+                 maximum: Optional[float] = None) -> FormField
+```
+
+Return a decimal field pre-filled with its default.
+
+<a id="backlogops.wizard_forms.date_field"></a>
+
+#### date\_field
+
+```python
+def date_field(key: str,
+               question: str,
+               *,
+               help_text: Optional[str] = None) -> FormField
+```
+
+Return a required ISO date field, asked as validated text.
+
+<a id="backlogops.wizard_forms.opt_date_field"></a>
+
+#### opt\_date\_field
+
+```python
+def opt_date_field(key: str,
+                   question: str,
+                   *,
+                   help_text: Optional[str] = None) -> FormField
+```
+
+Return an optional ISO date field that may be left blank.
+
+<a id="backlogops.wizard_forms._no_error"></a>
+
+#### \_no\_error
+
+```python
+def _no_error(_answer: AnswerField) -> Optional[str]
+```
+
+Report no own error for a field that validates itself.
+
+<a id="backlogops.wizard_forms._flag_value"></a>
+
+#### \_flag\_value
+
+```python
+def _flag_value(answer: AnswerField) -> object
+```
+
+Return the boolean an answer holds.
+
+<a id="backlogops.wizard_forms._int_value"></a>
+
+#### \_int\_value
+
+```python
+def _int_value(answer: AnswerField) -> object
+```
+
+Return the integer an answer holds.
+
+<a id="backlogops.wizard_forms._date_value"></a>
+
+#### \_date\_value
+
+```python
+def _date_value(answer: AnswerField) -> object
+```
+
+Return the date an answer holds, or None when it is blank.
+
+<a id="backlogops.wizard_forms._number_error"></a>
+
+#### \_number\_error
+
+```python
+def _number_error(text: Optional[str], minimum: Optional[float],
+                  maximum: Optional[float]) -> Optional[str]
+```
+
+Return why a decimal answer is invalid, or None when it is fine.
+
+<a id="backlogops.wizard_forms._date_error"></a>
+
+#### \_date\_error
+
+```python
+def _date_error(text: Optional[str], required: bool) -> Optional[str]
+```
+
+Return why a date answer is invalid, or None when it is fine.
+
 <a id="backlogops.backlog_ops_wizard"></a>
 
 # backlogops.backlog\_ops\_wizard
@@ -12135,6 +12750,26 @@ def _build_exceptions(nav: _Navigator,
 
 Ask for a counted list of work-hour exception periods.
 
+<a id="backlogops.backlog_ops_wizard._period_rule"></a>
+
+#### \_period\_rule
+
+```python
+def _period_rule(values: FormResult) -> tuple[Optional[str], set[str]]
+```
+
+Reject an end date that falls before its start date.
+
+<a id="backlogops.backlog_ops_wizard._exception_fields"></a>
+
+#### \_exception\_fields
+
+```python
+def _exception_fields() -> list[FormField]
+```
+
+Return the fields of the one-screen work-hour exception form.
+
 <a id="backlogops.backlog_ops_wizard._ask_exception"></a>
 
 #### \_ask\_exception
@@ -12143,7 +12778,7 @@ Ask for a counted list of work-hour exception periods.
 def _ask_exception(nav: _Navigator) -> ExceptionWorkHours
 ```
 
-Ask for one work-hour exception period.
+Ask for one work-hour exception period on a single form.
 
 <a id="backlogops.backlog_ops_wizard._build_persons"></a>
 
@@ -12175,6 +12810,19 @@ def _build_teams(nav: _Navigator, person_names: list[str]) -> list[Team]
 
 Ask for a counted list of teams and their memberships.
 
+<a id="backlogops.backlog_ops_wizard._team_fields"></a>
+
+#### \_team\_fields
+
+```python
+def _team_fields(member_count: int) -> list[FormField]
+```
+
+Return the velocity, capacity and sprint fields of a team form.
+
+The full-time-equivalent sum defaults to the number of members, the
+common case where every member works full time.
+
 <a id="backlogops.backlog_ops_wizard._ask_team"></a>
 
 #### \_ask\_team
@@ -12185,9 +12833,8 @@ def _ask_team(nav: _Navigator, person_names: list[str]) -> Team
 
 Ask for one team and its memberships.
 
-The team members are asked first, then the velocity and the matching
-full-time-equivalent sum together. The sum defaults to the number of
-members, the common case where every member works full time.
+The team members are asked first, then the velocity, the matching
+full-time-equivalent sum and the sprint length together on one form.
 
 <a id="backlogops.backlog_ops_wizard._build_aliases"></a>
 
@@ -12214,6 +12861,16 @@ A person joins a team at most once, so each membership is chosen from
 the persons not yet members of this team, and the count cannot exceed
 the number of available persons.
 
+<a id="backlogops.backlog_ops_wizard._membership_fields"></a>
+
+#### \_membership\_fields
+
+```python
+def _membership_fields(person_names: list[str]) -> list[FormField]
+```
+
+Return the fields of the one-screen team membership form.
+
 <a id="backlogops.backlog_ops_wizard._ask_membership"></a>
 
 #### \_ask\_membership
@@ -12222,7 +12879,7 @@ the number of available persons.
 def _ask_membership(nav: _Navigator, person_names: list[str]) -> Membership
 ```
 
-Ask for one team membership.
+Ask for one team membership on a form, then its FTE exceptions.
 
 <a id="backlogops.backlog_ops_wizard._build_fte_exceptions"></a>
 
@@ -12234,6 +12891,16 @@ def _build_fte_exceptions(nav: _Navigator) -> list[FteException]
 
 Ask for a counted list of full-time-equivalent exception periods.
 
+<a id="backlogops.backlog_ops_wizard._fte_exception_fields"></a>
+
+#### \_fte\_exception\_fields
+
+```python
+def _fte_exception_fields() -> list[FormField]
+```
+
+Return the fields of the one-screen full-time-equivalent form.
+
 <a id="backlogops.backlog_ops_wizard._ask_fte_exception"></a>
 
 #### \_ask\_fte\_exception
@@ -12242,7 +12909,7 @@ Ask for a counted list of full-time-equivalent exception periods.
 def _ask_fte_exception(nav: _Navigator) -> FteException
 ```
 
-Ask for one full-time-equivalent exception period.
+Ask for one full-time-equivalent exception period on a single form.
 
 <a id="backlogops.order_by_dependencies"></a>
 
@@ -12983,17 +13650,18 @@ Reusable navigation and field-input helpers for the wizards.
 The :class:`_Navigator` drives a re-runnable wizard body, recording every
 answer so the body can be replayed to honour the bridge's back,
 cancel-level and abort requests: going back drops the most recently asked
-question, even across levels. The ``_read_*`` and ``_parse_*`` helpers ask
-and validate one wizard field each through any ``WizardUiBridge`` of
-``tableio_cfg_json``: scalar fields such as text, numbers and dates, and
-whole-table fields such as the weekly work-hours schedule, the column
-rename maps and the backlog item levels. The small domain helpers
-:func:`_ask_level_display` and :func:`_backlog_map_fields` are shared by
-the configuration and the preset wizards.
+question, even across levels. Its :meth:`_Navigator.ask_form` asks several
+related scalar questions on one screen through the reusable form toolkit in
+:mod:`backlogops.wizard_forms`; the remaining ``_read_*`` and ``_parse_*``
+helpers ask and validate the single-value and whole-table fields, such as a
+preset name, the weekly work-hours schedule, the column rename maps and the
+backlog item levels. The small domain helpers :func:`_ask_level_display`
+and :func:`_backlog_map_fields` are shared by the configuration and the
+preset wizards.
 
-Individual field values are validated as they are entered, and date ranges
-are kept non-empty. Cross-item rules that span a whole result are checked
-by the caller when the result is stored.
+Individual field values are validated as they are entered. Cross-item rules
+that span a whole result are checked by the caller when the result is
+stored.
 
 <a id="backlogops.wizard_helpers._Navigator"></a>
 
@@ -13084,17 +13752,6 @@ def ask_text(question: str,
 
 Ask for text with an optional default and re-ask on empty.
 
-<a id="backlogops.wizard_helpers._Navigator.ask_number"></a>
-
-#### ask\_number
-
-```python
-def ask_number(question: str, default: float, minimum: Optional[float],
-               maximum: Optional[float]) -> float
-```
-
-Ask for a floating point value within optional bounds.
-
 <a id="backlogops.wizard_helpers._Navigator.ask_int"></a>
 
 #### ask\_int
@@ -13118,16 +13775,6 @@ def ask_count(question: str, maximum: Optional[int] = None) -> int
 
 Ask how many items to collect, defaulting to none.
 
-<a id="backlogops.wizard_helpers._Navigator.ask_yes_no"></a>
-
-#### ask\_yes\_no
-
-```python
-def ask_yes_no(question: str, default: bool) -> bool
-```
-
-Ask a yes/no question through the bridge's dedicated control.
-
 <a id="backlogops.wizard_helpers._Navigator.ask_choice"></a>
 
 #### ask\_choice
@@ -13140,46 +13787,19 @@ def ask_choice(question: str,
 
 Ask the user to pick one of choices through the bridge.
 
-<a id="backlogops.wizard_helpers._Navigator.ask_date"></a>
+<a id="backlogops.wizard_helpers._Navigator.ask_form"></a>
 
-#### ask\_date
-
-```python
-def ask_date(question: str) -> date
-```
-
-Ask for a required ISO 8601 date such as ``2026-06-13``.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_end_date"></a>
-
-#### ask\_end\_date
+#### ask\_form
 
 ```python
-def ask_end_date(question: str, start_date: date) -> date
+def ask_form(
+    question: str,
+    fields: Sequence[FormField],
+    rule: Callable[[FormResult], tuple[Optional[str], set[str]]] = _no_rule
+) -> FormResult
 ```
 
-Ask for an end date that is not before ``start_date``.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_opt_date"></a>
-
-#### ask\_opt\_date
-
-```python
-def ask_opt_date(question: str) -> Optional[date]
-```
-
-Ask for an optional ISO date; an empty answer returns ``None``.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_membership_end"></a>
-
-#### ask\_membership\_end
-
-```python
-def ask_membership_end(question: str,
-                       start_date: Optional[date]) -> Optional[date]
-```
-
-Ask for an optional end date not before the start date.
+Ask a whole form on one screen and return its typed answers.
 
 <a id="backlogops.wizard_helpers._Navigator.ask_person_name"></a>
 
@@ -13308,16 +13928,6 @@ def _replaying() -> bool
 
 Return whether recorded answers are being replayed.
 
-<a id="backlogops.wizard_helpers._parse_date"></a>
-
-#### \_parse\_date
-
-```python
-def _parse_date(answer: str) -> Optional[date]
-```
-
-Return the ISO date in ``answer``, or ``None`` when it is invalid.
-
 <a id="backlogops.wizard_helpers._read_text"></a>
 
 #### \_read\_text
@@ -13328,17 +13938,6 @@ def _read_text(ui: WizardUiBridge, question: str, default: Optional[str],
 ```
 
 Ask for a text value with an optional default and re-ask on empty.
-
-<a id="backlogops.wizard_helpers._read_number"></a>
-
-#### \_read\_number
-
-```python
-def _read_number(ui: WizardUiBridge, question: str, default: float,
-                 minimum: Optional[float], maximum: Optional[float]) -> float
-```
-
-Ask for a floating point value within optional bounds.
 
 <a id="backlogops.wizard_helpers._read_int"></a>
 
@@ -13353,38 +13952,6 @@ Ask for a whole number within the given bounds.
 
 The bridge's typed ask_int re-asks invalid or out-of-range answers,
 and an empty answer keeps the default.
-
-<a id="backlogops.wizard_helpers._read_date"></a>
-
-#### \_read\_date
-
-```python
-def _read_date(ui: WizardUiBridge, question: str) -> date
-```
-
-Ask for a required ISO 8601 date such as ``2026-06-13``.
-
-<a id="backlogops.wizard_helpers._read_end_date"></a>
-
-#### \_read\_end\_date
-
-```python
-def _read_end_date(ui: WizardUiBridge, question: str,
-                   start_date: date) -> date
-```
-
-Ask for an end date that is not before ``start_date``.
-
-<a id="backlogops.wizard_helpers._read_opt_date"></a>
-
-#### \_read\_opt\_date
-
-```python
-def _read_opt_date(ui: WizardUiBridge, question: str,
-                   start_date: Optional[date]) -> Optional[date]
-```
-
-Ask for an optional ISO date not before an optional start date.
 
 <a id="backlogops.wizard_helpers._read_unique_name"></a>
 
@@ -13428,16 +13995,6 @@ def _read_tableio(ui: WizardUiBridge,
 ```
 
 Ask for one TableIO endpoint configuration through the wizard.
-
-<a id="backlogops.wizard_helpers._num_text"></a>
-
-#### \_num\_text
-
-```python
-def _num_text(value: float) -> str
-```
-
-Return a compact decimal text for a default numeric value.
 
 <a id="backlogops.wizard_helpers._is_nonneg"></a>
 
