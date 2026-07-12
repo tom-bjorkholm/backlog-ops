@@ -5,19 +5,21 @@
 # MIT License
 
 import tkinter as tk
-from typing import cast
+from pathlib import Path
+from typing import Sequence, cast
 import pytest
-from tableio_cfg_json import TableCell, TableColumn, WizardAbort, \
-    WizardBack, WizardCancelLevel
+from tableio_cfg_json import AnswerChoiceField, AnswerTextField, AskField, \
+    AskChoiceField, AskTextField, PathAskOptions, TableCell, TableColumn, \
+    WizardAbort, WizardBack, WizardCancelLevel, WizardPathKind
 from backlogops import NoTextIO
 from backlogops_gui.gui_wizard import TkWizardBridge
 from .gui_test_helpers import gui_root
 
 
-def _drive_multi(root: tk.Tk, bridge: TkWizardBridge,
-                 picks: list[list[str]]) -> None:
-    """Schedule finishing each multi-select prompt with the next picks."""
-    queue = list(picks)
+def _drive(root: tk.Tk, bridge: TkWizardBridge,
+           answers: Sequence[object]) -> None:
+    """Schedule finishing each prompt with the next queued answer."""
+    queue = list(answers)
 
     def step() -> None:
         """Finish the current prompt, then queue the next finish."""
@@ -211,7 +213,7 @@ def test_multi_min_select() -> None:
     """Test picking fewer than the minimum re-asks until enough are picked."""
     with gui_root() as root:
         bridge = TkWizardBridge(root)
-        _drive_multi(root, bridge, [[], ['a']])
+        _drive(root, bridge, [[], ['a']])
         assert bridge.ask_multi('Pick', choices=['a', 'b'],
                                 min_select=1) == ['a']
         bridge.close()
@@ -221,7 +223,112 @@ def test_multi_max_select() -> None:
     """Test picking more than the maximum re-asks until few enough remain."""
     with gui_root() as root:
         bridge = TkWizardBridge(root)
-        _drive_multi(root, bridge, [['a', 'b'], ['a']])
+        _drive(root, bridge, [['a', 'b'], ['a']])
         assert bridge.ask_multi('Pick', choices=['a', 'b'],
                                 max_select=1) == ['a']
+        bridge.close()
+
+
+def test_sensitive_default() -> None:
+    """Test a sensitive question rejects a pre-filled default value."""
+    bridge = TkWizardBridge(cast(tk.Misc, object()))
+    with pytest.raises(ValueError):
+        bridge.ask_text('PW?', default='x', sensitive=True)
+
+
+def test_real_int() -> None:
+    """Test a real window returns the entered integer."""
+    with gui_root() as root:
+        bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
+        root.after(0, lambda: bridge._window_obj()._finish('7'))
+        assert bridge.ask_int('N?') == 7
+        bridge.close()
+
+
+def test_int_default() -> None:
+    """Test an empty integer answer keeps the pre-filled default."""
+    with gui_root() as root:
+        bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
+        root.after(0, lambda: bridge._window_obj()._finish(''))
+        assert bridge.ask_int('N?', default=3) == 3
+        bridge.close()
+
+
+def test_int_reask() -> None:
+    """Test an invalid integer re-asks until an in-range value is given."""
+    with gui_root() as root:
+        bridge = TkWizardBridge(root)
+        _drive(root, bridge, ['x', '4'])
+        assert bridge.ask_int('N?', min_value=1, max_value=10) == 4
+        bridge.close()
+
+
+def test_real_path(tmp_path: Path) -> None:
+    """Test a real window returns the entered existing file path."""
+    with gui_root() as root:
+        bridge = TkWizardBridge(root)
+        target = tmp_path / 'f.txt'
+        target.write_text('x')
+        options = PathAskOptions(kind=WizardPathKind.EXISTING_FILE)
+        # pylint: disable-next=protected-access
+        root.after(0, lambda: bridge._window_obj()._finish(str(target)))
+        assert bridge.ask_path('P?', options=options) == target
+        bridge.close()
+
+
+def test_path_nullable() -> None:
+    """Test an empty path answer is None when the question is nullable."""
+    with gui_root() as root:
+        bridge = TkWizardBridge(root)
+        # pylint: disable-next=protected-access
+        root.after(0, lambda: bridge._window_obj()._finish(''))
+        options = PathAskOptions(nullable=True)
+        assert bridge.ask_path('P?', options=options) is None
+        bridge.close()
+
+
+def test_path_reask(tmp_path: Path) -> None:
+    """Test a missing path re-asks until an existing file is entered."""
+    with gui_root() as root:
+        bridge = TkWizardBridge(root)
+        target = tmp_path / 'f.txt'
+        target.write_text('x')
+        options = PathAskOptions(kind=WizardPathKind.EXISTING_FILE)
+        _drive(root, bridge, [str(tmp_path / 'no.txt'), str(target)])
+        assert bridge.ask_path('P?', options=options) == target
+        bridge.close()
+
+
+def test_real_form() -> None:
+    """Test a real window returns every answer of a submitted form."""
+    with gui_root() as root:
+        bridge = TkWizardBridge(root)
+        name = AskTextField('Name', None, default='Bob')
+        fmt = AskChoiceField('Fmt', None, choices=('a', 'b'), default='a')
+        fields: list[AskField] = [name, fmt]
+
+        def submit() -> None:
+            """Submit the form once its window is built."""
+            # pylint: disable-next=protected-access
+            form = bridge._window_obj()._form
+            assert form is not None
+            form.submit()
+        root.after(0, submit)
+        answers = bridge.ask_form('Fill', fields)
+        assert list(answers) == [AnswerTextField(name, 'Bob'),
+                                 AnswerChoiceField(fmt, 'a')]
+        bridge.close()
+
+
+def test_form_back() -> None:
+    """Test the back button on a form raises a wizard-back request."""
+    with gui_root() as root:
+        bridge = TkWizardBridge(root)
+        fields = [AskTextField('Name', None)]
+        # pylint: disable-next=protected-access
+        root.after(0, lambda: bridge._window_obj()._back())
+        with pytest.raises(WizardBack):
+            bridge.ask_form('Fill', fields)
         bridge.close()

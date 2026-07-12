@@ -4,7 +4,10 @@
 The backlog-ops configuration wizard asks its questions through a
 :class:`WizardUiBridge`. This module provides :class:`TkWizardBridge`, a
 concrete bridge that overrides every typed ask method of that base class
-with a real Tkinter control. All questions are answered in one reused
+with a real Tkinter control, including the GUI-recommended ones: ask_path()
+opens a native file or directory picker, and ask_form() shows a whole form
+on one screen so the user answers related fields together in any order. All
+questions are answered in one reused
 :class:`~backlogops_gui.wizard_window.WizardWindow`, so the whole wizard
 session happens in a single pop-up that does not jump around the display.
 """
@@ -13,8 +16,10 @@ session happens in a single pop-up that does not jump around the display.
 # MIT License
 
 from typing import Optional, Sequence, TextIO
+from pathlib import Path
 import tkinter as tk
-from tableio_cfg_json import PartialCheck, TableCell, TableColumn, \
+from tableio_cfg_json import AnswerFields, AskFields, PartialCheck, \
+    PartialFormValidator, PathAskOptions, TableCell, TableColumn, \
     WizardUiBridge
 from backlogops import NoTextIO
 from backlogops_gui.wizard_window import WizardWindow
@@ -38,8 +43,26 @@ class TkWizardBridge(WizardUiBridge):
                  nullable: bool = False, *, default: Optional[str] = None,
                  sensitive: bool = False) -> Optional[str]:
         """Ask for free text; see WizardUiBridge.ask_text."""
+        if sensitive and default is not None:
+            raise ValueError('default is not allowed for sensitive input')
         return self._window_obj().ask_text(question, re_ask_reason, nullable,
                                            default, sensitive)
+
+    # pylint: disable-next=too-many-arguments
+    def ask_int(self, question: str, re_ask_reason: Optional[str] = None, *,
+                nullable: bool = False, min_value: Optional[int] = None,
+                max_value: Optional[int] = None,
+                default: Optional[int] = None) -> Optional[int]:
+        """Ask for an integer within optional bounds; see ask_int."""
+        return self._window_obj().ask_int(question, re_ask_reason, nullable,
+                                          min_value, max_value, default)
+
+    def ask_path(self, question: str, re_ask_reason: Optional[str] = None, *,
+                 options: Optional[PathAskOptions] = None) -> Optional[Path]:
+        """Ask for a path with a native file or directory picker."""
+        path_options = PathAskOptions() if options is None else options
+        return self._window_obj().ask_path(question, path_options,
+                                           re_ask_reason)
 
     def ask_yes_no(self, question: str, default: bool,
                    re_ask_reason: Optional[str] = None) -> bool:
@@ -80,6 +103,14 @@ class TkWizardBridge(WizardUiBridge):
         return self._window_obj().ask_table(columns, cells, question,
                                             re_ask_reason, partial_check,
                                             min_rows, max_rows)
+
+    def ask_form(self, long_question: str, ask_fields: AskFields, *,
+                 re_ask_reason: Optional[str] = None,
+                 partial_validator: Optional[PartialFormValidator] = None) \
+            -> AnswerFields:
+        """Ask a whole form on one screen; see WizardUiBridge.ask_form."""
+        return self._window_obj().ask_form(long_question, ask_fields,
+                                           re_ask_reason, partial_validator)
 
     def show(self, message: str) -> None:
         """Show an informational message to the user."""

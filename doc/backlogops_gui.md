@@ -101,10 +101,13 @@
   * [TkWizardBridge](#backlogops_gui.gui_wizard.TkWizardBridge)
     * [\_\_init\_\_](#backlogops_gui.gui_wizard.TkWizardBridge.__init__)
     * [ask\_text](#backlogops_gui.gui_wizard.TkWizardBridge.ask_text)
+    * [ask\_int](#backlogops_gui.gui_wizard.TkWizardBridge.ask_int)
+    * [ask\_path](#backlogops_gui.gui_wizard.TkWizardBridge.ask_path)
     * [ask\_yes\_no](#backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no)
     * [ask\_choice](#backlogops_gui.gui_wizard.TkWizardBridge.ask_choice)
     * [ask\_multi](#backlogops_gui.gui_wizard.TkWizardBridge.ask_multi)
     * [ask\_table](#backlogops_gui.gui_wizard.TkWizardBridge.ask_table)
+    * [ask\_form](#backlogops_gui.gui_wizard.TkWizardBridge.ask_form)
     * [show](#backlogops_gui.gui_wizard.TkWizardBridge.show)
     * [error\_file](#backlogops_gui.gui_wizard.TkWizardBridge.error_file)
     * [close](#backlogops_gui.gui_wizard.TkWizardBridge.close)
@@ -179,6 +182,18 @@
     * [values](#backlogops_gui.wizard_table.TableEditor.values)
     * [add\_row](#backlogops_gui.wizard_table.TableEditor.add_row)
     * [remove\_row](#backlogops_gui.wizard_table.TableEditor.remove_row)
+* [backlogops\_gui.wizard\_form](#backlogops_gui.wizard_form)
+  * [text\_answer](#backlogops_gui.wizard_form.text_answer)
+  * [int\_text](#backlogops_gui.wizard_form.int_text)
+  * [out\_of\_range](#backlogops_gui.wizard_form.out_of_range)
+  * [range\_error](#backlogops_gui.wizard_form.range_error)
+  * [int\_answer](#backlogops_gui.wizard_form.int_answer)
+  * [multi\_count\_error](#backlogops_gui.wizard_form.multi_count_error)
+  * [FormRow](#backlogops_gui.wizard_form.FormRow)
+  * [FormEditor](#backlogops_gui.wizard_form.FormEditor)
+    * [\_\_init\_\_](#backlogops_gui.wizard_form.FormEditor.__init__)
+    * [answers](#backlogops_gui.wizard_form.FormEditor.answers)
+    * [submit](#backlogops_gui.wizard_form.FormEditor.submit)
 * [backlogops\_gui.modal\_dialog](#backlogops_gui.modal_dialog)
   * [ModalDialog](#backlogops_gui.modal_dialog.ModalDialog)
     * [\_\_init\_\_](#backlogops_gui.modal_dialog.ModalDialog.__init__)
@@ -187,6 +202,13 @@
     * [order\_action](#backlogops_gui.jira_order.JiraOrderer.order_action)
 * [backlogops\_gui.python\_version](#backlogops_gui.python_version)
   * [check\_python\_version](#backlogops_gui.python_version.check_python_version)
+* [backlogops\_gui.wizard\_path](#backlogops_gui.wizard_path)
+  * [validate\_path](#backlogops_gui.wizard_path.validate_path)
+  * [pick\_path](#backlogops_gui.wizard_path.pick_path)
+  * [PathRow](#backlogops_gui.wizard_path.PathRow)
+    * [\_\_init\_\_](#backlogops_gui.wizard_path.PathRow.__init__)
+    * [get](#backlogops_gui.wizard_path.PathRow.get)
+    * [set\_enabled](#backlogops_gui.wizard_path.PathRow.set_enabled)
 * [backlogops\_gui.log\_buffer](#backlogops_gui.log_buffer)
   * [LogBuffer](#backlogops_gui.log_buffer.LogBuffer)
     * [\_\_init\_\_](#backlogops_gui.log_buffer.LogBuffer.__init__)
@@ -210,6 +232,9 @@
     * [show](#backlogops_gui.wizard_window.WizardWindow.show)
     * [close](#backlogops_gui.wizard_window.WizardWindow.close)
     * [ask\_text](#backlogops_gui.wizard_window.WizardWindow.ask_text)
+    * [ask\_int](#backlogops_gui.wizard_window.WizardWindow.ask_int)
+    * [ask\_path](#backlogops_gui.wizard_window.WizardWindow.ask_path)
+    * [ask\_form](#backlogops_gui.wizard_window.WizardWindow.ask_form)
     * [ask\_yes\_no](#backlogops_gui.wizard_window.WizardWindow.ask_yes_no)
     * [ask\_choice](#backlogops_gui.wizard_window.WizardWindow.ask_choice)
     * [ask\_multi](#backlogops_gui.wizard_window.WizardWindow.ask_multi)
@@ -1281,7 +1306,10 @@ Graphical bridge that drives the synchronous config wizard.
 The backlog-ops configuration wizard asks its questions through a
 :class:`WizardUiBridge`. This module provides :class:`TkWizardBridge`, a
 concrete bridge that overrides every typed ask method of that base class
-with a real Tkinter control. All questions are answered in one reused
+with a real Tkinter control, including the GUI-recommended ones: ask_path()
+opens a native file or directory picker, and ask_form() shows a whole form
+on one screen so the user answers related fields together in any order. All
+questions are answered in one reused
 :class:`~backlogops_gui.wizard_window.WizardWindow`, so the whole wizard
 session happens in a single pop-up that does not jump around the display.
 
@@ -1324,6 +1352,35 @@ def ask_text(question: str,
 ```
 
 Ask for free text; see WizardUiBridge.ask_text.
+
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_int"></a>
+
+#### ask\_int
+
+```python
+def ask_int(question: str,
+            re_ask_reason: Optional[str] = None,
+            *,
+            nullable: bool = False,
+            min_value: Optional[int] = None,
+            max_value: Optional[int] = None,
+            default: Optional[int] = None) -> Optional[int]
+```
+
+Ask for an integer within optional bounds; see ask_int.
+
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_path"></a>
+
+#### ask\_path
+
+```python
+def ask_path(question: str,
+             re_ask_reason: Optional[str] = None,
+             *,
+             options: Optional[PathAskOptions] = None) -> Optional[Path]
+```
+
+Ask for a path with a native file or directory picker.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_yes_no"></a>
 
@@ -1388,6 +1445,22 @@ With both ``min_rows`` and ``max_rows`` given the table has a
 variable number of rows: add-row and remove-row buttons grow the
 table up to ``max_rows`` and shrink it down to ``min_rows``.
 Otherwise the rows given in ``cells`` are fixed and only filled.
+
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.ask_form"></a>
+
+#### ask\_form
+
+```python
+def ask_form(
+        long_question: str,
+        ask_fields: AskFields,
+        *,
+        re_ask_reason: Optional[str] = None,
+        partial_validator: Optional[PartialFormValidator] = None
+) -> AnswerFields
+```
+
+Ask a whole form on one screen; see WizardUiBridge.ask_form.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.show"></a>
 
@@ -2335,6 +2408,146 @@ def remove_row() -> None
 
 Remove the last row, down to the minimum row count.
 
+<a id="backlogops_gui.wizard_form"></a>
+
+# backlogops\_gui.wizard\_form
+
+A whole wizard form shown on one screen, and its answer parsing.
+
+A form question asks several related fields at once. :class:`FormEditor`
+builds a two-column grid, a label on the left and an input widget on the
+right, one row per :class:`AskField`. It reads one :class:`AnswerField`
+per row, runs the optional partial validator after every change to show
+advisory feedback and disable irrelevant rows, and validates every
+enabled field on submit so a submitted form is always complete.
+
+The small scalar-answer helpers (:func:`text_answer`, :func:`int_answer`
+and friends) turn the raw text of a text or integer field into its typed
+answer. They are shared with the reused wizard window, which asks a
+standalone integer question with the same rules.
+
+<a id="backlogops_gui.wizard_form.text_answer"></a>
+
+#### text\_answer
+
+```python
+def text_answer(text: str, nullable: bool,
+                default: Optional[str]) -> Optional[str]
+```
+
+Return the public text answer for the raw text of a text field.
+
+<a id="backlogops_gui.wizard_form.int_text"></a>
+
+#### int\_text
+
+```python
+def int_text(text: str) -> Optional[int]
+```
+
+Return the integer in text, or None when it is not an integer.
+
+<a id="backlogops_gui.wizard_form.out_of_range"></a>
+
+#### out\_of\_range
+
+```python
+def out_of_range(value: int, min_value: Optional[int],
+                 max_value: Optional[int]) -> bool
+```
+
+Return whether value lies outside the inclusive bounds.
+
+<a id="backlogops_gui.wizard_form.range_error"></a>
+
+#### range\_error
+
+```python
+def range_error(min_value: Optional[int], max_value: Optional[int]) -> str
+```
+
+Return the message shown when an integer is out of range.
+
+<a id="backlogops_gui.wizard_form.int_answer"></a>
+
+#### int\_answer
+
+```python
+def int_answer(
+        text: str, nullable: bool, min_value: Optional[int],
+        max_value: Optional[int],
+        default: Optional[int]) -> tuple[bool, Optional[int], Optional[str]]
+```
+
+Return whether an integer answer is final, its value, and a reason.
+
+An empty answer takes the default, is None when nullable, or is
+re-asked otherwise. A non-empty answer must parse as an integer that
+lies within the inclusive bounds.
+
+<a id="backlogops_gui.wizard_form.multi_count_error"></a>
+
+#### multi\_count\_error
+
+```python
+def multi_count_error(min_select: int, max_select: Optional[int]) -> str
+```
+
+Return the message shown when the selected count is not allowed.
+
+<a id="backlogops_gui.wizard_form.FormRow"></a>
+
+## FormRow Objects
+
+```python
+@dataclass(frozen=True)
+class FormRow()
+```
+
+One built form row: its field, label and input handles.
+
+<a id="backlogops_gui.wizard_form.FormEditor"></a>
+
+## FormEditor Objects
+
+```python
+class FormEditor()
+```
+
+A two-column grid that asks a whole wizard form on one screen.
+
+<a id="backlogops_gui.wizard_form.FormEditor.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, fields: Sequence[AskField],
+             validator: Optional[PartialFormValidator],
+             on_submit: Callable[[list[AnswerField]], None]) -> None
+```
+
+Build one labelled input row per field, plus a status line.
+
+<a id="backlogops_gui.wizard_form.FormEditor.answers"></a>
+
+#### answers
+
+```python
+def answers() -> list[AnswerField]
+```
+
+Return the current answer of every row, in field order.
+
+<a id="backlogops_gui.wizard_form.FormEditor.submit"></a>
+
+#### submit
+
+```python
+def submit() -> None
+```
+
+Validate every enabled field and submit when all pass.
+
 <a id="backlogops_gui.modal_dialog"></a>
 
 # backlogops\_gui.modal\_dialog
@@ -2430,6 +2643,91 @@ it can be shown in the main window instead of on standard output.
 **Returns**:
 
   The captured warning text, or None when Python is still supported.
+
+<a id="backlogops_gui.wizard_path"></a>
+
+# backlogops\_gui.wizard\_path
+
+Native path picking and validation for the wizard bridge.
+
+A path question in the Tkinter wizard shows an editable path entry next
+to a Browse button that opens the native open-file, save-file or
+directory dialog chosen by the :class:`WizardPathKind`. :func:`validate_path`
+then checks the typed or picked path against the same rules the wizard's
+console and textual bridges apply, so a graphical answer is accepted or
+rejected the same way. :class:`PathRow` bundles the entry and the Browse
+button, and is reused both by the standalone path question and by a path
+field inside a form.
+
+<a id="backlogops_gui.wizard_path.validate_path"></a>
+
+#### validate\_path
+
+```python
+def validate_path(
+        text: str,
+        options: PathAskOptions) -> tuple[bool, Optional[Path], Optional[str]]
+```
+
+Return whether a path answer is final, its value, and a retry reason.
+
+An empty answer takes the default, is None when the question is
+nullable, or is re-asked otherwise. A non-empty answer becomes a Path
+and is checked against the option's WizardPathKind.
+
+<a id="backlogops_gui.wizard_path.pick_path"></a>
+
+#### pick\_path
+
+```python
+def pick_path(parent: tk.Misc, options: PathAskOptions,
+              initial: str) -> Optional[str]
+```
+
+Open the native dialog for the kind, or None when cancelled.
+
+<a id="backlogops_gui.wizard_path.PathRow"></a>
+
+## PathRow Objects
+
+```python
+class PathRow()
+```
+
+An editable path entry paired with a native Browse button.
+
+<a id="backlogops_gui.wizard_path.PathRow.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc,
+             options: PathAskOptions,
+             initial: str,
+             on_change: Optional[Callable[[], None]] = None) -> None
+```
+
+Build the entry and Browse button inside a new frame.
+
+<a id="backlogops_gui.wizard_path.PathRow.get"></a>
+
+#### get
+
+```python
+def get() -> str
+```
+
+Return the current path text.
+
+<a id="backlogops_gui.wizard_path.PathRow.set_enabled"></a>
+
+#### set\_enabled
+
+```python
+def set_enabled(enabled: bool) -> None
+```
+
+Enable or disable both the entry and the Browse button.
 
 <a id="backlogops_gui.log_buffer"></a>
 
@@ -2703,12 +3001,13 @@ One reused window that asks every wizard prompt in turn.
 
 The wizard bridge answers all of its questions in a single
 :class:`WizardWindow`, so the whole wizard session happens in one pop-up
-that does not jump around the display. The window offers a text entry, a
-yes/no button pair, a single- and a multi-selection list, and an editable
-table, and keeps a lasting message area above the changing content. Every
-prompt also offers back, out-one-level and abort buttons, which raise the
-matching :class:`WizardNavigation` request so the wizard can step within
-the configuration or abandon it.
+that does not jump around the display. The window offers a text entry, an
+integer entry, a path entry with a native Browse button, a yes/no button
+pair, a single- and a multi-selection list, an editable table and a whole
+form on one screen, and keeps a lasting message area above the changing
+content. Every prompt also offers back, out-one-level and abort buttons,
+which raise the matching :class:`WizardNavigation` request so the wizard
+can step within the configuration or abandon it.
 
 <a id="backlogops_gui.wizard_window.WizardWindow"></a>
 
@@ -2766,6 +3065,40 @@ Ask one free-text question and return the entered text.
 
 A sensitive question masks the typed text; a default value is
 pre-filled and returned when the answer is left empty.
+
+<a id="backlogops_gui.wizard_window.WizardWindow.ask_int"></a>
+
+#### ask\_int
+
+```python
+def ask_int(question: str, re_ask: Optional[str], nullable: bool,
+            min_value: Optional[int], max_value: Optional[int],
+            default: Optional[int]) -> Optional[int]
+```
+
+Ask one integer question, re-asking until it is in range.
+
+<a id="backlogops_gui.wizard_window.WizardWindow.ask_path"></a>
+
+#### ask\_path
+
+```python
+def ask_path(question: str, options: PathAskOptions,
+             re_ask: Optional[str]) -> Optional[Path]
+```
+
+Ask one path question with a Browse button, re-asking on error.
+
+<a id="backlogops_gui.wizard_window.WizardWindow.ask_form"></a>
+
+#### ask\_form
+
+```python
+def ask_form(long_question: str, fields: AskFields, re_ask: Optional[str],
+             validator: Optional[PartialFormValidator]) -> AnswerFields
+```
+
+Ask a whole form on one screen and return its answers.
 
 <a id="backlogops_gui.wizard_window.WizardWindow.ask_yes_no"></a>
 

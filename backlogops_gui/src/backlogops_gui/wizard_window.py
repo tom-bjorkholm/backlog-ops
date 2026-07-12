@@ -3,23 +3,28 @@
 
 The wizard bridge answers all of its questions in a single
 :class:`WizardWindow`, so the whole wizard session happens in one pop-up
-that does not jump around the display. The window offers a text entry, a
-yes/no button pair, a single- and a multi-selection list, and an editable
-table, and keeps a lasting message area above the changing content. Every
-prompt also offers back, out-one-level and abort buttons, which raise the
-matching :class:`WizardNavigation` request so the wizard can step within
-the configuration or abandon it.
+that does not jump around the display. The window offers a text entry, an
+integer entry, a path entry with a native Browse button, a yes/no button
+pair, a single- and a multi-selection list, an editable table and a whole
+form on one screen, and keeps a lasting message area above the changing
+content. Every prompt also offers back, out-one-level and abort buttons,
+which raise the matching :class:`WizardNavigation` request so the wizard
+can step within the configuration or abandon it.
 """
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
 import tkinter as tk
+from pathlib import Path
 from typing import Callable, Optional, Sequence
-from tableio_cfg_json import PartialCheck, TableCell, TableColumn, \
+from tableio_cfg_json import AnswerFields, AskFields, PartialCheck, \
+    PartialFormValidator, PathAskOptions, TableCell, TableColumn, \
     WizardAbort, WizardBack, WizardCancelLevel, WizardNavigation
 from backlogops_gui.close_binding import bind_close
 from backlogops_gui.gui_style import focus_first_input, style_input
+from backlogops_gui.wizard_form import FormEditor, int_answer
+from backlogops_gui.wizard_path import PathRow, validate_path
 from backlogops_gui.wizard_table import TableEditor
 
 WIZARD_TITLE = 'Configuration wizard'
@@ -29,6 +34,12 @@ MESSAGE_HEIGHT = 8
 CHOICE_HEIGHT = 10
 
 
+def _default_path_text(options: PathAskOptions) -> str:
+    """Return the initial path text from the option's default."""
+    return '' if options.default is None else str(options.default)
+
+
+# pylint: disable-next=too-many-instance-attributes
 class WizardWindow:
     """One reused window that asks every wizard prompt in turn."""
 
@@ -37,6 +48,7 @@ class WizardWindow:
         self._result: object = ''
         self._nav: Optional[type[WizardNavigation]] = None
         self._editor: Optional[TableEditor] = None
+        self._form: Optional[FormEditor] = None
         self._win = tk.Toplevel(parent)
         self._win.title(WIZARD_TITLE)
         self._win.geometry(WINDOW_SIZE)
@@ -100,6 +112,70 @@ class WizardWindow:
         if default is not None:
             return default
         return None if nullable else ''
+
+    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
+    def ask_int(self, question: str, re_ask: Optional[str], nullable: bool,
+                min_value: Optional[int], max_value: Optional[int],
+                default: Optional[int]) -> Optional[int]:
+        """Ask one integer question, re-asking until it is in range."""
+        reason = re_ask
+        while True:
+            text = self._run_int(question, reason, default)
+            done, value, reason = int_answer(text, nullable, min_value,
+                                             max_value, default)
+            if done:
+                return value
+
+    def _run_int(self, question: str, re_ask: Optional[str],
+                 default: Optional[int]) -> str:
+        """Show one integer entry and return the entered text."""
+        self._begin(question, re_ask)
+        entry = tk.Entry(self._content, width=14)
+        if default is not None:
+            entry.insert(0, str(default))
+        style_input(entry)
+        entry.pack(anchor='w', pady=6)
+        self._add_buttons(lambda: self._finish(entry.get()))
+        self._win.bind('<Return>', lambda _event: self._finish(entry.get()))
+        result = self._wait()
+        assert isinstance(result, str)
+        return result
+
+    def ask_path(self, question: str, options: PathAskOptions,
+                 re_ask: Optional[str]) -> Optional[Path]:
+        """Ask one path question with a Browse button, re-asking on error."""
+        reason = re_ask
+        value: Optional[str] = None
+        while True:
+            text = self._run_path(question, reason, options, value)
+            done, path, reason = validate_path(text, options)
+            if done:
+                return path
+            value = text
+
+    def _run_path(self, question: str, re_ask: Optional[str],
+                  options: PathAskOptions, value: Optional[str]) -> str:
+        """Show one path entry with a Browse button and return the text."""
+        self._begin(question, re_ask)
+        initial = value if value is not None else _default_path_text(options)
+        row = PathRow(self._content, options, initial)
+        row.frame.pack(anchor='w', pady=6)
+        self._add_buttons(lambda: self._finish(row.get()))
+        self._win.bind('<Return>', lambda _event: self._finish(row.get()))
+        result = self._wait()
+        assert isinstance(result, str)
+        return result
+
+    def ask_form(self, long_question: str, fields: AskFields,
+                 re_ask: Optional[str],
+                 validator: Optional[PartialFormValidator]) -> AnswerFields:
+        """Ask a whole form on one screen and return its answers."""
+        self._begin(long_question, re_ask)
+        self._form = FormEditor(self._content, fields, validator, self._finish)
+        self._add_buttons(self._form.submit)
+        result = self._wait()
+        assert isinstance(result, list)
+        return result
 
     def ask_yes_no(self, question: str, default: bool,
                    re_ask: Optional[str]) -> bool:
@@ -213,6 +289,7 @@ class WizardWindow:
         """Clear the content area and show the question and any reason."""
         self._nav = None
         self._editor = None
+        self._form = None
         self._win.unbind('<Return>')
         for child in self._content.winfo_children():
             child.destroy()
