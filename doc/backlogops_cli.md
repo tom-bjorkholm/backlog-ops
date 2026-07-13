@@ -72,6 +72,9 @@
 * [backlogops\_cli.update\_releases\_in\_jira](#backlogops_cli.update_releases_in_jira)
   * [build\_parser](#backlogops_cli.update_releases_in_jira.build_parser)
   * [main](#backlogops_cli.update_releases_in_jira.main)
+* [backlogops\_cli.encrypt\_token\_file](#backlogops_cli.encrypt_token_file)
+  * [build\_parser](#backlogops_cli.encrypt_token_file.build_parser)
+  * [main](#backlogops_cli.encrypt_token_file.main)
 * [backlogops\_cli.rename\_releases\_in\_jira](#backlogops_cli.rename_releases_in_jira)
   * [build\_parser](#backlogops_cli.rename_releases_in_jira.build_parser)
   * [main](#backlogops_cli.rename_releases_in_jira.main)
@@ -1108,6 +1111,50 @@ Update releases in Jira and report the outcome per release.
 
   ``0`` on success, ``1`` when the releases cannot be updated or a
   name is not present in Jira with the raise policy.
+
+<a id="backlogops_cli.encrypt_token_file"></a>
+
+# backlogops\_cli.encrypt\_token\_file
+
+Encrypt a Jira API token to a file with a pass phrase.
+
+Read a clear text API token from a file or from standard input, encrypt it
+with a pass phrase and write the encrypted token to a file. The pass phrase
+is requested on the terminal and is not echoed. The clear text token file
+is not modified, unless the the encrypted token file is the same as the
+clear text token file, in which case the clear text token file is overwritten
+with the encrypted token. The encrypted token file is written atomically,
+so that it is either the old version or the new version, and never a
+half-written file.
+
+<a id="backlogops_cli.encrypt_token_file.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the encrypt-token-file command.
+
+<a id="backlogops_cli.encrypt_token_file.main"></a>
+
+#### main
+
+```python
+def main(arguments: Optional[list[str]] = None) -> int
+```
+
+Encrypt a Jira API token file with a pass phrase.
+
+**Arguments**:
+
+- `arguments` - The command line arguments to parse. If None, the arguments
+  are taken from sys.argv.
+
+**Returns**:
+
+  0 if the command was successful, 1 if there was an error.
 
 <a id="backlogops_cli.rename_releases_in_jira"></a>
 

@@ -295,6 +295,8 @@
 * [backlogops.jira\_token](#backlogops.jira_token)
   * [encrypt\_token](#backlogops.jira_token.encrypt_token)
   * [decrypt\_token](#backlogops.jira_token.decrypt_token)
+  * [encrypt\_token\_to\_file](#backlogops.jira_token.encrypt_token_to_file)
+  * [encrypt\_token\_file](#backlogops.jira_token.encrypt_token_file)
 * [backlogops.levels](#backlogops.levels)
   * [LevelDisplay](#backlogops.levels.LevelDisplay)
   * [Level](#backlogops.levels.Level)
@@ -6291,6 +6293,84 @@ Return the token decrypted from a blob with the pass phrase.
 **Raises**:
 
 - `ValueError` - If the pass phrase is wrong or the blob is corrupt.
+
+<a id="backlogops.jira_token.encrypt_token_to_file"></a>
+
+#### encrypt\_token\_to\_file
+
+```python
+def encrypt_token_to_file(token: str, *, passphrase: str, filename: Path,
+                          ok_to_overwrite: OkToOverwrite) -> None
+```
+
+Encrypt a token and write it to a file.
+
+This function writes the encrypted token to a temporary file first and then
+renames it to the target filename to ensure atomicity. If the target file
+already exists and it is ok to overwrite it, the file will be
+overwritten atomically as the last step. This guarantees that the target
+file is either the old version or the new version, and never a
+half-written file. The file is written with owner-only permissions.
+
+**Arguments**:
+
+- `token` - The plain text API token to encrypt.
+- `passphrase` - The pass phrase to derive the encryption key from.
+- `filename` - The name of the file to write the encrypted blob to.
+- `ok_to_overwrite` - A callback that is called with the filename if it
+  already exists. If it returns True, the file will be overwritten;
+  if it returns False, a FileAlreadyExistsError will be raised.
+  
+
+**Raises**:
+
+- `ValueError` - If the pass phrase is empty.
+- `FileExistsError` - If the file already exists and ok_to_overwrite returns
+  False.
+- `NotADirectoryError` - If the parent directory of the file does not exist.
+- `OSError` - If the file could not be written.
+
+<a id="backlogops.jira_token.encrypt_token_file"></a>
+
+#### encrypt\_token\_file
+
+```python
+def encrypt_token_file(*, clear_file: Path, encrypted_file: Path,
+                       passphrase: str,
+                       ok_to_overwrite: OkToOverwrite) -> None
+```
+
+Encrypt a token read from a file and write it to a file.
+
+The clear text token is read from the file named by `clear_file`, and the
+encrypted blob is written to the file named by `encrypted_file`, which
+may be the same file. The encryption is done with the pass phrase supplied
+in the `passphrase` argument. If the `encrypted_file` already exists and
+it is ok to overwrite it, the file will be overwritten atomically as the
+last step. This guarantees that the target file is either the old version
+or the new version, and never a half-written file.
+
+**Arguments**:
+
+- `clear_file` - The name of the file to read the plain text token from.
+- `encrypted_file` - The name of the file to write the encrypted blob to.
+- `passphrase` - The pass phrase to derive the encryption key from.
+- `ok_to_overwrite` - A callback that is called with the filename if it
+  already exists. If it returns True, the file will be overwritten;
+  if it returns False, a FileAlreadyExistsError will be raised.
+  
+
+**Raises**:
+
+- `FileNotFoundError` - If the clear text token file does not exist.
+- `ValueError` - If the pass phrase is empty.
+- `ValueError` - If the clear text token file holds no token (empty file).
+- `FileExistsError` - If the output file already exists and ok_to_overwrite
+  returns False.
+- `NotADirectoryError` - If the parent directory of the output file does
+  not exist.
+- `OSError` - If the output file could not be written or the input file
+  could not be read.
 
 <a id="backlogops.levels"></a>
 

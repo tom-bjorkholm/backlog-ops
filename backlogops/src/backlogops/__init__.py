@@ -50,6 +50,7 @@ from backlogops.jira_io_config import (
     TokenStorage, JiraAttrType, JiraAttrPath, JiraColumnMap,
     JiraIssueTypeMap, DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP,
     CLEAR_TOKEN_WARNING, default_jira_filter)
+from backlogops.jira_token import encrypt_token_to_file, encrypt_token_file
 from backlogops.table_create import FileExistsCb, allow_overwrite
 from backlogops.backlog_releases_io import (
     read_backlog_releases, write_backlog_releases)
@@ -122,6 +123,7 @@ __all__ = [
     'make_input_config', 'make_output_config',
     'JiraIOConfig', 'JiraConnectConfig', 'JiraPreset',
     'JiraType', 'TokenStorage', 'JiraAttrType', 'JiraAttrPath',
+    'encrypt_token_to_file', 'encrypt_token_file',
     'JiraColumnMap', 'JiraIssueTypeMap', 'DEF_BACKLOG_COLUMN_MAP',
     'DEF_RELEASE_COLUMN_MAP', 'DEF_STATUS_INPUT_MAP',
     'CLEAR_TOKEN_WARNING', 'default_jira_filter', 'FileExistsCb',

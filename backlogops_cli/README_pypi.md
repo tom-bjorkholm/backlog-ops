@@ -215,6 +215,9 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.demo_backlog
      Write a demonstration backlog and releases to a file
 
+  python3 -m backlogops_cli.encrypt_token_file
+     Encrypt a Jira API token file with a pass phrase.
+
   python3 -m backlogops_cli.estimate_ready_date
      Estimate ready dates for the backlog items
 
@@ -273,7 +276,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 2412 passed, 7 deselected in 45s
+- Test result: 2444 passed, 7 deselected in 49s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

@@ -14,6 +14,8 @@ it is decrypted; there is no key store to manage.
 
 import base64
 import os
+from pathlib import Path
+from typing import Callable
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -74,3 +76,102 @@ def decrypt_token(blob_text: str, passphrase: str) -> str:
     except (InvalidToken, ValueError, TypeError) as error:
         raise ValueError('Could not decrypt the token; wrong pass phrase '
                          'or corrupt data.') from error
+
+
+type OkToOverwrite = Callable[[Path], bool]
+
+
+def encrypt_token_to_file(token: str, *, passphrase: str, filename: Path,
+                          ok_to_overwrite: OkToOverwrite) -> None:
+    """Encrypt a token and write it to a file.
+
+    This function writes the encrypted token to a temporary file first and then
+    renames it to the target filename to ensure atomicity. If the target file
+    already exists and it is ok to overwrite it, the file will be
+    overwritten atomically as the last step. This guarantees that the target
+    file is either the old version or the new version, and never a
+    half-written file. The file is written with owner-only permissions.
+
+    Args:
+        token: The plain text API token to encrypt.
+        passphrase: The pass phrase to derive the encryption key from.
+        filename: The name of the file to write the encrypted blob to.
+        ok_to_overwrite: A callback that is called with the filename if it
+            already exists. If it returns True, the file will be overwritten;
+            if it returns False, a FileAlreadyExistsError will be raised.
+
+    Raises:
+        ValueError: If the pass phrase is empty.
+        FileExistsError: If the file already exists and ok_to_overwrite returns
+                         False.
+        NotADirectoryError: If the parent directory of the file does not exist.
+        OSError: If the file could not be written.
+    """
+    parent_dir = filename.parent
+    if not parent_dir.exists():
+        pnot = f'The parent directory {parent_dir} does not exist.'
+        raise NotADirectoryError(pnot)
+    if not parent_dir.is_dir():
+        pndir = f'The parent path {parent_dir} is not a directory.'
+        raise NotADirectoryError(pndir)
+    if filename.exists() and not ok_to_overwrite(filename):
+        raise FileExistsError(f"The file {filename} already exists.")
+    tmpfile = filename.with_suffix(filename.suffix + '.in_progress')
+    if tmpfile.exists():
+        if not ok_to_overwrite(tmpfile):
+            texist = f'The temporary file {tmpfile} already exists.'
+            raise FileExistsError(texist)
+        os.remove(tmpfile)
+    encrypted_blob = encrypt_token(token, passphrase)
+    try:
+        with open(tmpfile, 'w', encoding='utf-8') as f:
+            f.write(encrypted_blob)
+        os.chmod(tmpfile, 0o600)
+        os.replace(tmpfile, filename)
+    finally:
+        if os.path.exists(tmpfile):
+            os.remove(tmpfile)
+
+
+def encrypt_token_file(*, clear_file: Path, encrypted_file: Path,
+                       passphrase: str, ok_to_overwrite: OkToOverwrite) \
+        -> None:
+    """Encrypt a token read from a file and write it to a file.
+
+    The clear text token is read from the file named by `clear_file`, and the
+    encrypted blob is written to the file named by `encrypted_file`, which
+    may be the same file. The encryption is done with the pass phrase supplied
+    in the `passphrase` argument. If the `encrypted_file` already exists and
+    it is ok to overwrite it, the file will be overwritten atomically as the
+    last step. This guarantees that the target file is either the old version
+    or the new version, and never a half-written file.
+
+    Args:
+        clear_file: The name of the file to read the plain text token from.
+        encrypted_file: The name of the file to write the encrypted blob to.
+        passphrase: The pass phrase to derive the encryption key from.
+        ok_to_overwrite: A callback that is called with the filename if it
+            already exists. If it returns True, the file will be overwritten;
+            if it returns False, a FileAlreadyExistsError will be raised.
+
+    Raises:
+        FileNotFoundError: If the clear text token file does not exist.
+        ValueError: If the pass phrase is empty.
+        ValueError: If the clear text token file holds no token (empty file).
+        FileExistsError: If the output file already exists and ok_to_overwrite
+                         returns False.
+        NotADirectoryError: If the parent directory of the output file does
+                            not exist.
+        OSError: If the output file could not be written or the input file
+                 could not be read.
+    """
+    if not clear_file.exists():
+        raise FileNotFoundError(f'The clear text token file {clear_file} '
+                                'does not exist.')
+    with open(clear_file, 'r', encoding='utf-8') as f:
+        token = f.read().strip()
+    if not token:
+        raise ValueError(f'No token in clear text token file {clear_file}.')
+    encrypt_token_to_file(token, passphrase=passphrase,
+                          filename=encrypted_file,
+                          ok_to_overwrite=ok_to_overwrite)
