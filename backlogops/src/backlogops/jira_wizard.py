@@ -23,6 +23,7 @@ token is visible while typed; the pass phrases are masked.
 # MIT License
 
 from dataclasses import dataclass
+from functools import partial
 from typing import Callable, Optional, TypeVar
 from backlogops.jira_io_config import DEF_BACKLOG_COLUMN_MAP, \
     DEF_RELEASE_COLUMN_MAP, JiraColumnMap, JiraConnectConfig, JiraIOConfig, \
@@ -32,7 +33,7 @@ from backlogops.levels import Levels
 from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS
 from backlogops.wizard_forms import FormField, FormResult, choice_field, \
     name_field, opt_text_field, secret_field, text_field, yes_no_field
-from backlogops.wizard_helpers import _Navigator
+from backlogops.wizard_navigator import _Navigator
 
 _T = TypeVar('_T')
 
@@ -48,53 +49,66 @@ class _PresetChoices:
 
 
 def _counted_named(nav: _Navigator, what: str,
-                   ask_one: Callable[[set[str]], tuple[str, _T]]
-                   ) -> dict[str, _T]:
+                   ask_one: Callable[[set[str],
+                                      Optional[tuple[str, _T]]],
+                                     tuple[str, _T]],
+                   defaults: Optional[dict[str, _T]] = None) -> dict[str, _T]:
     """Ask a counted list of uniquely named items through ``ask_one``.
 
     The count question opens the section and each item is asked inside its
     own sub-level, so cancelling an item returns to the count question.
     Every accepted name is added to the set passed to ``ask_one`` so the
-    next name must differ.
+    next name must differ. The stored items pre-fill the questions: the k-th
+    default is offered to the k-th item as its starting values.
     """
-    count = nav.ask_count(f'Number of Jira {what}')
+    items = list((defaults or {}).items())
+    count = nav.ask_count(f'Number of Jira {what}', seed=len(items))
     used: set[str] = set()
     result: dict[str, _T] = {}
-    for _ in range(count):
-        name, item = nav.level(lambda: ask_one(used))
+    for k in range(count):
+        seed = items[k] if k < len(items) else None
+        name, item = nav.level(partial(ask_one, used, seed))
         used.add(name)
         result[name] = item
     return result
 
 
-def _build_jira_config(nav: _Navigator, levels: Levels) -> JiraIOConfig:
+def _build_jira_config(nav: _Navigator, levels: Levels,
+                       default: Optional[JiraIOConfig]) -> JiraIOConfig:
     """Ask for the Jira connections, maps, issue types and presets."""
     jira = JiraIOConfig(stderr_file=nav.error_file())
-    jira.connections = nav.level(lambda: _build_connections(nav))
-    jira.backlog_column_maps = nav.level(lambda: _build_backlog_maps(nav))
-    jira.release_column_maps = nav.level(lambda: _build_release_maps(nav))
-    jira.issue_type_maps = nav.level(
-        lambda: _build_issue_type_maps(nav, levels))
-    _build_presets(nav, jira)
+    jira.connections = nav.level(lambda: _build_connections(
+        nav, default.connections if default else None))
+    jira.backlog_column_maps = nav.level(lambda: _build_backlog_maps(
+        nav, default.backlog_column_maps if default else None))
+    jira.release_column_maps = nav.level(lambda: _build_release_maps(
+        nav, default.release_column_maps if default else None))
+    jira.issue_type_maps = nav.level(lambda: _build_issue_type_maps(
+        nav, levels, default.issue_type_maps if default else None))
+    _build_presets(nav, jira, default.presets if default else None)
     return jira
 
 
-def _build_issue_type_maps(nav: _Navigator,
-                           levels: Levels) -> dict[str, JiraIssueTypeMap]:
+def _build_issue_type_maps(nav: _Navigator, levels: Levels,
+                           defaults: Optional[dict[str, JiraIssueTypeMap]]
+                           ) -> dict[str, JiraIssueTypeMap]:
     """Ask for a counted list of named level-to-issue-type write maps."""
     return _counted_named(nav, 'issue type maps',
-                          lambda used: _ask_issue_type_map(nav, used, levels))
+                          partial(_ask_issue_type_map, nav, levels), defaults)
 
 
-def _ask_issue_type_map(nav: _Navigator, used: set[str],
-                        levels: Levels) -> tuple[str, JiraIssueTypeMap]:
+def _ask_issue_type_map(nav: _Navigator, levels: Levels, used: set[str],
+                        seed: Optional[tuple[str, JiraIssueTypeMap]]
+                        ) -> tuple[str, JiraIssueTypeMap]:
     """Ask one named level-to-issue-type write map, seeded from levels."""
+    seed_name, seed_map = seed if seed else (None, None)
     name = nav.ask_preset_name('Issue type map name (letters and digits)',
-                               used)
-    return name, nav.ask_issue_type_map(levels)
+                               used, seed=seed_name)
+    return name, nav.ask_issue_type_map(levels, seed=seed_map)
 
 
-def _build_presets(nav: _Navigator, jira: JiraIOConfig) -> None:
+def _build_presets(nav: _Navigator, jira: JiraIOConfig,
+                   defaults: Optional[dict[str, JiraPreset]]) -> None:
     """Ask the Jira presets when the prerequisites exist.
 
     A preset needs a connection, a backlog column map and a release column
@@ -113,13 +127,16 @@ def _build_presets(nav: _Navigator, jira: JiraIOConfig) -> None:
             nav.show('A Jira preset needs a connection, a backlog column '
                      'map and a release column map; skipping presets.')
         return
-    jira.presets = nav.level(lambda: _build_preset_list(nav, choices))
+    jira.presets = nav.level(
+        lambda: _build_preset_list(nav, choices, defaults))
 
 
-def _build_connections(nav: _Navigator) -> dict[str, JiraConnectConfig]:
+def _build_connections(nav: _Navigator,
+                       defaults: Optional[dict[str, JiraConnectConfig]]
+                       ) -> dict[str, JiraConnectConfig]:
     """Ask for a counted list of named Jira connections."""
-    return _counted_named(nav, 'connections',
-                          lambda used: _ask_connection(nav, used))
+    return _counted_named(nav, 'connections', partial(_ask_connection, nav),
+                          defaults)
 
 
 def _enum_choices(enum_cls: type[JiraType] | type[TokenStorage]) -> list[str]:
@@ -127,14 +144,25 @@ def _enum_choices(enum_cls: type[JiraType] | type[TokenStorage]) -> list[str]:
     return [member.name.lower() for member in enum_cls]
 
 
-def _connection_fields(used: set[str]) -> list[FormField]:
+_API_TOKEN_Q = 'API token (visible while typed)'
+"""Connection form label when a new API token must be entered."""
+
+_KEEP_TOKEN_Q = 'API token (blank keeps the current token)'
+"""Connection form label when the stored token may be kept."""
+
+
+def _connection_fields(used: set[str], editing: bool) -> list[FormField]:
     """Return the fields of the one-screen Jira connection form.
 
     The token file path is only relevant for a file storage mode, the API
     token only for an internal mode, and the two masked pass phrases only
-    for the internal encrypted mode; the connection rule disables the rows
-    that the chosen storage mode makes irrelevant.
+    when a new token is entered for the internal encrypted mode; the
+    connection rule disables the rows the chosen storage mode makes
+    irrelevant. When an existing connection is edited the API token may be
+    left blank to keep the stored token.
     """
+    token = (opt_text_field('api_token', _KEEP_TOKEN_Q) if editing
+             else text_field('api_token', _API_TOKEN_Q))
     return [
         name_field('name', 'Connection name (letters and digits)', used),
         choice_field('jira_type', 'Jira deployment type',
@@ -146,33 +174,74 @@ def _connection_fields(used: set[str]) -> list[FormField]:
                      _enum_choices(TokenStorage),
                      default=TokenStorage.CLEAR_FILE.name.lower()),
         text_field('token_file_path', 'Token file path'),
-        text_field('api_token', 'API token (visible while typed)'),
+        token,
         secret_field('passphrase', 'Pass phrase to encrypt the token'),
         secret_field('confirm', 'Re-enter the pass phrase')
     ]
 
 
-def _connection_rule(values: FormResult) -> tuple[Optional[str], set[str]]:
-    """Disable the irrelevant token rows and check the two pass phrases."""
-    storage = TokenStorage[values.text('token_storage').upper()]
-    file_mode = storage in _FILE_MODES
-    encrypted = storage is TokenStorage.ENCRYPTED_INTERNAL
-    return (_phrase_error(values, encrypted),
-            _connection_disabled(file_mode, encrypted))
+def _conn_seed(name: Optional[str],
+               conn: Optional[JiraConnectConfig]) -> Optional[FormResult]:
+    """Return the connection form values from a stored connection.
+
+    The API token and pass phrases are never pre-filled, so a kept token
+    stays where it is stored and is never shown.
+    """
+    if conn is None:
+        return None
+    return FormResult({'name': name,
+                       'jira_type': conn.jira_type.name.lower(),
+                       'base_url': conn.base_url,
+                       'login_email': conn.login_email,
+                       'token_storage': conn.token_storage.name.lower(),
+                       'token_file_path': conn.token_file_path or '',
+                       'api_token': '', 'passphrase': '', 'confirm': ''})
 
 
-def _connection_disabled(file_mode: bool, encrypted: bool) -> set[str]:
+def _can_keep(default_conn: Optional[JiraConnectConfig],
+              storage: TokenStorage) -> bool:
+    """Return whether a blank token keeps the default's stored token."""
+    return (default_conn is not None and storage not in _FILE_MODES
+            and default_conn.token_storage == storage
+            and default_conn.stored_token is not None)
+
+
+def _connection_rule(default_conn: Optional[JiraConnectConfig]
+                     ) -> Callable[[FormResult],
+                                   tuple[Optional[str], set[str]]]:
+    """Return a rule that guides the token rows for one connection form."""
+    def rule(values: FormResult) -> tuple[Optional[str], set[str]]:
+        """Disable the irrelevant rows and check the token and phrases."""
+        storage = TokenStorage[values.text('token_storage').upper()]
+        file_mode = storage in _FILE_MODES
+        new_token = bool(values.opt_text('api_token'))
+        encrypting = storage is TokenStorage.ENCRYPTED_INTERNAL and new_token
+        message = _token_message(values, file_mode, storage, default_conn)
+        return message, _connection_disabled(file_mode, encrypting)
+    return rule
+
+
+def _token_message(values: FormResult, file_mode: bool, storage: TokenStorage,
+                   default_conn: Optional[JiraConnectConfig]) -> Optional[str]:
+    """Return a blocking message for the token rows, or None when valid."""
+    token = values.opt_text('api_token')
+    if not file_mode and not token and not _can_keep(default_conn, storage):
+        return 'Enter the API token for this connection.'
+    if storage is TokenStorage.ENCRYPTED_INTERNAL and token:
+        return _phrase_error(values)
+    return None
+
+
+def _connection_disabled(file_mode: bool, encrypting: bool) -> set[str]:
     """Return the connection rows irrelevant to the chosen storage mode."""
     disabled = {'api_token'} if file_mode else {'token_file_path'}
-    if not encrypted:
+    if not encrypting:
         disabled.update({'passphrase', 'confirm'})
     return disabled
 
 
-def _phrase_error(values: FormResult, encrypted: bool) -> Optional[str]:
+def _phrase_error(values: FormResult) -> Optional[str]:
     """Return a message when the two pass phrases differ, else None."""
-    if not encrypted:
-        return None
     first = values.opt_text('passphrase')
     second = values.opt_text('confirm')
     if first is not None and second is not None and first != second:
@@ -180,29 +249,45 @@ def _phrase_error(values: FormResult, encrypted: bool) -> Optional[str]:
     return None
 
 
-def _ask_connection(nav: _Navigator,
-                    used: set[str]) -> tuple[str, JiraConnectConfig]:
+def _ask_connection(nav: _Navigator, used: set[str],
+                    seed: Optional[tuple[str, JiraConnectConfig]]
+                    ) -> tuple[str, JiraConnectConfig]:
     """Ask one Jira connection and its token storage on a single form."""
+    seed_name, default_conn = seed if seed else (None, None)
     values = nav.ask_form('Configure the Jira connection.',
-                          _connection_fields(used), _connection_rule)
+                          _connection_fields(used, default_conn is not None),
+                          _connection_rule(default_conn),
+                          seed=_conn_seed(seed_name, default_conn))
     connection = JiraConnectConfig(stderr_file=nav.error_file())
     connection.jira_type = JiraType[values.text('jira_type').upper()]
     connection.base_url = values.text('base_url')
     connection.login_email = values.text('login_email')
     connection.token_storage = TokenStorage[values.text('token_storage')
                                             .upper()]
-    _store_token(nav, connection, values)
+    _store_token(nav, connection, values, default_conn)
     return values.text('name'), connection
 
 
 def _store_token(nav: _Navigator, connection: JiraConnectConfig,
-                 values: FormResult) -> None:
-    """Store the token from the form, by file path or internal storage."""
+                 values: FormResult,
+                 default_conn: Optional[JiraConnectConfig]) -> None:
+    """Store the token from the form, keeping the stored one when blank.
+
+    A file storage mode records the token file path. An internal mode
+    stores a newly entered token, or keeps the default connection's stored
+    token when the token field is left blank and the storage mode is
+    unchanged.
+    """
     if connection.uses_token_file():
         connection.token_file_path = values.text('token_file_path')
         return
-    connection.set_token(values.text('api_token'),
-                         _token_phrase(connection, values), nav.error_file())
+    token = values.opt_text('api_token')
+    if token:
+        connection.set_token(token, _token_phrase(connection, values),
+                             nav.error_file())
+    elif _can_keep(default_conn, connection.token_storage):
+        assert default_conn is not None
+        connection.stored_token = default_conn.stored_token
 
 
 def _token_phrase(connection: JiraConnectConfig,
@@ -214,45 +299,56 @@ def _token_phrase(connection: JiraConnectConfig,
     return lambda: phrase
 
 
-def _build_backlog_maps(nav: _Navigator) -> dict[str, JiraColumnMap]:
+@dataclass(frozen=True)
+class _MapKind:
+    """One kind of named Jira column map: its label, fields and default."""
+
+    label: str
+    fields: list[str]
+    default: JiraColumnMap
+
+
+_BACKLOG_KIND = _MapKind('Backlog', list(BACKLOG_FIELDS),
+                         DEF_BACKLOG_COLUMN_MAP)
+"""The backlog column-map kind, seeded from the backlog default."""
+
+_RELEASE_KIND = _MapKind('Release', list(RELEASE_FIELDS),
+                         DEF_RELEASE_COLUMN_MAP)
+"""The release column-map kind, seeded from the release default."""
+
+
+def _build_backlog_maps(nav: _Navigator,
+                        defaults: Optional[dict[str, JiraColumnMap]]
+                        ) -> dict[str, JiraColumnMap]:
     """Ask for a counted list of named Jira backlog column maps."""
     return _counted_named(nav, 'backlog column maps',
-                          lambda used: _ask_backlog_map(nav, used))
+                          partial(_ask_map, nav, _BACKLOG_KIND), defaults)
 
 
-def _build_release_maps(nav: _Navigator) -> dict[str, JiraColumnMap]:
+def _build_release_maps(nav: _Navigator,
+                        defaults: Optional[dict[str, JiraColumnMap]]
+                        ) -> dict[str, JiraColumnMap]:
     """Ask for a counted list of named Jira release column maps."""
     return _counted_named(nav, 'release column maps',
-                          lambda used: _ask_release_map(nav, used))
+                          partial(_ask_map, nav, _RELEASE_KIND), defaults)
 
 
-def _ask_backlog_map(nav: _Navigator,
-                     used: set[str]) -> tuple[str, JiraColumnMap]:
-    """Ask one named backlog column map, seeded from the backlog default."""
-    return _ask_map(nav, used, 'Backlog', list(BACKLOG_FIELDS),
-                    DEF_BACKLOG_COLUMN_MAP)
+def _ask_map(nav: _Navigator, kind: _MapKind, used: set[str],
+             seed: Optional[tuple[str, JiraColumnMap]]
+             ) -> tuple[str, JiraColumnMap]:
+    """Ask one named Jira column map, seeded from its kind or a seed."""
+    seed_name, seed_map = seed if seed else (None, None)
+    name = nav.ask_preset_name(f'{kind.label} column map name (letters and '
+                               'digits)', used, seed=seed_name)
+    return name, nav.ask_jira_map(kind.fields, kind.default, seed=seed_map)
 
 
-def _ask_release_map(nav: _Navigator,
-                     used: set[str]) -> tuple[str, JiraColumnMap]:
-    """Ask one named release column map, seeded from the release default."""
-    return _ask_map(nav, used, 'Release', list(RELEASE_FIELDS),
-                    DEF_RELEASE_COLUMN_MAP)
-
-
-def _ask_map(nav: _Navigator, used: set[str], label: str, fields: list[str],
-             default: JiraColumnMap) -> tuple[str, JiraColumnMap]:
-    """Ask one named Jira column map, seeded from ``default``."""
-    name = nav.ask_preset_name(f'{label} column map name (letters and '
-                               'digits)', used)
-    return name, nav.ask_jira_map(fields, default)
-
-
-def _build_preset_list(nav: _Navigator,
-                       choices: _PresetChoices) -> dict[str, JiraPreset]:
+def _build_preset_list(nav: _Navigator, choices: _PresetChoices,
+                       defaults: Optional[dict[str, JiraPreset]]
+                       ) -> dict[str, JiraPreset]:
     """Ask for a counted list of named Jira presets."""
-    return _counted_named(nav, 'presets',
-                          lambda used: _ask_preset(nav, used, choices))
+    return _counted_named(nav, 'presets', partial(_ask_preset, nav, choices),
+                          defaults)
 
 
 _WRITE_MAP_Q = ('Use a separate backlog column map for writing (otherwise '
@@ -315,12 +411,34 @@ def _preset_rule(has_issue_type: bool
     return rule
 
 
-def _ask_preset(nav: _Navigator, used: set[str],
-                choices: _PresetChoices) -> tuple[str, JiraPreset]:
+def _preset_seed(name: Optional[str], preset: Optional[JiraPreset],
+                 choices: _PresetChoices) -> Optional[FormResult]:
+    """Return the preset form values from a stored preset."""
+    if preset is None:
+        return None
+    values: dict[str, object] = {
+        'name': name, 'connection': preset.connection_name,
+        'backlog_map': preset.backlog_column_map_name,
+        'separate_write': bool(preset.backlog_write_map_name),
+        'write_map': preset.backlog_write_map_name or choices.backlog_maps[0],
+        'release_map': preset.release_column_map_name,
+        'def_project': preset.def_project, 'def_filter': preset.def_filter}
+    if choices.issue_type_maps:
+        values['use_issue_type'] = bool(preset.issue_type_map_name)
+        values['issue_type_map'] = (preset.issue_type_map_name
+                                    or choices.issue_type_maps[0])
+    return FormResult(values)
+
+
+def _ask_preset(nav: _Navigator, choices: _PresetChoices, used: set[str],
+                seed: Optional[tuple[str, JiraPreset]]
+                ) -> tuple[str, JiraPreset]:
     """Ask one preset on a single form: name, connection, maps and filter."""
+    seed_name, seed_preset = seed if seed else (None, None)
     values = nav.ask_form('Configure the Jira preset.',
                           _preset_fields(used, choices),
-                          _preset_rule(bool(choices.issue_type_maps)))
+                          _preset_rule(bool(choices.issue_type_maps)),
+                          seed=_preset_seed(seed_name, seed_preset, choices))
     return _preset_from(nav, values, choices)
 
 

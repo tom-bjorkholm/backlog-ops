@@ -23,7 +23,7 @@ with the table-based wizard helpers.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import Callable, Optional, Sequence
 from tableio_cfg_json import AnswerField, AskChoiceField, AskField, \
@@ -108,23 +108,74 @@ class FormResult:
         assert value is None or isinstance(value, date)
         return value
 
+    def raw(self, key: str) -> object:
+        """Return the parsed value of a field, or None when it is absent."""
+        return self._values.get(key)
+
 
 def _no_rule(_values: FormResult) -> tuple[Optional[str], set[str]]:
     """Enable every field and report no cross-field problem."""
     return None, set()
 
 
+def _seeded_fields(fields: Sequence[FormField],
+                   seed: Optional[FormResult]) -> list[FormField]:
+    """Return the fields with each ask pre-filled from a seed result."""
+    if seed is None:
+        return list(fields)
+    return [_seed_field(field, seed.raw(field.key)) for field in fields]
+
+
+def _seed_field(field: FormField, value: object) -> FormField:
+    """Return a copy of a field whose ask starts on a seed value."""
+    if value is None:
+        return field
+    return replace(field, ask=_reseed_ask(field.ask, value))
+
+
+def _reseed_ask(ask: AskField, value: object) -> AskField:
+    """Return a copy of an ask field with its default set from a value."""
+    if isinstance(ask, AskYesNoField):
+        return replace(ask, default=bool(value))
+    if isinstance(ask, AskIntField) and isinstance(value, int):
+        return replace(ask, default=value)
+    if isinstance(ask, AskChoiceField) and isinstance(value, str) \
+            and value in ask.choices:
+        return replace(ask, default=value)
+    if isinstance(ask, AskTextField) and not ask.sensitive:
+        text = _as_text(value)
+        return ask if text is None else replace(ask, default=text)
+    return ask
+
+
+def _as_text(value: object) -> Optional[str]:
+    """Return a text default for a value, or None when it has no text."""
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, float):
+        return _num_text(value)
+    if isinstance(value, str):
+        return value
+    return None
+
+
 def run_form(bridge: WizardUiBridge, question: str,
              fields: Sequence[FormField],
              rule: Callable[[FormResult], tuple[Optional[str], set[str]]]
-             = _no_rule) -> FormResult:
+             = _no_rule, seed: Optional[FormResult] = None) -> FormResult:
     """Ask a whole form and return its validated, typed answers.
 
     The rule disables the fields that the current answers make irrelevant
     and reports any cross-field problem. A bridge that validates on submit
     returns only valid answers; a plain console bridge may return an
-    invalid form, which is re-asked with the blocking message shown.
+    invalid form, which is re-asked with the blocking message shown. When a
+    ``seed`` result is given each field starts pre-filled with its seed
+    value, so a re-asked or default-driven form opens on the earlier
+    answers; sensitive fields keep no default and are always asked afresh.
     """
+    fields = _seeded_fields(fields, seed)
     asks = [field.ask for field in fields]
 
     def validate(answers: Sequence[AnswerField],

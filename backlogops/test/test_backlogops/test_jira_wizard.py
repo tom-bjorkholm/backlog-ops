@@ -18,7 +18,8 @@ from backlogops.backlog import Status
 from backlogops.backlog_ops_wizard import backlog_ops_wizard
 from backlogops.jira_io_config import (
     JiraAttrPath, JiraAttrType, default_jira_filter)
-from backlogops.jira_io_config import TokenStorage
+from backlogops.jira_io_config import JiraConnectConfig, JiraIssueTypeMap, \
+    TokenStorage
 from backlogops.jira_wizard import (
     _PresetChoices, _build_connections, _build_issue_type_maps,
     _build_preset_list, _connection_disabled, _connection_fields,
@@ -26,8 +27,9 @@ from backlogops.jira_wizard import (
 from backlogops.levels import DEFAULT_LEVELS
 from backlogops.wizard_forms import FormResult
 from backlogops.wizard_helpers import (
-    _Navigator, _attr_from_cells, _jira_map_check, _merge_status_defaults,
+    _attr_from_cells, _jira_map_check, _merge_status_defaults,
     _parse_jira_map)
+from backlogops.wizard_navigator import _Navigator
 
 _PREFIX = [''] * 7 + ['0', '0', '0', '0', '0'] + ['', '', '', '', '']
 """Default answers for the wizard stages that precede the Jira stage."""
@@ -142,7 +144,8 @@ def test_preset() -> None:
     answers = ['1', 'p1', 'c1', 'm1', 'no', 'm2', 'PROJ', 'filter']
     nav = _Navigator(_console(answers))
     presets = nav.run(
-        lambda n: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2'])))
+        lambda n, _d: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2']),
+                                         None))
     preset = presets['p1']
     assert preset.connection_name == 'c1'
     assert preset.backlog_column_map_name == 'm1'
@@ -158,7 +161,8 @@ def test_preset_def_filter() -> None:
     answers = ['1', 'p1', 'c1', 'm1', 'no', 'm2', 'PROJ', '']
     nav = _Navigator(_console(answers))
     presets = nav.run(
-        lambda n: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2'])))
+        lambda n, _d: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2']),
+                                         None))
     assert presets['p1'].def_filter == default_jira_filter('PROJ')
 
 
@@ -176,14 +180,14 @@ def test_conn_disabled(storage: TokenStorage, disabled: set[str]) -> None:
 
 
 def _conn_result(storage: str, passphrase: str, confirm: str) -> FormResult:
-    """Return a connection FormResult with the given token answers."""
-    return FormResult({'token_storage': storage, 'passphrase': passphrase,
-                       'confirm': confirm})
+    """Return a connection FormResult with a new token and token answers."""
+    return FormResult({'token_storage': storage, 'api_token': 'TOK',
+                       'passphrase': passphrase, 'confirm': confirm})
 
 
 def test_conn_rule_mismatch() -> None:
     """Test the connection rule flags two differing pass phrases."""
-    message, disabled = _connection_rule(
+    message, disabled = _connection_rule(None)(
         _conn_result('encrypted_internal', 'aa', 'bb'))
     assert message is not None
     assert 'token_file_path' in disabled
@@ -191,14 +195,14 @@ def test_conn_rule_mismatch() -> None:
 
 def test_conn_rule_match() -> None:
     """Test the connection rule passes two identical pass phrases."""
-    message, _ = _connection_rule(
+    message, _ = _connection_rule(None)(
         _conn_result('encrypted_internal', 'pp', 'pp'))
     assert message is None
 
 
 def test_conn_fields_masked() -> None:
     """Test the connection form masks both pass-phrase fields."""
-    fields = {field.key: field for field in _connection_fields(set())}
+    fields = {field.key: field for field in _connection_fields(set(), False)}
     for key in ('passphrase', 'confirm'):
         ask = fields[key].ask
         assert isinstance(ask, AskTextField)
@@ -231,8 +235,8 @@ def test_preset_write_map() -> None:
     answers = ['1', 'p1', 'c1', 'm1', 'yes', 'wr', 'm2', 'PROJ', 'filter']
     nav = _Navigator(_console(answers))
     presets = nav.run(
-        lambda n: _build_preset_list(n, _choices(['c1'], ['m1', 'wr'],
-                                                 ['m2'])))
+        lambda n, _d: _build_preset_list(
+            n, _choices(['c1'], ['m1', 'wr'], ['m2']), None))
     preset = presets['p1']
     assert preset.backlog_column_map_name == 'm1'
     assert preset.backlog_write_map_name == 'wr'
@@ -244,8 +248,8 @@ def test_preset_itmap() -> None:
     answers = ['1', 'p1', 'c1', 'm1', 'no', 'm2', 'yes', 'im', 'PROJ', 'f']
     nav = _Navigator(_console(answers))
     presets = nav.run(
-        lambda n: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2'],
-                                                 ['im'])))
+        lambda n, _d: _build_preset_list(
+            n, _choices(['c1'], ['m1'], ['m2'], ['im']), None))
     assert presets['p1'].issue_type_map_name == 'im'
 
 
@@ -254,15 +258,21 @@ def test_preset_no_itmap() -> None:
     answers = ['1', 'p1', 'c1', 'm1', 'no', 'm2', 'no', 'PROJ', 'f']
     nav = _Navigator(_console(answers))
     presets = nav.run(
-        lambda n: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2'],
-                                                 ['im'])))
+        lambda n, _d: _build_preset_list(
+            n, _choices(['c1'], ['m1'], ['m2'], ['im']), None))
     assert presets['p1'].issue_type_map_name == ''
+
+
+def _itmap_body(nav: _Navigator,
+                _default: object) -> dict[str, JiraIssueTypeMap]:
+    """Collect issue-type maps seeded from the default levels."""
+    return _build_issue_type_maps(nav, DEFAULT_LEVELS, None)
 
 
 def test_itmap_collect() -> None:
     """Test the issue-type map collector names a map seeded from levels."""
     nav = _Navigator(_console(['1', 'im', '']))
-    maps = nav.run(lambda n: _build_issue_type_maps(n, DEFAULT_LEVELS))
+    maps = nav.run(_itmap_body)
     assert sorted(maps) == ['im']
     assert maps['im'] == {}
 
@@ -350,3 +360,28 @@ def test_jira_map_check(table: list[list[Optional[str]]], pos: tuple[int, int],
                         ok: bool) -> None:
     """Test the per-cell check flags a bad kind or a path without a kind."""
     assert _jira_map_check(table, pos)[0] is ok
+
+
+def _encrypted_default() -> JiraConnectConfig:
+    """Return a connection with an encrypted, internally stored token."""
+    conn = JiraConnectConfig()
+    conn.token_storage = TokenStorage.ENCRYPTED_INTERNAL
+    conn.base_url = 'https://x'
+    conn.login_email = 'me@x'
+    conn.set_token('SECRET', lambda: 'phrase')
+    return conn
+
+
+def test_conn_keep_token() -> None:
+    """Test editing a connection with a blank token keeps the stored one.
+
+    The default connection has an encrypted internal token whose clear text
+    cannot be shown, so the token field is left blank and the stored,
+    encrypted token is kept unchanged.
+    """
+    default = _encrypted_default()
+    answers = [''] * 7
+    nav = _Navigator(_console(answers))
+    conn = nav.run(_build_connections, {'enc': default})['enc']
+    assert conn.stored_token == default.stored_token
+    assert conn.get_token(lambda: 'phrase') == 'SECRET'

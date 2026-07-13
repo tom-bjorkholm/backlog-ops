@@ -133,6 +133,36 @@
     * [truncate](#backlogops.no_text_io.NoTextIO.truncate)
     * [\_\_enter\_\_](#backlogops.no_text_io.NoTextIO.__enter__)
     * [\_\_exit\_\_](#backlogops.no_text_io.NoTextIO.__exit__)
+* [backlogops.wizard\_navigator](#backlogops.wizard_navigator)
+  * [\_Walk](#backlogops.wizard_navigator._Walk)
+  * [\_Navigator](#backlogops.wizard_navigator._Navigator)
+    * [\_\_init\_\_](#backlogops.wizard_navigator._Navigator.__init__)
+    * [run](#backlogops.wizard_navigator._Navigator.run)
+    * [\_fill](#backlogops.wizard_navigator._Navigator._fill)
+    * [\_reset\_run](#backlogops.wizard_navigator._Navigator._reset_run)
+    * [\_go\_back](#backlogops.wizard_navigator._Navigator._go_back)
+    * [level](#backlogops.wizard_navigator._Navigator.level)
+    * [\_run\_level](#backlogops.wizard_navigator._Navigator._run_level)
+    * [show](#backlogops.wizard_navigator._Navigator.show)
+    * [error\_file](#backlogops.wizard_navigator._Navigator.error_file)
+    * [ask\_text](#backlogops.wizard_navigator._Navigator.ask_text)
+    * [ask\_int](#backlogops.wizard_navigator._Navigator.ask_int)
+    * [ask\_count](#backlogops.wizard_navigator._Navigator.ask_count)
+    * [ask\_choice](#backlogops.wizard_navigator._Navigator.ask_choice)
+    * [ask\_form](#backlogops.wizard_navigator._Navigator.ask_form)
+    * [ask\_person\_name](#backlogops.wizard_navigator._Navigator.ask_person_name)
+    * [ask\_preset\_name](#backlogops.wizard_navigator._Navigator.ask_preset_name)
+    * [ask\_tableio](#backlogops.wizard_navigator._Navigator.ask_tableio)
+    * [ask\_schedule](#backlogops.wizard_navigator._Navigator.ask_schedule)
+    * [ask\_levels](#backlogops.wizard_navigator._Navigator.ask_levels)
+    * [ask\_renames](#backlogops.wizard_navigator._Navigator.ask_renames)
+    * [ask\_status\_map](#backlogops.wizard_navigator._Navigator.ask_status_map)
+    * [ask\_jira\_map](#backlogops.wizard_navigator._Navigator.ask_jira_map)
+    * [ask\_issue\_type\_map](#backlogops.wizard_navigator._Navigator.ask_issue_type_map)
+    * [\_ask](#backlogops.wizard_navigator._Navigator._ask)
+    * [\_next\_path](#backlogops.wizard_navigator._Navigator._next_path)
+    * [\_prune\_items](#backlogops.wizard_navigator._Navigator._prune_items)
+  * [\_ask\_level\_display](#backlogops.wizard_navigator._ask_level_display)
 * [backlogops.release\_change\_io](#backlogops.release_change_io)
   * [CONTENT\_HEADER](#backlogops.release_change_io.CONTENT_HEADER)
   * [DATE\_HEADER](#backlogops.release_change_io.DATE_HEADER)
@@ -551,17 +581,23 @@
   * [\_build\_presets](#backlogops.jira_wizard._build_presets)
   * [\_build\_connections](#backlogops.jira_wizard._build_connections)
   * [\_enum\_choices](#backlogops.jira_wizard._enum_choices)
+  * [\_API\_TOKEN\_Q](#backlogops.jira_wizard._API_TOKEN_Q)
+  * [\_KEEP\_TOKEN\_Q](#backlogops.jira_wizard._KEEP_TOKEN_Q)
   * [\_connection\_fields](#backlogops.jira_wizard._connection_fields)
+  * [\_conn\_seed](#backlogops.jira_wizard._conn_seed)
+  * [\_can\_keep](#backlogops.jira_wizard._can_keep)
   * [\_connection\_rule](#backlogops.jira_wizard._connection_rule)
+  * [\_token\_message](#backlogops.jira_wizard._token_message)
   * [\_connection\_disabled](#backlogops.jira_wizard._connection_disabled)
   * [\_phrase\_error](#backlogops.jira_wizard._phrase_error)
   * [\_ask\_connection](#backlogops.jira_wizard._ask_connection)
   * [\_store\_token](#backlogops.jira_wizard._store_token)
   * [\_token\_phrase](#backlogops.jira_wizard._token_phrase)
+  * [\_MapKind](#backlogops.jira_wizard._MapKind)
+  * [\_BACKLOG\_KIND](#backlogops.jira_wizard._BACKLOG_KIND)
+  * [\_RELEASE\_KIND](#backlogops.jira_wizard._RELEASE_KIND)
   * [\_build\_backlog\_maps](#backlogops.jira_wizard._build_backlog_maps)
   * [\_build\_release\_maps](#backlogops.jira_wizard._build_release_maps)
-  * [\_ask\_backlog\_map](#backlogops.jira_wizard._ask_backlog_map)
-  * [\_ask\_release\_map](#backlogops.jira_wizard._ask_release_map)
   * [\_ask\_map](#backlogops.jira_wizard._ask_map)
   * [\_build\_preset\_list](#backlogops.jira_wizard._build_preset_list)
   * [\_WRITE\_MAP\_Q](#backlogops.jira_wizard._WRITE_MAP_Q)
@@ -570,6 +606,7 @@
   * [\_issue\_type\_field](#backlogops.jira_wizard._issue_type_field)
   * [\_preset\_fields](#backlogops.jira_wizard._preset_fields)
   * [\_preset\_rule](#backlogops.jira_wizard._preset_rule)
+  * [\_preset\_seed](#backlogops.jira_wizard._preset_seed)
   * [\_ask\_preset](#backlogops.jira_wizard._ask_preset)
   * [\_preset\_from](#backlogops.jira_wizard._preset_from)
   * [\_write\_map\_name](#backlogops.jira_wizard._write_map_name)
@@ -721,7 +758,12 @@
     * [number](#backlogops.wizard_forms.FormResult.number)
     * [day](#backlogops.wizard_forms.FormResult.day)
     * [opt\_day](#backlogops.wizard_forms.FormResult.opt_day)
+    * [raw](#backlogops.wizard_forms.FormResult.raw)
   * [\_no\_rule](#backlogops.wizard_forms._no_rule)
+  * [\_seeded\_fields](#backlogops.wizard_forms._seeded_fields)
+  * [\_seed\_field](#backlogops.wizard_forms._seed_field)
+  * [\_reseed\_ask](#backlogops.wizard_forms._reseed_ask)
+  * [\_as\_text](#backlogops.wizard_forms._as_text)
   * [run\_form](#backlogops.wizard_forms.run_form)
   * [\_values\_of](#backlogops.wizard_forms._values_of)
   * [\_validate](#backlogops.wizard_forms._validate)
@@ -767,6 +809,7 @@
   * [\_levels\_or\_none](#backlogops.backlog_ops_wizard._levels_or_none)
   * [\_build\_company](#backlogops.backlog_ops_wizard._build_company)
   * [\_build\_exceptions](#backlogops.backlog_ops_wizard._build_exceptions)
+  * [\_exc\_seed](#backlogops.backlog_ops_wizard._exc_seed)
   * [\_period\_rule](#backlogops.backlog_ops_wizard._period_rule)
   * [\_exception\_fields](#backlogops.backlog_ops_wizard._exception_fields)
   * [\_ask\_exception](#backlogops.backlog_ops_wizard._ask_exception)
@@ -774,13 +817,16 @@
   * [\_ask\_person](#backlogops.backlog_ops_wizard._ask_person)
   * [\_build\_teams](#backlogops.backlog_ops_wizard._build_teams)
   * [\_team\_fields](#backlogops.backlog_ops_wizard._team_fields)
+  * [\_team\_seed](#backlogops.backlog_ops_wizard._team_seed)
   * [\_ask\_team](#backlogops.backlog_ops_wizard._ask_team)
   * [\_build\_aliases](#backlogops.backlog_ops_wizard._build_aliases)
   * [\_build\_members](#backlogops.backlog_ops_wizard._build_members)
   * [\_membership\_fields](#backlogops.backlog_ops_wizard._membership_fields)
+  * [\_member\_seed](#backlogops.backlog_ops_wizard._member_seed)
   * [\_ask\_membership](#backlogops.backlog_ops_wizard._ask_membership)
   * [\_build\_fte\_exceptions](#backlogops.backlog_ops_wizard._build_fte_exceptions)
   * [\_fte\_exception\_fields](#backlogops.backlog_ops_wizard._fte_exception_fields)
+  * [\_fte\_seed](#backlogops.backlog_ops_wizard._fte_seed)
   * [\_ask\_fte\_exception](#backlogops.backlog_ops_wizard._ask_fte_exception)
 * [backlogops.order\_by\_dependencies](#backlogops.order_by_dependencies)
   * [DependencyMode](#backlogops.order_by_dependencies.DependencyMode)
@@ -821,32 +867,9 @@
   * [\_level\_number](#backlogops.move_keys_first._level_number)
   * [get\_keys\_in\_order](#backlogops.move_keys_first.get_keys_in_order)
 * [backlogops.wizard\_helpers](#backlogops.wizard_helpers)
-  * [\_Navigator](#backlogops.wizard_helpers._Navigator)
-    * [\_\_init\_\_](#backlogops.wizard_helpers._Navigator.__init__)
-    * [run](#backlogops.wizard_helpers._Navigator.run)
-    * [level](#backlogops.wizard_helpers._Navigator.level)
-    * [show](#backlogops.wizard_helpers._Navigator.show)
-    * [error\_file](#backlogops.wizard_helpers._Navigator.error_file)
-    * [ask\_text](#backlogops.wizard_helpers._Navigator.ask_text)
-    * [ask\_int](#backlogops.wizard_helpers._Navigator.ask_int)
-    * [ask\_count](#backlogops.wizard_helpers._Navigator.ask_count)
-    * [ask\_choice](#backlogops.wizard_helpers._Navigator.ask_choice)
-    * [ask\_form](#backlogops.wizard_helpers._Navigator.ask_form)
-    * [ask\_person\_name](#backlogops.wizard_helpers._Navigator.ask_person_name)
-    * [ask\_preset\_name](#backlogops.wizard_helpers._Navigator.ask_preset_name)
-    * [ask\_tableio](#backlogops.wizard_helpers._Navigator.ask_tableio)
-    * [ask\_schedule](#backlogops.wizard_helpers._Navigator.ask_schedule)
-    * [ask\_levels](#backlogops.wizard_helpers._Navigator.ask_levels)
-    * [ask\_renames](#backlogops.wizard_helpers._Navigator.ask_renames)
-    * [ask\_status\_map](#backlogops.wizard_helpers._Navigator.ask_status_map)
-    * [ask\_jira\_map](#backlogops.wizard_helpers._Navigator.ask_jira_map)
-    * [ask\_issue\_type\_map](#backlogops.wizard_helpers._Navigator.ask_issue_type_map)
-    * [\_ask](#backlogops.wizard_helpers._Navigator._ask)
-    * [\_replaying](#backlogops.wizard_helpers._Navigator._replaying)
   * [\_read\_text](#backlogops.wizard_helpers._read_text)
   * [\_read\_int](#backlogops.wizard_helpers._read_int)
   * [\_read\_unique\_name](#backlogops.wizard_helpers._read_unique_name)
-  * [\_ask\_level\_display](#backlogops.wizard_helpers._ask_level_display)
   * [\_read\_preset\_name](#backlogops.wizard_helpers._read_preset_name)
   * [\_read\_tableio](#backlogops.wizard_helpers._read_tableio)
   * [\_is\_nonneg](#backlogops.wizard_helpers._is_nonneg)
@@ -863,6 +886,11 @@
   * [\_parse\_column\_renames](#backlogops.wizard_helpers._parse_column_renames)
   * [\_parse\_input\_renames](#backlogops.wizard_helpers._parse_input_renames)
   * [\_rename\_cells](#backlogops.wizard_helpers._rename_cells)
+  * [\_blank\_none](#backlogops.wizard_helpers._blank_none)
+  * [\_output\_rename\_cells](#backlogops.wizard_helpers._output_rename_cells)
+  * [\_input\_rename\_cells](#backlogops.wizard_helpers._input_rename_cells)
+  * [\_rename\_cells\_from](#backlogops.wizard_helpers._rename_cells_from)
+  * [\_RenameKind](#backlogops.wizard_helpers._RenameKind)
   * [\_read\_renames](#backlogops.wizard_helpers._read_renames)
   * [\_MAX\_LEVELS](#backlogops.wizard_helpers._MAX_LEVELS)
   * [\_LEVELS\_INSTRUCTION](#backlogops.wizard_helpers._LEVELS_INSTRUCTION)
@@ -870,7 +898,7 @@
   * [\_split\_aliases](#backlogops.wizard_helpers._split_aliases)
   * [\_levels\_check](#backlogops.wizard_helpers._levels_check)
   * [\_parse\_levels](#backlogops.wizard_helpers._parse_levels)
-  * [\_default\_level\_cells](#backlogops.wizard_helpers._default_level_cells)
+  * [\_level\_cells](#backlogops.wizard_helpers._level_cells)
   * [\_levels\_problem](#backlogops.wizard_helpers._levels_problem)
   * [\_cells\_from\_table](#backlogops.wizard_helpers._cells_from_table)
   * [\_read\_levels](#backlogops.wizard_helpers._read_levels)
@@ -892,6 +920,7 @@
   * [\_JIRA\_MAP\_INSTRUCTION](#backlogops.wizard_helpers._JIRA_MAP_INSTRUCTION)
   * [\_JIRA\_MAP\_REASON](#backlogops.wizard_helpers._JIRA_MAP_REASON)
   * [\_path\_text](#backlogops.wizard_helpers._path_text)
+  * [\_jira\_field\_rows](#backlogops.wizard_helpers._jira_field_rows)
   * [\_jira\_map\_cells](#backlogops.wizard_helpers._jira_map_cells)
   * [\_jira\_map\_check](#backlogops.wizard_helpers._jira_map_check)
   * [\_attr\_from\_cells](#backlogops.wizard_helpers._attr_from_cells)
@@ -976,6 +1005,7 @@
   * [\_IN\_STATUS\_QUESTION](#backlogops.io_preset_wizard._IN_STATUS_QUESTION)
   * [preset\_wizard](#backlogops.io_preset_wizard.preset_wizard)
   * [\_DIRECTION\_QUESTION](#backlogops.io_preset_wizard._DIRECTION_QUESTION)
+  * [\_preset\_direction](#backlogops.io_preset_wizard._preset_direction)
   * [\_collect\_preset](#backlogops.io_preset_wizard._collect_preset)
   * [\_build\_input\_presets](#backlogops.io_preset_wizard._build_input_presets)
   * [\_build\_output\_presets](#backlogops.io_preset_wizard._build_output_presets)
@@ -3325,6 +3355,420 @@ def __exit__(exc_type: type[BaseException] | None,
 Exit the NoTextIO object.
 
 This method does nothing.
+
+<a id="backlogops.wizard_navigator"></a>
+
+# backlogops.wizard\_navigator
+
+Re-runnable navigation for the interactive backlog-ops wizards.
+
+The :class:`_Navigator` drives a wizard body: an ordinary function that asks
+its questions through the navigator and reads its per-question defaults from
+an optional starting configuration. Every question has a stable position in
+the nesting of levels and counted items, so an answered value is remembered
+by that position and offered again as the default when the question is
+re-asked, whether the user went back to it or forward into it once more.
+
+The field-reading and parsing helpers the navigator calls live in
+:mod:`backlogops.wizard_helpers`; the one-screen form toolkit lives in
+:mod:`backlogops.wizard_forms`. The small domain helper
+:func:`_ask_level_display` is shared by the configuration and preset wizards.
+
+<a id="backlogops.wizard_navigator._Walk"></a>
+
+## \_Walk Objects
+
+```python
+@dataclass
+class _Walk()
+```
+
+The traversal position while one run of a wizard body proceeds.
+
+**Attributes**:
+
+- `visit` - How many questions the current run has reached so far.
+- `prefix` - The chosen child index at each entered level.
+- `counters` - The next child index at each active level.
+
+<a id="backlogops.wizard_navigator._Navigator"></a>
+
+## \_Navigator Objects
+
+```python
+class _Navigator()
+```
+
+Drive a re-runnable wizard body with back, cancel and pre-fill.
+
+Going back un-confirms the most recent question and replays the rest;
+cancelling a level un-confirms that level; both keep the remembered
+values so the re-asked questions start pre-filled. Answering a count
+forgets the remembered items beyond the new count, so lowering a count
+drops the surplus while raising it keeps what was already entered. When
+the body is run backward the body is first replayed against its default,
+so the wizard opens on the last question with the earlier ones filled.
+
+<a id="backlogops.wizard_navigator._Navigator.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(ui_bridge: WizardUiBridge) -> None
+```
+
+Store the bridge and start with no remembered answers.
+
+<a id="backlogops.wizard_navigator._Navigator.run"></a>
+
+#### run
+
+```python
+def run(body: Callable[['_Navigator', Optional[_D]], _T],
+        default: Optional[_D] = None,
+        backward: bool = False) -> _T
+```
+
+Run the body, restarting it to honour back and cancel requests.
+
+A back request un-confirms the most recent answer and replays the
+rest, re-asking the previous question pre-filled. A cancel request
+that reaches the outermost body has no outer level to return to, so
+the question is asked again. When ``backward`` is set and a
+``default`` is given the body is first replayed against the default,
+so the wizard opens on its last question with the earlier ones
+pre-filled. An abort request propagates to the caller.
+
+<a id="backlogops.wizard_navigator._Navigator._fill"></a>
+
+#### \_fill
+
+```python
+def _fill(body: Callable[['_Navigator', Optional[_D]], object],
+          default: _D) -> None
+```
+
+Replay the body against the default to remember its answers.
+
+<a id="backlogops.wizard_navigator._Navigator._reset_run"></a>
+
+#### \_reset\_run
+
+```python
+def _reset_run() -> None
+```
+
+Reset the traversal state, keeping the remembered answers.
+
+<a id="backlogops.wizard_navigator._Navigator._go_back"></a>
+
+#### \_go\_back
+
+```python
+def _go_back() -> None
+```
+
+Un-confirm the most recent question so it is asked again.
+
+<a id="backlogops.wizard_navigator._Navigator.level"></a>
+
+#### level
+
+```python
+def level(body_fn: Callable[[], _T]) -> _T
+```
+
+Run a sub-level, restarting it when the user cancels the level.
+
+A cancel-level request un-confirms the answers collected inside
+this level and asks its first question again, pre-filled from what
+was entered. A cancel at the level's first question has nothing to
+un-confirm here, so it propagates to the enclosing level.
+
+<a id="backlogops.wizard_navigator._Navigator._run_level"></a>
+
+#### \_run\_level
+
+```python
+def _run_level(body_fn: Callable[[], _T], start: int) -> _T
+```
+
+Run a level body, restarting it on a cancel-level request.
+
+<a id="backlogops.wizard_navigator._Navigator.show"></a>
+
+#### show
+
+```python
+def show(message: str) -> None
+```
+
+Show a message, unless replaying or pre-filling from a default.
+
+<a id="backlogops.wizard_navigator._Navigator.error_file"></a>
+
+#### error\_file
+
+```python
+def error_file() -> TextIO
+```
+
+Return the bridge's diagnostics stream.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_text"></a>
+
+#### ask\_text
+
+```python
+def ask_text(question: str,
+             *,
+             default: Optional[str] = None,
+             allow_empty: bool = False,
+             seed: Optional[str] = None) -> str
+```
+
+Ask for text, pre-filled from a seed or the given default.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_int"></a>
+
+#### ask\_int
+
+```python
+def ask_int(question: str,
+            default: int,
+            minimum: int,
+            maximum: Optional[int] = None,
+            *,
+            seed: Optional[int] = None) -> int
+```
+
+Ask for a whole number within the given bounds, pre-filled.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_count"></a>
+
+#### ask\_count
+
+```python
+def ask_count(question: str,
+              maximum: Optional[int] = None,
+              *,
+              seed: Optional[int] = None) -> int
+```
+
+Ask how many items to collect, forgetting any surplus items.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_choice"></a>
+
+#### ask\_choice
+
+```python
+def ask_choice(question: str,
+               choices: Sequence[str],
+               default: Optional[str] = None,
+               *,
+               seed: Optional[str] = None) -> str
+```
+
+Ask the user to pick one of choices, pre-filled from a seed.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_form"></a>
+
+#### ask\_form
+
+```python
+def ask_form(question: str,
+             fields: Sequence[FormField],
+             rule: Callable[[FormResult], tuple[Optional[str],
+                                                set[str]]] = _no_rule,
+             *,
+             seed: Optional[FormResult] = None) -> FormResult
+```
+
+Ask a whole form on one screen, pre-filled from a seed result.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_person_name"></a>
+
+#### ask\_person\_name
+
+```python
+def ask_person_name(question: str,
+                    persons: dict[str, Person],
+                    *,
+                    seed: Optional[str] = None) -> str
+```
+
+Ask for a person name that is not already used, pre-filled.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_preset_name"></a>
+
+#### ask\_preset\_name
+
+```python
+def ask_preset_name(question: str,
+                    used: set[str],
+                    *,
+                    seed: Optional[str] = None) -> str
+```
+
+Ask for an unused letters-and-digits name, pre-filled.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_tableio"></a>
+
+#### ask\_tableio
+
+```python
+def ask_tableio(file_access: FileAccess,
+                *,
+                seed: Optional[TioJsonConfig] = None) -> TioJsonConfig
+```
+
+Ask for one TableIO endpoint configuration as one step.
+
+When the step is reached by going back it re-opens the embedded
+endpoint wizard on its last question; a seed pre-fills its answers.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_schedule"></a>
+
+#### ask\_schedule
+
+```python
+def ask_schedule(*,
+                 seed: Optional[ScheduleWorkHours] = None
+                 ) -> ScheduleWorkHours
+```
+
+Ask the weekly work-hours schedule as one table question.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_levels"></a>
+
+#### ask\_levels
+
+```python
+def ask_levels(*, seed: Optional[list[Level]] = None) -> list[Level]
+```
+
+Ask the backlog item levels as one variable-row table.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_renames"></a>
+
+#### ask\_renames
+
+```python
+def ask_renames(
+    fields: list[str],
+    allow_extra: bool,
+    target_header: str,
+    is_input: bool = False,
+    *,
+    seed: Optional[dict[str,
+                        Optional[str]]] = None) -> dict[str, Optional[str]]
+```
+
+Ask one column-rename map as one variable-row table.
+
+With ``is_input`` false the table stores an internal-to-external
+output map; with it true the table stores an external-to-internal
+input map. Either way the internal field names are pre-filled, and
+a seed map pre-fills the earlier renames.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_status_map"></a>
+
+#### ask\_status\_map
+
+```python
+def ask_status_map(
+        question: str,
+        default_map: Optional[dict[str, Status]] = None,
+        *,
+        seed: Optional[dict[str, Status]] = None) -> dict[str, Status]
+```
+
+Ask the input status-name map as one variable-row table.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_jira_map"></a>
+
+#### ask\_jira\_map
+
+```python
+def ask_jira_map(fields: list[str],
+                 default_map: JiraColumnMap,
+                 *,
+                 seed: Optional[JiraColumnMap] = None) -> JiraColumnMap
+```
+
+Ask one Jira column map as one variable-row table.
+
+Each internal field is shown pre-filled with the kind and path of
+the seed map or, when no seed is given, of the default map.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_issue_type_map"></a>
+
+#### ask\_issue\_type\_map
+
+```python
+def ask_issue_type_map(
+        levels: Levels,
+        *,
+        seed: Optional[JiraIssueTypeMap] = None) -> JiraIssueTypeMap
+```
+
+Ask the level-to-issue-type write map as one fixed-row table.
+
+Each level is shown with its number and name and an editable Jira
+issue type pre-filled from the seed map, or to the level name.
+
+<a id="backlogops.wizard_navigator._Navigator._ask"></a>
+
+#### \_ask
+
+```python
+def _ask(ask_fn: Callable[[object, bool], object],
+         seed: object = None) -> object
+```
+
+Return the remembered answer when replaying, else ask live.
+
+A live question starts pre-filled from its remembered value, or
+from the seed when it has never been answered. The answer is
+remembered by the question's position, so going back to it or
+forward into it again offers it as the default.
+
+<a id="backlogops.wizard_navigator._Navigator._next_path"></a>
+
+#### \_next\_path
+
+```python
+def _next_path() -> tuple[int, ...]
+```
+
+Return the position of the next question in the current level.
+
+<a id="backlogops.wizard_navigator._Navigator._prune_items"></a>
+
+#### \_prune\_items
+
+```python
+def _prune_items(scope: tuple[int, ...], child: int, count: int) -> None
+```
+
+Forget the remembered items after a count in its own level.
+
+A count is the first question of a dedicated level and its items
+follow it, so the items kept are the ones up to the count; a lower
+count drops the surplus while a higher count keeps what was
+entered.
+
+<a id="backlogops.wizard_navigator._ask_level_display"></a>
+
+#### \_ask\_level\_display
+
+```python
+def _ask_level_display(nav: _Navigator,
+                       question: str,
+                       seed: Optional[LevelDisplay] = None) -> LevelDisplay
+```
+
+Ask how to show levels, defaulting to both number and name.
 
 <a id="backlogops.release_change_io"></a>
 
@@ -9606,9 +10050,11 @@ The named connections and maps a Jira preset may choose among.
 #### \_counted\_named
 
 ```python
-def _counted_named(
-        nav: _Navigator, what: str,
-        ask_one: Callable[[set[str]], tuple[str, _T]]) -> dict[str, _T]
+def _counted_named(nav: _Navigator,
+                   what: str,
+                   ask_one: Callable[[set[str], Optional[tuple[str, _T]]],
+                                     tuple[str, _T]],
+                   defaults: Optional[dict[str, _T]] = None) -> dict[str, _T]
 ```
 
 Ask a counted list of uniquely named items through ``ask_one``.
@@ -9616,14 +10062,16 @@ Ask a counted list of uniquely named items through ``ask_one``.
 The count question opens the section and each item is asked inside its
 own sub-level, so cancelling an item returns to the count question.
 Every accepted name is added to the set passed to ``ask_one`` so the
-next name must differ.
+next name must differ. The stored items pre-fill the questions: the k-th
+default is offered to the k-th item as its starting values.
 
 <a id="backlogops.jira_wizard._build_jira_config"></a>
 
 #### \_build\_jira\_config
 
 ```python
-def _build_jira_config(nav: _Navigator, levels: Levels) -> JiraIOConfig
+def _build_jira_config(nav: _Navigator, levels: Levels,
+                       default: Optional[JiraIOConfig]) -> JiraIOConfig
 ```
 
 Ask for the Jira connections, maps, issue types and presets.
@@ -9633,8 +10081,10 @@ Ask for the Jira connections, maps, issue types and presets.
 #### \_build\_issue\_type\_maps
 
 ```python
-def _build_issue_type_maps(nav: _Navigator,
-                           levels: Levels) -> dict[str, JiraIssueTypeMap]
+def _build_issue_type_maps(
+    nav: _Navigator, levels: Levels, defaults: Optional[dict[str,
+                                                             JiraIssueTypeMap]]
+) -> dict[str, JiraIssueTypeMap]
 ```
 
 Ask for a counted list of named level-to-issue-type write maps.
@@ -9644,8 +10094,10 @@ Ask for a counted list of named level-to-issue-type write maps.
 #### \_ask\_issue\_type\_map
 
 ```python
-def _ask_issue_type_map(nav: _Navigator, used: set[str],
-                        levels: Levels) -> tuple[str, JiraIssueTypeMap]
+def _ask_issue_type_map(
+    nav: _Navigator, levels: Levels, used: set[str],
+    seed: Optional[tuple[str,
+                         JiraIssueTypeMap]]) -> tuple[str, JiraIssueTypeMap]
 ```
 
 Ask one named level-to-issue-type write map, seeded from levels.
@@ -9655,7 +10107,8 @@ Ask one named level-to-issue-type write map, seeded from levels.
 #### \_build\_presets
 
 ```python
-def _build_presets(nav: _Navigator, jira: JiraIOConfig) -> None
+def _build_presets(nav: _Navigator, jira: JiraIOConfig,
+                   defaults: Optional[dict[str, JiraPreset]]) -> None
 ```
 
 Ask the Jira presets when the prerequisites exist.
@@ -9670,7 +10123,9 @@ exist the Jira section stays empty.
 #### \_build\_connections
 
 ```python
-def _build_connections(nav: _Navigator) -> dict[str, JiraConnectConfig]
+def _build_connections(
+    nav: _Navigator, defaults: Optional[dict[str, JiraConnectConfig]]
+) -> dict[str, JiraConnectConfig]
 ```
 
 Ask for a counted list of named Jira connections.
@@ -9685,37 +10140,89 @@ def _enum_choices(enum_cls: type[JiraType] | type[TokenStorage]) -> list[str]
 
 Return the lower-case names of an enum as choice-field options.
 
+<a id="backlogops.jira_wizard._API_TOKEN_Q"></a>
+
+#### \_API\_TOKEN\_Q
+
+Connection form label when a new API token must be entered.
+
+<a id="backlogops.jira_wizard._KEEP_TOKEN_Q"></a>
+
+#### \_KEEP\_TOKEN\_Q
+
+Connection form label when the stored token may be kept.
+
 <a id="backlogops.jira_wizard._connection_fields"></a>
 
 #### \_connection\_fields
 
 ```python
-def _connection_fields(used: set[str]) -> list[FormField]
+def _connection_fields(used: set[str], editing: bool) -> list[FormField]
 ```
 
 Return the fields of the one-screen Jira connection form.
 
 The token file path is only relevant for a file storage mode, the API
 token only for an internal mode, and the two masked pass phrases only
-for the internal encrypted mode; the connection rule disables the rows
-that the chosen storage mode makes irrelevant.
+when a new token is entered for the internal encrypted mode; the
+connection rule disables the rows the chosen storage mode makes
+irrelevant. When an existing connection is edited the API token may be
+left blank to keep the stored token.
+
+<a id="backlogops.jira_wizard._conn_seed"></a>
+
+#### \_conn\_seed
+
+```python
+def _conn_seed(name: Optional[str],
+               conn: Optional[JiraConnectConfig]) -> Optional[FormResult]
+```
+
+Return the connection form values from a stored connection.
+
+The API token and pass phrases are never pre-filled, so a kept token
+stays where it is stored and is never shown.
+
+<a id="backlogops.jira_wizard._can_keep"></a>
+
+#### \_can\_keep
+
+```python
+def _can_keep(default_conn: Optional[JiraConnectConfig],
+              storage: TokenStorage) -> bool
+```
+
+Return whether a blank token keeps the default's stored token.
 
 <a id="backlogops.jira_wizard._connection_rule"></a>
 
 #### \_connection\_rule
 
 ```python
-def _connection_rule(values: FormResult) -> tuple[Optional[str], set[str]]
+def _connection_rule(
+    default_conn: Optional[JiraConnectConfig]
+) -> Callable[[FormResult], tuple[Optional[str], set[str]]]
 ```
 
-Disable the irrelevant token rows and check the two pass phrases.
+Return a rule that guides the token rows for one connection form.
+
+<a id="backlogops.jira_wizard._token_message"></a>
+
+#### \_token\_message
+
+```python
+def _token_message(values: FormResult, file_mode: bool, storage: TokenStorage,
+                   default_conn: Optional[JiraConnectConfig]) -> Optional[str]
+```
+
+Return a blocking message for the token rows, or None when valid.
 
 <a id="backlogops.jira_wizard._connection_disabled"></a>
 
 #### \_connection\_disabled
 
 ```python
-def _connection_disabled(file_mode: bool, encrypted: bool) -> set[str]
+def _connection_disabled(file_mode: bool, encrypting: bool) -> set[str]
 ```
 
 Return the connection rows irrelevant to the chosen storage mode.
@@ -9725,7 +10232,7 @@ Return the connection rows irrelevant to the chosen storage mode.
 #### \_phrase\_error
 
 ```python
-def _phrase_error(values: FormResult, encrypted: bool) -> Optional[str]
+def _phrase_error(values: FormResult) -> Optional[str]
 ```
 
 Return a message when the two pass phrases differ, else None.
@@ -9735,8 +10242,10 @@ Return a message when the two pass phrases differ, else None.
 #### \_ask\_connection
 
 ```python
-def _ask_connection(nav: _Navigator,
-                    used: set[str]) -> tuple[str, JiraConnectConfig]
+def _ask_connection(
+    nav: _Navigator, used: set[str], seed: Optional[tuple[str,
+                                                          JiraConnectConfig]]
+) -> tuple[str, JiraConnectConfig]
 ```
 
 Ask one Jira connection and its token storage on a single form.
@@ -9747,10 +10256,16 @@ Ask one Jira connection and its token storage on a single form.
 
 ```python
 def _store_token(nav: _Navigator, connection: JiraConnectConfig,
-                 values: FormResult) -> None
+                 values: FormResult,
+                 default_conn: Optional[JiraConnectConfig]) -> None
 ```
 
-Store the token from the form, by file path or internal storage.
+Store the token from the form, keeping the stored one when blank.
+
+A file storage mode records the token file path. An internal mode
+stores a newly entered token, or keeps the default connection's stored
+token when the token field is left blank and the storage mode is
+unchanged.
 
 <a id="backlogops.jira_wizard._token_phrase"></a>
 
@@ -9763,12 +10278,38 @@ def _token_phrase(connection: JiraConnectConfig,
 
 Return a pass-phrase supplier for an encrypted token, else None.
 
+<a id="backlogops.jira_wizard._MapKind"></a>
+
+## \_MapKind Objects
+
+```python
+@dataclass(frozen=True)
+class _MapKind()
+```
+
+One kind of named Jira column map: its label, fields and default.
+
+<a id="backlogops.jira_wizard._BACKLOG_KIND"></a>
+
+#### \_BACKLOG\_KIND
+
+The backlog column-map kind, seeded from the backlog default.
+
+<a id="backlogops.jira_wizard._RELEASE_KIND"></a>
+
+#### \_RELEASE\_KIND
+
+The release column-map kind, seeded from the release default.
+
 <a id="backlogops.jira_wizard._build_backlog_maps"></a>
 
 #### \_build\_backlog\_maps
 
 ```python
-def _build_backlog_maps(nav: _Navigator) -> dict[str, JiraColumnMap]
+def _build_backlog_maps(
+        nav: _Navigator,
+        defaults: Optional[dict[str,
+                                JiraColumnMap]]) -> dict[str, JiraColumnMap]
 ```
 
 Ask for a counted list of named Jira backlog column maps.
@@ -9778,51 +10319,35 @@ Ask for a counted list of named Jira backlog column maps.
 #### \_build\_release\_maps
 
 ```python
-def _build_release_maps(nav: _Navigator) -> dict[str, JiraColumnMap]
+def _build_release_maps(
+        nav: _Navigator,
+        defaults: Optional[dict[str,
+                                JiraColumnMap]]) -> dict[str, JiraColumnMap]
 ```
 
 Ask for a counted list of named Jira release column maps.
-
-<a id="backlogops.jira_wizard._ask_backlog_map"></a>
-
-#### \_ask\_backlog\_map
-
-```python
-def _ask_backlog_map(nav: _Navigator,
-                     used: set[str]) -> tuple[str, JiraColumnMap]
-```
-
-Ask one named backlog column map, seeded from the backlog default.
-
-<a id="backlogops.jira_wizard._ask_release_map"></a>
-
-#### \_ask\_release\_map
-
-```python
-def _ask_release_map(nav: _Navigator,
-                     used: set[str]) -> tuple[str, JiraColumnMap]
-```
-
-Ask one named release column map, seeded from the release default.
 
 <a id="backlogops.jira_wizard._ask_map"></a>
 
 #### \_ask\_map
 
 ```python
-def _ask_map(nav: _Navigator, used: set[str], label: str, fields: list[str],
-             default: JiraColumnMap) -> tuple[str, JiraColumnMap]
+def _ask_map(
+        nav: _Navigator, kind: _MapKind, used: set[str],
+        seed: Optional[tuple[str,
+                             JiraColumnMap]]) -> tuple[str, JiraColumnMap]
 ```
 
-Ask one named Jira column map, seeded from ``default``.
+Ask one named Jira column map, seeded from its kind or a seed.
 
 <a id="backlogops.jira_wizard._build_preset_list"></a>
 
 #### \_build\_preset\_list
 
 ```python
-def _build_preset_list(nav: _Navigator,
-                       choices: _PresetChoices) -> dict[str, JiraPreset]
+def _build_preset_list(
+        nav: _Navigator, choices: _PresetChoices,
+        defaults: Optional[dict[str, JiraPreset]]) -> dict[str, JiraPreset]
 ```
 
 Ask for a counted list of named Jira presets.
@@ -9881,13 +10406,25 @@ def _preset_rule(
 
 Return a rule that disables the write and issue-type rows when off.
 
+<a id="backlogops.jira_wizard._preset_seed"></a>
+
+#### \_preset\_seed
+
+```python
+def _preset_seed(name: Optional[str], preset: Optional[JiraPreset],
+                 choices: _PresetChoices) -> Optional[FormResult]
+```
+
+Return the preset form values from a stored preset.
+
 <a id="backlogops.jira_wizard._ask_preset"></a>
 
 #### \_ask\_preset
 
 ```python
-def _ask_preset(nav: _Navigator, used: set[str],
-                choices: _PresetChoices) -> tuple[str, JiraPreset]
+def _ask_preset(
+        nav: _Navigator, choices: _PresetChoices, used: set[str],
+        seed: Optional[tuple[str, JiraPreset]]) -> tuple[str, JiraPreset]
 ```
 
 Ask one preset on a single form: name, connection, maps and filter.
@@ -12220,6 +12757,16 @@ def opt_day(key: str) -> Optional[date]
 
 Return an optional date answer, or None when left blank.
 
+<a id="backlogops.wizard_forms.FormResult.raw"></a>
+
+#### raw
+
+```python
+def raw(key: str) -> object
+```
+
+Return the parsed value of a field, or None when it is absent.
+
 <a id="backlogops.wizard_forms._no_rule"></a>
 
 #### \_no\_rule
@@ -12230,17 +12777,58 @@ def _no_rule(_values: FormResult) -> tuple[Optional[str], set[str]]
 
 Enable every field and report no cross-field problem.
 
+<a id="backlogops.wizard_forms._seeded_fields"></a>
+
+#### \_seeded\_fields
+
+```python
+def _seeded_fields(fields: Sequence[FormField],
+                   seed: Optional[FormResult]) -> list[FormField]
+```
+
+Return the fields with each ask pre-filled from a seed result.
+
+<a id="backlogops.wizard_forms._seed_field"></a>
+
+#### \_seed\_field
+
+```python
+def _seed_field(field: FormField, value: object) -> FormField
+```
+
+Return a copy of a field whose ask starts on a seed value.
+
+<a id="backlogops.wizard_forms._reseed_ask"></a>
+
+#### \_reseed\_ask
+
+```python
+def _reseed_ask(ask: AskField, value: object) -> AskField
+```
+
+Return a copy of an ask field with its default set from a value.
+
+<a id="backlogops.wizard_forms._as_text"></a>
+
+#### \_as\_text
+
+```python
+def _as_text(value: object) -> Optional[str]
+```
+
+Return a text default for a value, or None when it has no text.
+
 <a id="backlogops.wizard_forms.run_form"></a>
 
 #### run\_form
 
 ```python
-def run_form(
-    bridge: WizardUiBridge,
-    question: str,
-    fields: Sequence[FormField],
-    rule: Callable[[FormResult], tuple[Optional[str], set[str]]] = _no_rule
-) -> FormResult
+def run_form(bridge: WizardUiBridge,
+             question: str,
+             fields: Sequence[FormField],
+             rule: Callable[[FormResult], tuple[Optional[str],
+                                                set[str]]] = _no_rule,
+             seed: Optional[FormResult] = None) -> FormResult
 ```
 
 Ask a whole form and return its validated, typed answers.
@@ -12248,7 +12836,10 @@ Ask a whole form and return its validated, typed answers.
 The rule disables the fields that the current answers make irrelevant
 and reports any cross-field problem. A bridge that validates on submit
 returns only valid answers; a plain console bridge may return an
-invalid form, which is re-asked with the blocking message shown.
+invalid form, which is re-asked with the blocking message shown. When a
+``seed`` result is given each field starts pre-filled with its seed
+value, so a re-asked or default-driven form opens on the earlier
+answers; sensitive fields keep no default and are always asked afresh.
 
 <a id="backlogops.wizard_forms._values_of"></a>
 
@@ -12631,7 +13222,10 @@ Stage heading shown while collecting the Jira configuration.
 #### available\_teams\_wizard
 
 ```python
-def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams
+def available_teams_wizard(ui_bridge: WizardUiBridge,
+                           *,
+                           default: Optional[AvailableTeams] = None,
+                           backward: bool = False) -> AvailableTeams
 ```
 
 Interactively create an available workforce configuration.
@@ -12639,6 +13233,13 @@ Interactively create an available workforce configuration.
 **Arguments**:
 
 - `ui_bridge` - Bridge between the wizard and the user interface.
+- `default` - Workforce whose values pre-fill the wizard. This can be
+  what a configuration file already holds, what the user answered
+  before going back in an enclosing wizard, or a starting point
+  the application suggests.
+- `backward` - When True, the wizard starts at its last question instead
+  of the first. This is set to True when the user asked to go back
+  into this wizard from a later question in an enclosing wizard.
   
 
 **Returns**:
@@ -12657,7 +13258,10 @@ Interactively create an available workforce configuration.
 #### backlog\_ops\_wizard
 
 ```python
-def backlog_ops_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig
+def backlog_ops_wizard(ui_bridge: WizardUiBridge,
+                       *,
+                       default: Optional[BacklogOpsConfig] = None,
+                       backward: bool = False) -> BacklogOpsConfig
 ```
 
 Interactively create a backlog-ops configuration.
@@ -12678,6 +13282,13 @@ integration: named connections, column maps and from-Jira read presets.
 **Arguments**:
 
 - `ui_bridge` - Bridge between the wizard and the user interface.
+- `default` - Configuration whose values pre-fill the wizard. This can be
+  what a configuration file already holds, what the user answered
+  before going back in an enclosing wizard, or a starting point
+  the application suggests.
+- `backward` - When True, the wizard starts at its last question instead
+  of the first. This is set to True when the user asked to go back
+  into this wizard from a later question in an enclosing wizard.
   
 
 **Returns**:
@@ -12694,7 +13305,8 @@ integration: named connections, column maps and from-Jira read presets.
 #### \_collect\_teams
 
 ```python
-def _collect_teams(nav: _Navigator) -> AvailableTeams
+def _collect_teams(nav: _Navigator,
+                   default: Optional[AvailableTeams]) -> AvailableTeams
 ```
 
 Ask for the company, the persons and the teams of a workforce.
@@ -12704,7 +13316,8 @@ Ask for the company, the persons and the teams of a workforce.
 #### \_collect\_config
 
 ```python
-def _collect_config(nav: _Navigator) -> BacklogOpsConfig
+def _collect_config(nav: _Navigator,
+                    default: Optional[BacklogOpsConfig]) -> BacklogOpsConfig
 ```
 
 Ask for workforce, TableIO presets, levels and GUI display.
@@ -12714,7 +13327,9 @@ Ask for workforce, TableIO presets, levels and GUI display.
 #### \_build\_gui\_display
 
 ```python
-def _build_gui_display(nav: _Navigator) -> GuiDisplayConfig
+def _build_gui_display(
+        nav: _Navigator,
+        default: Optional[GuiDisplayConfig]) -> GuiDisplayConfig
 ```
 
 Ask the GUI column renaming and level display, and return it.
@@ -12734,7 +13349,8 @@ Return the levels, or None when they match the default levels.
 #### \_build\_company
 
 ```python
-def _build_company(nav: _Navigator) -> CompanyWorkHours
+def _build_company(nav: _Navigator,
+                   default: Optional[AvailableTeams]) -> CompanyWorkHours
 ```
 
 Ask for the company weekly schedule and exception periods.
@@ -12744,11 +13360,23 @@ Ask for the company weekly schedule and exception periods.
 #### \_build\_exceptions
 
 ```python
-def _build_exceptions(nav: _Navigator,
-                      count_question: str) -> list[ExceptionWorkHours]
+def _build_exceptions(
+        nav: _Navigator, count_question: str,
+        defaults: Optional[list[ExceptionWorkHours]]
+) -> list[ExceptionWorkHours]
 ```
 
 Ask for a counted list of work-hour exception periods.
+
+<a id="backlogops.backlog_ops_wizard._exc_seed"></a>
+
+#### \_exc\_seed
+
+```python
+def _exc_seed(exc: Optional[ExceptionWorkHours]) -> Optional[FormResult]
+```
+
+Return the work-hour exception form values from an exception.
 
 <a id="backlogops.backlog_ops_wizard._period_rule"></a>
 
@@ -12775,7 +13403,9 @@ Return the fields of the one-screen work-hour exception form.
 #### \_ask\_exception
 
 ```python
-def _ask_exception(nav: _Navigator) -> ExceptionWorkHours
+def _ask_exception(
+        nav: _Navigator,
+        seed: Optional[ExceptionWorkHours] = None) -> ExceptionWorkHours
 ```
 
 Ask for one work-hour exception period on a single form.
@@ -12785,7 +13415,8 @@ Ask for one work-hour exception period on a single form.
 #### \_build\_persons
 
 ```python
-def _build_persons(nav: _Navigator) -> dict[str, Person]
+def _build_persons(nav: _Navigator,
+                   default: Optional[AvailableTeams]) -> dict[str, Person]
 ```
 
 Ask for a counted list of persons and their exceptions.
@@ -12795,7 +13426,9 @@ Ask for a counted list of persons and their exceptions.
 #### \_ask\_person
 
 ```python
-def _ask_person(nav: _Navigator, persons: dict[str, Person]) -> Person
+def _ask_person(nav: _Navigator,
+                persons: dict[str, Person],
+                seed: Optional[Person] = None) -> Person
 ```
 
 Ask for one person and the personal work-hour exceptions.
@@ -12805,7 +13438,8 @@ Ask for one person and the personal work-hour exceptions.
 #### \_build\_teams
 
 ```python
-def _build_teams(nav: _Navigator, person_names: list[str]) -> list[Team]
+def _build_teams(nav: _Navigator, person_names: list[str],
+                 default: Optional[AvailableTeams]) -> list[Team]
 ```
 
 Ask for a counted list of teams and their memberships.
@@ -12823,12 +13457,24 @@ Return the velocity, capacity and sprint fields of a team form.
 The full-time-equivalent sum defaults to the number of members, the
 common case where every member works full time.
 
+<a id="backlogops.backlog_ops_wizard._team_seed"></a>
+
+#### \_team\_seed
+
+```python
+def _team_seed(team: Optional[Team]) -> Optional[FormResult]
+```
+
+Return the team velocity and sprint form values from a team.
+
 <a id="backlogops.backlog_ops_wizard._ask_team"></a>
 
 #### \_ask\_team
 
 ```python
-def _ask_team(nav: _Navigator, person_names: list[str]) -> Team
+def _ask_team(nav: _Navigator,
+              person_names: list[str],
+              seed: Optional[Team] = None) -> Team
 ```
 
 Ask for one team and its memberships.
@@ -12841,7 +13487,8 @@ full-time-equivalent sum and the sprint length together on one form.
 #### \_build\_aliases
 
 ```python
-def _build_aliases(nav: _Navigator) -> list[str]
+def _build_aliases(nav: _Navigator,
+                   defaults: Optional[list[str]]) -> list[str]
 ```
 
 Ask for a counted list of team aliases.
@@ -12851,8 +13498,8 @@ Ask for a counted list of team aliases.
 #### \_build\_members
 
 ```python
-def _build_members(nav: _Navigator,
-                   person_names: list[str]) -> list[Membership]
+def _build_members(nav: _Navigator, person_names: list[str],
+                   defaults: Optional[list[Membership]]) -> list[Membership]
 ```
 
 Ask for a counted list of team memberships of distinct persons.
@@ -12871,12 +13518,24 @@ def _membership_fields(person_names: list[str]) -> list[FormField]
 
 Return the fields of the one-screen team membership form.
 
+<a id="backlogops.backlog_ops_wizard._member_seed"></a>
+
+#### \_member\_seed
+
+```python
+def _member_seed(member: Optional[Membership]) -> Optional[FormResult]
+```
+
+Return the membership form values from a membership.
+
 <a id="backlogops.backlog_ops_wizard._ask_membership"></a>
 
 #### \_ask\_membership
 
 ```python
-def _ask_membership(nav: _Navigator, person_names: list[str]) -> Membership
+def _ask_membership(nav: _Navigator,
+                    person_names: list[str],
+                    seed: Optional[Membership] = None) -> Membership
 ```
 
 Ask for one team membership on a form, then its FTE exceptions.
@@ -12886,7 +13545,9 @@ Ask for one team membership on a form, then its FTE exceptions.
 #### \_build\_fte\_exceptions
 
 ```python
-def _build_fte_exceptions(nav: _Navigator) -> list[FteException]
+def _build_fte_exceptions(
+        nav: _Navigator,
+        defaults: Optional[list[FteException]]) -> list[FteException]
 ```
 
 Ask for a counted list of full-time-equivalent exception periods.
@@ -12901,12 +13562,23 @@ def _fte_exception_fields() -> list[FormField]
 
 Return the fields of the one-screen full-time-equivalent form.
 
+<a id="backlogops.backlog_ops_wizard._fte_seed"></a>
+
+#### \_fte\_seed
+
+```python
+def _fte_seed(exc: Optional[FteException]) -> Optional[FormResult]
+```
+
+Return the full-time-equivalent exception form values.
+
 <a id="backlogops.backlog_ops_wizard._ask_fte_exception"></a>
 
 #### \_ask\_fte\_exception
 
 ```python
-def _ask_fte_exception(nav: _Navigator) -> FteException
+def _ask_fte_exception(nav: _Navigator,
+                       seed: Optional[FteException] = None) -> FteException
 ```
 
 Ask for one full-time-equivalent exception period on a single form.
@@ -13645,288 +14317,21 @@ None). A level number is used as is and need not be one of ``levels``.
 
 # backlogops.wizard\_helpers
 
-Reusable navigation and field-input helpers for the wizards.
+Reusable field-input helpers for the wizards.
 
-The :class:`_Navigator` drives a re-runnable wizard body, recording every
-answer so the body can be replayed to honour the bridge's back,
-cancel-level and abort requests: going back drops the most recently asked
-question, even across levels. Its :meth:`_Navigator.ask_form` asks several
-related scalar questions on one screen through the reusable form toolkit in
-:mod:`backlogops.wizard_forms`; the remaining ``_read_*`` and ``_parse_*``
-helpers ask and validate the single-value and whole-table fields, such as a
-preset name, the weekly work-hours schedule, the column rename maps and the
-backlog item levels. The small domain helpers :func:`_ask_level_display`
-and :func:`_backlog_map_fields` are shared by the configuration and the
-preset wizards.
+The ``_read_*`` and ``_parse_*`` helpers ask and validate the single-value
+and whole-table fields, such as a preset name, the weekly work-hours
+schedule, the column rename maps and the backlog item levels, and pre-fill
+each from an optional seed value so a re-asked or default-driven question
+opens on the earlier answer. The re-runnable :class:`_Navigator` that calls
+them lives in :mod:`backlogops.wizard_navigator`; the one-screen form
+toolkit lives in :mod:`backlogops.wizard_forms`. The small domain helper
+:func:`_backlog_map_fields` is shared by the configuration and the preset
+wizards.
 
 Individual field values are validated as they are entered. Cross-item rules
 that span a whole result are checked by the caller when the result is
 stored.
-
-<a id="backlogops.wizard_helpers._Navigator"></a>
-
-## \_Navigator Objects
-
-```python
-class _Navigator()
-```
-
-Drive a re-runnable wizard body with back, cancel and abort.
-
-The wizard body is an ordinary function that asks questions through
-this navigator. Every answered question is recorded, so the body can
-be replayed from the start to implement navigation: going back drops
-the most recently asked question and replays the rest, which re-asks
-the previous question even when it lives in an outer level.
-
-<a id="backlogops.wizard_helpers._Navigator.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(ui_bridge: WizardUiBridge) -> None
-```
-
-Store the bridge and start with no recorded answers.
-
-<a id="backlogops.wizard_helpers._Navigator.run"></a>
-
-#### run
-
-```python
-def run(body: Callable[['_Navigator'], _T]) -> _T
-```
-
-Run the body, restarting it to honour back and cancel requests.
-
-A back request drops the most recent answer and replays the rest,
-re-asking the previous question. A cancel request that reaches the
-outermost body has no outer level to return to, so the question is
-asked again. An abort request propagates to the caller.
-
-<a id="backlogops.wizard_helpers._Navigator.level"></a>
-
-#### level
-
-```python
-def level(body_fn: Callable[[], _T]) -> _T
-```
-
-Run a sub-level, restarting it when the user cancels the level.
-
-A cancel-level request discards the answers collected inside this
-level and asks its first question again. A cancel raised at the
-level's first question has no answer to discard here, so it
-propagates to the enclosing level.
-
-<a id="backlogops.wizard_helpers._Navigator.show"></a>
-
-#### show
-
-```python
-def show(message: str) -> None
-```
-
-Show a message, unless recorded answers are being replayed.
-
-<a id="backlogops.wizard_helpers._Navigator.error_file"></a>
-
-#### error\_file
-
-```python
-def error_file() -> TextIO
-```
-
-Return the bridge's diagnostics stream.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_text"></a>
-
-#### ask\_text
-
-```python
-def ask_text(question: str,
-             *,
-             default: Optional[str] = None,
-             allow_empty: bool = False) -> str
-```
-
-Ask for text with an optional default and re-ask on empty.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_int"></a>
-
-#### ask\_int
-
-```python
-def ask_int(question: str,
-            default: int,
-            minimum: int,
-            maximum: Optional[int] = None) -> int
-```
-
-Ask for a whole number within the given bounds.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_count"></a>
-
-#### ask\_count
-
-```python
-def ask_count(question: str, maximum: Optional[int] = None) -> int
-```
-
-Ask how many items to collect, defaulting to none.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_choice"></a>
-
-#### ask\_choice
-
-```python
-def ask_choice(question: str,
-               choices: Sequence[str],
-               default: Optional[str] = None) -> str
-```
-
-Ask the user to pick one of choices through the bridge.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_form"></a>
-
-#### ask\_form
-
-```python
-def ask_form(
-    question: str,
-    fields: Sequence[FormField],
-    rule: Callable[[FormResult], tuple[Optional[str], set[str]]] = _no_rule
-) -> FormResult
-```
-
-Ask a whole form on one screen and return its typed answers.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_person_name"></a>
-
-#### ask\_person\_name
-
-```python
-def ask_person_name(question: str, persons: dict[str, Person]) -> str
-```
-
-Ask for a person name that is not already used.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_preset_name"></a>
-
-#### ask\_preset\_name
-
-```python
-def ask_preset_name(question: str, used: set[str]) -> str
-```
-
-Ask for a preset name of letters and digits that is unused.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_tableio"></a>
-
-#### ask\_tableio
-
-```python
-def ask_tableio(file_access: FileAccess) -> TioJsonConfig
-```
-
-Ask for one TableIO endpoint configuration as one step.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_schedule"></a>
-
-#### ask\_schedule
-
-```python
-def ask_schedule() -> ScheduleWorkHours
-```
-
-Ask the weekly work-hours schedule as one table question.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_levels"></a>
-
-#### ask\_levels
-
-```python
-def ask_levels() -> list[Level]
-```
-
-Ask the backlog item levels as one variable-row table.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_renames"></a>
-
-#### ask\_renames
-
-```python
-def ask_renames(fields: list[str],
-                allow_extra: bool,
-                target_header: str,
-                is_input: bool = False) -> dict[str, Optional[str]]
-```
-
-Ask one column-rename map as one variable-row table.
-
-With ``is_input`` false the table stores an internal-to-external
-output map; with it true the table stores an external-to-internal
-input map. Either way the internal field names are pre-filled.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_status_map"></a>
-
-#### ask\_status\_map
-
-```python
-def ask_status_map(
-        question: str,
-        default_map: Optional[dict[str, Status]] = None) -> dict[str, Status]
-```
-
-Ask the input status-name map as one variable-row table.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_jira_map"></a>
-
-#### ask\_jira\_map
-
-```python
-def ask_jira_map(fields: list[str],
-                 default_map: JiraColumnMap) -> JiraColumnMap
-```
-
-Ask one Jira column map as one variable-row table.
-
-Each internal field is shown pre-filled with the kind and path of
-the default map, or blank when the default leaves it unmapped.
-
-<a id="backlogops.wizard_helpers._Navigator.ask_issue_type_map"></a>
-
-#### ask\_issue\_type\_map
-
-```python
-def ask_issue_type_map(levels: Levels) -> JiraIssueTypeMap
-```
-
-Ask the level-to-issue-type write map as one fixed-row table.
-
-Each level is shown with its number and name and an editable Jira
-issue type pre-filled to the level name, so the defaults are
-visible and only real overrides are kept.
-
-<a id="backlogops.wizard_helpers._Navigator._ask"></a>
-
-#### \_ask
-
-```python
-def _ask(ask_fn: Callable[[], object]) -> object
-```
-
-Return the recorded answer when replaying, else ask live.
-
-<a id="backlogops.wizard_helpers._Navigator._replaying"></a>
-
-#### \_replaying
-
-```python
-def _replaying() -> bool
-```
-
-Return whether recorded answers are being replayed.
 
 <a id="backlogops.wizard_helpers._read_text"></a>
 
@@ -13958,32 +14363,32 @@ and an empty answer keeps the default.
 #### \_read\_unique\_name
 
 ```python
-def _read_unique_name(ui: WizardUiBridge, question: str,
-                      persons: dict[str, Person]) -> str
+def _read_unique_name(ui: WizardUiBridge,
+                      question: str,
+                      persons: dict[str, Person],
+                      default: Optional[str] = None) -> str
 ```
 
 Ask for a person name that is not already a key in ``persons``.
 
-<a id="backlogops.wizard_helpers._ask_level_display"></a>
-
-#### \_ask\_level\_display
-
-```python
-def _ask_level_display(nav: _Navigator, question: str) -> LevelDisplay
-```
-
-Ask how to show levels, defaulting to both number and name.
+An optional default is shown and returned for an empty answer, which
+lets a re-asked person keep its earlier name.
 
 <a id="backlogops.wizard_helpers._read_preset_name"></a>
 
 #### \_read\_preset\_name
 
 ```python
-def _read_preset_name(ui: WizardUiBridge, question: str,
-                      used: set[str]) -> str
+def _read_preset_name(ui: WizardUiBridge,
+                      question: str,
+                      used: set[str],
+                      default: Optional[str] = None) -> str
 ```
 
 Ask for a preset name of letters and digits that is unused.
+
+An optional default is shown and used for an empty answer, so a
+re-asked preset can keep its earlier name.
 
 <a id="backlogops.wizard_helpers._read_tableio"></a>
 
@@ -13991,7 +14396,9 @@ Ask for a preset name of letters and digits that is unused.
 
 ```python
 def _read_tableio(ui: WizardUiBridge,
-                  file_access: FileAccess) -> TioJsonConfig
+                  file_access: FileAccess,
+                  default: Optional[TioJsonConfig] = None,
+                  backward: bool = False) -> TioJsonConfig
 ```
 
 Ask for one TableIO endpoint configuration through the wizard.
@@ -14034,10 +14441,15 @@ Return the weekly schedule from a table, or None when invalid.
 #### \_read\_schedule
 
 ```python
-def _read_schedule(ui: WizardUiBridge) -> ScheduleWorkHours
+def _read_schedule(
+        ui: WizardUiBridge,
+        seed: Optional[ScheduleWorkHours] = None) -> ScheduleWorkHours
 ```
 
 Ask the weekly work-hours schedule as one table question.
+
+The hours are pre-filled from the seed schedule, or from the default
+work week when no seed is given.
 
 <a id="backlogops.wizard_helpers._MAX_EXTRA_COLUMNS"></a>
 
@@ -14140,14 +14552,80 @@ def _rename_cells(fields: list[str]) -> list[list[TableCell]]
 
 Return seed rows with each editable column pre-filled to its field.
 
+<a id="backlogops.wizard_helpers._blank_none"></a>
+
+#### \_blank\_none
+
+```python
+def _blank_none(value: Optional[str]) -> str
+```
+
+Return a rename target as text, blank when the column is dropped.
+
+<a id="backlogops.wizard_helpers._output_rename_cells"></a>
+
+#### \_output\_rename\_cells
+
+```python
+def _output_rename_cells(
+        fields: list[str], seed: dict[str,
+                                      Optional[str]]) -> list[list[TableCell]]
+```
+
+Return seed rows for a stored internal-to-external output map.
+
+<a id="backlogops.wizard_helpers._input_rename_cells"></a>
+
+#### \_input\_rename\_cells
+
+```python
+def _input_rename_cells(
+        fields: list[str], seed: dict[str,
+                                      Optional[str]]) -> list[list[TableCell]]
+```
+
+Return seed rows for a stored external-to-internal input map.
+
+<a id="backlogops.wizard_helpers._rename_cells_from"></a>
+
+#### \_rename\_cells\_from
+
+```python
+def _rename_cells_from(fields: list[str], seed: dict[str, Optional[str]],
+                       is_input: bool) -> list[list[TableCell]]
+```
+
+Return seed rows that reproduce a stored column-rename map.
+
+<a id="backlogops.wizard_helpers._RenameKind"></a>
+
+## \_RenameKind Objects
+
+```python
+@dataclass(frozen=True)
+class _RenameKind()
+```
+
+How to present and parse one column-rename table.
+
+**Attributes**:
+
+- `fields` - The internal field names shown as read-only rows.
+- `allow_extra` - Whether the user may add rows for extra fields.
+- `target_header` - The header of the editable target column.
+- `is_input` - True for an external-to-internal input map, False for an
+  internal-to-external output map.
+
 <a id="backlogops.wizard_helpers._read_renames"></a>
 
 #### \_read\_renames
 
 ```python
-def _read_renames(ui: WizardUiBridge, fields: list[str], allow_extra: bool,
-                  target_header: str,
-                  is_input: bool) -> dict[str, Optional[str]]
+def _read_renames(
+    ui: WizardUiBridge,
+    kind: _RenameKind,
+    seed: Optional[dict[str,
+                        Optional[str]]] = None) -> dict[str, Optional[str]]
 ```
 
 Ask one column-rename map as one variable-row table.
@@ -14158,8 +14636,9 @@ and the known fields cannot be deleted. A backlog table also accepts
 added rows for extra fields; an added row is fully editable, so its
 internal name can be typed. A releases table is locked to its own
 fields. The variable-row editor accepts the table on a blank answer.
-With ``is_input`` true the table is parsed as an external-to-internal
-input map, otherwise as an internal-to-external output map.
+With ``kind.is_input`` true the table is parsed as an external-to-
+internal input map, otherwise as an internal-to-external output map. A
+seed map pre-fills the rows so the earlier renames are shown again.
 
 <a id="backlogops.wizard_helpers._MAX_LEVELS"></a>
 
@@ -14214,15 +14693,15 @@ def _parse_levels(table: list[list[Optional[str]]]) -> Optional[list[Level]]
 
 Return the levels from a table, or None when a cell is invalid.
 
-<a id="backlogops.wizard_helpers._default_level_cells"></a>
+<a id="backlogops.wizard_helpers._level_cells"></a>
 
-#### \_default\_level\_cells
+#### \_level\_cells
 
 ```python
-def _default_level_cells() -> list[list[TableCell]]
+def _level_cells(levels: Sequence[Level]) -> list[list[TableCell]]
 ```
 
-Return the table rows pre-filled with the default levels.
+Return the table rows filled from the given levels.
 
 <a id="backlogops.wizard_helpers._levels_problem"></a>
 
@@ -14253,14 +14732,17 @@ Return the user's table rows as seed cells for a re-ask.
 #### \_read\_levels
 
 ```python
-def _read_levels(ui: WizardUiBridge) -> list[Level]
+def _read_levels(ui: WizardUiBridge,
+                 seed: Optional[list[Level]] = None) -> list[Level]
 ```
 
 Ask the backlog item levels as one variable-row table question.
 
 Each cell is checked as it is entered, and the whole table is then
 checked for consistency. An inconsistent table is re-asked with the
-user's own rows kept, so the reported duplicate can be corrected.
+user's own rows kept, so the reported duplicate can be corrected. The
+table is pre-filled from the seed levels, or from the default levels
+when no seed is given.
 
 <a id="backlogops.wizard_helpers._ISSUE_TYPE_INSTRUCTION"></a>
 
@@ -14273,10 +14755,15 @@ Instruction shown above a level-to-issue-type write map table.
 #### \_issue\_type\_cells
 
 ```python
-def _issue_type_cells(levels: Levels) -> list[list[TableCell]]
+def _issue_type_cells(
+        levels: Levels,
+        seed: Optional[JiraIssueTypeMap] = None) -> list[list[TableCell]]
 ```
 
 Return table rows pre-filled from the levels for the issue map.
+
+Each row shows the seed issue type for the level, or the level name
+when the seed leaves it at the default.
 
 <a id="backlogops.wizard_helpers._parse_issue_types"></a>
 
@@ -14297,15 +14784,17 @@ the level name are stored.
 #### \_read\_issue\_type\_map
 
 ```python
-def _read_issue_type_map(ui: WizardUiBridge,
-                         levels: Levels) -> JiraIssueTypeMap
+def _read_issue_type_map(
+        ui: WizardUiBridge,
+        levels: Levels,
+        seed: Optional[JiraIssueTypeMap] = None) -> JiraIssueTypeMap
 ```
 
 Ask the level-to-issue-type write map as one fixed-row table.
 
 Each level is a read-only number and name with an editable Jira issue
-type pre-filled to the level name, so the defaults are visible and
-leaving the table unchanged writes each level's own name.
+type pre-filled from the seed map, or to the level name, so the
+defaults are visible and leaving the table unchanged keeps them.
 
 <a id="backlogops.wizard_helpers._STATUS_NAMES"></a>
 
@@ -14391,15 +14880,17 @@ Return seed rows for a status-name mapping table.
 def _read_status_map(
         ui: WizardUiBridge,
         question: str,
-        default_map: Optional[dict[str, Status]] = None) -> dict[str, Status]
+        default_map: Optional[dict[str, Status]] = None,
+        seed: Optional[dict[str, Status]] = None) -> dict[str, Status]
 ```
 
 Ask the input status-name map as one variable-row table.
 
 Each row maps an extra file status name to an internal status. The
-table starts with ``default_map`` when one is given and otherwise
-empty. It may be left empty for no extra names. An invalid table is
-re-asked with the user's own rows kept.
+table starts from the seed map, or from ``default_map`` when no seed
+is given, and is empty when neither is given. It may be left empty for
+no extra names. An invalid table is re-asked with the user's own rows
+kept.
 
 <a id="backlogops.wizard_helpers._JIRA_KINDS"></a>
 
@@ -14435,6 +14926,17 @@ def _path_text(attr: JiraAttrPath) -> str
 
 Return a Jira path as text for the wizard table.
 
+<a id="backlogops.wizard_helpers._jira_field_rows"></a>
+
+#### \_jira\_field\_rows
+
+```python
+def _jira_field_rows(field: str,
+                     attrs: Sequence[JiraAttrPath]) -> list[list[TableCell]]
+```
+
+Return the row or rows that map one internal field.
+
 <a id="backlogops.wizard_helpers._jira_map_cells"></a>
 
 #### \_jira\_map\_cells
@@ -14444,7 +14946,10 @@ def _jira_map_cells(fields: list[str],
                     default_map: JiraColumnMap) -> list[list[TableCell]]
 ```
 
-Return seed rows pre-filled from the default Jira column map.
+Return seed rows pre-filled from a Jira column map.
+
+Each known field is shown first, then any extra mapped field the map
+carries beyond the known fields, so a stored map is reproduced.
 
 <a id="backlogops.wizard_helpers._jira_map_check"></a>
 
@@ -14487,16 +14992,18 @@ become multiple paths for the same field.
 #### \_read\_jira\_map
 
 ```python
-def _read_jira_map(ui: WizardUiBridge, fields: list[str],
-                   default_map: JiraColumnMap) -> JiraColumnMap
+def _read_jira_map(ui: WizardUiBridge,
+                   fields: list[str],
+                   default_map: JiraColumnMap,
+                   seed: Optional[JiraColumnMap] = None) -> JiraColumnMap
 ```
 
 Ask one Jira column map as one variable-row table.
 
 Each internal field is a read-only, pre-filled row; its kind and path
-cells start from the default map or blank. Added rows are fully
-editable so an extra field can be mapped. An invalid table is re-asked
-with the user's own rows kept.
+cells start from the seed map, or from the default map when no seed is
+given, or blank. Added rows are fully editable so an extra field can be
+mapped. An invalid table is re-asked with the user's own rows kept.
 
 <a id="backlogops.estimate_ready_date"></a>
 
@@ -15569,7 +16076,10 @@ Wizard prompt for an input preset's status-name override map.
 
 ```python
 def preset_wizard(
-        ui_bridge: WizardUiBridge) -> InputFormatConfig | OutputFormatConfig
+        ui_bridge: WizardUiBridge,
+        *,
+        default: Optional[InputFormatConfig | OutputFormatConfig] = None,
+        backward: bool = False) -> InputFormatConfig | OutputFormatConfig
 ```
 
 Interactively create a stand-alone input or output TableIO preset.
@@ -15586,6 +16096,13 @@ configuration is taken.
 **Arguments**:
 
 - `ui_bridge` - Bridge between the wizard and the user interface.
+- `default` - Input or output preset whose values pre-fill the wizard.
+  This can be what a preset file already holds, what the user
+  answered before going back in an enclosing wizard, or a
+  starting point the application suggests.
+- `backward` - When True, the wizard starts at its last question instead
+  of the first. This is set to True when the user asked to go back
+  into this wizard from a later question in an enclosing wizard.
   
 
 **Returns**:
@@ -15604,12 +16121,24 @@ configuration is taken.
 
 Wizard prompt choosing the direction of a stand-alone preset.
 
+<a id="backlogops.io_preset_wizard._preset_direction"></a>
+
+#### \_preset\_direction
+
+```python
+def _preset_direction(default: object) -> Optional[str]
+```
+
+Return the direction of a default preset, or None when unknown.
+
 <a id="backlogops.io_preset_wizard._collect_preset"></a>
 
 #### \_collect\_preset
 
 ```python
-def _collect_preset(nav: _Navigator) -> InputFormatConfig | OutputFormatConfig
+def _collect_preset(
+    nav: _Navigator, default: Optional[_FormatConfig]
+) -> InputFormatConfig | OutputFormatConfig
 ```
 
 Ask the preset direction, then collect that preset's settings.
@@ -15619,7 +16148,9 @@ Ask the preset direction, then collect that preset's settings.
 #### \_build\_input\_presets
 
 ```python
-def _build_input_presets(nav: _Navigator) -> dict[str, InputFormatConfig]
+def _build_input_presets(
+    nav: _Navigator, defaults: Optional[dict[str, InputFormatConfig]]
+) -> dict[str, InputFormatConfig]
 ```
 
 Ask for a counted list of named input presets.
@@ -15629,7 +16160,9 @@ Ask for a counted list of named input presets.
 #### \_build\_output\_presets
 
 ```python
-def _build_output_presets(nav: _Navigator) -> dict[str, OutputFormatConfig]
+def _build_output_presets(
+    nav: _Navigator, defaults: Optional[dict[str, OutputFormatConfig]]
+) -> dict[str, OutputFormatConfig]
 ```
 
 Ask for a counted list of named output presets.
@@ -15639,7 +16172,9 @@ Ask for a counted list of named output presets.
 #### \_ask\_input\_config
 
 ```python
-def _ask_input_config(nav: _Navigator) -> InputFormatConfig
+def _ask_input_config(
+        nav: _Navigator,
+        default: Optional[InputFormatConfig] = None) -> InputFormatConfig
 ```
 
 Ask one input preset's format, file-to-internal maps and status map.
@@ -15649,7 +16184,9 @@ Ask one input preset's format, file-to-internal maps and status map.
 #### \_ask\_output\_config
 
 ```python
-def _ask_output_config(nav: _Navigator) -> OutputFormatConfig
+def _ask_output_config(
+        nav: _Navigator,
+        default: Optional[OutputFormatConfig] = None) -> OutputFormatConfig
 ```
 
 Ask one output preset's format, both maps and level display.
@@ -15659,8 +16196,11 @@ Ask one output preset's format, both maps and level display.
 #### \_ask\_input\_preset
 
 ```python
-def _ask_input_preset(nav: _Navigator,
-                      used: set[str]) -> tuple[str, InputFormatConfig]
+def _ask_input_preset(
+    nav: _Navigator,
+    used: set[str],
+    seed: tuple[Optional[str], Optional[InputFormatConfig]] = (None, None)
+) -> tuple[str, InputFormatConfig]
 ```
 
 Ask one named input preset: name, format and both rename maps.
@@ -15670,8 +16210,11 @@ Ask one named input preset: name, format and both rename maps.
 #### \_ask\_output\_preset
 
 ```python
-def _ask_output_preset(nav: _Navigator,
-                       used: set[str]) -> tuple[str, OutputFormatConfig]
+def _ask_output_preset(
+    nav: _Navigator,
+    used: set[str],
+    seed: tuple[Optional[str], Optional[OutputFormatConfig]] = (None, None)
+) -> tuple[str, OutputFormatConfig]
 ```
 
 Ask one named output preset: name, format, maps and level display.

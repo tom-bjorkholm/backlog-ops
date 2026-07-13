@@ -16,13 +16,15 @@ wizard, where each preset additionally has a name.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+from functools import partial
+from typing import Optional
 from tableio import FileAccess
 from tableio_cfg_json import WizardAbort, WizardUiBridge
 from backlogops.io_config import InputFormatConfig, OutputFormatConfig, \
-    make_input_config, make_output_config
+    _FormatConfig, make_input_config, make_output_config
 from backlogops.table_rows import RELEASE_FIELDS
-from backlogops.wizard_helpers import _Navigator, _ask_level_display, \
-    _backlog_map_fields
+from backlogops.wizard_helpers import _backlog_map_fields
+from backlogops.wizard_navigator import _Navigator, _ask_level_display
 
 
 _OUT_LEVEL_QUESTION = 'How to write levels (numeric, name or both)'
@@ -41,7 +43,9 @@ _IN_STATUS_QUESTION = 'Extra status name mapping for this input preset:'
 """Wizard prompt for an input preset's status-name override map."""
 
 
-def preset_wizard(ui_bridge: WizardUiBridge
+def preset_wizard(ui_bridge: WizardUiBridge, *,
+                  default: Optional[InputFormatConfig | OutputFormatConfig]
+                  = None, backward: bool = False
                   ) -> InputFormatConfig | OutputFormatConfig:
     """Interactively create a stand-alone input or output TableIO preset.
 
@@ -56,6 +60,13 @@ def preset_wizard(ui_bridge: WizardUiBridge
 
     Args:
         ui_bridge: Bridge between the wizard and the user interface.
+        default: Input or output preset whose values pre-fill the wizard.
+            This can be what a preset file already holds, what the user
+            answered before going back in an enclosing wizard, or a
+            starting point the application suggests.
+        backward: When True, the wizard starts at its last question instead
+            of the first. This is set to True when the user asked to go back
+            into this wizard from a later question in an enclosing wizard.
 
     Returns:
         The input or output format configuration, ready to be written to a
@@ -66,7 +77,7 @@ def preset_wizard(ui_bridge: WizardUiBridge
     """
     navigator = _Navigator(ui_bridge)
     try:
-        return navigator.run(_collect_preset)
+        return navigator.run(_collect_preset, default, backward)
     except WizardAbort as abort:
         raise EOFError('Configuration abandoned by the user.') from abort
 
@@ -75,74 +86,110 @@ _DIRECTION_QUESTION = 'Create an input or an output preset'
 """Wizard prompt choosing the direction of a stand-alone preset."""
 
 
-def _collect_preset(nav: _Navigator) -> InputFormatConfig | OutputFormatConfig:
+def _preset_direction(default: object) -> Optional[str]:
+    """Return the direction of a default preset, or None when unknown."""
+    if isinstance(default, InputFormatConfig):
+        return 'input'
+    if isinstance(default, OutputFormatConfig):
+        return 'output'
+    return None
+
+
+def _collect_preset(nav: _Navigator, default: Optional[_FormatConfig]
+                    ) -> InputFormatConfig | OutputFormatConfig:
     """Ask the preset direction, then collect that preset's settings."""
     direction = nav.ask_choice(_DIRECTION_QUESTION, ['input', 'output'],
-                               default='input')
+                               default='input',
+                               seed=_preset_direction(default))
     if direction == 'input':
-        return _ask_input_config(nav)
-    return _ask_output_config(nav)
+        seed = default if isinstance(default, InputFormatConfig) else None
+        return _ask_input_config(nav, seed)
+    out = default if isinstance(default, OutputFormatConfig) else None
+    return _ask_output_config(nav, out)
 
 
-def _build_input_presets(nav: _Navigator) -> dict[str, InputFormatConfig]:
+def _build_input_presets(nav: _Navigator,
+                         defaults: Optional[dict[str, InputFormatConfig]]
+                         ) -> dict[str, InputFormatConfig]:
     """Ask for a counted list of named input presets."""
-    count = nav.ask_count('Number of named input configurations')
+    items = list((defaults or {}).items())
+    count = nav.ask_count('Number of named input configurations',
+                          seed=len(items))
     used: set[str] = set()
     result: dict[str, InputFormatConfig] = {}
-    for _ in range(count):
-        name, config = nav.level(lambda: _ask_input_preset(nav, used))
+    for k in range(count):
+        seed = items[k] if k < len(items) else (None, None)
+        name, config = nav.level(partial(_ask_input_preset, nav, used, seed))
         used.add(name)
         result[name] = config
     return result
 
 
-def _build_output_presets(nav: _Navigator) -> dict[str, OutputFormatConfig]:
+def _build_output_presets(nav: _Navigator,
+                          defaults: Optional[dict[str, OutputFormatConfig]]
+                          ) -> dict[str, OutputFormatConfig]:
     """Ask for a counted list of named output presets."""
-    count = nav.ask_count('Number of named output configurations')
+    items = list((defaults or {}).items())
+    count = nav.ask_count('Number of named output configurations',
+                          seed=len(items))
     used: set[str] = set()
     result: dict[str, OutputFormatConfig] = {}
-    for _ in range(count):
-        name, config = nav.level(lambda: _ask_output_preset(nav, used))
+    for k in range(count):
+        seed = items[k] if k < len(items) else (None, None)
+        name, config = nav.level(partial(_ask_output_preset, nav, used, seed))
         used.add(name)
         result[name] = config
     return result
 
 
-def _ask_input_config(nav: _Navigator) -> InputFormatConfig:
+def _ask_input_config(nav: _Navigator,
+                      default: Optional[InputFormatConfig] = None
+                      ) -> InputFormatConfig:
     """Ask one input preset's format, file-to-internal maps and status map."""
-    tableio = nav.ask_tableio(FileAccess.READ)
-    backlog_map = nav.level(
-        lambda: nav.ask_renames(_backlog_map_fields(), True, _IN_COLUMN_HEADER,
-                                is_input=True))
-    release_map = nav.level(
-        lambda: nav.ask_renames(list(RELEASE_FIELDS), False, _IN_COLUMN_HEADER,
-                                is_input=True))
-    status_map = nav.level(lambda: nav.ask_status_map(_IN_STATUS_QUESTION))
+    tableio = nav.ask_tableio(FileAccess.READ,
+                              seed=default.tableio if default else None)
+    backlog_map = nav.level(lambda: nav.ask_renames(
+        _backlog_map_fields(), True, _IN_COLUMN_HEADER, is_input=True,
+        seed=default.backlog_to_internal if default else None))
+    release_map = nav.level(lambda: nav.ask_renames(
+        list(RELEASE_FIELDS), False, _IN_COLUMN_HEADER, is_input=True,
+        seed=default.release_to_internal if default else None))
+    status_map = nav.level(lambda: nav.ask_status_map(
+        _IN_STATUS_QUESTION,
+        seed=default.status_input_map if default else None))
     return make_input_config(tableio, backlog_map, release_map, status_map)
 
 
-def _ask_output_config(nav: _Navigator) -> OutputFormatConfig:
+def _ask_output_config(nav: _Navigator,
+                       default: Optional[OutputFormatConfig] = None
+                       ) -> OutputFormatConfig:
     """Ask one output preset's format, both maps and level display."""
-    tableio = nav.ask_tableio(FileAccess.CREATE)
-    backlog_map = nav.level(
-        lambda: nav.ask_renames(_backlog_map_fields(), True,
-                                _OUT_COLUMN_HEADER))
-    release_map = nav.level(
-        lambda: nav.ask_renames(list(RELEASE_FIELDS), False,
-                                _OUT_COLUMN_HEADER))
-    display = _ask_level_display(nav, _OUT_LEVEL_QUESTION)
+    tableio = nav.ask_tableio(FileAccess.CREATE,
+                              seed=default.tableio if default else None)
+    backlog_map = nav.level(lambda: nav.ask_renames(
+        _backlog_map_fields(), True, _OUT_COLUMN_HEADER,
+        seed=default.backlog_to_external if default else None))
+    release_map = nav.level(lambda: nav.ask_renames(
+        list(RELEASE_FIELDS), False, _OUT_COLUMN_HEADER,
+        seed=default.release_to_external if default else None))
+    display = _ask_level_display(nav, _OUT_LEVEL_QUESTION,
+                                 default.level_display if default else None)
     return make_output_config(tableio, backlog_map, release_map, display)
 
 
-def _ask_input_preset(nav: _Navigator,
-                      used: set[str]) -> tuple[str, InputFormatConfig]:
+def _ask_input_preset(nav: _Navigator, used: set[str],
+                      seed: tuple[Optional[str], Optional[InputFormatConfig]]
+                      = (None, None)) -> tuple[str, InputFormatConfig]:
     """Ask one named input preset: name, format and both rename maps."""
-    name = nav.ask_preset_name('Preset name (letters and digits)', used)
-    return name, _ask_input_config(nav)
+    name = nav.ask_preset_name('Preset name (letters and digits)', used,
+                               seed=seed[0])
+    return name, _ask_input_config(nav, seed[1])
 
 
-def _ask_output_preset(nav: _Navigator,
-                       used: set[str]) -> tuple[str, OutputFormatConfig]:
+def _ask_output_preset(nav: _Navigator, used: set[str],
+                       seed: tuple[Optional[str], Optional[OutputFormatConfig]]
+                       = (None, None)) -> tuple[str, OutputFormatConfig]:
     """Ask one named output preset: name, format, maps and level display."""
-    name = nav.ask_preset_name('Preset name (letters and digits)', used)
-    return name, _ask_output_config(nav)
+    name = nav.ask_preset_name('Preset name (letters and digits)', used,
+                               seed=seed[0])
+    return name, _ask_output_config(nav, seed[1])

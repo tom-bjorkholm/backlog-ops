@@ -19,6 +19,7 @@ in :mod:`backlogops.io_preset_wizard`.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+from functools import partial
 from typing import Optional
 from tableio_cfg_json import WizardAbort, WizardUiBridge
 from backlogops.available_teams import AvailableTeams
@@ -30,8 +31,8 @@ from backlogops.person import Person
 from backlogops.table_rows import RELEASE_FIELDS
 from backlogops.team import FteException, Membership, Team
 from backlogops.work_hours import CompanyWorkHours, ExceptionWorkHours
-from backlogops.wizard_helpers import _Navigator, _ask_level_display, \
-    _backlog_map_fields
+from backlogops.wizard_helpers import _backlog_map_fields
+from backlogops.wizard_navigator import _Navigator, _ask_level_display
 from backlogops.wizard_forms import FormField, FormResult, choice_field, \
     date_field, int_field, number_field, opt_date_field, yes_no_field
 from backlogops.io_preset_wizard import _build_input_presets, \
@@ -80,11 +81,20 @@ _JIRA_HEAD = 'Configure the Jira integration.'
 """Stage heading shown while collecting the Jira configuration."""
 
 
-def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams:
+def available_teams_wizard(ui_bridge: WizardUiBridge, *,
+                           default: Optional[AvailableTeams] = None,
+                           backward: bool = False) -> AvailableTeams:
     """Interactively create an available workforce configuration.
 
     Args:
         ui_bridge: Bridge between the wizard and the user interface.
+        default: Workforce whose values pre-fill the wizard. This can be
+            what a configuration file already holds, what the user answered
+            before going back in an enclosing wizard, or a starting point
+            the application suggests.
+        backward: When True, the wizard starts at its last question instead
+            of the first. This is set to True when the user asked to go back
+            into this wizard from a later question in an enclosing wizard.
 
     Returns:
         The workforce entered by the user. Field values are individually
@@ -96,12 +106,14 @@ def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams:
     """
     navigator = _Navigator(ui_bridge)
     try:
-        return navigator.run(_collect_teams)
+        return navigator.run(_collect_teams, default, backward)
     except WizardAbort as abort:
         raise EOFError('Configuration abandoned by the user.') from abort
 
 
-def backlog_ops_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig:
+def backlog_ops_wizard(ui_bridge: WizardUiBridge, *,
+                       default: Optional[BacklogOpsConfig] = None,
+                       backward: bool = False) -> BacklogOpsConfig:
     """Interactively create a backlog-ops configuration.
 
     The workforce is entered as by :func:`available_teams_wizard`, the
@@ -119,6 +131,13 @@ def backlog_ops_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig:
 
     Args:
         ui_bridge: Bridge between the wizard and the user interface.
+        default: Configuration whose values pre-fill the wizard. This can be
+            what a configuration file already holds, what the user answered
+            before going back in an enclosing wizard, or a starting point
+            the application suggests.
+        backward: When True, the wizard starts at its last question instead
+            of the first. This is set to True when the user asked to go back
+            into this wizard from a later question in an enclosing wizard.
 
     Returns:
         The backlog-ops configuration, ready to be written to a file.
@@ -128,52 +147,66 @@ def backlog_ops_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig:
     """
     navigator = _Navigator(ui_bridge)
     try:
-        return navigator.run(_collect_config)
+        return navigator.run(_collect_config, default, backward)
     except WizardAbort as abort:
         raise EOFError('Configuration abandoned by the user.') from abort
 
 
-def _collect_teams(nav: _Navigator) -> AvailableTeams:
+def _collect_teams(nav: _Navigator,
+                   default: Optional[AvailableTeams]) -> AvailableTeams:
     """Ask for the company, the persons and the teams of a workforce."""
     nav.show(_WORKFORCE_HEAD)
-    company = _build_company(nav)
-    persons = nav.level(lambda: _build_persons(nav))
+    company = _build_company(nav, default)
+    persons = nav.level(lambda: _build_persons(nav, default))
     names = [person.name for person in persons.values()]
-    teams = nav.level(lambda: _build_teams(nav, names))
+    teams = nav.level(lambda: _build_teams(nav, names, default))
     return AvailableTeams(persons=persons, teams=teams,
                           company_work_hours=company)
 
 
-def _collect_config(nav: _Navigator) -> BacklogOpsConfig:
+def _collect_config(nav: _Navigator,
+                    default: Optional[BacklogOpsConfig]) -> BacklogOpsConfig:
     """Ask for workforce, TableIO presets, levels and GUI display."""
-    teams = _collect_teams(nav)
+    teams = _collect_teams(nav, default.available_teams if default else None)
     config = BacklogOpsConfig(available_teams=teams)
     nav.show(_INPUT_PRESETS_HEAD)
-    config.input_configs = nav.level(lambda: _build_input_presets(nav))
+    config.input_configs = nav.level(lambda: _build_input_presets(
+        nav, default.input_configs if default else None))
     nav.show(_OUTPUT_PRESETS_HEAD)
-    config.output_configs = nav.level(lambda: _build_output_presets(nav))
+    config.output_configs = nav.level(lambda: _build_output_presets(
+        nav, default.output_configs if default else None))
     nav.show(_LEVELS_HEAD)
-    config.levels = _levels_or_none(nav.ask_levels())
+    config.levels = _levels_or_none(nav.ask_levels(
+        seed=default.levels if default else None))
     nav.show(_STATUS_MAP_HEAD)
-    config.status_input_map = nav.ask_status_map(_GLOBAL_STATUS_QUESTION,
-                                                 DEF_STATUS_INPUT_MAP)
+    config.status_input_map = nav.ask_status_map(
+        _GLOBAL_STATUS_QUESTION, DEF_STATUS_INPUT_MAP,
+        seed=default.status_input_map if default else None)
     nav.show(_GUI_DISPLAY_HEAD)
-    config.gui_display = _build_gui_display(nav)
+    config.gui_display = _build_gui_display(
+        nav, default.gui_display if default else None)
     nav.show(_JIRA_HEAD)
-    config.jira = _build_jira_config(nav, config.get_levels())
+    config.jira = _build_jira_config(nav, config.get_levels(),
+                                     default.jira if default else None)
     return config
 
 
-def _build_gui_display(nav: _Navigator) -> GuiDisplayConfig:
+def _build_gui_display(nav: _Navigator, default: Optional[GuiDisplayConfig]
+                       ) -> GuiDisplayConfig:
     """Ask the GUI column renaming and level display, and return it."""
     gui_display = GuiDisplayConfig()
     gui_display.backlog_to_external = nav.level(
         lambda: nav.ask_renames(_backlog_map_fields(), True,
-                                _GUI_COLUMN_HEADER))
+                                _GUI_COLUMN_HEADER,
+                                seed=default.backlog_to_external
+                                if default else None))
     gui_display.release_to_external = nav.level(
         lambda: nav.ask_renames(list(RELEASE_FIELDS), False,
-                                _GUI_COLUMN_HEADER))
-    gui_display.level_display = _ask_level_display(nav, _GUI_LEVEL_QUESTION)
+                                _GUI_COLUMN_HEADER,
+                                seed=default.release_to_external
+                                if default else None))
+    gui_display.level_display = _ask_level_display(
+        nav, _GUI_LEVEL_QUESTION, default.level_display if default else None)
     return gui_display
 
 
@@ -184,19 +217,35 @@ def _levels_or_none(levels: list[Level]) -> Optional[list[Level]]:
     return levels
 
 
-def _build_company(nav: _Navigator) -> CompanyWorkHours:
+def _build_company(nav: _Navigator,
+                   default: Optional[AvailableTeams]) -> CompanyWorkHours:
     """Ask for the company weekly schedule and exception periods."""
-    work_hours = nav.ask_schedule()
+    company = default.company_work_hours if default else None
+    work_hours = nav.ask_schedule(seed=company.work_hours if company else None)
     question = 'Number of company holiday, closure or special-work periods'
-    exceptions = nav.level(lambda: _build_exceptions(nav, question))
+    exceptions = nav.level(lambda: _build_exceptions(
+        nav, question, company.exceptions if company else None))
     return CompanyWorkHours(work_hours=work_hours, exceptions=exceptions)
 
 
-def _build_exceptions(nav: _Navigator,
-                      count_question: str) -> list[ExceptionWorkHours]:
+def _build_exceptions(nav: _Navigator, count_question: str,
+                      defaults: Optional[list[ExceptionWorkHours]]
+                      ) -> list[ExceptionWorkHours]:
     """Ask for a counted list of work-hour exception periods."""
-    count = nav.ask_count(count_question)
-    return [nav.level(lambda: _ask_exception(nav)) for _ in range(count)]
+    seq = defaults or []
+    count = nav.ask_count(count_question, seed=len(seq))
+    return [nav.level(partial(_ask_exception, nav,
+                              seq[k] if k < len(seq) else None))
+            for k in range(count)]
+
+
+def _exc_seed(exc: Optional[ExceptionWorkHours]) -> Optional[FormResult]:
+    """Return the work-hour exception form values from an exception."""
+    if exc is None:
+        return None
+    return FormResult({'start': exc.start_date, 'end': exc.end_date,
+                       'hours': exc.hours_per_day,
+                       'new_days': exc.new_work_days})
 
 
 def _period_rule(values: FormResult) -> tuple[Optional[str], set[str]]:
@@ -219,39 +268,50 @@ def _exception_fields() -> list[FormField]:
                      'normally free?', False)]
 
 
-def _ask_exception(nav: _Navigator) -> ExceptionWorkHours:
+def _ask_exception(nav: _Navigator, seed: Optional[ExceptionWorkHours] = None
+                   ) -> ExceptionWorkHours:
     """Ask for one work-hour exception period on a single form."""
     values = nav.ask_form('Configure the work-hour exception period.',
-                          _exception_fields(), _period_rule)
+                          _exception_fields(), _period_rule,
+                          seed=_exc_seed(seed))
     return ExceptionWorkHours(start_date=values.day('start'),
                               end_date=values.day('end'),
                               hours_per_day=values.number('hours'),
                               new_work_days=values.flag('new_days'))
 
 
-def _build_persons(nav: _Navigator) -> dict[str, Person]:
+def _build_persons(nav: _Navigator,
+                   default: Optional[AvailableTeams]) -> dict[str, Person]:
     """Ask for a counted list of persons and their exceptions."""
-    count = nav.ask_count('Number of persons')
+    people = list(default.persons.values()) if default else []
+    count = nav.ask_count('Number of persons', seed=len(people))
     persons: dict[str, Person] = {}
-    for _ in range(count):
-        person = nav.level(lambda: _ask_person(nav, persons))
+    for k in range(count):
+        seed = people[k] if k < len(people) else None
+        person = nav.level(partial(_ask_person, nav, persons, seed))
         persons[person.name.lower()] = person
     return persons
 
 
-def _ask_person(nav: _Navigator, persons: dict[str, Person]) -> Person:
+def _ask_person(nav: _Navigator, persons: dict[str, Person],
+                seed: Optional[Person] = None) -> Person:
     """Ask for one person and the personal work-hour exceptions."""
-    name = nav.ask_person_name('Person name', persons)
+    name = nav.ask_person_name('Person name', persons,
+                               seed=seed.name if seed else None)
     question = f'Number of vacation or work-hour exceptions for {name}'
-    exceptions = nav.level(lambda: _build_exceptions(nav, question))
+    exceptions = nav.level(lambda: _build_exceptions(
+        nav, question, seed.exceptions if seed else None))
     return Person(name=name, exceptions=exceptions)
 
 
-def _build_teams(nav: _Navigator, person_names: list[str]) -> list[Team]:
+def _build_teams(nav: _Navigator, person_names: list[str],
+                 default: Optional[AvailableTeams]) -> list[Team]:
     """Ask for a counted list of teams and their memberships."""
-    count = nav.ask_count('Number of teams')
-    return [nav.level(lambda: _ask_team(nav, person_names))
-            for _ in range(count)]
+    teams = default.teams if default else []
+    count = nav.ask_count('Number of teams', seed=len(teams))
+    return [nav.level(partial(_ask_team, nav, person_names,
+                              teams[k] if k < len(teams) else None))
+            for k in range(count)]
 
 
 def _team_fields(member_count: int) -> list[FormField]:
@@ -268,31 +328,47 @@ def _team_fields(member_count: int) -> list[FormField]:
                   minimum=1)]
 
 
-def _ask_team(nav: _Navigator, person_names: list[str]) -> Team:
+def _team_seed(team: Optional[Team]) -> Optional[FormResult]:
+    """Return the team velocity and sprint form values from a team."""
+    if team is None:
+        return None
+    return FormResult({'velocity': team.velocity,
+                       'sum_fte': team.sum_fte_at_velocity,
+                       'sprint': team.sprint_length})
+
+
+def _ask_team(nav: _Navigator, person_names: list[str],
+              seed: Optional[Team] = None) -> Team:
     """Ask for one team and its memberships.
 
     The team members are asked first, then the velocity, the matching
     full-time-equivalent sum and the sprint length together on one form.
     """
-    name = nav.ask_text('Team name')
-    members = nav.level(lambda: _build_members(nav, person_names))
+    name = nav.ask_text('Team name', seed=seed.name if seed else None)
+    members = nav.level(
+        lambda: _build_members(nav, person_names,
+                               seed.members if seed else None))
     params = nav.ask_form('Configure the team velocity and sprint.',
-                          _team_fields(len(members)))
-    aliases = nav.level(lambda: _build_aliases(nav))
+                          _team_fields(len(members)), seed=_team_seed(seed))
+    aliases = nav.level(
+        lambda: _build_aliases(nav, seed.aliases if seed else None))
     return Team(name=name, velocity=params.number('velocity'),
                 sum_fte_at_velocity=params.number('sum_fte'),
                 sprint_length=params.whole('sprint'), aliases=aliases,
                 members=members)
 
 
-def _build_aliases(nav: _Navigator) -> list[str]:
+def _build_aliases(nav: _Navigator,
+                   defaults: Optional[list[str]]) -> list[str]:
     """Ask for a counted list of team aliases."""
-    count = nav.ask_count('Number of team aliases')
-    return [nav.ask_text('Team alias') for _ in range(count)]
+    seq = defaults or []
+    count = nav.ask_count('Number of team aliases', seed=len(seq))
+    return [nav.ask_text('Team alias', seed=seq[k] if k < len(seq) else None)
+            for k in range(count)]
 
 
-def _build_members(nav: _Navigator,
-                   person_names: list[str]) -> list[Membership]:
+def _build_members(nav: _Navigator, person_names: list[str],
+                   defaults: Optional[list[Membership]]) -> list[Membership]:
     """Ask for a counted list of team memberships of distinct persons.
 
     A person joins a team at most once, so each membership is chosen from
@@ -302,11 +378,14 @@ def _build_members(nav: _Navigator,
     if not person_names:
         nav.show('No persons defined yet, so the team has no members.')
         return []
-    count = nav.ask_count('Number of team members', len(person_names))
+    seq = defaults or []
+    count = nav.ask_count('Number of team members', len(person_names),
+                          seed=len(seq))
     available = list(person_names)
     members: list[Membership] = []
-    for _ in range(count):
-        membership = nav.level(lambda: _ask_membership(nav, available))
+    for k in range(count):
+        seed = seq[k] if k < len(seq) else None
+        membership = nav.level(partial(_ask_membership, nav, available, seed))
         members.append(membership)
         available.remove(membership.person_name)
     return members
@@ -322,11 +401,22 @@ def _membership_fields(person_names: list[str]) -> list[FormField]:
         opt_date_field('end', 'Membership end date')]
 
 
-def _ask_membership(nav: _Navigator, person_names: list[str]) -> Membership:
+def _member_seed(member: Optional[Membership]) -> Optional[FormResult]:
+    """Return the membership form values from a membership."""
+    if member is None:
+        return None
+    return FormResult({'person': member.person_name, 'fte': member.fte,
+                       'start': member.start_date, 'end': member.end_date})
+
+
+def _ask_membership(nav: _Navigator, person_names: list[str],
+                    seed: Optional[Membership] = None) -> Membership:
     """Ask for one team membership on a form, then its FTE exceptions."""
     values = nav.ask_form('Configure the team membership.',
-                          _membership_fields(person_names), _period_rule)
-    fte_exceptions = nav.level(lambda: _build_fte_exceptions(nav))
+                          _membership_fields(person_names), _period_rule,
+                          seed=_member_seed(seed))
+    fte_exceptions = nav.level(lambda: _build_fte_exceptions(
+        nav, seed.fte_exceptions if seed else None))
     return Membership(person_name=values.text('person'),
                       fte=values.number('fte'),
                       start_date=values.opt_day('start'),
@@ -334,10 +424,16 @@ def _ask_membership(nav: _Navigator, person_names: list[str]) -> Membership:
                       fte_exceptions=fte_exceptions)
 
 
-def _build_fte_exceptions(nav: _Navigator) -> list[FteException]:
+def _build_fte_exceptions(nav: _Navigator,
+                          defaults: Optional[list[FteException]]
+                          ) -> list[FteException]:
     """Ask for a counted list of full-time-equivalent exception periods."""
-    count = nav.ask_count('Number of full-time-equivalent exceptions')
-    return [nav.level(lambda: _ask_fte_exception(nav)) for _ in range(count)]
+    seq = defaults or []
+    count = nav.ask_count('Number of full-time-equivalent exceptions',
+                          seed=len(seq))
+    return [nav.level(partial(_ask_fte_exception, nav,
+                              seq[k] if k < len(seq) else None))
+            for k in range(count)]
 
 
 def _fte_exception_fields() -> list[FormField]:
@@ -349,9 +445,19 @@ def _fte_exception_fields() -> list[FormField]:
                      default=1.0, minimum=0.0, maximum=1.0)]
 
 
-def _ask_fte_exception(nav: _Navigator) -> FteException:
+def _fte_seed(exc: Optional[FteException]) -> Optional[FormResult]:
+    """Return the full-time-equivalent exception form values."""
+    if exc is None:
+        return None
+    return FormResult({'start': exc.start_date, 'end': exc.end_date,
+                       'fte': exc.fte})
+
+
+def _ask_fte_exception(nav: _Navigator,
+                       seed: Optional[FteException] = None) -> FteException:
     """Ask for one full-time-equivalent exception period on a single form."""
     values = nav.ask_form('Configure the full-time-equivalent exception.',
-                          _fte_exception_fields(), _period_rule)
+                          _fte_exception_fields(), _period_rule,
+                          seed=_fte_seed(seed))
     return FteException(start_date=values.day('start'),
                         end_date=values.day('end'), fte=values.number('fte'))

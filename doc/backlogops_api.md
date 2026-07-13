@@ -341,6 +341,7 @@
     * [number](#backlogops.wizard_forms.FormResult.number)
     * [day](#backlogops.wizard_forms.FormResult.day)
     * [opt\_day](#backlogops.wizard_forms.FormResult.opt_day)
+    * [raw](#backlogops.wizard_forms.FormResult.raw)
   * [run\_form](#backlogops.wizard_forms.run_form)
   * [name\_error](#backlogops.wizard_forms.name_error)
   * [text\_field](#backlogops.wizard_forms.text_field)
@@ -7214,17 +7215,27 @@ def opt_day(key: str) -> Optional[date]
 
 Return an optional date answer, or None when left blank.
 
+<a id="backlogops.wizard_forms.FormResult.raw"></a>
+
+#### raw
+
+```python
+def raw(key: str) -> object
+```
+
+Return the parsed value of a field, or None when it is absent.
+
 <a id="backlogops.wizard_forms.run_form"></a>
 
 #### run\_form
 
 ```python
-def run_form(
-    bridge: WizardUiBridge,
-    question: str,
-    fields: Sequence[FormField],
-    rule: Callable[[FormResult], tuple[Optional[str], set[str]]] = _no_rule
-) -> FormResult
+def run_form(bridge: WizardUiBridge,
+             question: str,
+             fields: Sequence[FormField],
+             rule: Callable[[FormResult], tuple[Optional[str],
+                                                set[str]]] = _no_rule,
+             seed: Optional[FormResult] = None) -> FormResult
 ```
 
 Ask a whole form and return its validated, typed answers.
@@ -7232,7 +7243,10 @@ Ask a whole form and return its validated, typed answers.
 The rule disables the fields that the current answers make irrelevant
 and reports any cross-field problem. A bridge that validates on submit
 returns only valid answers; a plain console bridge may return an
-invalid form, which is re-asked with the blocking message shown.
+invalid form, which is re-asked with the blocking message shown. When a
+``seed`` result is given each field starts pre-filled with its seed
+value, so a re-asked or default-driven form opens on the earlier
+answers; sensitive fields keep no default and are always asked afresh.
 
 <a id="backlogops.wizard_forms.name_error"></a>
 
@@ -7407,7 +7421,10 @@ in :mod:`backlogops.io_preset_wizard`.
 #### available\_teams\_wizard
 
 ```python
-def available_teams_wizard(ui_bridge: WizardUiBridge) -> AvailableTeams
+def available_teams_wizard(ui_bridge: WizardUiBridge,
+                           *,
+                           default: Optional[AvailableTeams] = None,
+                           backward: bool = False) -> AvailableTeams
 ```
 
 Interactively create an available workforce configuration.
@@ -7415,6 +7432,13 @@ Interactively create an available workforce configuration.
 **Arguments**:
 
 - `ui_bridge` - Bridge between the wizard and the user interface.
+- `default` - Workforce whose values pre-fill the wizard. This can be
+  what a configuration file already holds, what the user answered
+  before going back in an enclosing wizard, or a starting point
+  the application suggests.
+- `backward` - When True, the wizard starts at its last question instead
+  of the first. This is set to True when the user asked to go back
+  into this wizard from a later question in an enclosing wizard.
   
 
 **Returns**:
@@ -7433,7 +7457,10 @@ Interactively create an available workforce configuration.
 #### backlog\_ops\_wizard
 
 ```python
-def backlog_ops_wizard(ui_bridge: WizardUiBridge) -> BacklogOpsConfig
+def backlog_ops_wizard(ui_bridge: WizardUiBridge,
+                       *,
+                       default: Optional[BacklogOpsConfig] = None,
+                       backward: bool = False) -> BacklogOpsConfig
 ```
 
 Interactively create a backlog-ops configuration.
@@ -7454,6 +7481,13 @@ integration: named connections, column maps and from-Jira read presets.
 **Arguments**:
 
 - `ui_bridge` - Bridge between the wizard and the user interface.
+- `default` - Configuration whose values pre-fill the wizard. This can be
+  what a configuration file already holds, what the user answered
+  before going back in an enclosing wizard, or a starting point
+  the application suggests.
+- `backward` - When True, the wizard starts at its last question instead
+  of the first. This is set to True when the user asked to go back
+  into this wizard from a later question in an enclosing wizard.
   
 
 **Returns**:
@@ -8323,7 +8357,10 @@ wizard, where each preset additionally has a name.
 
 ```python
 def preset_wizard(
-        ui_bridge: WizardUiBridge) -> InputFormatConfig | OutputFormatConfig
+        ui_bridge: WizardUiBridge,
+        *,
+        default: Optional[InputFormatConfig | OutputFormatConfig] = None,
+        backward: bool = False) -> InputFormatConfig | OutputFormatConfig
 ```
 
 Interactively create a stand-alone input or output TableIO preset.
@@ -8340,6 +8377,13 @@ configuration is taken.
 **Arguments**:
 
 - `ui_bridge` - Bridge between the wizard and the user interface.
+- `default` - Input or output preset whose values pre-fill the wizard.
+  This can be what a preset file already holds, what the user
+  answered before going back in an enclosing wizard, or a
+  starting point the application suggests.
+- `backward` - When True, the wizard starts at its last question instead
+  of the first. This is set to True when the user asked to go back
+  into this wizard from a later question in an enclosing wizard.
   
 
 **Returns**:

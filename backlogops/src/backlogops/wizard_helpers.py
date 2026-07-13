@@ -1,17 +1,15 @@
 #! /usr/local/bin/python3
-"""Reusable navigation and field-input helpers for the wizards.
+"""Reusable field-input helpers for the wizards.
 
-The :class:`_Navigator` drives a re-runnable wizard body, recording every
-answer so the body can be replayed to honour the bridge's back,
-cancel-level and abort requests: going back drops the most recently asked
-question, even across levels. Its :meth:`_Navigator.ask_form` asks several
-related scalar questions on one screen through the reusable form toolkit in
-:mod:`backlogops.wizard_forms`; the remaining ``_read_*`` and ``_parse_*``
-helpers ask and validate the single-value and whole-table fields, such as a
-preset name, the weekly work-hours schedule, the column rename maps and the
-backlog item levels. The small domain helpers :func:`_ask_level_display`
-and :func:`_backlog_map_fields` are shared by the configuration and the
-preset wizards.
+The ``_read_*`` and ``_parse_*`` helpers ask and validate the single-value
+and whole-table fields, such as a preset name, the weekly work-hours
+schedule, the column rename maps and the backlog item levels, and pre-fill
+each from an optional seed value so a re-asked or default-driven question
+opens on the earlier answer. The re-runnable :class:`_Navigator` that calls
+them lives in :mod:`backlogops.wizard_navigator`; the one-screen form
+toolkit lives in :mod:`backlogops.wizard_forms`. The small domain helper
+:func:`_backlog_map_fields` is shared by the configuration and the preset
+wizards.
 
 Individual field values are validated as they are entered. Cross-item rules
 that span a whole result are checked by the caller when the result is
@@ -21,221 +19,21 @@ stored.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
-from typing import Callable, Optional, Sequence, TextIO, TypeVar
+from dataclasses import dataclass
+from typing import Optional, Sequence, TextIO
 from tableio import FileAccess, access_capabilities
 from tableio_cfg_json import TableCell, TableColumn, TioJsonConfig, \
-    WizardBack, WizardCancelLevel, WizardUiBridge, tio_json_config_wizard
+    WizardUiBridge, tio_json_config_wizard
 from backlogops.backlog import Status
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
     JiraColumnMap, JiraIssueTypeMap
-from backlogops.wizard_forms import FormField, FormResult, name_error, \
-    run_form, _no_rule, _num_text
-from backlogops.levels import DEFAULT_LEVELS, Level, LevelDisplay, Levels, \
-    levels_from_list
+from backlogops.wizard_forms import name_error, _num_text
+from backlogops.levels import DEFAULT_LEVELS, Level, Levels, levels_from_list
 from backlogops.person import Person
 from backlogops.table_rows import BACKLOG_FIELDS, LEVEL_COLUMN, \
     LEVEL_NAME_COLUMN
 from backlogops.work_hours import DEFAULT_WORK_WEEK, ScheduleWorkHours, \
     WeekDay
-
-
-_T = TypeVar('_T')
-
-
-# pylint: disable-next=too-many-public-methods
-class _Navigator:
-    """Drive a re-runnable wizard body with back, cancel and abort.
-
-    The wizard body is an ordinary function that asks questions through
-    this navigator. Every answered question is recorded, so the body can
-    be replayed from the start to implement navigation: going back drops
-    the most recently asked question and replays the rest, which re-asks
-    the previous question even when it lives in an outer level.
-    """
-
-    def __init__(self, ui_bridge: WizardUiBridge) -> None:
-        """Store the bridge and start with no recorded answers."""
-        self._ui = ui_bridge
-        self._answers: list[object] = []
-        self._cursor = 0
-
-    def run(self, body: Callable[['_Navigator'], _T]) -> _T:
-        """Run the body, restarting it to honour back and cancel requests.
-
-        A back request drops the most recent answer and replays the rest,
-        re-asking the previous question. A cancel request that reaches the
-        outermost body has no outer level to return to, so the question is
-        asked again. An abort request propagates to the caller.
-        """
-        while True:
-            self._cursor = 0
-            try:
-                return body(self)
-            except WizardBack:
-                if self._answers:
-                    self._answers.pop()
-            except WizardCancelLevel:
-                self._ui.show('There is no outer level to return to.')
-
-    def level(self, body_fn: Callable[[], _T]) -> _T:
-        """Run a sub-level, restarting it when the user cancels the level.
-
-        A cancel-level request discards the answers collected inside this
-        level and asks its first question again. A cancel raised at the
-        level's first question has no answer to discard here, so it
-        propagates to the enclosing level.
-        """
-        start = self._cursor
-        while True:
-            try:
-                return body_fn()
-            except WizardCancelLevel:
-                if self._cursor <= start:
-                    raise
-                del self._answers[start:]
-                self._cursor = start
-
-    def show(self, message: str) -> None:
-        """Show a message, unless recorded answers are being replayed."""
-        if not self._replaying():
-            self._ui.show(message)
-
-    def error_file(self) -> TextIO:
-        """Return the bridge's diagnostics stream."""
-        return self._ui.error_file()
-
-    def ask_text(self, question: str, *, default: Optional[str] = None,
-                 allow_empty: bool = False) -> str:
-        """Ask for text with an optional default and re-ask on empty."""
-        result = self._ask(lambda: _read_text(self._ui, question, default,
-                                              allow_empty))
-        assert isinstance(result, str)
-        return result
-
-    def ask_int(self, question: str, default: int, minimum: int,
-                maximum: Optional[int] = None) -> int:
-        """Ask for a whole number within the given bounds."""
-        result = self._ask(lambda: _read_int(self._ui, question, default,
-                                             minimum, maximum))
-        assert isinstance(result, int)
-        return result
-
-    def ask_count(self, question: str, maximum: Optional[int] = None) -> int:
-        """Ask how many items to collect, defaulting to none."""
-        return self.ask_int(question, 0, 0, maximum)
-
-    def ask_choice(self, question: str, choices: Sequence[str],
-                   default: Optional[str] = None) -> str:
-        """Ask the user to pick one of choices through the bridge."""
-        result = self._ask(lambda: self._ui.ask_choice(question,
-                                                       choices=choices,
-                                                       default=default))
-        assert isinstance(result, str)
-        return result
-
-    def ask_form(self, question: str, fields: Sequence[FormField],
-                 rule: Callable[[FormResult], tuple[Optional[str], set[str]]]
-                 = _no_rule) -> FormResult:
-        """Ask a whole form on one screen and return its typed answers."""
-        result = self._ask(lambda: run_form(self._ui, question, fields, rule))
-        assert isinstance(result, FormResult)
-        return result
-
-    def ask_person_name(self, question: str,
-                        persons: dict[str, Person]) -> str:
-        """Ask for a person name that is not already used."""
-        result = self._ask(lambda: _read_unique_name(self._ui, question,
-                                                     persons))
-        assert isinstance(result, str)
-        return result
-
-    def ask_preset_name(self, question: str, used: set[str]) -> str:
-        """Ask for a preset name of letters and digits that is unused."""
-        result = self._ask(lambda: _read_preset_name(self._ui, question, used))
-        assert isinstance(result, str)
-        return result
-
-    def ask_tableio(self, file_access: FileAccess) -> TioJsonConfig:
-        """Ask for one TableIO endpoint configuration as one step."""
-        result = self._ask(lambda: _read_tableio(self._ui, file_access))
-        assert isinstance(result, TioJsonConfig)
-        return result
-
-    def ask_schedule(self) -> ScheduleWorkHours:
-        """Ask the weekly work-hours schedule as one table question."""
-        result = self._ask(lambda: _read_schedule(self._ui))
-        assert isinstance(result, dict)
-        return result
-
-    def ask_levels(self) -> list[Level]:
-        """Ask the backlog item levels as one variable-row table."""
-        result = self._ask(lambda: _read_levels(self._ui))
-        assert isinstance(result, list)
-        return result
-
-    def ask_renames(self, fields: list[str], allow_extra: bool,
-                    target_header: str, is_input: bool = False
-                    ) -> dict[str, Optional[str]]:
-        """Ask one column-rename map as one variable-row table.
-
-        With ``is_input`` false the table stores an internal-to-external
-        output map; with it true the table stores an external-to-internal
-        input map. Either way the internal field names are pre-filled.
-        """
-        def read() -> dict[str, Optional[str]]:
-            """Ask one rename table through the bound user interface."""
-            return _read_renames(self._ui, fields, allow_extra, target_header,
-                                 is_input)
-        result = self._ask(read)
-        assert isinstance(result, dict)
-        return result
-
-    def ask_status_map(self, question: str,
-                       default_map: Optional[dict[str, Status]] = None
-                       ) -> dict[str, Status]:
-        """Ask the input status-name map as one variable-row table."""
-        result = self._ask(lambda: _read_status_map(self._ui, question,
-                                                    default_map))
-        assert isinstance(result, dict)
-        return result
-
-    def ask_jira_map(self, fields: list[str],
-                     default_map: JiraColumnMap) -> JiraColumnMap:
-        """Ask one Jira column map as one variable-row table.
-
-        Each internal field is shown pre-filled with the kind and path of
-        the default map, or blank when the default leaves it unmapped.
-        """
-        result = self._ask(lambda: _read_jira_map(self._ui, fields,
-                                                  default_map))
-        assert isinstance(result, dict)
-        return result
-
-    def ask_issue_type_map(self, levels: Levels) -> JiraIssueTypeMap:
-        """Ask the level-to-issue-type write map as one fixed-row table.
-
-        Each level is shown with its number and name and an editable Jira
-        issue type pre-filled to the level name, so the defaults are
-        visible and only real overrides are kept.
-        """
-        result = self._ask(lambda: _read_issue_type_map(self._ui, levels))
-        assert isinstance(result, dict)
-        return result
-
-    def _ask(self, ask_fn: Callable[[], object]) -> object:
-        """Return the recorded answer when replaying, else ask live."""
-        if self._cursor < len(self._answers):
-            value = self._answers[self._cursor]
-            self._cursor += 1
-            return value
-        value = ask_fn()
-        self._answers.append(value)
-        self._cursor += 1
-        return value
-
-    def _replaying(self) -> bool:
-        """Return whether recorded answers are being replayed."""
-        return self._cursor < len(self._answers)
 
 
 def _read_text(ui: WizardUiBridge, question: str, default: Optional[str],
@@ -267,11 +65,19 @@ def _read_int(ui: WizardUiBridge, question: str, default: int, minimum: int,
 
 
 def _read_unique_name(ui: WizardUiBridge, question: str,
-                      persons: dict[str, Person]) -> str:
-    """Ask for a person name that is not already a key in ``persons``."""
+                      persons: dict[str, Person],
+                      default: Optional[str] = None) -> str:
+    """Ask for a person name that is not already a key in ``persons``.
+
+    An optional default is shown and returned for an empty answer, which
+    lets a re-asked person keep its earlier name.
+    """
+    prompt = question if default is None else f'{question} [{default}]'
     reason: Optional[str] = None
     while True:
-        answer = ui.ask_text(question, reason, nullable=True)
+        answer = ui.ask_text(prompt, reason, nullable=True)
+        if answer is None and default is not None:
+            return default
         if answer is None:
             reason = 'Please enter a non-empty value.'
         elif answer.lower() in persons:
@@ -280,31 +86,32 @@ def _read_unique_name(ui: WizardUiBridge, question: str,
             return answer
 
 
-def _ask_level_display(nav: _Navigator, question: str) -> LevelDisplay:
-    """Ask how to show levels, defaulting to both number and name."""
-    choices = [display.name.lower() for display in LevelDisplay]
-    answer = nav.ask_choice(question, choices,
-                            default=LevelDisplay.BOTH.name.lower())
-    return LevelDisplay[answer.upper()]
+def _read_preset_name(ui: WizardUiBridge, question: str, used: set[str],
+                      default: Optional[str] = None) -> str:
+    """Ask for a preset name of letters and digits that is unused.
 
-
-def _read_preset_name(ui: WizardUiBridge, question: str, used: set[str]
-                      ) -> str:
-    """Ask for a preset name of letters and digits that is unused."""
+    An optional default is shown and used for an empty answer, so a
+    re-asked preset can keep its earlier name.
+    """
+    prompt = question if default is None else f'{question} [{default}]'
     reason: Optional[str] = None
     while True:
-        answer = ui.ask_text(question, reason, nullable=True)
+        answer = ui.ask_text(prompt, reason, nullable=True)
+        if answer is None and default is not None:
+            answer = default
         reason = name_error(answer, used)
         if reason is None:
             assert answer is not None
             return answer
 
 
-def _read_tableio(ui: WizardUiBridge, file_access: FileAccess
-                  ) -> TioJsonConfig:
+def _read_tableio(ui: WizardUiBridge, file_access: FileAccess,
+                  default: Optional[TioJsonConfig] = None,
+                  backward: bool = False) -> TioJsonConfig:
     """Ask for one TableIO endpoint configuration through the wizard."""
     capabilities = access_capabilities(file_access, error_file=ui.error_file())
-    return tio_json_config_wizard(capabilities, file_access, ui)
+    return tio_json_config_wizard(capabilities, file_access, ui,
+                                  default=default, backward=backward)
 
 
 def _is_nonneg(text: Optional[str]) -> bool:
@@ -341,13 +148,20 @@ def _parse_schedule(days: Sequence[WeekDay],
     return schedule
 
 
-def _read_schedule(ui: WizardUiBridge) -> ScheduleWorkHours:
-    """Ask the weekly work-hours schedule as one table question."""
+def _read_schedule(ui: WizardUiBridge, seed: Optional[ScheduleWorkHours] = None
+                   ) -> ScheduleWorkHours:
+    """Ask the weekly work-hours schedule as one table question.
+
+    The hours are pre-filled from the seed schedule, or from the default
+    work week when no seed is given.
+    """
     days = list(WeekDay)
+    source = seed if seed is not None else DEFAULT_WORK_WEEK
     columns = [TableColumn(header='Day', read_only=True),
                TableColumn(header='Work hours')]
     cells = [[TableCell(value=day.name.capitalize()),
-              TableCell(value=_num_text(DEFAULT_WORK_WEEK[day]))]
+              TableCell(value=_num_text(source.get(day,
+                                                   DEFAULT_WORK_WEEK[day])))]
              for day in days]
     reason: Optional[str] = None
     while True:
@@ -462,8 +276,75 @@ def _rename_cells(fields: list[str]) -> list[list[TableCell]]:
             for field in fields]
 
 
-def _read_renames(ui: WizardUiBridge, fields: list[str], allow_extra: bool,
-                  target_header: str, is_input: bool
+def _blank_none(value: Optional[str]) -> str:
+    """Return a rename target as text, blank when the column is dropped."""
+    return '' if value is None else value
+
+
+def _output_rename_cells(fields: list[str], seed: dict[str, Optional[str]]
+                         ) -> list[list[TableCell]]:
+    """Return seed rows for a stored internal-to-external output map."""
+    known = set(fields)
+    rows = [[TableCell(value=field),
+             TableCell(value=_blank_none(seed[field]) if field in seed
+                       else field)] for field in fields]
+    for extra in seed:
+        if extra not in known:
+            rows.append([TableCell(value=extra),
+                         TableCell(value=_blank_none(seed[extra]))])
+    return rows
+
+
+def _input_rename_cells(fields: list[str], seed: dict[str, Optional[str]]
+                        ) -> list[list[TableCell]]:
+    """Return seed rows for a stored external-to-internal input map."""
+    by_field: dict[str, list[str]] = {}
+    drops: list[str] = []
+    for source, internal in seed.items():
+        if internal is None:
+            drops.append(source)
+        else:
+            by_field.setdefault(internal, []).append(source)
+    rows: list[list[TableCell]] = []
+    for field in fields:
+        sources = by_field.pop(field, [field])
+        rows += [[TableCell(value=field), TableCell(value=src)]
+                 for src in sources]
+    for internal, sources in by_field.items():
+        rows += [[TableCell(value=internal), TableCell(value=src)]
+                 for src in sources]
+    rows += [[TableCell(value=''), TableCell(value=src)] for src in drops]
+    return rows
+
+
+def _rename_cells_from(fields: list[str], seed: dict[str, Optional[str]],
+                       is_input: bool) -> list[list[TableCell]]:
+    """Return seed rows that reproduce a stored column-rename map."""
+    if is_input:
+        return _input_rename_cells(fields, seed)
+    return _output_rename_cells(fields, seed)
+
+
+@dataclass(frozen=True)
+class _RenameKind:
+    """How to present and parse one column-rename table.
+
+    Attributes:
+        fields: The internal field names shown as read-only rows.
+        allow_extra: Whether the user may add rows for extra fields.
+        target_header: The header of the editable target column.
+        is_input: True for an external-to-internal input map, False for an
+            internal-to-external output map.
+    """
+
+    fields: list[str]
+    allow_extra: bool
+    target_header: str
+    is_input: bool
+
+
+def _read_renames(ui: WizardUiBridge, kind: _RenameKind,
+                  seed: Optional[dict[str, Optional[str]]] = None
                   ) -> dict[str, Optional[str]]:
     """Ask one column-rename map as one variable-row table.
 
@@ -473,16 +354,20 @@ def _read_renames(ui: WizardUiBridge, fields: list[str], allow_extra: bool,
     added rows for extra fields; an added row is fully editable, so its
     internal name can be typed. A releases table is locked to its own
     fields. The variable-row editor accepts the table on a blank answer.
-    With ``is_input`` true the table is parsed as an external-to-internal
-    input map, otherwise as an internal-to-external output map.
+    With ``kind.is_input`` true the table is parsed as an external-to-
+    internal input map, otherwise as an internal-to-external output map. A
+    seed map pre-fills the rows so the earlier renames are shown again.
     """
+    fields = kind.fields
     columns = [TableColumn(header='Internal field', read_only=True),
-               TableColumn(header=target_header)]
-    cells = _rename_cells(fields)
-    max_rows = len(fields) + _MAX_EXTRA_COLUMNS if allow_extra else len(fields)
-    instruction = _INPUT_INSTRUCTION if is_input else _RENAME_INSTRUCTION
-    check = None if is_input else _rename_check
-    parse = _parse_input_renames if is_input else _parse_column_renames
+               TableColumn(header=kind.target_header)]
+    cells = (_rename_cells_from(fields, seed, kind.is_input)
+             if seed is not None else _rename_cells(fields))
+    max_rows = (len(cells) + _MAX_EXTRA_COLUMNS if kind.allow_extra
+                else len(fields))
+    instruction = _INPUT_INSTRUCTION if kind.is_input else _RENAME_INSTRUCTION
+    check = None if kind.is_input else _rename_check
+    parse = _parse_input_renames if kind.is_input else _parse_column_renames
     reason: Optional[str] = None
     while True:
         table = ui.ask_table(columns, cells, instruction, re_ask_reason=reason,
@@ -491,7 +376,7 @@ def _read_renames(ui: WizardUiBridge, fields: list[str], allow_extra: bool,
         mapping = parse(table)
         if mapping is not None:
             return mapping
-        reason = _INPUT_REASON if is_input else _RENAME_REASON
+        reason = _INPUT_REASON if kind.is_input else _RENAME_REASON
         cells = _cells_from_table(table)
 
 
@@ -548,12 +433,12 @@ def _parse_levels(table: list[list[Optional[str]]]) -> Optional[list[Level]]:
     return levels
 
 
-def _default_level_cells() -> list[list[TableCell]]:
-    """Return the table rows pre-filled with the default levels."""
+def _level_cells(levels: Sequence[Level]) -> list[list[TableCell]]:
+    """Return the table rows filled from the given levels."""
     return [[TableCell(value=str(level.level)),
              TableCell(value=level.name),
              TableCell(value=', '.join(level.aliases))]
-            for level in DEFAULT_LEVELS.values()]
+            for level in levels]
 
 
 def _levels_problem(levels: list[Level], error_file: TextIO) -> Optional[str]:
@@ -576,16 +461,19 @@ def _cells_from_table(table: list[list[Optional[str]]]
             for row in table]
 
 
-def _read_levels(ui: WizardUiBridge) -> list[Level]:
+def _read_levels(ui: WizardUiBridge,
+                 seed: Optional[list[Level]] = None) -> list[Level]:
     """Ask the backlog item levels as one variable-row table question.
 
     Each cell is checked as it is entered, and the whole table is then
     checked for consistency. An inconsistent table is re-asked with the
-    user's own rows kept, so the reported duplicate can be corrected.
+    user's own rows kept, so the reported duplicate can be corrected. The
+    table is pre-filled from the seed levels, or from the default levels
+    when no seed is given.
     """
     columns = [TableColumn(header='Level'), TableColumn(header='Name'),
                TableColumn(header='Aliases (comma separated)')]
-    cells = _default_level_cells()
+    cells = _level_cells(seed if seed else list(DEFAULT_LEVELS.values()))
     reason: Optional[str] = None
     while True:
         table = ui.ask_table(columns, cells, _LEVELS_INSTRUCTION,
@@ -609,10 +497,17 @@ _ISSUE_TYPE_INSTRUCTION = (
 """Instruction shown above a level-to-issue-type write map table."""
 
 
-def _issue_type_cells(levels: Levels) -> list[list[TableCell]]:
-    """Return table rows pre-filled from the levels for the issue map."""
+def _issue_type_cells(levels: Levels, seed: Optional[JiraIssueTypeMap] = None
+                      ) -> list[list[TableCell]]:
+    """Return table rows pre-filled from the levels for the issue map.
+
+    Each row shows the seed issue type for the level, or the level name
+    when the seed leaves it at the default.
+    """
+    overrides = seed or {}
     return [[TableCell(value=str(level.level)), TableCell(value=level.name),
-             TableCell(value=level.name)] for level in levels.values()]
+             TableCell(value=overrides.get(level.level, level.name))]
+            for level in levels.values()]
 
 
 def _parse_issue_types(table: list[list[Optional[str]]]) -> JiraIssueTypeMap:
@@ -632,18 +527,19 @@ def _parse_issue_types(table: list[list[Optional[str]]]) -> JiraIssueTypeMap:
     return result
 
 
-def _read_issue_type_map(ui: WizardUiBridge,
-                         levels: Levels) -> JiraIssueTypeMap:
+def _read_issue_type_map(ui: WizardUiBridge, levels: Levels,
+                         seed: Optional[JiraIssueTypeMap] = None
+                         ) -> JiraIssueTypeMap:
     """Ask the level-to-issue-type write map as one fixed-row table.
 
     Each level is a read-only number and name with an editable Jira issue
-    type pre-filled to the level name, so the defaults are visible and
-    leaving the table unchanged writes each level's own name.
+    type pre-filled from the seed map, or to the level name, so the
+    defaults are visible and leaving the table unchanged keeps them.
     """
     columns = [TableColumn(header='Level', read_only=True),
                TableColumn(header='Internal name', read_only=True),
                TableColumn(header='Jira issue type')]
-    cells = _issue_type_cells(levels)
+    cells = _issue_type_cells(levels, seed)
     count = len(cells)
     table = ui.ask_table(columns, cells, _ISSUE_TYPE_INSTRUCTION,
                          min_rows=count, max_rows=count)
@@ -731,18 +627,20 @@ def _status_map_cells(default_map: Optional[dict[str, Status]]
 
 
 def _read_status_map(ui: WizardUiBridge, question: str,
-                     default_map: Optional[dict[str, Status]] = None
+                     default_map: Optional[dict[str, Status]] = None,
+                     seed: Optional[dict[str, Status]] = None
                      ) -> dict[str, Status]:
     """Ask the input status-name map as one variable-row table.
 
     Each row maps an extra file status name to an internal status. The
-    table starts with ``default_map`` when one is given and otherwise
-    empty. It may be left empty for no extra names. An invalid table is
-    re-asked with the user's own rows kept.
+    table starts from the seed map, or from ``default_map`` when no seed
+    is given, and is empty when neither is given. It may be left empty for
+    no extra names. An invalid table is re-asked with the user's own rows
+    kept.
     """
     columns = [TableColumn(header='File status name'),
                TableColumn(header='Internal status')]
-    cells = _status_map_cells(default_map)
+    cells = _status_map_cells(seed if seed is not None else default_map)
     instruction = f'{question} {_STATUS_TARGETS_HINT}'
     reason: Optional[str] = None
     while True:
@@ -783,19 +681,30 @@ def _path_text(attr: JiraAttrPath) -> str:
     return attr.path[0]
 
 
+def _jira_field_rows(field: str,
+                     attrs: Sequence[JiraAttrPath]) -> list[list[TableCell]]:
+    """Return the row or rows that map one internal field."""
+    if not attrs:
+        return [[TableCell(value=field), TableCell(value=''),
+                 TableCell(value='')]]
+    return [[TableCell(value=field), TableCell(value=attr.kind.name),
+             TableCell(value=_path_text(attr))] for attr in attrs]
+
+
 def _jira_map_cells(fields: list[str],
                     default_map: JiraColumnMap) -> list[list[TableCell]]:
-    """Return seed rows pre-filled from the default Jira column map."""
+    """Return seed rows pre-filled from a Jira column map.
+
+    Each known field is shown first, then any extra mapped field the map
+    carries beyond the known fields, so a stored map is reproduced.
+    """
     rows: list[list[TableCell]] = []
     for field in fields:
-        attrs = default_map.get(field, ())
-        if not attrs:
-            rows.append([TableCell(value=field), TableCell(value=''),
-                         TableCell(value='')])
-        for attr in attrs:
-            rows.append([TableCell(value=field),
-                         TableCell(value=attr.kind.name),
-                         TableCell(value=_path_text(attr))])
+        rows += _jira_field_rows(field, default_map.get(field, ()))
+    known = set(fields)
+    for field in default_map:
+        if field not in known:
+            rows += _jira_field_rows(field, default_map[field])
     return rows
 
 
@@ -855,17 +764,18 @@ def _parse_jira_map(table: list[list[Optional[str]]]
 
 
 def _read_jira_map(ui: WizardUiBridge, fields: list[str],
-                   default_map: JiraColumnMap) -> JiraColumnMap:
+                   default_map: JiraColumnMap,
+                   seed: Optional[JiraColumnMap] = None) -> JiraColumnMap:
     """Ask one Jira column map as one variable-row table.
 
     Each internal field is a read-only, pre-filled row; its kind and path
-    cells start from the default map or blank. Added rows are fully
-    editable so an extra field can be mapped. An invalid table is re-asked
-    with the user's own rows kept.
+    cells start from the seed map, or from the default map when no seed is
+    given, or blank. Added rows are fully editable so an extra field can be
+    mapped. An invalid table is re-asked with the user's own rows kept.
     """
     columns = [TableColumn(header='Internal field', read_only=True),
                TableColumn(header='Kind'), TableColumn(header='Path')]
-    cells = _jira_map_cells(fields, default_map)
+    cells = _jira_map_cells(fields, seed if seed is not None else default_map)
     reason: Optional[str] = None
     while True:
         table = ui.ask_table(columns, cells, _JIRA_MAP_INSTRUCTION,

@@ -26,12 +26,13 @@ from backlogops.wizard_helpers import (
     _backlog_map_fields, _parse_column_renames, _parse_input_renames,
     _parse_status_map, _read_int, _read_jira_map, _read_text, _status_target)
 from backlogops.wizard_helpers import (
-    _Navigator, _is_nonneg, _parse_level_int, _parse_levels, _parse_schedule,
+    _RenameKind, _is_nonneg, _parse_level_int, _parse_levels, _parse_schedule,
     _read_levels, _read_preset_name, _read_renames,
     _read_schedule, _read_status_map, _read_unique_name, _rename_check,
     _sched_check, _split_aliases, _status_check)
 from backlogops.wizard_helpers import (
     _issue_type_cells, _parse_issue_types, _read_issue_type_map)
+from backlogops.wizard_navigator import _Navigator
 from backlogops.levels import DEFAULT_LEVELS, LevelDisplay
 from backlogops.work_hours import DEFAULT_WORK_WEEK, WeekDay
 
@@ -766,7 +767,7 @@ def test_back_at_start() -> None:
     nav = _Navigator(_bridge([]))
     calls: list[int] = []
 
-    def body(_nav: _Navigator) -> str:
+    def body(_nav: _Navigator, _default: object) -> str:
         """Raise back once, then return on the replayed run."""
         calls.append(1)
         if len(calls) == 1:
@@ -911,8 +912,8 @@ def test_renames_reask() -> None:
     nothing and the resulting map is empty.
     """
     bridge = _TableScript([[['key', 'X'], ['key', 'Y']], [['key', 'key']]])
-    assert not _read_renames(bridge, ['key', 'title'], False, 'External',
-                             False)
+    kind = _RenameKind(['key', 'title'], False, 'External', False)
+    assert not _read_renames(bridge, kind)
 
 
 def test_status_reask() -> None:
