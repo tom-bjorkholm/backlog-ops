@@ -21,7 +21,7 @@ jobs:
         run: ./run_clean_build.py
             - name: Upload reports
 
-      - name Upload reports
+      - name: Upload reports
         uses: actions/upload-artifact@v4
         with:
           name: reports
