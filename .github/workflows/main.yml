@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          
+      - name: Run clean build
+        run: ./run_clean_build.py
+            - name: Upload reports
+
+      - name Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: reports/
