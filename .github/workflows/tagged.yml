@@ -1,0 +1,60 @@
+name: Manual CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'The git ref to build (branch, tag, or commit SHA)'
+        required: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+
+    steps:
+      - name: Check out selected ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          
+      - name: Build tools sync
+        run: cd common_build_tools && git checkout master && git pull
+
+      - name: Run clean build
+        run: python3 -m pip install --upgrade gitpython && python3 ./run_clean_build.py python${{ matrix.python-version }}
+
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: reports_index.html
+          path: reports/index.html
+          archive: false
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: reports
+          path: reports/
+
+      - name: Upload doc
+        uses: actions/upload-artifact@v7
+        with:
+          name: doc
+          path: doc/
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: dist/
