@@ -26,40 +26,38 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
-          
-      - name: Build tools sync
-        run: cd common_build_tools && git checkout master && git pull && pwd
 
       - name: Run clean build
         run: |
+          cd common_build_tools && git checkout master && git pull && pwd && cd ..
           python3 -m pip install --upgrade gitpython
           python3 ./run_clean_build.py python${{ matrix.python-version }}
-          cp reports/index.html reports/index-${{ matrix.python-version }}.html
+          cp reports/index.html reports/index-${{ matrix.python-version }}_${{ inputs.ref }}.html
 
 
       - name: Upload reports
         uses: actions/upload-artifact@v7
         with:
-          name: reports_index-${{ matrix.python-version }}.html
-          path: reports/index-${{ matrix.python-version }}.html
+          name: reports_index-${{ matrix.python-version }}_${{ inputs.ref }}.html
+          path: reports/index-${{ matrix.python-version }}_${{ inputs.ref }}.html
           archive: false
 
       - name: Upload reports
         uses: actions/upload-artifact@v7
         with:
-          name: reports-${{ matrix.python-version }}
+          name: reports-${{ matrix.python-version }}_${{ inputs.ref }}
           path: reports/
 
       - name: Upload doc
         uses: actions/upload-artifact@v7
         with:
-          name: doc-${{ matrix.python-version }}
+          name: doc-${{ matrix.python-version }}_${{ inputs.ref }}
           path: doc/
 
       - name: Upload dist
         uses: actions/upload-artifact@v7
         with:
-          name: packages-${{ matrix.python-version }}
+          name: packages-${{ matrix.python-version }}_${{ inputs.ref }}
           path: dist/
 
   cleanup-runs:
