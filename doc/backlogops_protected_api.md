@@ -14562,6 +14562,10 @@ def _read_text(ui: WizardUiBridge, question: str, default: Optional[str],
 
 Ask for a text value with an optional default and re-ask on empty.
 
+The bridge shows the default and returns it for an empty answer, so a
+None answer means there was no default and an empty entry. That is
+accepted when allow_empty is set, otherwise the question is re-asked.
+
 <a id="backlogops.wizard_helpers._read_int"></a>
 
 #### \_read\_int
@@ -14573,8 +14577,9 @@ def _read_int(ui: WizardUiBridge, question: str, default: int, minimum: int,
 
 Ask for a whole number within the given bounds.
 
-The bridge's typed ask_int re-asks invalid or out-of-range answers,
-and an empty answer keeps the default.
+The default is clamped into the bounds so a remembered count above a
+now-smaller maximum is offered at the maximum. The bridge shows the
+default, pre-fills it where it can, and returns it for an empty answer.
 
 <a id="backlogops.wizard_helpers._read_unique_name"></a>
 
@@ -14589,8 +14594,9 @@ def _read_unique_name(ui: WizardUiBridge,
 
 Ask for a person name that is not already a key in ``persons``.
 
-An optional default is shown and returned for an empty answer, which
-lets a re-asked person keep its earlier name.
+An optional default is shown, pre-filled where the bridge can, and
+returned for an empty answer, so a re-asked person keeps its earlier
+name. A None answer means there was no default and an empty entry.
 
 <a id="backlogops.wizard_helpers._read_preset_name"></a>
 
@@ -14605,8 +14611,8 @@ def _read_preset_name(ui: WizardUiBridge,
 
 Ask for a preset name of letters and digits that is unused.
 
-An optional default is shown and used for an empty answer, so a
-re-asked preset can keep its earlier name.
+An optional default is shown, pre-filled where the bridge can, and
+used for an empty answer, so a re-asked preset keeps its earlier name.
 
 <a id="backlogops.wizard_helpers._read_tableio"></a>
 

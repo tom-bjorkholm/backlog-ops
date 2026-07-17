@@ -38,15 +38,17 @@ from backlogops.work_hours import DEFAULT_WORK_WEEK, ScheduleWorkHours, \
 
 def _read_text(ui: WizardUiBridge, question: str, default: Optional[str],
                allow_empty: bool) -> str:
-    """Ask for a text value with an optional default and re-ask on empty."""
-    prompt = question if default is None else f'{question} [{default}]'
+    """Ask for a text value with an optional default and re-ask on empty.
+
+    The bridge shows the default and returns it for an empty answer, so a
+    None answer means there was no default and an empty entry. That is
+    accepted when allow_empty is set, otherwise the question is re-asked.
+    """
     reason: Optional[str] = None
     while True:
-        answer = ui.ask_text(prompt, reason, nullable=True)
+        answer = ui.ask_text(question, reason, nullable=True, default=default)
         if answer is not None:
             return answer
-        if default is not None:
-            return default
         if allow_empty:
             return ''
         reason = 'Please enter a non-empty value.'
@@ -56,12 +58,16 @@ def _read_int(ui: WizardUiBridge, question: str, default: int, minimum: int,
               maximum: Optional[int]) -> int:
     """Ask for a whole number within the given bounds.
 
-    The bridge's typed ask_int re-asks invalid or out-of-range answers,
-    and an empty answer keeps the default.
+    The default is clamped into the bounds so a remembered count above a
+    now-smaller maximum is offered at the maximum. The bridge shows the
+    default, pre-fills it where it can, and returns it for an empty answer.
     """
-    answer = ui.ask_int(f'{question} [{default}]', nullable=True,
-                        min_value=minimum, max_value=maximum)
-    return default if answer is None else answer
+    lower = max(default, minimum)
+    shown = lower if maximum is None else min(lower, maximum)
+    answer = ui.ask_int(question, min_value=minimum, max_value=maximum,
+                        default=shown)
+    assert answer is not None
+    return answer
 
 
 def _read_unique_name(ui: WizardUiBridge, question: str,
@@ -69,15 +75,13 @@ def _read_unique_name(ui: WizardUiBridge, question: str,
                       default: Optional[str] = None) -> str:
     """Ask for a person name that is not already a key in ``persons``.
 
-    An optional default is shown and returned for an empty answer, which
-    lets a re-asked person keep its earlier name.
+    An optional default is shown, pre-filled where the bridge can, and
+    returned for an empty answer, so a re-asked person keeps its earlier
+    name. A None answer means there was no default and an empty entry.
     """
-    prompt = question if default is None else f'{question} [{default}]'
     reason: Optional[str] = None
     while True:
-        answer = ui.ask_text(prompt, reason, nullable=True)
-        if answer is None and default is not None:
-            return default
+        answer = ui.ask_text(question, reason, nullable=True, default=default)
         if answer is None:
             reason = 'Please enter a non-empty value.'
         elif answer.lower() in persons:
@@ -90,15 +94,12 @@ def _read_preset_name(ui: WizardUiBridge, question: str, used: set[str],
                       default: Optional[str] = None) -> str:
     """Ask for a preset name of letters and digits that is unused.
 
-    An optional default is shown and used for an empty answer, so a
-    re-asked preset can keep its earlier name.
+    An optional default is shown, pre-filled where the bridge can, and
+    used for an empty answer, so a re-asked preset keeps its earlier name.
     """
-    prompt = question if default is None else f'{question} [{default}]'
     reason: Optional[str] = None
     while True:
-        answer = ui.ask_text(prompt, reason, nullable=True)
-        if answer is None and default is not None:
-            answer = default
+        answer = ui.ask_text(question, reason, nullable=True, default=default)
         reason = name_error(answer, used)
         if reason is None:
             assert answer is not None
