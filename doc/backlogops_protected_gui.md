@@ -59,6 +59,19 @@
 * [backlogops\_gui.report\_windows](#backlogops_gui.report_windows)
   * [show\_change\_list](#backlogops_gui.report_windows.show_change_list)
   * [show\_text\_report](#backlogops_gui.report_windows.show_text_report)
+* [backlogops\_gui.token\_dialog](#backlogops_gui.token_dialog)
+  * [EncryptTokenRequest](#backlogops_gui.token_dialog.EncryptTokenRequest)
+  * [EncryptTokenDialog](#backlogops_gui.token_dialog.EncryptTokenDialog)
+    * [\_\_init\_\_](#backlogops_gui.token_dialog.EncryptTokenDialog.__init__)
+    * [\_build](#backlogops_gui.token_dialog.EncryptTokenDialog._build)
+    * [\_add\_line](#backlogops_gui.token_dialog.EncryptTokenDialog._add_line)
+    * [\_add\_file\_row](#backlogops_gui.token_dialog.EncryptTokenDialog._add_file_row)
+    * [\_browse\_clear](#backlogops_gui.token_dialog.EncryptTokenDialog._browse_clear)
+    * [\_browse\_out](#backlogops_gui.token_dialog.EncryptTokenDialog._browse_out)
+    * [\_confirm](#backlogops_gui.token_dialog.EncryptTokenDialog._confirm)
+    * [\_problem](#backlogops_gui.token_dialog.EncryptTokenDialog._problem)
+    * [\_make\_request](#backlogops_gui.token_dialog.EncryptTokenDialog._make_request)
+  * [ask\_encrypt\_token](#backlogops_gui.token_dialog.ask_encrypt_token)
 * [backlogops\_gui.choice\_dialogs](#backlogops_gui.choice_dialogs)
   * [ConfigChoice](#backlogops_gui.choice_dialogs.ConfigChoice)
   * [PresetKind](#backlogops_gui.choice_dialogs.PresetKind)
@@ -242,6 +255,10 @@
     * [write\_config](#backlogops_gui.application.BacklogApp.write_config)
     * [\_write\_to\_chosen](#backlogops_gui.application.BacklogApp._write_to_chosen)
     * [\_confirm\_overwrite](#backlogops_gui.application.BacklogApp._confirm_overwrite)
+    * [\_ok\_to\_overwrite](#backlogops_gui.application.BacklogApp._ok_to_overwrite)
+    * [encrypt\_token](#backlogops_gui.application.BacklogApp.encrypt_token)
+    * [\_run\_encrypt](#backlogops_gui.application.BacklogApp._run_encrypt)
+    * [\_do\_encrypt](#backlogops_gui.application.BacklogApp._do_encrypt)
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
     * [open\_backlog](#backlogops_gui.application.BacklogApp.open_backlog)
@@ -1142,6 +1159,147 @@ Show read-only, copy-pasteable text with a Dismiss button.
 The text is shown in a disabled text box, which still lets the user
 select and copy it. The created window is returned so a caller or a
 test can drive or close it.
+
+<a id="backlogops_gui.token_dialog"></a>
+
+# backlogops\_gui.token\_dialog
+
+Modal dialog collecting what is needed to encrypt a Jira token file.
+
+The dialog gathers the clear text Jira API token, either typed directly or
+read from a clear text file, the encrypted file to write, and a pass phrase
+entered twice so the two entries can be confirmed to match. The typed token
+wins when both a token and a clear text file are given. The token field is
+shown in the clear so a pasted token can be checked, while the two pass
+phrase fields are masked. The gathered values are returned as an
+:class:`EncryptTokenRequest`, or None when the user cancels; performing the
+encryption is left to the caller.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenRequest"></a>
+
+## EncryptTokenRequest Objects
+
+```python
+@dataclass
+class EncryptTokenRequest()
+```
+
+The token source, output file and pass phrase to encrypt with.
+
+Exactly one of ``token`` and ``clear_file`` is set: ``token`` holds a
+token typed into the dialog, ``clear_file`` a clear text token file to
+read the token from instead.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog"></a>
+
+## EncryptTokenDialog Objects
+
+```python
+class EncryptTokenDialog(ModalDialog)
+```
+
+Modal dialog collecting the token, output file and pass phrase.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the encrypt-token dialog.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog._build"></a>
+
+#### \_build
+
+```python
+def _build() -> None
+```
+
+Add the token, file, output and pass phrase inputs.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog._add_line"></a>
+
+#### \_add\_line
+
+```python
+def _add_line(label: str, var: tk.StringVar, *, secret: bool = False) -> None
+```
+
+Add a label and a single-line entry, masked when ``secret``.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog._add_file_row"></a>
+
+#### \_add\_file\_row
+
+```python
+def _add_file_row(label: str, var: tk.StringVar,
+                  browse: Callable[[], None]) -> None
+```
+
+Add a label, a path entry and a Browse button for a file path.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog._browse_clear"></a>
+
+#### \_browse\_clear
+
+```python
+def _browse_clear() -> None
+```
+
+Fill the clear text file field from an open-file dialog.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog._browse_out"></a>
+
+#### \_browse\_out
+
+```python
+def _browse_out() -> None
+```
+
+Fill the encrypted file field from a save-file dialog.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog._confirm"></a>
+
+#### \_confirm
+
+```python
+def _confirm() -> None
+```
+
+Validate the inputs and store the request, or report a problem.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog._problem"></a>
+
+#### \_problem
+
+```python
+def _problem() -> Optional[tuple[str, str]]
+```
+
+Return a (title, message) for the first invalid input, or None.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog._make_request"></a>
+
+#### \_make\_request
+
+```python
+def _make_request() -> EncryptTokenRequest
+```
+
+Build the request from the validated inputs; typed token wins.
+
+<a id="backlogops_gui.token_dialog.ask_encrypt_token"></a>
+
+#### ask\_encrypt\_token
+
+```python
+def ask_encrypt_token(parent: tk.Misc) -> Optional[EncryptTokenRequest]
+```
+
+Ask for the token, output file and pass phrase; None if cancelled.
 
 <a id="backlogops_gui.choice_dialogs"></a>
 
@@ -3233,6 +3391,51 @@ def _confirm_overwrite(path: str) -> bool
 ```
 
 Confirm overwriting an existing file; a new file needs no asking.
+
+<a id="backlogops_gui.application.BacklogApp._ok_to_overwrite"></a>
+
+#### \_ok\_to\_overwrite
+
+```python
+def _ok_to_overwrite(path: Path) -> bool
+```
+
+Ask whether to overwrite a file, as the token writer requires.
+
+<a id="backlogops_gui.application.BacklogApp.encrypt_token"></a>
+
+#### encrypt\_token
+
+```python
+def encrypt_token() -> None
+```
+
+Encrypt a Jira API token to a file chosen in a dialog.
+
+The dialog gathers a typed token or a clear text token file, the
+encrypted file to write, and the pass phrase entered twice. An
+existing output file is only overwritten after confirmation, and
+any failure is reported.
+
+<a id="backlogops_gui.application.BacklogApp._run_encrypt"></a>
+
+#### \_run\_encrypt
+
+```python
+def _run_encrypt(request: EncryptTokenRequest) -> bool
+```
+
+Encrypt the requested token, reporting any failure.
+
+<a id="backlogops_gui.application.BacklogApp._do_encrypt"></a>
+
+#### \_do\_encrypt
+
+```python
+def _do_encrypt(request: EncryptTokenRequest) -> None
+```
+
+Dispatch to the token or the file encryption library function.
 
 <a id="backlogops_gui.application.BacklogApp.read_backlog_file"></a>
 

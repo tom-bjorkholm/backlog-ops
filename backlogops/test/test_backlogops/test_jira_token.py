@@ -37,6 +37,12 @@ def test_round_trip() -> None:
     assert decrypt_token(blob, 'pass phrase') == 'my-secret'
 
 
+def test_unicode_round_trip() -> None:
+    """Test a token with non-ASCII characters survives the round trip."""
+    blob = encrypt_token('töken-π-🔑', 'pass phrase')
+    assert decrypt_token(blob, 'pass phrase') == 'töken-π-🔑'
+
+
 def test_unique_salt() -> None:
     """Test two encryptions of one token differ but both decrypt back."""
     first = encrypt_token('tok', 'pw')
@@ -177,6 +183,19 @@ def test_same_file_inplace(tmp_path: Path) -> None:
     encrypt_token_file(clear_file=clear_file, encrypted_file=clear_file,
                        passphrase='pw', ok_to_overwrite=_allow)
     assert decrypt_token(clear_file.read_text(), 'pw') == 'tok'
+
+
+def test_file_no_overwrite(tmp_path: Path) -> None:
+    """Test encrypt_token_file leaves an existing output untouched."""
+    clear_file = tmp_path / 'clear.txt'
+    clear_file.write_text('tok')
+    encrypted_file = tmp_path / 'token.enc'
+    encrypted_file.write_text('old')
+    with pytest.raises(FileExistsError):
+        encrypt_token_file(clear_file=clear_file,
+                           encrypted_file=encrypted_file, passphrase='pw',
+                           ok_to_overwrite=_deny)
+    assert encrypted_file.read_text() == 'old'
 
 
 def test_missing_clear_file(tmp_path: Path) -> None:

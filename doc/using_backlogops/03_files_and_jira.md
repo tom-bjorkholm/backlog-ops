@@ -83,7 +83,9 @@ python3 -m backlogops_cli.read_jira -c my.cfg -p scrum \
 | `-o` / `-O` | Output file and (optional) output format, as above. |
 
 An encrypted token is unlocked by a pass-phrase prompt only when the read
-actually reaches Jira.
+actually reaches Jira. For the recommended `ENCRYPTED_FILE` storage mode you
+first create that encrypted token file once — see [Creating the encrypted
+token file](01_configuration.md#creating-the-encrypted-token-file).
 
 **GUI** — *File → Read backlog from Jira…* Pick the preset (and optionally a
 filter); a backlog window opens on the Jira data, ready for any operation.

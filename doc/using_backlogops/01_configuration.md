@@ -241,6 +241,54 @@ terminal (CLI) or in a dialog (GUI) only when a command actually needs to
 reach Jira. The clear modes print a warning, because anyone who reads the
 file reads your token.
 
+### Creating the encrypted token file
+
+The recommended `ENCRYPTED_FILE` mode keeps the token in a separate file,
+encrypted with a pass phrase. The wizard records *where* that file lives
+(`token_file_path`) and that the mode is `ENCRYPTED_FILE`, but it does not
+create the file for you — you make it once, yourself, from your Jira API
+token and a pass phrase of your choosing. (The internal modes are
+different: there the wizard captures the token and stores it inside the
+configuration file, so nothing extra is needed. The clear-file mode simply
+needs a plain-text file holding the token.)
+
+Encrypting is a one-off setup step, done with a dedicated command:
+
+- **CLI:** `python3 -m backlogops_cli.encrypt_token_file -o TOKEN_FILE`.
+  It asks for the pass phrase twice (hidden, and confirmed to match) and
+  then for the clear-text token on one line. Add `-i CLEAR_FILE` to read
+  the token from a clear-text file instead of typing it. Point `-o` at the
+  same path you gave as `token_file_path`.
+
+  ```sh
+  # Type the token in, encrypt it to the configured file:
+  python3 -m backlogops_cli.encrypt_token_file -o .backlogops_jira_token
+
+  # Encrypt a token you already have in a clear-text file:
+  python3 -m backlogops_cli.encrypt_token_file -i clear_token.txt \
+      -o .backlogops_jira_token
+  ```
+
+- **GUI:** *Configuration → Encrypt Jira API token file…* opens a dialog
+  that takes the token (paste it in, or point at a clear-text token file),
+  the encrypted file to write, and the pass phrase entered twice. When both
+  a typed token and a file are given, the typed token wins.
+
+- **Library:**
+  [`encrypt_token_to_file`](../backlogops_api.md#backlogops.jira_token.encrypt_token_to_file)
+  for a token you hold in memory, and
+  [`encrypt_token_file`](../backlogops_api.md#backlogops.jira_token.encrypt_token_file)
+  for one already in a clear-text file.
+
+Whichever front end you use, the encrypted file is written **crash-safely**
+(through a `.in_progress` sibling and an atomic move) and with owner-only
+permissions, and overwriting an existing file is confirmed first. Use the
+**same pass phrase** you will later type when a command reaches Jira — there
+is no key stored anywhere, so a forgotten pass phrase means re-creating the
+file from the token again. If your token currently sits in a clear-text
+file, you can encrypt it in place by naming that same file as both input and
+output, which replaces the clear text with the encrypted token.
+
 ### Column maps: how a field reaches a Jira value
 
 Each internal field maps to one or more **attribute paths**. A path starts

@@ -164,6 +164,18 @@ def test_overwrite_confirmed(monkeypatch: pytest.MonkeyPatch,
     assert decrypt_token(outfile.read_text(), 'secret') == 'tok'
 
 
+def test_stdin_no_overwrite(monkeypatch: pytest.MonkeyPatch,
+                            tmp_path: Path) -> None:
+    """Test declining the overwrite for a stdin token keeps the output."""
+    monkeypatch.setattr(etf, 'getpass', lambda _prompt: 'secret')
+    monkeypatch.setattr('sys.stdin', io.StringIO('tok\nn\n'))
+    outfile = tmp_path / 'token.enc'
+    outfile.write_text('old')
+    code = etf.main(['-o', str(outfile)])
+    assert code == 1
+    assert outfile.read_text() == 'old'
+
+
 def test_in_command_list() -> None:
     """Test the encrypt_token_file command is discovered by list."""
     assert 'encrypt_token_file' in [name for name, _ in command_modules()]

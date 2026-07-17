@@ -41,7 +41,8 @@ from backlogops import (
     AvailableTeams, BacklogOpsConfig, BacklogReleases, GuiDisplayConfig,
     InputFormatConfig, Levels, OutputFormatConfig, Status, get_demo_backlog,
     get_backlog_ops_config, backlog_ops_wizard, preset_wizard,
-    read_backlog_ops_config, read_io_preset, safe_write_config)
+    read_backlog_ops_config, read_io_preset, safe_write_config,
+    encrypt_token_file, encrypt_token_to_file)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow, JiraHandlers
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
@@ -53,6 +54,7 @@ from backlogops_gui.file_choosers import (
     choose_config_file, choose_existing_config, choose_existing_preset,
     choose_input_file, choose_migrated_preset, choose_preset_to_migrate)
 from backlogops_gui.format_dialogs import ask_read_options
+from backlogops_gui.token_dialog import ask_encrypt_token, EncryptTokenRequest
 from backlogops_gui.jira_actions import JiraActions
 from backlogops_gui.log_buffer import LogBuffer
 from backlogops_gui._migrate_warn import GuiMigrateWarnHook, \
@@ -477,9 +479,49 @@ class BacklogApp:
         """Confirm overwriting an existing file; a new file needs no asking."""
         if not Path(path).exists():
             return True
+        return self._ok_to_overwrite(Path(path))
+
+    def _ok_to_overwrite(self, path: Path) -> bool:
+        """Ask whether to overwrite a file, as the token writer requires."""
         return messagebox.askyesno('Overwrite file?',
                                    f'{path} already exists. Overwrite it?',
                                    parent=self.root)
+
+    def encrypt_token(self) -> None:
+        """Encrypt a Jira API token to a file chosen in a dialog.
+
+        The dialog gathers a typed token or a clear text token file, the
+        encrypted file to write, and the pass phrase entered twice. An
+        existing output file is only overwritten after confirmation, and
+        any failure is reported.
+        """
+        request = ask_encrypt_token(self.root)
+        if request is None:
+            return
+        if self._run_encrypt(request):
+            self.show_info('Token encrypted', f'Wrote {request.out_file}')
+
+    def _run_encrypt(self, request: EncryptTokenRequest) -> bool:
+        """Encrypt the requested token, reporting any failure."""
+        try:
+            self._do_encrypt(request)
+        except IO_ERRORS as error:
+            self.show_error('Could not encrypt token', str(error))
+            return False
+        return True
+
+    def _do_encrypt(self, request: EncryptTokenRequest) -> None:
+        """Dispatch to the token or the file encryption library function."""
+        if request.token is not None:
+            encrypt_token_to_file(request.token, passphrase=request.passphrase,
+                                  filename=request.out_file,
+                                  ok_to_overwrite=self._ok_to_overwrite)
+            return
+        assert request.clear_file is not None
+        encrypt_token_file(clear_file=request.clear_file,
+                           encrypted_file=request.out_file,
+                           passphrase=request.passphrase,
+                           ok_to_overwrite=self._ok_to_overwrite)
 
     def read_backlog_file(self) -> None:
         """Read a backlog from a chosen file into a new window."""
@@ -577,6 +619,9 @@ class BacklogApp:
                          command=self.migrate_preset_file)
         menu.add_command(label='Write configuration…',
                          command=self.write_config)
+        menu.add_separator()
+        menu.add_command(label='Encrypt Jira API token file…',
+                         command=self.encrypt_token)
         menubar.add_cascade(label='Configuration', menu=menu)
 
     def _add_help_menu(self, menubar: tk.Menu) -> None:

@@ -35,6 +35,11 @@
 * [backlogops\_gui.report\_windows](#backlogops_gui.report_windows)
   * [show\_change\_list](#backlogops_gui.report_windows.show_change_list)
   * [show\_text\_report](#backlogops_gui.report_windows.show_text_report)
+* [backlogops\_gui.token\_dialog](#backlogops_gui.token_dialog)
+  * [EncryptTokenRequest](#backlogops_gui.token_dialog.EncryptTokenRequest)
+  * [EncryptTokenDialog](#backlogops_gui.token_dialog.EncryptTokenDialog)
+    * [\_\_init\_\_](#backlogops_gui.token_dialog.EncryptTokenDialog.__init__)
+  * [ask\_encrypt\_token](#backlogops_gui.token_dialog.ask_encrypt_token)
 * [backlogops\_gui.choice\_dialogs](#backlogops_gui.choice_dialogs)
   * [ConfigChoice](#backlogops_gui.choice_dialogs.ConfigChoice)
   * [PresetKind](#backlogops_gui.choice_dialogs.PresetKind)
@@ -132,6 +137,7 @@
     * [create\_preset\_file](#backlogops_gui.application.BacklogApp.create_preset_file)
     * [migrate\_preset\_file](#backlogops_gui.application.BacklogApp.migrate_preset_file)
     * [write\_config](#backlogops_gui.application.BacklogApp.write_config)
+    * [encrypt\_token](#backlogops_gui.application.BacklogApp.encrypt_token)
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
     * [open\_backlog](#backlogops_gui.application.BacklogApp.open_backlog)
@@ -626,6 +632,66 @@ Show read-only, copy-pasteable text with a Dismiss button.
 The text is shown in a disabled text box, which still lets the user
 select and copy it. The created window is returned so a caller or a
 test can drive or close it.
+
+<a id="backlogops_gui.token_dialog"></a>
+
+# backlogops\_gui.token\_dialog
+
+Modal dialog collecting what is needed to encrypt a Jira token file.
+
+The dialog gathers the clear text Jira API token, either typed directly or
+read from a clear text file, the encrypted file to write, and a pass phrase
+entered twice so the two entries can be confirmed to match. The typed token
+wins when both a token and a clear text file are given. The token field is
+shown in the clear so a pasted token can be checked, while the two pass
+phrase fields are masked. The gathered values are returned as an
+:class:`EncryptTokenRequest`, or None when the user cancels; performing the
+encryption is left to the caller.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenRequest"></a>
+
+## EncryptTokenRequest Objects
+
+```python
+@dataclass
+class EncryptTokenRequest()
+```
+
+The token source, output file and pass phrase to encrypt with.
+
+Exactly one of ``token`` and ``clear_file`` is set: ``token`` holds a
+token typed into the dialog, ``clear_file`` a clear text token file to
+read the token from instead.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog"></a>
+
+## EncryptTokenDialog Objects
+
+```python
+class EncryptTokenDialog(ModalDialog)
+```
+
+Modal dialog collecting the token, output file and pass phrase.
+
+<a id="backlogops_gui.token_dialog.EncryptTokenDialog.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc) -> None
+```
+
+Build, show and wait for the encrypt-token dialog.
+
+<a id="backlogops_gui.token_dialog.ask_encrypt_token"></a>
+
+#### ask\_encrypt\_token
+
+```python
+def ask_encrypt_token(parent: tk.Misc) -> Optional[EncryptTokenRequest]
+```
+
+Ask for the token, output file and pass phrase; None if cancelled.
 
 <a id="backlogops_gui.choice_dialogs"></a>
 
@@ -1781,6 +1847,21 @@ def write_config() -> None
 ```
 
 Write the running configuration to a chosen file.
+
+<a id="backlogops_gui.application.BacklogApp.encrypt_token"></a>
+
+#### encrypt\_token
+
+```python
+def encrypt_token() -> None
+```
+
+Encrypt a Jira API token to a file chosen in a dialog.
+
+The dialog gathers a typed token or a clear text token file, the
+encrypted file to write, and the pass phrase entered twice. An
+existing output file is only overwritten after confirmation, and
+any failure is reported.
 
 <a id="backlogops_gui.application.BacklogApp.read_backlog_file"></a>
 

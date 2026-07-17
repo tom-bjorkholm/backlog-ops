@@ -11,11 +11,12 @@ the overwrite confirmation and the crash-safe write.
 # MIT License
 
 from pathlib import Path
-from typing import Callable, TextIO, cast
+from typing import Callable, Optional, TextIO, cast
 import pytest
 from backlogops import BacklogOpsConfig, OutputFormatConfig
 from backlogops_gui import application
 from backlogops_gui.choice_dialogs import SourceChoice
+from backlogops_gui.token_dialog import EncryptTokenRequest
 from .app_test_helpers import (
     FakeConfig, make_app as _app, pick_none as _pick_none,
     raise_exit as _raise_exit, record as _record, returns as _returns)
@@ -356,6 +357,91 @@ def test_preset_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app, 'show_error', _record(errors))
     app.create_preset_file()
     assert errors == [('Preset wizard error', 'bad')]
+
+
+def _ask(request: Optional[EncryptTokenRequest]
+         ) -> Callable[[object], Optional[EncryptTokenRequest]]:
+    """Return an ask_encrypt_token stub yielding a fixed request."""
+    def ask(_parent: object) -> Optional[EncryptTokenRequest]:
+        return request
+    return ask
+
+
+def _rec_to_file(store: list[tuple[str, str, str]]) -> Callable[..., None]:
+    """Return an encrypt_token_to_file stub recording its arguments."""
+    def enc(token: str, *, passphrase: str, filename: Path,
+            ok_to_overwrite: Callable[[Path], bool]) -> None:
+        assert ok_to_overwrite is not None
+        store.append((token, passphrase, str(filename)))
+    return enc
+
+
+def _rec_file(store: list[tuple[str, str, str]]) -> Callable[..., None]:
+    """Return an encrypt_token_file stub recording its arguments."""
+    def enc(*, clear_file: Path, encrypted_file: Path, passphrase: str,
+            ok_to_overwrite: Callable[[Path], bool]) -> None:
+        assert ok_to_overwrite is not None
+        store.append((str(clear_file), passphrase, str(encrypted_file)))
+    return enc
+
+
+def test_encrypt_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a cancelled dialog encrypts nothing and reports nothing."""
+    monkeypatch.setattr(application, 'ask_encrypt_token', _ask(None))
+    app = _app()
+    infos: list[tuple[str, str]] = []
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_info', _record(infos))
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    app.encrypt_token()
+    assert not infos and not errors
+
+
+def test_encrypt_typed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a typed token is encrypted with encrypt_token_to_file."""
+    request = EncryptTokenRequest('tok', None, Path('o.enc'), 'pw')
+    monkeypatch.setattr(application, 'ask_encrypt_token', _ask(request))
+    calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(application, 'encrypt_token_to_file',
+                        _rec_to_file(calls))
+    app = _app()
+    infos: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_info', _record(infos))
+    app.encrypt_token()
+    assert calls == [('tok', 'pw', 'o.enc')]
+    assert infos == [('Token encrypted', 'Wrote o.enc')]
+
+
+def test_encrypt_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a clear text file is encrypted with encrypt_token_file."""
+    request = EncryptTokenRequest(None, Path('clear.txt'), Path('o.enc'), 'pw')
+    monkeypatch.setattr(application, 'ask_encrypt_token', _ask(request))
+    calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(application, 'encrypt_token_file', _rec_file(calls))
+    app = _app()
+    infos: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_info', _record(infos))
+    app.encrypt_token()
+    assert calls == [('clear.txt', 'pw', 'o.enc')]
+    assert infos == [('Token encrypted', 'Wrote o.enc')]
+
+
+def test_encrypt_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an encryption failure is reported and nothing is confirmed."""
+    request = EncryptTokenRequest('tok', None, Path('o.enc'), 'pw')
+    monkeypatch.setattr(application, 'ask_encrypt_token', _ask(request))
+
+    def boom(*_args: object, **_kwargs: object) -> None:
+        raise OSError('disk full')
+    monkeypatch.setattr(application, 'encrypt_token_to_file', boom)
+    app = _app()
+    infos: list[tuple[str, str]] = []
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_info', _record(infos))
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    app.encrypt_token()
+    assert errors == [('Could not encrypt token', 'disk full')]
+    assert not infos
 
 
 def test_write_config_file(monkeypatch: pytest.MonkeyPatch) -> None:

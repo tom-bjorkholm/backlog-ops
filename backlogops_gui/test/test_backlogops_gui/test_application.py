@@ -522,6 +522,7 @@ def test_menu_has_preset_item(monkeypatch: pytest.MonkeyPatch) -> None:
         labels = _command_labels(menubar)
         assert 'Create IO preset file…' in labels
         assert 'Migrate IO preset file…' in labels
+        assert 'Encrypt Jira API token file…' in labels
 
 
 def test_body_config_warn(monkeypatch: pytest.MonkeyPatch) -> None:
