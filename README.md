@@ -121,7 +121,7 @@ they are included as parts of README_pypi.md.
 
 ## Test summary
 
-- Test result: 2444 passed, 7 deselected in 49s
+- Test result: 2455 passed, 7 deselected in 49s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

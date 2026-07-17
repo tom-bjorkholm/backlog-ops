@@ -325,7 +325,9 @@ exception's dates and hours, a team membership, and each Jira connection and
 preset — so in the GUI or textual interface you see them together and can
 fill them in any order before moving on.
 
-- **CLI:** `python3 -m backlogops_cli.config_wizard`
+- **CLI:** `python3 -m backlogops_cli.config_wizard` — add `-i old.cfg` to
+  start from an existing file (see [Starting from an existing
+  file](#starting-from-an-existing-file)).
 - **GUI:** *Configuration → Run configuration wizard…* On the very first
   start-up, when no configuration file exists yet, the GUI shows a *No
   configuration* dialog offering to run the configuration wizard, load an
@@ -343,10 +345,46 @@ Builds one stand-alone input or output preset file (format plus column maps,
 and level display for an output preset). Use its file name wherever an input
 (`-I`) or output (`-O`) format is expected.
 
-- **CLI:** `python3 -m backlogops_cli.preset_wizard`
+- **CLI:** `python3 -m backlogops_cli.preset_wizard` — add `-i old.cfg` to
+  start from an existing preset; the wizard detects on its own whether that
+  file is an input or an output preset (see [Starting from an existing
+  file](#starting-from-an-existing-file)).
 - **GUI:** *Configuration → Create IO preset file…*
 - **Library:**
   [`preset_wizard`](../backlogops_api.md#backlogops.io_preset_wizard.preset_wizard).
+
+### Starting from an existing file
+
+Both wizards can start from a file you already have, so you edit its values
+instead of answering every question from an empty start. Pass the existing
+file with `-i`:
+
+- `python3 -m backlogops_cli.config_wizard -i current.cfg -o current.cfg`
+- `python3 -m backlogops_cli.preset_wizard -i in.cfg -o in.cfg`
+
+The file's contents become the starting answers for every question, so
+stepping through the wizard and accepting each answer keeps them unchanged,
+and you stop only to edit what actually changed. This is exactly what you
+want for the common small edits: a team that has learned to estimate better
+and now has a higher velocity, a new team member, or next year's company
+holidays. For a preset file the wizard even detects on its own whether the
+file is an input or an output preset (the column maps and the level display
+give it away), and still lets you switch direction if you meant the other.
+
+Point `-i` and `-o` at the **same file** to edit it in place. Because that
+replaces the file, you are asked to confirm first (add `-f` to skip the
+question). The new configuration is then written safely: it goes first to a
+sibling file with an extra `.in_progress` extension and is only then moved
+onto the output file in a single, atomic step. So even if the program is
+killed or the machine crashes at the worst possible moment, the complete
+configuration is always available — in either the original file or the
+`.in_progress` file — and is never lost half-written. A leftover
+`.in_progress` file, should you ever find one, holds a complete
+configuration from an interrupted run that you can rename by hand.
+
+The `-o` file gets the `.cfg` extension added when you leave it off; the
+`-i` file is taken as named, with `.cfg` assumed only when the name as
+given is not found.
 
 ### Migrating an older file
 

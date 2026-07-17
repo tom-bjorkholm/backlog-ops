@@ -405,8 +405,11 @@ def main(args: Optional[list[str]] = None) -> int
 
 Run the interactive wizard and write the backlog-ops configuration.
 
-The output filename receives the ``.cfg`` extension when it is not
-already present.
+With ``-i`` an existing configuration file is read first and used to
+pre-fill the wizard, so the user edits those values; pointing ``-i`` at
+the same file as ``-o`` edits it in place after confirming the
+overwrite. The output filename receives the ``.cfg`` extension when it
+is not already present.
 
 **Arguments**:
 
@@ -416,7 +419,7 @@ already present.
 **Returns**:
 
   ``0`` on success, ``1`` when the entered configuration is rejected
-  or cannot be written.
+  or cannot be read or written.
 
 <a id="backlogops_cli.add_to_jira"></a>
 
@@ -904,8 +907,11 @@ def main(args: Optional[list[str]] = None) -> int
 Run the interactive IO preset wizard and write the preset file.
 
 The wizard asks whether to build an input or an output preset and then
-the settings for it. The output filename receives the ``.cfg``
-extension when it is not already present.
+the settings for it. With ``-i`` an existing preset file is read first
+and used to pre-fill the wizard; its direction (input or output) is
+detected from the file, and pointing ``-i`` at the same file as ``-o``
+edits it in place after confirming the overwrite. The output filename
+receives the ``.cfg`` extension when it is not already present.
 
 **Arguments**:
 
@@ -915,7 +921,7 @@ extension when it is not already present.
 **Returns**:
 
   ``0`` on success, ``1`` when the wizard is abandoned or the preset
-  cannot be written.
+  cannot be read or written.
 
 <a id="backlogops_cli.order_releases_in_jira"></a>
 

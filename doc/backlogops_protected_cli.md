@@ -39,6 +39,7 @@
   * [main](#backlogops_cli.migrate_cfg.main)
 * [backlogops\_cli.config\_wizard](#backlogops_cli.config_wizard)
   * [build\_parser](#backlogops_cli.config_wizard.build_parser)
+  * [\_read\_config](#backlogops_cli.config_wizard._read_config)
   * [main](#backlogops_cli.config_wizard.main)
 * [backlogops\_cli.\_command\_io](#backlogops_cli._command_io)
   * [RANK\_ANCHOR\_CHOICES](#backlogops_cli._command_io.RANK_ANCHOR_CHOICES)
@@ -100,6 +101,8 @@
   * [build\_wizard\_parser](#backlogops_cli._wizard_io.build_wizard_parser)
   * [\_check\_overwrite](#backlogops_cli._wizard_io._check_overwrite)
   * [\_make\_bridge](#backlogops_cli._wizard_io._make_bridge)
+  * [\_read\_default](#backlogops_cli._wizard_io._read_default)
+  * [\_safe\_write](#backlogops_cli._wizard_io._safe_write)
   * [run\_wizard\_to\_file](#backlogops_cli._wizard_io.run_wizard_to_file)
 * [backlogops\_cli.\_migrate\_warn](#backlogops_cli._migrate_warn)
   * [CliMigrateWarnHook](#backlogops_cli._migrate_warn.CliMigrateWarnHook)
@@ -127,7 +130,13 @@
   * [\_ordered](#backlogops_cli.order_by_release._ordered)
   * [main](#backlogops_cli.order_by_release.main)
 * [backlogops\_cli.preset\_wizard](#backlogops_cli.preset_wizard)
+  * [\_INPUT\_KEYS](#backlogops_cli.preset_wizard._INPUT_KEYS)
+  * [\_OUTPUT\_KEYS](#backlogops_cli.preset_wizard._OUTPUT_KEYS)
   * [build\_parser](#backlogops_cli.preset_wizard.build_parser)
+  * [\_DirectionMatcher](#backlogops_cli.preset_wizard._DirectionMatcher)
+    * [\_\_init\_\_](#backlogops_cli.preset_wizard._DirectionMatcher.__init__)
+    * [\_\_call\_\_](#backlogops_cli.preset_wizard._DirectionMatcher.__call__)
+  * [\_read\_preset](#backlogops_cli.preset_wizard._read_preset)
   * [main](#backlogops_cli.preset_wizard.main)
 * [backlogops\_cli.order\_releases\_in\_jira](#backlogops_cli.order_releases_in_jira)
   * [build\_parser](#backlogops_cli.order_releases_in_jira.build_parser)
@@ -632,6 +641,16 @@ def build_parser() -> argparse.ArgumentParser
 
 Build the command line parser for the config wizard command.
 
+<a id="backlogops_cli.config_wizard._read_config"></a>
+
+#### \_read\_config
+
+```python
+def _read_config(filename: str) -> BacklogOpsConfig
+```
+
+Read an existing backlog-ops configuration to pre-fill the wizard.
+
 <a id="backlogops_cli.config_wizard.main"></a>
 
 #### main
@@ -642,8 +661,11 @@ def main(args: Optional[list[str]] = None) -> int
 
 Run the interactive wizard and write the backlog-ops configuration.
 
-The output filename receives the ``.cfg`` extension when it is not
-already present.
+With ``-i`` an existing configuration file is read first and used to
+pre-fill the wizard, so the user edits those values; pointing ``-i`` at
+the same file as ``-o`` edits it in place after confirming the
+overwrite. The output filename receives the ``.cfg`` extension when it
+is not already present.
 
 **Arguments**:
 
@@ -653,7 +675,7 @@ already present.
 **Returns**:
 
   ``0`` on success, ``1`` when the entered configuration is rejected
-  or cannot be written.
+  or cannot be read or written.
 
 <a id="backlogops_cli._command_io"></a>
 
@@ -1471,10 +1493,11 @@ Shared helpers for the configuration and preset wizard commands.
 
 Both wizard commands write a JSON configuration file built interactively
 through a ``WizardUiBridge``. They share the same command line shape (an
-output file, a switch forcing the plain console interface, and a force
-flag), the same overwrite check, and the same run-write-report flow. That
-shared logic lives here; the leading underscore in the module name keeps
-it out of the command listing.
+output file, an optional input file whose contents pre-fill the wizard, a
+switch forcing the plain console interface, and a force flag), the same
+overwrite check, the same read-run-write-report flow, and the same
+crash-safe write. That shared logic lives here; the leading underscore in
+the module name keeps it out of the command listing.
 
 <a id="backlogops_cli._wizard_io.build_wizard_parser"></a>
 
@@ -1484,7 +1507,7 @@ it out of the command listing.
 def build_wizard_parser(description: str) -> argparse.ArgumentParser
 ```
 
-Build a wizard parser with output, no-textual and force options.
+Build a wizard parser with output, input, no-textual and force.
 
 <a id="backlogops_cli._wizard_io._check_overwrite"></a>
 
@@ -1513,34 +1536,70 @@ Without ``--no-textual`` the factory returns a Textual full-screen
 bridge in a real terminal and a console bridge otherwise, such as when
 input is redirected or under tests.
 
+<a id="backlogops_cli._wizard_io._read_default"></a>
+
+#### \_read\_default
+
+```python
+def _read_default(input_file: Optional[str],
+                  reader: Callable[[str], _ConfigT]) -> Optional[_ConfigT]
+```
+
+Read the pre-fill file, or return None when none is requested.
+
+The ``.cfg`` extension is assumed when the named file is not found as
+given, matching how the output filename is completed.
+
+<a id="backlogops_cli._wizard_io._safe_write"></a>
+
+#### \_safe\_write
+
+```python
+def _safe_write(config: Config, output: str) -> None
+```
+
+Write the configuration crash-safely, then move it into place.
+
+The configuration is first written to a sibling file with an extra
+``.in_progress`` extension and only then renamed onto the output file.
+The rename replaces the old output file in one atomic step, so a crash
+or a kill at any moment leaves the full configuration in either the old
+output file or the ``.in_progress`` file, never lost between the two.
+
 <a id="backlogops_cli._wizard_io.run_wizard_to_file"></a>
 
 #### run\_wizard\_to\_file
 
 ```python
-def run_wizard_to_file(parsed: argparse.Namespace,
-                       wizard: Callable[[WizardUiBridge],
-                                        Config], label: str) -> int
+def run_wizard_to_file(parsed: argparse.Namespace, wizard: Callable[...,
+                                                                    _ConfigT],
+                       reader: Callable[[str], _ConfigT], label: str) -> int
 ```
 
 Run a wizard, write its configuration to the output file, report.
 
-The output filename receives the ``.cfg`` extension when it is not
-already present.
+When ``parsed.input`` names an existing file it is read first and used
+to pre-fill the wizard, so the user edits those values instead of
+starting from scratch. The output filename receives the ``.cfg``
+extension when it is not already present, an existing output file is
+only overwritten after confirmation (or with ``--force``), and the
+result is written crash-safely through a ``.in_progress`` sibling file.
 
 **Arguments**:
 
-- `parsed` - Parsed arguments holding ``output``, ``force`` and
-  ``no_textual``.
-- `wizard` - Wizard called with the chosen UI bridge; it returns a
-  configuration object that knows how to write itself.
+- `parsed` - Parsed arguments holding ``output``, ``input``, ``force``
+  and ``no_textual``.
+- `wizard` - Wizard called with the chosen UI bridge and the pre-fill
+  default; it returns a configuration object that knows how to
+  write itself.
+- `reader` - Reads the ``input`` file into a default for the wizard.
 - `label` - Human-readable name of what was written, for the message.
   
 
 **Returns**:
 
   ``0`` on success, ``1`` when the wizard is abandoned or the
-  configuration is rejected or cannot be written.
+  configuration is rejected or cannot be read or written.
 
 <a id="backlogops_cli._migrate_warn"></a>
 
@@ -1888,6 +1947,18 @@ configuration with its column-name maps, and a level display for an output
 preset). Such a stand-alone file is used wherever an input or output
 configuration is taken, by giving its file name.
 
+<a id="backlogops_cli.preset_wizard._INPUT_KEYS"></a>
+
+#### \_INPUT\_KEYS
+
+Top-level keys that mark a stand-alone input preset file (new or old).
+
+<a id="backlogops_cli.preset_wizard._OUTPUT_KEYS"></a>
+
+#### \_OUTPUT\_KEYS
+
+Top-level keys that mark a stand-alone output preset file (new or old).
+
 <a id="backlogops_cli.preset_wizard.build_parser"></a>
 
 #### build\_parser
@@ -1897,6 +1968,51 @@ def build_parser() -> argparse.ArgumentParser
 ```
 
 Build the command line parser for the preset wizard command.
+
+<a id="backlogops_cli.preset_wizard._DirectionMatcher"></a>
+
+## \_DirectionMatcher Objects
+
+```python
+class _DirectionMatcher()
+```
+
+Match a preset file by the presence of any of its direction keys.
+
+<a id="backlogops_cli.preset_wizard._DirectionMatcher.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(keys: tuple[str, ...]) -> None
+```
+
+Store the identifying top-level keys of one preset direction.
+
+<a id="backlogops_cli.preset_wizard._DirectionMatcher.__call__"></a>
+
+#### \_\_call\_\_
+
+```python
+def __call__(json_text: str, _stderr: TextIO) -> bool
+```
+
+Return True when the JSON object holds any identifying key.
+
+<a id="backlogops_cli.preset_wizard._read_preset"></a>
+
+#### \_read\_preset
+
+```python
+def _read_preset(filename: str) -> InputFormatConfig | OutputFormatConfig
+```
+
+Read a stand-alone preset file, auto-detecting its direction.
+
+The direction is chosen by inspecting the file itself: the
+file-column-to-internal maps or a status map mark an input preset,
+while the internal-to-file maps or a level display mark an output
+preset. The wizard still lets the user switch direction afterwards.
 
 <a id="backlogops_cli.preset_wizard.main"></a>
 
@@ -1909,8 +2025,11 @@ def main(args: Optional[list[str]] = None) -> int
 Run the interactive IO preset wizard and write the preset file.
 
 The wizard asks whether to build an input or an output preset and then
-the settings for it. The output filename receives the ``.cfg``
-extension when it is not already present.
+the settings for it. With ``-i`` an existing preset file is read first
+and used to pre-fill the wizard; its direction (input or output) is
+detected from the file, and pointing ``-i`` at the same file as ``-o``
+edits it in place after confirming the overwrite. The output filename
+receives the ``.cfg`` extension when it is not already present.
 
 **Arguments**:
 
@@ -1920,7 +2039,7 @@ extension when it is not already present.
 **Returns**:
 
   ``0`` on success, ``1`` when the wizard is abandoned or the preset
-  cannot be written.
+  cannot be read or written.
 
 <a id="backlogops_cli.order_releases_in_jira"></a>
 
