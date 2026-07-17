@@ -38,12 +38,12 @@
 * [backlogops\_gui.choice\_dialogs](#backlogops_gui.choice_dialogs)
   * [ConfigChoice](#backlogops_gui.choice_dialogs.ConfigChoice)
   * [PresetKind](#backlogops_gui.choice_dialogs.PresetKind)
-  * [NoConfigDialog](#backlogops_gui.choice_dialogs.NoConfigDialog)
-    * [\_\_init\_\_](#backlogops_gui.choice_dialogs.NoConfigDialog.__init__)
+  * [SourceChoice](#backlogops_gui.choice_dialogs.SourceChoice)
+  * [ButtonChoiceDialog](#backlogops_gui.choice_dialogs.ButtonChoiceDialog)
+    * [\_\_init\_\_](#backlogops_gui.choice_dialogs.ButtonChoiceDialog.__init__)
   * [ask\_no\_config\_choice](#backlogops_gui.choice_dialogs.ask_no_config_choice)
-  * [PresetKindDialog](#backlogops_gui.choice_dialogs.PresetKindDialog)
-    * [\_\_init\_\_](#backlogops_gui.choice_dialogs.PresetKindDialog.__init__)
   * [ask\_preset\_kind](#backlogops_gui.choice_dialogs.ask_preset_kind)
+  * [ask\_source\_choice](#backlogops_gui.choice_dialogs.ask_source_choice)
 * [backlogops\_gui.format\_dialogs](#backlogops_gui.format_dialogs)
   * [format\_value](#backlogops_gui.format_dialogs.format_value)
   * [ReadOptions](#backlogops_gui.format_dialogs.ReadOptions)
@@ -247,6 +247,7 @@
   * [choose\_output\_file](#backlogops_gui.file_choosers.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.file_choosers.choose_config_file)
   * [choose\_existing\_config](#backlogops_gui.file_choosers.choose_existing_config)
+  * [choose\_existing\_preset](#backlogops_gui.file_choosers.choose_existing_preset)
   * [choose\_preset\_to\_migrate](#backlogops_gui.file_choosers.choose_preset_to_migrate)
   * [choose\_migrated\_preset](#backlogops_gui.file_choosers.choose_migrated_preset)
   * [choose\_key\_list\_output](#backlogops_gui.file_choosers.choose_key_list_output)
@@ -636,7 +637,9 @@ These dialogs present a short explanation and a column of buttons, each
 selecting one enumerated value, with no OK or Cancel. The no-configuration
 dialog offers to run the wizard, load a file, or exit at startup. The
 preset-kind dialog asks whether a stand-alone preset file is an input or
-an output preset before it is migrated.
+an output preset before it is migrated. The source dialog asks whether to
+start a wizard from scratch, base it on an existing file, or cancel. All
+three are built from the same :class:`ButtonChoiceDialog`.
 
 <a id="backlogops_gui.choice_dialogs.ConfigChoice"></a>
 
@@ -658,25 +661,40 @@ class PresetKind(Enum)
 
 Whether a stand-alone preset file is an input or output preset.
 
-<a id="backlogops_gui.choice_dialogs.NoConfigDialog"></a>
+<a id="backlogops_gui.choice_dialogs.SourceChoice"></a>
 
-## NoConfigDialog Objects
+## SourceChoice Objects
 
 ```python
-class NoConfigDialog()
+class SourceChoice(Enum)
 ```
 
-Modal dialog offering to create, load, or exit without a config.
+Whether a wizard starts empty, from a file, or is cancelled.
 
-<a id="backlogops_gui.choice_dialogs.NoConfigDialog.__init__"></a>
+<a id="backlogops_gui.choice_dialogs.ButtonChoiceDialog"></a>
+
+## ButtonChoiceDialog Objects
+
+```python
+class ButtonChoiceDialog(Generic[_Choice])
+```
+
+Modal dialog presenting a column of single-choice buttons.
+
+Each option is one button that records its value and closes the
+dialog. Closing the window without pressing a button keeps the given
+default value, so a caller can tell a real choice from a dismissal.
+
+<a id="backlogops_gui.choice_dialogs.ButtonChoiceDialog.__init__"></a>
 
 #### \_\_init\_\_
 
 ```python
-def __init__(parent: tk.Misc) -> None
+def __init__(parent: tk.Misc, title: str, text: str,
+             options: Sequence[tuple[str, _Choice]], default: _Choice) -> None
 ```
 
-Build, show and wait for the no-configuration dialog.
+Build, show and wait for the button-choice dialog.
 
 <a id="backlogops_gui.choice_dialogs.ask_no_config_choice"></a>
 
@@ -687,26 +705,6 @@ def ask_no_config_choice(parent: tk.Misc) -> ConfigChoice
 ```
 
 Ask whether to run the wizard, load a file, or exit.
-
-<a id="backlogops_gui.choice_dialogs.PresetKindDialog"></a>
-
-## PresetKindDialog Objects
-
-```python
-class PresetKindDialog()
-```
-
-Modal dialog asking whether a preset is for input or output.
-
-<a id="backlogops_gui.choice_dialogs.PresetKindDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Build, show and wait for the preset kind dialog.
 
 <a id="backlogops_gui.choice_dialogs.ask_preset_kind"></a>
 
@@ -720,6 +718,16 @@ Ask whether a preset file is an input or output preset.
 
 Returns the chosen kind, or None when the dialog is closed without a
 choice.
+
+<a id="backlogops_gui.choice_dialogs.ask_source_choice"></a>
+
+#### ask\_source\_choice
+
+```python
+def ask_source_choice(parent: tk.Misc, title: str, text: str) -> SourceChoice
+```
+
+Ask whether to start from scratch, base on a file, or cancel.
 
 <a id="backlogops_gui.format_dialogs"></a>
 
@@ -1537,7 +1545,10 @@ or from Jira, loads or replaces the active configuration from a file, runs
 the teams configuration wizard, creates a stand-alone input or output
 preset file, migrates a stand-alone preset file to the current format,
 writes the running configuration to a file, and creates a demonstration
-backlog. Each backlog opens in its own
+backlog. The configuration wizard and the preset wizard first ask whether
+to start empty or be pre-filled from an existing file, so the user can
+edit an existing configuration instead of entering everything again. Each
+backlog opens in its own
 window. On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
@@ -1710,7 +1721,9 @@ the application is ready only once a configuration is in place.
 #### run\_wizard
 
 ```python
-def run_wizard() -> Optional[BacklogOpsConfig]
+def run_wizard(
+        default: Optional[BacklogOpsConfig] = None
+) -> Optional[BacklogOpsConfig]
 ```
 
 Run the config wizard and return its configuration, or None.
@@ -1723,7 +1736,12 @@ Run the config wizard and return its configuration, or None.
 def run_config_wizard() -> None
 ```
 
-Run the wizard and make a new configuration active on success.
+Ask the source, run the wizard, and activate a new config.
+
+The wizard may start from scratch or be pre-filled from an
+existing configuration file the user chooses. Its result becomes
+the active configuration; writing it to a file stays with the
+``Write configuration…`` action.
 
 <a id="backlogops_gui.application.BacklogApp.create_preset_file"></a>
 
@@ -1733,7 +1751,11 @@ Run the wizard and make a new configuration active on success.
 def create_preset_file() -> None
 ```
 
-Run the IO preset wizard and write the preset to a chosen file.
+Ask the source, run the IO preset wizard, and write the preset.
+
+The wizard may start from scratch or be pre-filled from an
+existing preset file the user chooses; its direction is detected
+from the file.
 
 <a id="backlogops_gui.application.BacklogApp.migrate_preset_file"></a>
 
@@ -3230,6 +3252,16 @@ def choose_existing_config(parent: tk.Misc) -> Optional[str]
 ```
 
 Ask for an existing configuration file, or None when cancelled.
+
+<a id="backlogops_gui.file_choosers.choose_existing_preset"></a>
+
+#### choose\_existing\_preset
+
+```python
+def choose_existing_preset(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for an existing preset file to base on, or None when cancelled.
 
 <a id="backlogops_gui.file_choosers.choose_preset_to_migrate"></a>
 

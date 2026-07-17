@@ -9,8 +9,8 @@ from typing import Callable, Optional
 import pytest
 from backlogops_gui.file_choosers import (
     choose_changes_output, choose_config_file, choose_existing_config,
-    choose_input_file, choose_key_list_output, choose_migrated_preset,
-    choose_output_file, choose_preset_to_migrate)
+    choose_existing_preset, choose_input_file, choose_key_list_output,
+    choose_migrated_preset, choose_output_file, choose_preset_to_migrate)
 from .gui_test_helpers import gui_root
 
 CHOOSERS: list[tuple[Callable[[tk.Misc], Optional[str]], str]] = [
@@ -18,6 +18,7 @@ CHOOSERS: list[tuple[Callable[[tk.Misc], Optional[str]], str]] = [
     (choose_output_file, 'asksaveasfilename'),
     (choose_config_file, 'asksaveasfilename'),
     (choose_existing_config, 'askopenfilename'),
+    (choose_existing_preset, 'askopenfilename'),
     (choose_key_list_output, 'asksaveasfilename'),
     (choose_changes_output, 'asksaveasfilename'),
     (choose_preset_to_migrate, 'askopenfilename'),

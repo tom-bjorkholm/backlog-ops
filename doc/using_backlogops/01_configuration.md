@@ -328,16 +328,22 @@ fill them in any order before moving on.
 - **CLI:** `python3 -m backlogops_cli.config_wizard` — add `-i old.cfg` to
   start from an existing file (see [Starting from an existing
   file](#starting-from-an-existing-file)).
-- **GUI:** *Configuration → Run configuration wizard…* On the very first
-  start-up, when no configuration file exists yet, the GUI shows a *No
-  configuration* dialog offering to run the configuration wizard, load an
-  existing configuration file, or exit.
+- **GUI:** *Configuration → Run configuration wizard…* The GUI first asks
+  whether to start the wizard empty or base it on an existing configuration
+  file you pick (see [Starting from an existing
+  file](#starting-from-an-existing-file)); its result becomes the active
+  configuration. On the very first start-up, when no configuration file
+  exists yet, the GUI shows a *No configuration* dialog offering to run the
+  configuration wizard, load an existing configuration file, or exit.
 - **Library:**
   [`backlog_ops_wizard`](../backlogops_api.md#backlogops.backlog_ops_wizard.backlog_ops_wizard).
 
 To save the configuration you have loaded in the GUI, use *Configuration →
 Write configuration…*
 ([`write_backlog_ops_config`](../backlogops_api.md#backlogops.backlog_ops_config.write_backlog_ops_config)).
+Writing a file that already exists asks you to confirm the overwrite first,
+and the file is written crash-safely (see [Starting from an existing
+file](#starting-from-an-existing-file)).
 
 ### The preset wizard
 
@@ -349,7 +355,11 @@ and level display for an output preset). Use its file name wherever an input
   start from an existing preset; the wizard detects on its own whether that
   file is an input or an output preset (see [Starting from an existing
   file](#starting-from-an-existing-file)).
-- **GUI:** *Configuration → Create IO preset file…*
+- **GUI:** *Configuration → Create IO preset file…* The GUI first asks
+  whether to start the wizard empty or base it on an existing preset file
+  you pick (see [Starting from an existing
+  file](#starting-from-an-existing-file)); the direction (input or output)
+  is detected from that file. You are then asked where to write the result.
 - **Library:**
   [`preset_wizard`](../backlogops_api.md#backlogops.io_preset_wizard.preset_wizard).
 
@@ -385,6 +395,20 @@ configuration from an interrupted run that you can rename by hand.
 The `-o` file gets the `.cfg` extension added when you leave it off; the
 `-i` file is taken as named, with `.cfg` assumed only when the name as
 given is not found.
+
+In the **GUI** the same idea is offered up front. *Run configuration
+wizard…* and *Create IO preset file…* each begin with a small dialog asking
+whether to *start from scratch*, *base it on an existing file…*, or
+*cancel*. Choosing to base it on a file opens a file picker, and that
+file's contents become the starting answers — so, as with `-i`, you step
+through and change only what actually differs. The configuration wizard
+then makes its result the active configuration (save it with *Write
+configuration…*), while the preset wizard asks where to write the preset.
+Whenever the GUI writes over a file that already exists — a preset, or the
+configuration through *Write configuration…* — it first asks you to confirm
+the overwrite, and then writes crash-safely through the same
+`.in_progress` sibling and atomic move, so an interrupted write never loses
+either the old file or the new one.
 
 ### Migrating an older file
 

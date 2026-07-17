@@ -102,7 +102,6 @@
   * [\_check\_overwrite](#backlogops_cli._wizard_io._check_overwrite)
   * [\_make\_bridge](#backlogops_cli._wizard_io._make_bridge)
   * [\_read\_default](#backlogops_cli._wizard_io._read_default)
-  * [\_safe\_write](#backlogops_cli._wizard_io._safe_write)
   * [run\_wizard\_to\_file](#backlogops_cli._wizard_io.run_wizard_to_file)
 * [backlogops\_cli.\_migrate\_warn](#backlogops_cli._migrate_warn)
   * [CliMigrateWarnHook](#backlogops_cli._migrate_warn.CliMigrateWarnHook)
@@ -130,12 +129,7 @@
   * [\_ordered](#backlogops_cli.order_by_release._ordered)
   * [main](#backlogops_cli.order_by_release.main)
 * [backlogops\_cli.preset\_wizard](#backlogops_cli.preset_wizard)
-  * [\_INPUT\_KEYS](#backlogops_cli.preset_wizard._INPUT_KEYS)
-  * [\_OUTPUT\_KEYS](#backlogops_cli.preset_wizard._OUTPUT_KEYS)
   * [build\_parser](#backlogops_cli.preset_wizard.build_parser)
-  * [\_DirectionMatcher](#backlogops_cli.preset_wizard._DirectionMatcher)
-    * [\_\_init\_\_](#backlogops_cli.preset_wizard._DirectionMatcher.__init__)
-    * [\_\_call\_\_](#backlogops_cli.preset_wizard._DirectionMatcher.__call__)
   * [\_read\_preset](#backlogops_cli.preset_wizard._read_preset)
   * [main](#backlogops_cli.preset_wizard.main)
 * [backlogops\_cli.order\_releases\_in\_jira](#backlogops_cli.order_releases_in_jira)
@@ -1550,22 +1544,6 @@ Read the pre-fill file, or return None when none is requested.
 The ``.cfg`` extension is assumed when the named file is not found as
 given, matching how the output filename is completed.
 
-<a id="backlogops_cli._wizard_io._safe_write"></a>
-
-#### \_safe\_write
-
-```python
-def _safe_write(config: Config, output: str) -> None
-```
-
-Write the configuration crash-safely, then move it into place.
-
-The configuration is first written to a sibling file with an extra
-``.in_progress`` extension and only then renamed onto the output file.
-The rename replaces the old output file in one atomic step, so a crash
-or a kill at any moment leaves the full configuration in either the old
-output file or the ``.in_progress`` file, never lost between the two.
-
 <a id="backlogops_cli._wizard_io.run_wizard_to_file"></a>
 
 #### run\_wizard\_to\_file
@@ -1947,18 +1925,6 @@ configuration with its column-name maps, and a level display for an output
 preset). Such a stand-alone file is used wherever an input or output
 configuration is taken, by giving its file name.
 
-<a id="backlogops_cli.preset_wizard._INPUT_KEYS"></a>
-
-#### \_INPUT\_KEYS
-
-Top-level keys that mark a stand-alone input preset file (new or old).
-
-<a id="backlogops_cli.preset_wizard._OUTPUT_KEYS"></a>
-
-#### \_OUTPUT\_KEYS
-
-Top-level keys that mark a stand-alone output preset file (new or old).
-
 <a id="backlogops_cli.preset_wizard.build_parser"></a>
 
 #### build\_parser
@@ -1968,36 +1934,6 @@ def build_parser() -> argparse.ArgumentParser
 ```
 
 Build the command line parser for the preset wizard command.
-
-<a id="backlogops_cli.preset_wizard._DirectionMatcher"></a>
-
-## \_DirectionMatcher Objects
-
-```python
-class _DirectionMatcher()
-```
-
-Match a preset file by the presence of any of its direction keys.
-
-<a id="backlogops_cli.preset_wizard._DirectionMatcher.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(keys: tuple[str, ...]) -> None
-```
-
-Store the identifying top-level keys of one preset direction.
-
-<a id="backlogops_cli.preset_wizard._DirectionMatcher.__call__"></a>
-
-#### \_\_call\_\_
-
-```python
-def __call__(json_text: str, _stderr: TextIO) -> bool
-```
-
-Return True when the JSON object holds any identifying key.
 
 <a id="backlogops_cli.preset_wizard._read_preset"></a>
 
@@ -2009,10 +1945,8 @@ def _read_preset(filename: str) -> InputFormatConfig | OutputFormatConfig
 
 Read a stand-alone preset file, auto-detecting its direction.
 
-The direction is chosen by inspecting the file itself: the
-file-column-to-internal maps or a status map mark an input preset,
-while the internal-to-file maps or a level display mark an output
-preset. The wizard still lets the user switch direction afterwards.
+The direction is detected from the file contents; the wizard still
+lets the user switch direction afterwards.
 
 <a id="backlogops_cli.preset_wizard.main"></a>
 

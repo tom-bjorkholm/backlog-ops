@@ -62,20 +62,16 @@
 * [backlogops\_gui.choice\_dialogs](#backlogops_gui.choice_dialogs)
   * [ConfigChoice](#backlogops_gui.choice_dialogs.ConfigChoice)
   * [PresetKind](#backlogops_gui.choice_dialogs.PresetKind)
-  * [NoConfigDialog](#backlogops_gui.choice_dialogs.NoConfigDialog)
-    * [\_\_init\_\_](#backlogops_gui.choice_dialogs.NoConfigDialog.__init__)
-    * [\_build](#backlogops_gui.choice_dialogs.NoConfigDialog._build)
-    * [\_add\_button](#backlogops_gui.choice_dialogs.NoConfigDialog._add_button)
-    * [\_show](#backlogops_gui.choice_dialogs.NoConfigDialog._show)
-    * [\_choose](#backlogops_gui.choice_dialogs.NoConfigDialog._choose)
+  * [SourceChoice](#backlogops_gui.choice_dialogs.SourceChoice)
+  * [ButtonChoiceDialog](#backlogops_gui.choice_dialogs.ButtonChoiceDialog)
+    * [\_\_init\_\_](#backlogops_gui.choice_dialogs.ButtonChoiceDialog.__init__)
+    * [\_build](#backlogops_gui.choice_dialogs.ButtonChoiceDialog._build)
+    * [\_add\_button](#backlogops_gui.choice_dialogs.ButtonChoiceDialog._add_button)
+    * [\_show](#backlogops_gui.choice_dialogs.ButtonChoiceDialog._show)
+    * [\_choose](#backlogops_gui.choice_dialogs.ButtonChoiceDialog._choose)
   * [ask\_no\_config\_choice](#backlogops_gui.choice_dialogs.ask_no_config_choice)
-  * [PresetKindDialog](#backlogops_gui.choice_dialogs.PresetKindDialog)
-    * [\_\_init\_\_](#backlogops_gui.choice_dialogs.PresetKindDialog.__init__)
-    * [\_build](#backlogops_gui.choice_dialogs.PresetKindDialog._build)
-    * [\_add\_button](#backlogops_gui.choice_dialogs.PresetKindDialog._add_button)
-    * [\_show](#backlogops_gui.choice_dialogs.PresetKindDialog._show)
-    * [\_choose](#backlogops_gui.choice_dialogs.PresetKindDialog._choose)
   * [ask\_preset\_kind](#backlogops_gui.choice_dialogs.ask_preset_kind)
+  * [ask\_source\_choice](#backlogops_gui.choice_dialogs.ask_source_choice)
 * [backlogops\_gui.format\_dialogs](#backlogops_gui.format_dialogs)
   * [format\_value](#backlogops_gui.format_dialogs.format_value)
   * [ReadOptions](#backlogops_gui.format_dialogs.ReadOptions)
@@ -214,6 +210,8 @@
   * [GuiPresetMigrateWarnHook](#backlogops_gui._migrate_warn.GuiPresetMigrateWarnHook)
     * [migrate\_instructions](#backlogops_gui._migrate_warn.GuiPresetMigrateWarnHook.migrate_instructions)
 * [backlogops\_gui.application](#backlogops_gui.application)
+  * [\_read\_config\_prefill](#backlogops_gui.application._read_config_prefill)
+  * [\_read\_preset\_prefill](#backlogops_gui.application._read_preset_prefill)
   * [initial\_config](#backlogops_gui.application.initial_config)
   * [\_config\_failure](#backlogops_gui.application._config_failure)
   * [BacklogApp](#backlogops_gui.application.BacklogApp)
@@ -232,6 +230,9 @@
     * [\_adopt\_loaded\_config](#backlogops_gui.application.BacklogApp._adopt_loaded_config)
     * [\_run\_bridge\_wizard](#backlogops_gui.application.BacklogApp._run_bridge_wizard)
     * [run\_wizard](#backlogops_gui.application.BacklogApp.run_wizard)
+    * [\_prefill\_default](#backlogops_gui.application.BacklogApp._prefill_default)
+    * [\_read\_prefill](#backlogops_gui.application.BacklogApp._read_prefill)
+    * [\_prefill\_failed](#backlogops_gui.application.BacklogApp._prefill_failed)
     * [\_load\_config\_file](#backlogops_gui.application.BacklogApp._load_config_file)
     * [run\_config\_wizard](#backlogops_gui.application.BacklogApp.run_config_wizard)
     * [create\_preset\_file](#backlogops_gui.application.BacklogApp.create_preset_file)
@@ -240,6 +241,7 @@
     * [\_migrate\_failed](#backlogops_gui.application.BacklogApp._migrate_failed)
     * [write\_config](#backlogops_gui.application.BacklogApp.write_config)
     * [\_write\_to\_chosen](#backlogops_gui.application.BacklogApp._write_to_chosen)
+    * [\_confirm\_overwrite](#backlogops_gui.application.BacklogApp._confirm_overwrite)
     * [read\_backlog\_file](#backlogops_gui.application.BacklogApp.read_backlog_file)
     * [new\_demo\_backlog](#backlogops_gui.application.BacklogApp.new_demo_backlog)
     * [open\_backlog](#backlogops_gui.application.BacklogApp.open_backlog)
@@ -515,6 +517,7 @@
   * [choose\_output\_file](#backlogops_gui.file_choosers.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.file_choosers.choose_config_file)
   * [choose\_existing\_config](#backlogops_gui.file_choosers.choose_existing_config)
+  * [choose\_existing\_preset](#backlogops_gui.file_choosers.choose_existing_preset)
   * [choose\_preset\_to\_migrate](#backlogops_gui.file_choosers.choose_preset_to_migrate)
   * [choose\_migrated\_preset](#backlogops_gui.file_choosers.choose_migrated_preset)
   * [choose\_key\_list\_output](#backlogops_gui.file_choosers.choose_key_list_output)
@@ -1150,7 +1153,9 @@ These dialogs present a short explanation and a column of buttons, each
 selecting one enumerated value, with no OK or Cancel. The no-configuration
 dialog offers to run the wizard, load a file, or exit at startup. The
 preset-kind dialog asks whether a stand-alone preset file is an input or
-an output preset before it is migrated.
+an output preset before it is migrated. The source dialog asks whether to
+start a wizard from scratch, base it on an existing file, or cancel. All
+three are built from the same :class:`ButtonChoiceDialog`.
 
 <a id="backlogops_gui.choice_dialogs.ConfigChoice"></a>
 
@@ -1172,47 +1177,62 @@ class PresetKind(Enum)
 
 Whether a stand-alone preset file is an input or output preset.
 
-<a id="backlogops_gui.choice_dialogs.NoConfigDialog"></a>
+<a id="backlogops_gui.choice_dialogs.SourceChoice"></a>
 
-## NoConfigDialog Objects
+## SourceChoice Objects
 
 ```python
-class NoConfigDialog()
+class SourceChoice(Enum)
 ```
 
-Modal dialog offering to create, load, or exit without a config.
+Whether a wizard starts empty, from a file, or is cancelled.
 
-<a id="backlogops_gui.choice_dialogs.NoConfigDialog.__init__"></a>
+<a id="backlogops_gui.choice_dialogs.ButtonChoiceDialog"></a>
+
+## ButtonChoiceDialog Objects
+
+```python
+class ButtonChoiceDialog(Generic[_Choice])
+```
+
+Modal dialog presenting a column of single-choice buttons.
+
+Each option is one button that records its value and closes the
+dialog. Closing the window without pressing a button keeps the given
+default value, so a caller can tell a real choice from a dismissal.
+
+<a id="backlogops_gui.choice_dialogs.ButtonChoiceDialog.__init__"></a>
 
 #### \_\_init\_\_
 
 ```python
-def __init__(parent: tk.Misc) -> None
+def __init__(parent: tk.Misc, title: str, text: str,
+             options: Sequence[tuple[str, _Choice]], default: _Choice) -> None
 ```
 
-Build, show and wait for the no-configuration dialog.
+Build, show and wait for the button-choice dialog.
 
-<a id="backlogops_gui.choice_dialogs.NoConfigDialog._build"></a>
+<a id="backlogops_gui.choice_dialogs.ButtonChoiceDialog._build"></a>
 
 #### \_build
 
 ```python
-def _build() -> None
+def _build(text: str, options: Sequence[tuple[str, _Choice]]) -> None
 ```
 
-Add the explanation and the three action buttons.
+Add the explanation and one button per option.
 
-<a id="backlogops_gui.choice_dialogs.NoConfigDialog._add_button"></a>
+<a id="backlogops_gui.choice_dialogs.ButtonChoiceDialog._add_button"></a>
 
 #### \_add\_button
 
 ```python
-def _add_button(text: str, choice: ConfigChoice) -> None
+def _add_button(text: str, value: _Choice) -> None
 ```
 
-Add one action button that selects the given choice.
+Add one button that selects the given value.
 
-<a id="backlogops_gui.choice_dialogs.NoConfigDialog._show"></a>
+<a id="backlogops_gui.choice_dialogs.ButtonChoiceDialog._show"></a>
 
 #### \_show
 
@@ -1222,15 +1242,15 @@ def _show() -> None
 
 Grab the focus and wait for the dialog to close.
 
-<a id="backlogops_gui.choice_dialogs.NoConfigDialog._choose"></a>
+<a id="backlogops_gui.choice_dialogs.ButtonChoiceDialog._choose"></a>
 
 #### \_choose
 
 ```python
-def _choose(choice: ConfigChoice) -> None
+def _choose(value: _Choice) -> None
 ```
 
-Record the chosen action and close the dialog.
+Record the chosen value and close the dialog.
 
 <a id="backlogops_gui.choice_dialogs.ask_no_config_choice"></a>
 
@@ -1241,66 +1261,6 @@ def ask_no_config_choice(parent: tk.Misc) -> ConfigChoice
 ```
 
 Ask whether to run the wizard, load a file, or exit.
-
-<a id="backlogops_gui.choice_dialogs.PresetKindDialog"></a>
-
-## PresetKindDialog Objects
-
-```python
-class PresetKindDialog()
-```
-
-Modal dialog asking whether a preset is for input or output.
-
-<a id="backlogops_gui.choice_dialogs.PresetKindDialog.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(parent: tk.Misc) -> None
-```
-
-Build, show and wait for the preset kind dialog.
-
-<a id="backlogops_gui.choice_dialogs.PresetKindDialog._build"></a>
-
-#### \_build
-
-```python
-def _build() -> None
-```
-
-Add the explanation and the two kind buttons.
-
-<a id="backlogops_gui.choice_dialogs.PresetKindDialog._add_button"></a>
-
-#### \_add\_button
-
-```python
-def _add_button(text: str, kind: PresetKind) -> None
-```
-
-Add one button that selects the given preset kind.
-
-<a id="backlogops_gui.choice_dialogs.PresetKindDialog._show"></a>
-
-#### \_show
-
-```python
-def _show() -> None
-```
-
-Grab the focus and wait for the dialog to close.
-
-<a id="backlogops_gui.choice_dialogs.PresetKindDialog._choose"></a>
-
-#### \_choose
-
-```python
-def _choose(kind: PresetKind) -> None
-```
-
-Record the chosen kind and close the dialog.
 
 <a id="backlogops_gui.choice_dialogs.ask_preset_kind"></a>
 
@@ -1314,6 +1274,16 @@ Ask whether a preset file is an input or output preset.
 
 Returns the chosen kind, or None when the dialog is closed without a
 choice.
+
+<a id="backlogops_gui.choice_dialogs.ask_source_choice"></a>
+
+#### ask\_source\_choice
+
+```python
+def ask_source_choice(parent: tk.Misc, title: str, text: str) -> SourceChoice
+```
+
+Ask whether to start from scratch, base on a file, or cancel.
 
 <a id="backlogops_gui.format_dialogs"></a>
 
@@ -2831,7 +2801,10 @@ or from Jira, loads or replaces the active configuration from a file, runs
 the teams configuration wizard, creates a stand-alone input or output
 preset file, migrates a stand-alone preset file to the current format,
 writes the running configuration to a file, and creates a demonstration
-backlog. Each backlog opens in its own
+backlog. The configuration wizard and the preset wizard first ask whether
+to start empty or be pre-filled from an existing file, so the user can
+edit an existing configuration instead of entering everything again. Each
+backlog opens in its own
 window. On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
@@ -2843,6 +2816,27 @@ returns to that choice, so the application ends only when the user exits.
 The Jira menu actions of a backlog window are delegated to the collaborator
 objects in :mod:`backlogops_gui.jira_read`, :mod:`backlogops_gui.jira_write`
 and :mod:`backlogops_gui.jira_update`.
+
+<a id="backlogops_gui.application._read_config_prefill"></a>
+
+#### \_read\_config\_prefill
+
+```python
+def _read_config_prefill(path: str, captured: TextIO) -> BacklogOpsConfig
+```
+
+Read an existing configuration to pre-fill the wizard.
+
+<a id="backlogops_gui.application._read_preset_prefill"></a>
+
+#### \_read\_preset\_prefill
+
+```python
+def _read_preset_prefill(
+        path: str, captured: TextIO) -> InputFormatConfig | OutputFormatConfig
+```
+
+Read an existing preset, auto-detecting direction, to pre-fill.
 
 <a id="backlogops_gui.application.initial_config"></a>
 
@@ -3049,13 +3043,16 @@ Load a chosen configuration file, adopting it on success.
 #### \_run\_bridge\_wizard
 
 ```python
-def _run_bridge_wizard(wizard: Callable[[WizardUiBridge], _WizardConfig],
-                       error_title: str) -> Optional[_WizardConfig]
+def _run_bridge_wizard(
+        wizard: Callable[..., _WizardConfig],
+        error_title: str,
+        default: Optional[_WizardConfig] = None) -> Optional[_WizardConfig]
 ```
 
 Run a wizard over a fresh Tk bridge, returning its config or None.
 
-An abandoned wizard ends in ``EOFError`` and yields None; any other
+The wizard is pre-filled from ``default`` when one is given. An
+abandoned wizard ends in ``EOFError`` and yields None; any other
 wizard failure is reported under ``error_title`` and also yields
 None. The bridge window is always closed afterwards.
 
@@ -3064,10 +3061,56 @@ None. The bridge window is always closed afterwards.
 #### run\_wizard
 
 ```python
-def run_wizard() -> Optional[BacklogOpsConfig]
+def run_wizard(
+        default: Optional[BacklogOpsConfig] = None
+) -> Optional[BacklogOpsConfig]
 ```
 
 Run the config wizard and return its configuration, or None.
+
+<a id="backlogops_gui.application.BacklogApp._prefill_default"></a>
+
+#### \_prefill\_default
+
+```python
+def _prefill_default(
+    title: str, text: str, chooser: Callable[[tk.Misc], Optional[str]],
+    reader: Callable[[str, TextIO], _WizardConfig]
+) -> tuple[bool, Optional[_WizardConfig]]
+```
+
+Ask whether to base a wizard on a file and read it if so.
+
+Returns a ``(proceed, default)`` pair. ``proceed`` is False when
+the user cancels the source dialog or the file chooser, or the
+chosen file cannot be read, and the caller then does nothing.
+``default`` is the configuration read from the chosen file, or
+None to start the wizard empty.
+
+<a id="backlogops_gui.application.BacklogApp._read_prefill"></a>
+
+#### \_read\_prefill
+
+```python
+def _read_prefill(
+    path: str, reader: Callable[[str, TextIO], _WizardConfig]
+) -> tuple[bool, Optional[_WizardConfig]]
+```
+
+Read a pre-fill file, reporting a failure and yielding no default.
+
+The reader can raise the IO errors, or ``SystemExit`` from the
+configuration factory when the file is missing or is not a preset.
+
+<a id="backlogops_gui.application.BacklogApp._prefill_failed"></a>
+
+#### \_prefill\_failed
+
+```python
+def _prefill_failed(captured: StringIO, fallback: str) -> tuple[bool, None]
+```
+
+Log captured diagnostics and report a pre-fill read failure.
 
 <a id="backlogops_gui.application.BacklogApp._load_config_file"></a>
 
@@ -3092,7 +3135,12 @@ the current configuration is kept and an error is reported.
 def run_config_wizard() -> None
 ```
 
-Run the wizard and make a new configuration active on success.
+Ask the source, run the wizard, and activate a new config.
+
+The wizard may start from scratch or be pre-filled from an
+existing configuration file the user chooses. Its result becomes
+the active configuration; writing it to a file stays with the
+``Write configuration…`` action.
 
 <a id="backlogops_gui.application.BacklogApp.create_preset_file"></a>
 
@@ -3102,7 +3150,11 @@ Run the wizard and make a new configuration active on success.
 def create_preset_file() -> None
 ```
 
-Run the IO preset wizard and write the preset to a chosen file.
+Ask the source, run the IO preset wizard, and write the preset.
+
+The wizard may start from scratch or be pre-filled from an
+existing preset file the user chooses; its direction is detected
+from the file.
 
 <a id="backlogops_gui.application.BacklogApp.migrate_preset_file"></a>
 
@@ -3165,8 +3217,22 @@ def _write_to_chosen(config: Config, fail_title: str, ok_title: str) -> None
 Write a configuration to a user-chosen file and report the outcome.
 
 The chosen filename receives the ``.cfg`` extension when missing. A
-cancelled chooser writes nothing; a write failure is reported under
-``fail_title`` and a success under ``ok_title``.
+cancelled chooser writes nothing, and overwriting an existing file
+is confirmed first. The write is crash-safe: the configuration is
+put in a ``.in_progress`` sibling and only then moved onto the
+output file, so a crash loses neither the old file nor the new one.
+A write failure is reported under ``fail_title`` and a success
+under ``ok_title``.
+
+<a id="backlogops_gui.application.BacklogApp._confirm_overwrite"></a>
+
+#### \_confirm\_overwrite
+
+```python
+def _confirm_overwrite(path: str) -> bool
+```
+
+Confirm overwriting an existing file; a new file needs no asking.
 
 <a id="backlogops_gui.application.BacklogApp.read_backlog_file"></a>
 
@@ -6340,6 +6406,16 @@ def choose_existing_config(parent: tk.Misc) -> Optional[str]
 ```
 
 Ask for an existing configuration file, or None when cancelled.
+
+<a id="backlogops_gui.file_choosers.choose_existing_preset"></a>
+
+#### choose\_existing\_preset
+
+```python
+def choose_existing_preset(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for an existing preset file to base on, or None when cancelled.
 
 <a id="backlogops_gui.file_choosers.choose_preset_to_migrate"></a>
 

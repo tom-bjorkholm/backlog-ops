@@ -15,7 +15,6 @@ the module name keeps it out of the command listing.
 # MIT License
 
 import argparse
-import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -24,10 +23,10 @@ from config_as_json import Config
 from config_as_json.file_extension import fix_file_extension
 from tableio_cfg_json import WizardUiBridge, WizardUiBridgeConsole, \
     make_text_ui_bridge
+from backlogops import safe_write_config
 from backlogops_cli._command_io import add_force_arg, overwrite_callback
 
 CONFIG_EXTENSION = '.cfg'
-IN_PROGRESS_SUFFIX = '.in_progress'
 _ConfigT = TypeVar('_ConfigT', bound=Config)
 
 
@@ -89,20 +88,6 @@ def _read_default(input_file: Optional[str],
     return reader(path)
 
 
-def _safe_write(config: Config, output: str) -> None:
-    """Write the configuration crash-safely, then move it into place.
-
-    The configuration is first written to a sibling file with an extra
-    ``.in_progress`` extension and only then renamed onto the output file.
-    The rename replaces the old output file in one atomic step, so a crash
-    or a kill at any moment leaves the full configuration in either the old
-    output file or the ``.in_progress`` file, never lost between the two.
-    """
-    in_progress = output + IN_PROGRESS_SUFFIX
-    config.write(to_json_filename=in_progress, stderr_file=sys.stderr)
-    os.replace(in_progress, output)
-
-
 def run_wizard_to_file(parsed: argparse.Namespace,
                        wizard: Callable[..., _ConfigT],
                        reader: Callable[[str], _ConfigT], label: str) -> int:
@@ -133,7 +118,7 @@ def run_wizard_to_file(parsed: argparse.Namespace,
         default = _read_default(parsed.input, reader)
         _check_overwrite(output, parsed.force)
         config = wizard(_make_bridge(parsed.no_textual), default=default)
-        _safe_write(config, output)
+        safe_write_config(config, output, sys.stderr)
     except (ValueError, TypeError, KeyError, EOFError, OSError) as error:
         print(f'Could not create the configuration: {error}', file=sys.stderr)
         return 1

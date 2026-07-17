@@ -12,6 +12,15 @@
     * [\_memberships\_by\_person](#backlogops.available_teams.AvailableTeams._memberships_by_person)
     * [\_check\_capacity](#backlogops.available_teams.AvailableTeams._check_capacity)
     * [check\_consistency](#backlogops.available_teams.AvailableTeams.check_consistency)
+* [backlogops.config\_file\_io](#backlogops.config_file_io)
+  * [IN\_PROGRESS\_SUFFIX](#backlogops.config_file_io.IN_PROGRESS_SUFFIX)
+  * [\_INPUT\_KEYS](#backlogops.config_file_io._INPUT_KEYS)
+  * [\_OUTPUT\_KEYS](#backlogops.config_file_io._OUTPUT_KEYS)
+  * [\_DirectionMatcher](#backlogops.config_file_io._DirectionMatcher)
+    * [\_\_init\_\_](#backlogops.config_file_io._DirectionMatcher.__init__)
+    * [\_\_call\_\_](#backlogops.config_file_io._DirectionMatcher.__call__)
+  * [read\_io\_preset](#backlogops.config_file_io.read_io_preset)
+  * [safe\_write\_config](#backlogops.config_file_io.safe_write_config)
 * [backlogops.apply\_format\_rules](#backlogops.apply_format_rules)
   * [\_estimate\_format](#backlogops.apply_format_rules._estimate_format)
   * [\_item\_cell\_format](#backlogops.apply_format_rules._item_cell_format)
@@ -1209,6 +1218,135 @@ more than full time on any day.
 - `ValueError` - If a field value violates a constraint, if team
   labels are not unique, or if a person is over-allocated.
 - `KeyError` - If a membership references an unknown person.
+
+<a id="backlogops.config_file_io"></a>
+
+# backlogops.config\_file\_io
+
+Read a stand-alone preset file and write a configuration crash-safely.
+
+Two helpers shared by the command line and the graphical interface. Both
+interfaces let the user build a configuration or a stand-alone preset file
+through a wizard, optionally pre-filled from an existing file, and then
+write the result. :func:`read_io_preset` reads a stand-alone preset file
+and detects whether it is an input or an output preset from its own
+contents. :func:`safe_write_config` writes any configuration so that a
+crash or a kill at any moment leaves the whole configuration in either the
+old file or a sibling ``.in_progress`` file, never lost between the two.
+
+The detection uses ``config_as_json.config_factory_from_json``, which
+terminates the process with ``SystemExit`` when the file is missing, is not
+valid JSON, or matches no known direction. That suits the command line; a
+graphical caller should catch ``SystemExit`` and report it.
+
+<a id="backlogops.config_file_io.IN_PROGRESS_SUFFIX"></a>
+
+#### IN\_PROGRESS\_SUFFIX
+
+Extra extension of the sibling file written before the atomic move.
+
+<a id="backlogops.config_file_io._INPUT_KEYS"></a>
+
+#### \_INPUT\_KEYS
+
+Top-level keys that mark a stand-alone input preset file (new or old).
+
+<a id="backlogops.config_file_io._OUTPUT_KEYS"></a>
+
+#### \_OUTPUT\_KEYS
+
+Top-level keys that mark a stand-alone output preset file (new or old).
+
+<a id="backlogops.config_file_io._DirectionMatcher"></a>
+
+## \_DirectionMatcher Objects
+
+```python
+class _DirectionMatcher()
+```
+
+Match a preset file by the presence of any of its direction keys.
+
+<a id="backlogops.config_file_io._DirectionMatcher.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(keys: tuple[str, ...]) -> None
+```
+
+Store the identifying top-level keys of one preset direction.
+
+<a id="backlogops.config_file_io._DirectionMatcher.__call__"></a>
+
+#### \_\_call\_\_
+
+```python
+def __call__(json_text: str, _stderr: TextIO) -> bool
+```
+
+Return True when the JSON object holds any identifying key.
+
+<a id="backlogops.config_file_io.read_io_preset"></a>
+
+#### read\_io\_preset
+
+```python
+def read_io_preset(
+    filename: str,
+    auto_ch_hook: ConfigAutoChangeHook,
+    stderr_file: TextIO = sys.stderr
+) -> InputFormatConfig | OutputFormatConfig
+```
+
+Read a stand-alone preset file, auto-detecting its direction.
+
+The direction is chosen by inspecting the file itself: the
+file-column-to-internal maps or a status map mark an input preset,
+while the internal-to-file maps or a level display mark an output
+preset.
+
+**Arguments**:
+
+- `filename` - The stand-alone preset file to read.
+- `auto_ch_hook` - Hook notified when an old file needed
+  backward-compatible normalization while reading.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The input or output preset read from the file.
+  
+
+**Raises**:
+
+- `SystemExit` - The file is missing, is not valid JSON, or matches
+  neither an input nor an output preset.
+
+<a id="backlogops.config_file_io.safe_write_config"></a>
+
+#### safe\_write\_config
+
+```python
+def safe_write_config(config: Config,
+                      output: str,
+                      stderr_file: TextIO = sys.stderr) -> None
+```
+
+Write the configuration crash-safely, then move it into place.
+
+The configuration is first written to a sibling file with an extra
+``.in_progress`` extension and only then renamed onto the output file.
+The rename replaces the old output file in one atomic step, so a crash
+or a kill at any moment leaves the full configuration in either the old
+output file or the ``.in_progress`` file, never lost between the two.
+
+**Arguments**:
+
+- `config` - The configuration that knows how to write itself.
+- `output` - The destination file to create or replace.
+- `stderr_file` - Stream used for user-facing diagnostics.
 
 <a id="backlogops.apply_format_rules"></a>
 

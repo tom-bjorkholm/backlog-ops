@@ -6,7 +6,10 @@ or from Jira, loads or replaces the active configuration from a file, runs
 the teams configuration wizard, creates a stand-alone input or output
 preset file, migrates a stand-alone preset file to the current format,
 writes the running configuration to a file, and creates a demonstration
-backlog. Each backlog opens in its own
+backlog. The configuration wizard and the preset wizard first ask whether
+to start empty or be pre-filled from an existing file, so the user can
+edit an existing configuration instead of entering everything again. Each
+backlog opens in its own
 window. On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
@@ -28,29 +31,32 @@ import argparse
 import threading
 import tkinter as tk
 from io import StringIO
+from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Callable, Optional, TextIO, TypeVar
 import argcomplete
 from config_as_json import Config, migrate_cfg
 from config_as_json.file_extension import fix_file_extension
-from tableio_cfg_json import WizardUiBridge
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, BacklogReleases, GuiDisplayConfig,
     InputFormatConfig, Levels, OutputFormatConfig, Status, get_demo_backlog,
-    get_backlog_ops_config, backlog_ops_wizard, preset_wizard)
+    get_backlog_ops_config, backlog_ops_wizard, preset_wizard,
+    read_backlog_ops_config, read_io_preset, safe_write_config)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import BacklogWindow, JiraHandlers
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 from backlogops_gui.gui_wizard import TkWizardBridge
 from backlogops_gui.choice_dialogs import (
-    ConfigChoice, PresetKind, ask_no_config_choice, ask_preset_kind)
+    ConfigChoice, PresetKind, SourceChoice, ask_no_config_choice,
+    ask_preset_kind, ask_source_choice)
 from backlogops_gui.file_choosers import (
-    choose_config_file, choose_existing_config, choose_input_file,
-    choose_migrated_preset, choose_preset_to_migrate)
+    choose_config_file, choose_existing_config, choose_existing_preset,
+    choose_input_file, choose_migrated_preset, choose_preset_to_migrate)
 from backlogops_gui.format_dialogs import ask_read_options
 from backlogops_gui.jira_actions import JiraActions
 from backlogops_gui.log_buffer import LogBuffer
-from backlogops_gui._migrate_warn import GuiMigrateWarnHook
+from backlogops_gui._migrate_warn import GuiMigrateWarnHook, \
+    GuiPresetMigrateWarnHook
 from backlogops_gui.python_version import check_python_version
 from backlogops_gui.tcltk_version import check_tcltk_version
 
@@ -75,6 +81,28 @@ PRESET_CLASSES: dict[PresetKind, type[Config]] = {
     PresetKind.INPUT: InputFormatConfig,
     PresetKind.OUTPUT: OutputFormatConfig}
 _WizardConfig = TypeVar('_WizardConfig', bound=Config)
+_CONFIG_SOURCE_TITLE = 'Configuration wizard'
+_CONFIG_SOURCE_TEXT = (
+    'Start the configuration wizard from scratch, or base it on an '
+    'existing configuration file so you edit its values instead of '
+    'entering everything again?')
+_PRESET_SOURCE_TITLE = 'IO preset'
+_PRESET_SOURCE_TEXT = (
+    'Start the preset wizard from scratch, or base it on an existing '
+    'preset file so you edit its values instead of entering everything '
+    'again?')
+
+
+def _read_config_prefill(path: str, captured: TextIO) -> BacklogOpsConfig:
+    """Read an existing configuration to pre-fill the wizard."""
+    return read_backlog_ops_config(path, captured,
+                                   auto_ch_hook=GuiMigrateWarnHook())
+
+
+def _read_preset_prefill(path: str, captured: TextIO
+                         ) -> InputFormatConfig | OutputFormatConfig:
+    """Read an existing preset, auto-detecting direction, to pre-fill."""
+    return read_io_preset(path, GuiPresetMigrateWarnHook(), captured)
 
 
 def initial_config(config_arg: Optional[str], sink: Optional[TextIO] = None
@@ -229,18 +257,20 @@ class BacklogApp:
         self.config_source = path
         return True
 
-    def _run_bridge_wizard(self,
-                           wizard: Callable[[WizardUiBridge], _WizardConfig],
-                           error_title: str) -> Optional[_WizardConfig]:
+    def _run_bridge_wizard(self, wizard: Callable[..., _WizardConfig],
+                           error_title: str,
+                           default: Optional[_WizardConfig] = None
+                           ) -> Optional[_WizardConfig]:
         """Run a wizard over a fresh Tk bridge, returning its config or None.
 
-        An abandoned wizard ends in ``EOFError`` and yields None; any other
+        The wizard is pre-filled from ``default`` when one is given. An
+        abandoned wizard ends in ``EOFError`` and yields None; any other
         wizard failure is reported under ``error_title`` and also yields
         None. The bridge window is always closed afterwards.
         """
         bridge = TkWizardBridge(self.root, self.log)
         try:
-            return wizard(bridge)
+            return wizard(bridge, default=default)
         except EOFError:
             return None
         except IO_ERRORS as error:
@@ -249,9 +279,57 @@ class BacklogApp:
         finally:
             bridge.close()
 
-    def run_wizard(self) -> Optional[BacklogOpsConfig]:
+    def run_wizard(self, default: Optional[BacklogOpsConfig] = None
+                   ) -> Optional[BacklogOpsConfig]:
         """Run the config wizard and return its configuration, or None."""
-        return self._run_bridge_wizard(backlog_ops_wizard, 'Wizard error')
+        return self._run_bridge_wizard(backlog_ops_wizard, 'Wizard error',
+                                       default)
+
+    def _prefill_default(self, title: str, text: str,
+                         chooser: Callable[[tk.Misc], Optional[str]],
+                         reader: Callable[[str, TextIO], _WizardConfig]
+                         ) -> tuple[bool, Optional[_WizardConfig]]:
+        """Ask whether to base a wizard on a file and read it if so.
+
+        Returns a ``(proceed, default)`` pair. ``proceed`` is False when
+        the user cancels the source dialog or the file chooser, or the
+        chosen file cannot be read, and the caller then does nothing.
+        ``default`` is the configuration read from the chosen file, or
+        None to start the wizard empty.
+        """
+        choice = ask_source_choice(self.root, title, text)
+        if choice is SourceChoice.CANCEL:
+            return False, None
+        if choice is SourceChoice.SCRATCH:
+            return True, None
+        path = chooser(self.root)
+        if path is None:
+            return False, None
+        return self._read_prefill(path, reader)
+
+    def _read_prefill(self, path: str,
+                      reader: Callable[[str, TextIO], _WizardConfig]
+                      ) -> tuple[bool, Optional[_WizardConfig]]:
+        """Read a pre-fill file, reporting a failure and yielding no default.
+
+        The reader can raise the IO errors, or ``SystemExit`` from the
+        configuration factory when the file is missing or is not a preset.
+        """
+        captured = StringIO()
+        try:
+            return True, reader(path, captured)
+        except SystemExit:
+            return self._prefill_failed(captured, f'Could not read {path}.')
+        except IO_ERRORS as error:
+            return self._prefill_failed(captured, str(error))
+
+    def _prefill_failed(self, captured: StringIO,
+                        fallback: str) -> tuple[bool, None]:
+        """Log captured diagnostics and report a pre-fill read failure."""
+        self.log.write(captured.getvalue())
+        self.show_error('Could not read file',
+                        _config_failure(captured, fallback))
+        return False, None
 
     def _load_config_file(self) -> None:
         """Load a chosen configuration file and make it the active config.
@@ -276,8 +354,20 @@ class BacklogApp:
                        f'Loaded configuration from {path}.')
 
     def run_config_wizard(self) -> None:
-        """Run the wizard and make a new configuration active on success."""
-        config = self.run_wizard()
+        """Ask the source, run the wizard, and activate a new config.
+
+        The wizard may start from scratch or be pre-filled from an
+        existing configuration file the user chooses. Its result becomes
+        the active configuration; writing it to a file stays with the
+        ``Write configuration…`` action.
+        """
+        proceed, default = self._prefill_default(_CONFIG_SOURCE_TITLE,
+                                                 _CONFIG_SOURCE_TEXT,
+                                                 choose_existing_config,
+                                                 _read_config_prefill)
+        if not proceed:
+            return
+        config = self.run_wizard(default)
         if config is not None:
             self.config = config
             self.config_source = 'the wizard'
@@ -285,8 +375,20 @@ class BacklogApp:
             self.show_info('Wizard', 'The new configuration is now active.')
 
     def create_preset_file(self) -> None:
-        """Run the IO preset wizard and write the preset to a chosen file."""
-        config = self._run_bridge_wizard(preset_wizard, 'Preset wizard error')
+        """Ask the source, run the IO preset wizard, and write the preset.
+
+        The wizard may start from scratch or be pre-filled from an
+        existing preset file the user chooses; its direction is detected
+        from the file.
+        """
+        proceed, default = self._prefill_default(_PRESET_SOURCE_TITLE,
+                                                 _PRESET_SOURCE_TEXT,
+                                                 choose_existing_preset,
+                                                 _read_preset_prefill)
+        if not proceed:
+            return
+        config = self._run_bridge_wizard(preset_wizard, 'Preset wizard error',
+                                         default)
         if config is not None:
             self._write_to_chosen(config, 'Could not write preset',
                                   'Wrote preset')
@@ -351,19 +453,33 @@ class BacklogApp:
         """Write a configuration to a user-chosen file and report the outcome.
 
         The chosen filename receives the ``.cfg`` extension when missing. A
-        cancelled chooser writes nothing; a write failure is reported under
-        ``fail_title`` and a success under ``ok_title``.
+        cancelled chooser writes nothing, and overwriting an existing file
+        is confirmed first. The write is crash-safe: the configuration is
+        put in a ``.in_progress`` sibling and only then moved onto the
+        output file, so a crash loses neither the old file nor the new one.
+        A write failure is reported under ``fail_title`` and a success
+        under ``ok_title``.
         """
         path = choose_config_file(self.root)
         if path is None:
             return
         path = fix_file_extension(path, CONFIG_EXTENSION)
+        if not self._confirm_overwrite(path):
+            return
         try:
-            config.write(to_json_filename=path, stderr_file=self.log)
+            safe_write_config(config, path, self.log)
         except IO_ERRORS as error:
             self.show_error(fail_title, str(error))
             return
         self.show_info(ok_title, f'Wrote {path}')
+
+    def _confirm_overwrite(self, path: str) -> bool:
+        """Confirm overwriting an existing file; a new file needs no asking."""
+        if not Path(path).exists():
+            return True
+        return messagebox.askyesno('Overwrite file?',
+                                   f'{path} already exists. Overwrite it?',
+                                   parent=self.root)
 
     def read_backlog_file(self) -> None:
         """Read a backlog from a chosen file into a new window."""

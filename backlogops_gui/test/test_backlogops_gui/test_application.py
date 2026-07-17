@@ -1,5 +1,10 @@
 #! /usr/local/bin/python3
-"""Tests for the backlog operations application logic."""
+"""Tests for the backlog operations application logic.
+
+The configuration, preset and write menu actions live in
+``test_config_actions``; the fakes and stubs shared with it live in
+``app_test_helpers``.
+"""
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
@@ -15,62 +20,12 @@ from backlogops_gui.application import APP_TITLE, BacklogApp
 from backlogops_gui.choice_dialogs import ConfigChoice, PresetKind
 from backlogops_gui.format_dialogs import ReadOptions
 from backlogops_gui._migrate_warn import GuiMigrateWarnHook
+from .app_test_helpers import (
+    FakeConfig, make_app as _app, pick_none as _pick_none,
+    raise_exit as _raise_exit, record as _record, returns as _returns)
 from .gui_test_helpers import MsgRecorder, gui_root, root_or_skip
 
 DATA = BacklogReleases(backlog=[], releases=[])
-
-
-# pylint: disable-next=too-few-public-methods
-class _FakeBridge:
-    """Stand-in wizard bridge that records being closed."""
-
-    def __init__(self, root: object, log: object) -> None:
-        """Accept the wizard arguments and start unclosed."""
-        assert root is not None and log is not None
-        self.closed = False
-
-    def close(self) -> None:
-        """Record that the bridge was closed."""
-        self.closed = True
-
-
-# pylint: disable-next=too-few-public-methods
-class FakeConfig:
-    """Stand-in configuration recording where it was written."""
-
-    def __init__(self) -> None:
-        """Create non-empty presets and an unset written destination."""
-        self.input_configs: dict[str, object] = {'in': object()}
-        self.output_configs: dict[str, object] = {'out': object()}
-        self.available_teams: object = object()
-        self.gui_display: GuiDisplayConfig = GuiDisplayConfig()
-        self.written: Optional[str] = None
-
-    def get_levels(self) -> dict[int, object]:
-        """Return an empty levels mapping, as the real config would."""
-        return {}
-
-    def get_status_input_map(self) -> dict[str, object]:
-        """Return an empty status map, as the real config would."""
-        return {}
-
-    def write(self, to_json_filename: str, stderr_file: object) -> None:
-        """Record the destination the configuration was written to."""
-        assert stderr_file is not None
-        self.written = to_json_filename
-
-
-def _app(config: Optional[FakeConfig] = None) -> BacklogApp:
-    """Return an application over a dummy root for logic-only tests."""
-    typed = cast(Optional[BacklogOpsConfig], config)
-    return BacklogApp(cast(tk.Tk, object()), typed)
-
-
-def _record(store: list[tuple[str, str]]) -> Callable[[str, str], None]:
-    """Return a callback that records its title and message."""
-    def recorder(title: str, message: str) -> None:
-        store.append((title, message))
-    return recorder
 
 
 def _opener(store: list[object]) -> Callable[[BacklogReleases, str], None]:
@@ -90,13 +45,6 @@ def _raise_missing(_arg: object, _sink: object,
                    **_kwargs: object) -> BacklogOpsConfig:
     """Raise as if a named configuration file was missing."""
     raise FileNotFoundError('missing')
-
-
-def _raise_exit(_arg: object, captured: TextIO,
-                **_kwargs: object) -> BacklogOpsConfig:
-    """Report a missing file and exit, as the config loader does."""
-    captured.write('File aha does not exist. Cannot proceed.\n')
-    raise SystemExit(1)
 
 
 def _choices(*values: ConfigChoice) -> Callable[[object], ConfigChoice]:
@@ -136,13 +84,6 @@ def _read_fail(_path: object, _value: object, _presets: object, _sink: object,
     raise ValueError('bad file')
 
 
-def _returns(value: object) -> Callable[..., object]:
-    """Return a configuration-loader stub yielding a fixed value."""
-    def get(_arg: object, _sink: object, **_kwargs: object) -> object:
-        return value
-    return get
-
-
 def _load_ok(config: object) -> Callable[..., object]:
     """Return an initial_config stub yielding the config and no error."""
     def load(_path: object, _log: object) -> object:
@@ -160,16 +101,6 @@ def _load_err(message: str) -> Callable[..., object]:
 def _pick_csv(_parent: object) -> str:
     """Return a backlog file name as if the chooser was confirmed."""
     return 'file.csv'
-
-
-def _pick_none(_parent: object) -> Optional[str]:
-    """Return nothing as if the file chooser was cancelled."""
-    return None
-
-
-def _pick_teams(_parent: object) -> str:
-    """Return a configuration file name without an extension."""
-    return 'teams'
 
 
 def _command_labels(menu: tk.Menu) -> list[str]:
@@ -391,40 +322,6 @@ def test_demo_backlog_opens(monkeypatch: pytest.MonkeyPatch) -> None:
     assert opened == [(DATA, 'Demo backlog')]
 
 
-def test_write_config_file(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test writing the configuration adds the extension and reports."""
-    config = FakeConfig()
-    monkeypatch.setattr(application, 'choose_config_file', _pick_teams)
-    app = _app(config)
-    infos: list[tuple[str, str]] = []
-    monkeypatch.setattr(app, 'show_info', _record(infos))
-    app.write_config()
-    assert config.written == 'teams.cfg'
-    assert infos == [('Wrote configuration', 'Wrote teams.cfg')]
-
-
-def test_write_config_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test writing without a configuration reports the problem."""
-    app = _app()
-    errors: list[tuple[str, str]] = []
-    monkeypatch.setattr(app, 'show_error', _record(errors))
-    app.write_config()
-    assert errors == [('No configuration',
-                       'There is no configuration to write.')]
-
-
-def test_config_wizard_active(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a wizard result becomes the active configuration."""
-    config = cast(BacklogOpsConfig, FakeConfig())
-    app = _app()
-    monkeypatch.setattr(app, 'run_wizard', lambda: config)
-    infos: list[tuple[str, str]] = []
-    monkeypatch.setattr(app, 'show_info', _record(infos))
-    app.run_config_wizard()
-    assert app.config is config
-    assert len(infos) == 1
-
-
 def test_presets_from_config() -> None:
     """Test the presets come from the current configuration."""
     config = FakeConfig()
@@ -473,102 +370,6 @@ def test_show_messages(monkeypatch: pytest.MonkeyPatch) -> None:
     app.show_error('E', 'err')
     app.show_info('I', 'info')
     assert recorder.calls == [('E', 'err'), ('I', 'info')]
-
-
-def test_run_wizard_ok(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a successful wizard run returns the configuration."""
-    config = cast(BacklogOpsConfig, FakeConfig())
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
-    monkeypatch.setattr(application, 'backlog_ops_wizard',
-                        lambda bridge: config)
-    assert _app().run_wizard() is config
-
-
-def test_run_wizard_eof(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a wizard cancelled with EOF returns no configuration."""
-    def cancel(bridge: object) -> BacklogOpsConfig:
-        raise EOFError()
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
-    monkeypatch.setattr(application, 'backlog_ops_wizard', cancel)
-    assert _app().run_wizard() is None
-
-
-def test_run_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a wizard IO error is reported and returns no configuration."""
-    def boom(bridge: object) -> BacklogOpsConfig:
-        raise ValueError('bad')
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
-    monkeypatch.setattr(application, 'backlog_ops_wizard', boom)
-    app = _app()
-    errors: list[tuple[str, str]] = []
-    monkeypatch.setattr(app, 'show_error', _record(errors))
-    assert app.run_wizard() is None
-    assert errors == [('Wizard error', 'bad')]
-
-
-def test_preset_writes(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test creating a preset writes the wizard result to a chosen file."""
-    config = FakeConfig()
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
-    monkeypatch.setattr(application, 'preset_wizard', lambda bridge: config)
-    monkeypatch.setattr(application, 'choose_config_file', _pick_teams)
-    app = _app()
-    infos: list[tuple[str, str]] = []
-    monkeypatch.setattr(app, 'show_info', _record(infos))
-    app.create_preset_file()
-    assert config.written == 'teams.cfg'
-    assert infos == [('Wrote preset', 'Wrote teams.cfg')]
-
-
-def test_preset_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test an abandoned preset wizard asks for no file and writes nothing."""
-    def cancel(_bridge: object) -> OutputFormatConfig:
-        raise EOFError()
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
-    monkeypatch.setattr(application, 'preset_wizard', cancel)
-    picked: list[object] = []
-    monkeypatch.setattr(application, 'choose_config_file', picked.append)
-    _app().create_preset_file()
-    assert not picked
-
-
-def test_preset_save_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test cancelling the save chooser writes no preset file."""
-    config = FakeConfig()
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
-    monkeypatch.setattr(application, 'preset_wizard', lambda bridge: config)
-    monkeypatch.setattr(application, 'choose_config_file', _pick_none)
-    _app().create_preset_file()
-    assert config.written is None
-
-
-def test_preset_write_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a preset write failure is reported to the user."""
-    class _Failing(FakeConfig):
-        def write(self, to_json_filename: str, stderr_file: object) -> None:
-            raise OSError('disk full')
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
-    monkeypatch.setattr(application, 'preset_wizard',
-                        lambda bridge: _Failing())
-    monkeypatch.setattr(application, 'choose_config_file', _pick_teams)
-    app = _app()
-    errors: list[tuple[str, str]] = []
-    monkeypatch.setattr(app, 'show_error', _record(errors))
-    app.create_preset_file()
-    assert errors == [('Could not write preset', 'disk full')]
-
-
-def test_preset_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a preset wizard failure is reported and writes nothing."""
-    def boom(_bridge: object) -> OutputFormatConfig:
-        raise ValueError('bad')
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
-    monkeypatch.setattr(application, 'preset_wizard', boom)
-    app = _app()
-    errors: list[tuple[str, str]] = []
-    monkeypatch.setattr(app, 'show_error', _record(errors))
-    app.create_preset_file()
-    assert errors == [('Preset wizard error', 'bad')]
 
 
 def _mig_pickers(monkeypatch: pytest.MonkeyPatch, kind: Optional[PresetKind],
@@ -663,39 +464,6 @@ def test_migrate_io_error(monkeypatch: pytest.MonkeyPatch) -> None:
         raise ValueError('bad preset')
     _, errors = _run_migrate_err(monkeypatch, boom)
     assert errors == [('Could not migrate preset', 'bad preset')]
-
-
-def test_config_wizard_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a cancelled wizard leaves the configuration unchanged."""
-    app = _app()
-    monkeypatch.setattr(app, 'run_wizard', lambda: None)
-    infos: list[tuple[str, str]] = []
-    monkeypatch.setattr(app, 'show_info', _record(infos))
-    app.run_config_wizard()
-    assert app.config is None
-    assert not infos
-
-
-def test_write_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test cancelling the file chooser writes nothing."""
-    config = FakeConfig()
-    monkeypatch.setattr(application, 'choose_config_file', _pick_none)
-    app = _app(config)
-    app.write_config()
-    assert config.written is None
-
-
-def test_write_io_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a write failure is reported to the user."""
-    class _Failing(FakeConfig):
-        def write(self, to_json_filename: str, stderr_file: object) -> None:
-            raise OSError('disk full')
-    monkeypatch.setattr(application, 'choose_config_file', _pick_teams)
-    app = _app(_Failing())
-    errors: list[tuple[str, str]] = []
-    monkeypatch.setattr(app, 'show_error', _record(errors))
-    app.write_config()
-    assert errors == [('Could not write configuration', 'disk full')]
 
 
 def test_read_options_cancel(monkeypatch: pytest.MonkeyPatch) -> None:

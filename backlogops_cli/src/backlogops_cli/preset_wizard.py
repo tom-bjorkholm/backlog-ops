@@ -12,24 +12,15 @@ configuration is taken, by giving its file name.
 # MIT License
 
 import argparse
-import json
 import sys
-from typing import Optional, TextIO
-from config_as_json import MatchConfig, config_factory_from_json
-from backlogops import InputFormatConfig, OutputFormatConfig, preset_wizard
+from typing import Optional
+from backlogops import InputFormatConfig, OutputFormatConfig, preset_wizard, \
+    read_io_preset
 from backlogops_cli._command_io import parsed_args
 from backlogops_cli._migrate_warn import CliPresetMigrateWarnHook
 from backlogops_cli._wizard_io import build_wizard_parser, run_wizard_to_file
 
 DESCRIPTION = 'Create an input or output preset config file via a wizard'
-
-_INPUT_KEYS = ('backlog_to_internal', 'release_to_internal',
-               'status_input_map', 'to_internal')
-"""Top-level keys that mark a stand-alone input preset file (new or old)."""
-
-_OUTPUT_KEYS = ('backlog_to_external', 'release_to_external',
-                'level_display', 'to_external')
-"""Top-level keys that mark a stand-alone output preset file (new or old)."""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,36 +28,13 @@ def build_parser() -> argparse.ArgumentParser:
     return build_wizard_parser(DESCRIPTION)
 
 
-# pylint: disable-next=too-few-public-methods
-class _DirectionMatcher:
-    """Match a preset file by the presence of any of its direction keys."""
-
-    def __init__(self, keys: tuple[str, ...]) -> None:
-        """Store the identifying top-level keys of one preset direction."""
-        self._keys = keys
-
-    def __call__(self, json_text: str, _stderr: TextIO) -> bool:
-        """Return True when the JSON object holds any identifying key."""
-        data = json.loads(json_text)
-        return isinstance(data, dict) and any(k in data for k in self._keys)
-
-
 def _read_preset(filename: str) -> InputFormatConfig | OutputFormatConfig:
     """Read a stand-alone preset file, auto-detecting its direction.
 
-    The direction is chosen by inspecting the file itself: the
-    file-column-to-internal maps or a status map mark an input preset,
-    while the internal-to-file maps or a level display mark an output
-    preset. The wizard still lets the user switch direction afterwards.
+    The direction is detected from the file contents; the wizard still
+    lets the user switch direction afterwards.
     """
-    matchers = [
-        MatchConfig(_DirectionMatcher(_INPUT_KEYS), InputFormatConfig),
-        MatchConfig(_DirectionMatcher(_OUTPUT_KEYS), OutputFormatConfig)]
-    config = config_factory_from_json(matchers, CliPresetMigrateWarnHook(),
-                                      from_json_filename=filename,
-                                      stderr_file=sys.stderr)
-    assert isinstance(config, (InputFormatConfig, OutputFormatConfig))
-    return config
+    return read_io_preset(filename, CliPresetMigrateWarnHook(), sys.stderr)
 
 
 def main(args: Optional[list[str]] = None) -> int:

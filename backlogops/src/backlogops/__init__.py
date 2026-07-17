@@ -52,6 +52,7 @@ from backlogops.jira_io_config import (
     CLEAR_TOKEN_WARNING, default_jira_filter)
 from backlogops.jira_token import encrypt_token_to_file, encrypt_token_file
 from backlogops.table_create import FileExistsCb, allow_overwrite
+from backlogops.config_file_io import read_io_preset, safe_write_config
 from backlogops.backlog_releases_io import (
     read_backlog_releases, write_backlog_releases)
 from backlogops.table_rows import (
@@ -127,7 +128,8 @@ __all__ = [
     'JiraColumnMap', 'JiraIssueTypeMap', 'DEF_BACKLOG_COLUMN_MAP',
     'DEF_RELEASE_COLUMN_MAP', 'DEF_STATUS_INPUT_MAP',
     'CLEAR_TOKEN_WARNING', 'default_jira_filter', 'FileExistsCb',
-    'allow_overwrite', 'read_backlog_releases', 'write_backlog_releases',
+    'allow_overwrite', 'read_io_preset', 'safe_write_config',
+    'read_backlog_releases', 'write_backlog_releases',
     'LEVEL_COLUMN', 'LEVEL_NAME_COLUMN', 'apply_column_map',
     'map_column_order', 'display_level_order',
     'display_level_rows', 'fold_level_name',

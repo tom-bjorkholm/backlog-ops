@@ -69,11 +69,16 @@ class CloseSpy:
 
 
 class MsgRecorder:
-    """Record Tk message-box calls made through it."""
+    """Record Tk message-box calls made through it.
 
-    def __init__(self) -> None:
-        """Start with an empty record of calls."""
+    A yes/no question records its title and message like the other calls
+    and returns the fixed answer given when the recorder was created.
+    """
+
+    def __init__(self, yes: bool = True) -> None:
+        """Start with an empty record and the answer for yes/no questions."""
         self.calls: list[tuple[str, str]] = []
+        self._yes = yes
 
     def showerror(self, title: str, message: str, parent: object) -> None:
         """Record a shown error message."""
@@ -84,3 +89,9 @@ class MsgRecorder:
         """Record a shown informational message."""
         assert parent is not None
         self.calls.append((title, message))
+
+    def askyesno(self, title: str, message: str, parent: object) -> bool:
+        """Record a yes/no question and return the fixed answer."""
+        assert parent is not None
+        self.calls.append((title, message))
+        return self._yes
