@@ -769,6 +769,7 @@
     * [number](#backlogops.wizard_forms.FormResult.number)
     * [day](#backlogops.wizard_forms.FormResult.day)
     * [opt\_day](#backlogops.wizard_forms.FormResult.opt_day)
+    * [path](#backlogops.wizard_forms.FormResult.path)
     * [raw](#backlogops.wizard_forms.FormResult.raw)
   * [\_no\_rule](#backlogops.wizard_forms._no_rule)
   * [\_seeded\_fields](#backlogops.wizard_forms._seeded_fields)
@@ -781,12 +782,14 @@
   * [\_field\_errors](#backlogops.wizard_forms._field_errors)
   * [\_message](#backlogops.wizard_forms._message)
   * [\_answer\_text](#backlogops.wizard_forms._answer_text)
+  * [\_answer\_path](#backlogops.wizard_forms._answer_path)
   * [\_parse\_date](#backlogops.wizard_forms._parse_date)
   * [\_num\_text](#backlogops.wizard_forms._num_text)
   * [\_parse\_float](#backlogops.wizard_forms._parse_float)
   * [name\_error](#backlogops.wizard_forms.name_error)
   * [text\_field](#backlogops.wizard_forms.text_field)
   * [opt\_text\_field](#backlogops.wizard_forms.opt_text_field)
+  * [path\_field](#backlogops.wizard_forms.path_field)
   * [secret\_field](#backlogops.wizard_forms.secret_field)
   * [name\_field](#backlogops.wizard_forms.name_field)
   * [choice\_field](#backlogops.wizard_forms.choice_field)
@@ -12975,6 +12978,16 @@ def opt_day(key: str) -> Optional[date]
 
 Return an optional date answer, or None when left blank.
 
+<a id="backlogops.wizard_forms.FormResult.path"></a>
+
+#### path
+
+```python
+def path(key: str) -> Path
+```
+
+Return a required path answer.
+
 <a id="backlogops.wizard_forms.FormResult.raw"></a>
 
 #### raw
@@ -13116,6 +13129,16 @@ def _answer_text(answer: AnswerField) -> Optional[str]
 
 Return the string an answer holds, or None when it holds none.
 
+<a id="backlogops.wizard_forms._answer_path"></a>
+
+#### \_answer\_path
+
+```python
+def _answer_path(answer: AnswerField) -> Optional[Path]
+```
+
+Return the Path an answer holds, or None when it holds none.
+
 <a id="backlogops.wizard_forms._parse_date"></a>
 
 #### \_parse\_date
@@ -13181,6 +13204,25 @@ def opt_text_field(key: str,
 ```
 
 Return an optional free-text field that may be left blank.
+
+<a id="backlogops.wizard_forms.path_field"></a>
+
+#### path\_field
+
+```python
+def path_field(key: str,
+               question: str,
+               *,
+               kind: WizardPathKind,
+               help_text: Optional[str] = None) -> FormField
+```
+
+Return a required path field shown with a native file picker.
+
+A graphical bridge asks the path with a file picker and every bridge
+validates the answer against ``kind``. The field is nullable at the ask
+level so a single-field prompt does not loop on an empty answer; an
+empty required path is rejected here, as for a required text field.
 
 <a id="backlogops.wizard_forms.secret_field"></a>
 

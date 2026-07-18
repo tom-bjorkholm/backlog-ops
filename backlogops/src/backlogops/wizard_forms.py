@@ -25,9 +25,11 @@ with the table-based wizard helpers.
 
 from dataclasses import dataclass, replace
 from datetime import date
+from pathlib import Path
 from typing import Callable, Optional, Sequence
 from tableio_cfg_json import AnswerField, AskChoiceField, AskField, \
-    AskIntField, AskTextField, AskYesNoField, PartFormValidationResult, \
+    AskIntField, AskPathField, AskTextField, AskYesNoField, \
+    PartFormValidationResult, PathAskOptions, WizardPathKind, \
     WizardUiBridge
 from backlogops.io_config import PRESET_NAME_RE
 
@@ -108,6 +110,12 @@ class FormResult:
         assert value is None or isinstance(value, date)
         return value
 
+    def path(self, key: str) -> Path:
+        """Return a required path answer."""
+        value = self._values[key]
+        assert isinstance(value, Path)
+        return value
+
     def raw(self, key: str) -> object:
         """Return the parsed value of a field, or None when it is absent."""
         return self._values.get(key)
@@ -145,6 +153,9 @@ def _reseed_ask(ask: AskField, value: object) -> AskField:
     if isinstance(ask, AskTextField) and not ask.sensitive:
         text = _as_text(value)
         return ask if text is None else replace(ask, default=text)
+    if isinstance(ask, AskPathField) and isinstance(value, str) and value:
+        options = replace(ask.path_options, default=Path(value))
+        return replace(ask, path_options=options)
     return ask
 
 
@@ -245,6 +256,13 @@ def _answer_text(answer: AnswerField) -> Optional[str]:
     return value
 
 
+def _answer_path(answer: AnswerField) -> Optional[Path]:
+    """Return the Path an answer holds, or None when it holds none."""
+    value = answer.value
+    assert value is None or isinstance(value, Path)
+    return value
+
+
 def _parse_date(answer: str) -> Optional[date]:
     """Return the ISO date in ``answer``, or None when it is invalid."""
     try:
@@ -293,6 +311,24 @@ def opt_text_field(key: str, question: str, *,
     """Return an optional free-text field that may be left blank."""
     ask = AskTextField(question, help_text, nullable=True)
     return FormField(key, ask, _no_error, _answer_text)
+
+
+def path_field(key: str, question: str, *, kind: WizardPathKind,
+               help_text: Optional[str] = None) -> FormField:
+    """Return a required path field shown with a native file picker.
+
+    A graphical bridge asks the path with a file picker and every bridge
+    validates the answer against ``kind``. The field is nullable at the ask
+    level so a single-field prompt does not loop on an empty answer; an
+    empty required path is rejected here, as for a required text field.
+    """
+    options = PathAskOptions(kind=kind, nullable=True)
+    ask = AskPathField(question, help_text, path_options=options)
+
+    def error(answer: AnswerField) -> Optional[str]:
+        """Reject an empty required path answer."""
+        return None if _answer_path(answer) else _REQUIRED
+    return FormField(key, ask, error, _answer_path)
 
 
 def secret_field(key: str, question: str, *,

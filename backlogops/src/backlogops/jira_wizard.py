@@ -25,6 +25,7 @@ token is visible while typed; the pass phrases are masked.
 from dataclasses import dataclass
 from functools import partial
 from typing import Callable, Optional, TypeVar
+from tableio_cfg_json import WizardPathKind
 from backlogops.jira_io_config import DEF_BACKLOG_COLUMN_MAP, \
     DEF_RELEASE_COLUMN_MAP, JiraColumnMap, JiraConnectConfig, JiraIOConfig, \
     JiraIssueTypeMap, JiraPreset, JiraType, TokenStorage, _FILE_MODES, \
@@ -32,7 +33,8 @@ from backlogops.jira_io_config import DEF_BACKLOG_COLUMN_MAP, \
 from backlogops.levels import Levels
 from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS
 from backlogops.wizard_forms import FormField, FormResult, choice_field, \
-    name_field, opt_text_field, secret_field, text_field, yes_no_field
+    name_field, opt_text_field, path_field, secret_field, text_field, \
+    yes_no_field
 from backlogops.wizard_navigator import _Navigator
 
 _T = TypeVar('_T')
@@ -173,7 +175,8 @@ def _connection_fields(used: set[str], editing: bool) -> list[FormField]:
         choice_field('token_storage', 'API token storage',
                      _enum_choices(TokenStorage),
                      default=TokenStorage.CLEAR_FILE.name.lower()),
-        text_field('token_file_path', 'Token file path'),
+        path_field('token_file_path', 'Token file path',
+                   kind=WizardPathKind.FILE),
         token,
         secret_field('passphrase', 'Pass phrase to encrypt the token'),
         secret_field('confirm', 'Re-enter the pass phrase')
@@ -279,7 +282,7 @@ def _store_token(nav: _Navigator, connection: JiraConnectConfig,
     unchanged.
     """
     if connection.uses_token_file():
-        connection.token_file_path = values.text('token_file_path')
+        connection.token_file_path = str(values.path('token_file_path'))
         return
     token = values.opt_text('api_token')
     if token:

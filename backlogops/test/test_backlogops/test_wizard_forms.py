@@ -12,10 +12,12 @@ builders, the strict :class:`FormResult` getters and the name validator.
 
 import io
 from datetime import date
+from pathlib import Path
 from typing import Optional
 import pytest
-from tableio_cfg_json import AnswerTextField, AskChoiceField, AskIntField, \
-    AskTextField, WizardUiBridgeConsole
+from tableio_cfg_json import AnswerPathField, AnswerTextField, \
+    AskChoiceField, AskIntField, AskPathField, AskTextField, \
+    WizardPathKind, WizardUiBridgeConsole
 import backlogops.wizard_forms as wf
 from backlogops.wizard_forms import FormField, FormResult
 
@@ -51,11 +53,25 @@ def _run_demo(answers: list[str]) -> FormResult:
                        _demo_rule)
 
 
+def _path_form(answers: list[str],
+               seed: Optional[FormResult] = None) -> FormResult:
+    """Run a one-field required path form with scripted answers."""
+    fields = [wf.path_field('p', 'File', kind=WizardPathKind.FILE)]
+    return wf.run_form(_console(answers), 'Path form', fields, seed=seed)
+
+
 def _text_answer(field: FormField, value: Optional[str]) -> AnswerTextField:
     """Wrap a raw string as a text answer for the field's own check."""
     ask = field.ask
     assert isinstance(ask, AskTextField)
     return AnswerTextField(ask, value)
+
+
+def _path_answer(field: FormField, value: Optional[Path]) -> AnswerPathField:
+    """Wrap a raw Path as a path answer for the field's own check."""
+    ask = field.ask
+    assert isinstance(ask, AskPathField)
+    return AnswerPathField(ask, value)
 
 
 def _text_default(field: FormField) -> Optional[str]:
@@ -198,3 +214,40 @@ def test_opt_date_field_error(text: str, ok: bool) -> None:
     """Test an optional date field accepts a blank but not a bad date."""
     field = wf.opt_date_field('d', 'When')
     assert (field.error(_text_answer(field, text)) is None) is ok
+
+
+def test_path_field_built() -> None:
+    """Test a path field carries its kind and is nullable when asked."""
+    ask = wf.path_field('p', 'File', kind=WizardPathKind.FILE).ask
+    assert isinstance(ask, AskPathField)
+    assert ask.path_options.kind is WizardPathKind.FILE
+    assert ask.path_options.nullable is True
+
+
+@pytest.mark.parametrize('value, ok', [(Path('/tmp/x'), True), (None, False)])
+def test_path_field_required(value: Optional[Path], ok: bool) -> None:
+    """Test a required path field rejects a missing path."""
+    field = wf.path_field('p', 'File', kind=WizardPathKind.FILE)
+    assert (field.error(_path_answer(field, value)) is None) is ok
+
+
+def test_path_field_value() -> None:
+    """Test a path field returns the Path its answer holds."""
+    field = wf.path_field('p', 'File', kind=WizardPathKind.FILE)
+    assert field.value(_path_answer(field, Path('/tmp/x'))) == Path('/tmp/x')
+
+
+def test_form_result_path() -> None:
+    """Test the strict path getter returns its stored Path."""
+    assert FormResult({'p': Path('/tmp/x')}).path('p') == Path('/tmp/x')
+
+
+def test_path_form_reask() -> None:
+    """Test a blank path re-asks the whole form until a path is given."""
+    assert _path_form(['', '/tmp/tok.txt']).path('p') == Path('/tmp/tok.txt')
+
+
+def test_path_form_seed() -> None:
+    """Test a seeded path pre-fills so a blank answer keeps it."""
+    result = _path_form([''], seed=FormResult({'p': '/tmp/seed.txt'}))
+    assert result.path('p') == Path('/tmp/seed.txt')

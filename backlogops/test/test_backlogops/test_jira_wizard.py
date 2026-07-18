@@ -13,7 +13,8 @@ parsing and the per-cell validation.
 import io
 from typing import Optional
 import pytest
-from tableio_cfg_json import AskTextField, WizardUiBridgeConsole
+from tableio_cfg_json import AskPathField, AskTextField, \
+    WizardPathKind, WizardUiBridgeConsole
 from backlogops.backlog import Status
 from backlogops.backlog_ops_wizard import backlog_ops_wizard
 from backlogops.jira_io_config import (
@@ -207,6 +208,14 @@ def test_conn_fields_masked() -> None:
         ask = fields[key].ask
         assert isinstance(ask, AskTextField)
         assert ask.sensitive is True
+
+
+def test_conn_path_field() -> None:
+    """Test the token file path is asked as a file-picker path field."""
+    fields = {field.key: field for field in _connection_fields(set(), False)}
+    ask = fields['token_file_path'].ask
+    assert isinstance(ask, AskPathField)
+    assert ask.path_options.kind is WizardPathKind.FILE
 
 
 def test_preset_rule_disables() -> None:
