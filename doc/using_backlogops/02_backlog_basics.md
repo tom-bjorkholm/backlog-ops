@@ -98,8 +98,9 @@ python3 -m backlogops_cli.demo_backlog -o demo.ods -O customer-report
 extension.
 
 **GUI** — *File → New demo backlog*. A backlog window opens on the demo data,
-ready for the `Backlog` and `Jira` menus. Nothing is written until you choose
-*Backlog → Save to file…*.
+ready for the `Backlog` and `Jira` menus. Its information region marks it as a
+demo backlog; being generated, it has no source to read again. Nothing is
+written until you choose *Backlog → Save to file…*.
 
 **Library** —
 [`get_demo_backlog`](../backlogops_api.md#backlogops.demo_backlog.get_demo_backlog)

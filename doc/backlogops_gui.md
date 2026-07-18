@@ -173,6 +173,8 @@
 * [backlogops\_gui.close\_binding](#backlogops_gui.close_binding)
   * [bind\_close](#backlogops_gui.close_binding.bind_close)
 * [backlogops\_gui.backlog\_window](#backlogops_gui.backlog_window)
+  * [current\_time](#backlogops_gui.backlog_window.current_time)
+  * [BacklogSource](#backlogops_gui.backlog_window.BacklogSource)
   * [JiraHandlers](#backlogops_gui.backlog_window.JiraHandlers)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
@@ -1614,8 +1616,10 @@ writes the running configuration to a file, and creates a demonstration
 backlog. The configuration wizard and the preset wizard first ask whether
 to start empty or be pre-filled from an existing file, so the user can
 edit an existing configuration instead of entering everything again. Each
-backlog opens in its own
-window. On macOS the menu bar sits at the top of the display rather than in
+backlog opens in its own window, whose information region records where the
+data came from and when, marks the window when the backlog has been
+modified, and offers a "Read again" button that re-reads the same source.
+On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
 make clear that the application is running. The teams configuration is
@@ -1888,9 +1892,15 @@ Open a demonstration backlog in a new window.
 #### open\_backlog
 
 ```python
-def open_backlog(data: BacklogReleases,
-                 title: str,
-                 warning: Optional[str] = None) -> None
+def open_backlog(
+    data: BacklogReleases,
+    title: str,
+    warning: Optional[str] = None,
+    *,
+    source: Optional[BacklogSource] = None,
+    reload: Optional[Callable[
+        [Callable[[BacklogReleases, Optional[str]], None]], None]] = None
+) -> None
 ```
 
 Open one backlog and its releases in a new window.
@@ -2023,7 +2033,8 @@ The reader asks for a Jira preset and an issue filter, then reads on a
 worker thread and opens the result in a new backlog window on the GUI
 thread. Jira data that is not fully consistent still opens, but with a
 warning that disables the backlog operations, so the user can inspect and
-save it without acting on inconsistent data.
+save it without acting on inconsistent data. The window's "Read again"
+button re-reads the same preset and filter and updates the window in place.
 
 <a id="backlogops_gui.jira_read.JiraReader"></a>
 
@@ -2066,9 +2077,8 @@ here too, so the same reporting pattern is shared.
 def save_backlog(parent: tk.Misc, data: BacklogReleases,
                  presets: Optional[dict[str, OutputFormatConfig]],
                  levels: Optional[Levels], sink: TextIO,
-                 on_error: Callable[[str, str],
-                                    None], on_info: Callable[[str, str],
-                                                             None]) -> None
+                 on_error: Callable[[str, str], None],
+                 on_info: Callable[[str, str], None]) -> Optional[str]
 ```
 
 Ask where and how to save a backlog and write it.
@@ -2083,6 +2093,11 @@ Ask where and how to save a backlog and write it.
 - `sink` - Stream that receives low-level write diagnostics.
 - `on_error` - Callback used to report a write failure.
 - `on_info` - Callback used to report a successful write.
+  
+
+**Returns**:
+
+  The path written, or None when the save was cancelled or failed.
 
 <a id="backlogops_gui.backlog_actions.order_by_keys"></a>
 
@@ -2309,6 +2324,34 @@ extraction, the Jira operations, saving to a file and closing the window.
 The operations themselves live in :mod:`backlogops_gui.backlog_actions`,
 so they can be tested without a display.
 
+<a id="backlogops_gui.backlog_window.current_time"></a>
+
+#### current\_time
+
+```python
+def current_time() -> datetime
+```
+
+Return the current local time, wrapped so tests can control it.
+
+<a id="backlogops_gui.backlog_window.BacklogSource"></a>
+
+## BacklogSource Objects
+
+```python
+@dataclass
+class BacklogSource()
+```
+
+Where a backlog window's data came from and when it was read.
+
+A window's backlog is read from a file, from Jira, or is the built-in
+demonstration backlog. ``read_time`` is the time of the most recent
+read and is refreshed when the backlog is read again. Fields that do
+not apply to the ``kind`` stay None: ``file_name`` and the optional
+input ``preset_name`` describe a file source, while ``preset_name``
+and ``issue_filter`` describe a Jira source.
+
 <a id="backlogops_gui.backlog_window.JiraHandlers"></a>
 
 ## JiraHandlers Objects
@@ -2340,19 +2383,25 @@ A top-level window showing one backlog and its releases.
 #### \_\_init\_\_
 
 ```python
-def __init__(root: tk.Misc,
-             data: BacklogReleases,
-             title: str,
-             presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
-             teams: Callable[[], Optional[AvailableTeams]],
-             sink: TextIO,
-             levels: Callable[[], Optional[Levels]] = lambda: None,
-             gui_display: Callable[[], GuiDisplayConfig] = GuiDisplayConfig,
-             warning: Optional[str] = None,
-             jira: Optional[JiraHandlers] = None) -> None
+def __init__(
+    root: tk.Misc,
+    data: BacklogReleases,
+    title: str,
+    presets: Callable[[], Optional[dict[str, OutputFormatConfig]]],
+    teams: Callable[[], Optional[AvailableTeams]],
+    sink: TextIO,
+    levels: Callable[[], Optional[Levels]] = lambda: None,
+    gui_display: Callable[[], GuiDisplayConfig] = GuiDisplayConfig,
+    warning: Optional[str] = None,
+    jira: Optional[JiraHandlers] = None,
+    *,
+    source: Optional[BacklogSource] = None,
+    reload: Optional[Callable[
+        [Callable[[BacklogReleases, Optional[str]], None]], None]] = None
+) -> None
 ```
 
-Build the window, its menu and the two tables.
+Build the window, its menu, its info region and the two tables.
 
 **Arguments**:
 
@@ -2372,6 +2421,12 @@ Build the window, its menu and the two tables.
 - `jira` - The Jira menu handlers to offer, or None for none. Each
   handler is None when its operation is unavailable, which
   disables its menu item.
+- `source` - Where the data came from and when it was read. When
+  given, an information region is shown at the top of the
+  window; when None no information region is shown.
+- `reload` - Callback that re-reads the same source and delivers the
+  fresh data and any warning to the given apply callback. When
+  given, a "Read again" button is offered; None disables it.
 
 <a id="backlogops_gui.blog_version_reporter"></a>
 

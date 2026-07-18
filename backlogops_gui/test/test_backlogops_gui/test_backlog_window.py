@@ -5,12 +5,14 @@
 # MIT License
 
 import tkinter as tk
-from typing import Callable
+from datetime import datetime
+from typing import Callable, Optional, cast
 import pytest
 from backlogops import (
-    BacklogReleases, GuiDisplayConfig, NoTextIO, get_demo_backlog)
+    AddedToJira, BacklogReleases, GuiDisplayConfig, NoTextIO, get_demo_backlog)
 from backlogops_gui import backlog_window
-from backlogops_gui.backlog_window import BacklogWindow, JiraHandlers
+from backlogops_gui.backlog_window import (
+    BacklogSource, BacklogWindow, JiraHandlers, MODIFIED_MARK)
 from .gui_test_helpers import MsgRecorder, gui_root, press_close
 
 DATA = BacklogReleases(backlog=[], releases=[])
@@ -347,3 +349,247 @@ def test_result_callbacks(monkeypatch: pytest.MonkeyPatch) -> None:
         for name in _JIRA_CALLBACKS:
             getattr(window, name)(object())
     assert len(titles) == 7
+
+
+T0 = datetime(2026, 7, 18, 14, 30, 45)
+T1 = datetime(2026, 7, 18, 15, 0, 0)
+
+
+def _win_of(window: BacklogWindow) -> tk.Misc:
+    """Return the toplevel window of a backlog window."""
+    # pylint: disable-next=protected-access
+    return window._win
+
+
+def _time_of(window: BacklogWindow) -> str:
+    """Return the info-region time line of a backlog window."""
+    # pylint: disable-next=protected-access
+    var = window._time_var
+    assert var is not None
+    return var.get()
+
+
+def _mark_of(window: BacklogWindow) -> str:
+    """Return the info-region modified marker of a backlog window."""
+    # pylint: disable-next=protected-access
+    var = window._mark_var
+    assert var is not None
+    return var.get()
+
+
+def _label_texts(win: tk.Misc) -> list[str]:
+    """Return the text of every label in a window subtree."""
+    texts: list[str] = []
+    for child in win.winfo_children():
+        if isinstance(child, tk.Label):
+            texts.append(str(child.cget('text')))
+        texts.extend(_label_texts(child))
+    return texts
+
+
+def _has_read_again(win: tk.Misc) -> bool:
+    """Return whether a 'Read again' button exists in a subtree."""
+    for child in win.winfo_children():
+        if (isinstance(child, tk.Button)
+                and str(child.cget('text')) == 'Read again'):
+            return True
+        if _has_read_again(child):
+            return True
+    return False
+
+
+def _reload_stub(store: list[object]) -> Callable[..., None]:
+    """Return a reload capturing the apply callback it is given."""
+    def reload(apply: object) -> None:
+        store.append(apply)
+    return reload
+
+
+def _saver(path: Optional[str]) -> Callable[..., Optional[str]]:
+    """Return a save_backlog stub returning a fixed path."""
+    def save(*_args: object, **_kw: object) -> Optional[str]:
+        return path
+    return save
+
+
+def _file_source() -> BacklogSource:
+    """Return a file backlog source read at a fixed time."""
+    return BacklogSource(kind='file', read_time=T0, file_name='/tmp/b.csv')
+
+
+def _jira_source() -> BacklogSource:
+    """Return a Jira backlog source read at a fixed time."""
+    return BacklogSource(kind='jira', read_time=T0, preset_name='scrum',
+                         issue_filter='project = SCRUM')
+
+
+def _make_win(root: tk.Misc, source: BacklogSource,
+              captured: Optional[list[object]] = None) -> BacklogWindow:
+    """Build a backlog window on a source with a capturing reload."""
+    store = captured if captured is not None else []
+    return BacklogWindow(root, DATA, 'T', _none, _none, SINK, source=source,
+                         reload=_reload_stub(store))
+
+
+def test_file_info_region() -> None:
+    """Test a file window shows the read time and the file name."""
+    with gui_root() as root:
+        window = _make_win(root, _file_source())
+        assert _time_of(window) == 'Read from file at 2026-07-18 14:30:45'
+        assert 'File: /tmp/b.csv' in _label_texts(_win_of(window))
+        assert _has_read_again(_win_of(window))
+        assert _mark_of(window) == ''
+
+
+def test_jira_info_region() -> None:
+    """Test a Jira window shows the read time and the filter."""
+    with gui_root() as root:
+        window = _make_win(root, _jira_source())
+        assert _time_of(window) == 'Read from Jira at 2026-07-18 14:30:45'
+        assert 'Filter: project = SCRUM' in _label_texts(_win_of(window))
+
+
+def test_demo_info_region() -> None:
+    """Test a demo window shows the time but offers no Read again."""
+    with gui_root() as root:
+        source = BacklogSource(kind='demo', read_time=T0)
+        window = BacklogWindow(root, DATA, 'Demo', _none, _none, SINK,
+                               source=source)
+        assert _time_of(window) == ('Demo backlog created at '
+                                    '2026-07-18 14:30:45')
+        assert not _has_read_again(_win_of(window))
+
+
+def test_no_source_no_info() -> None:
+    """Test a window without a source shows no information region."""
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'T', _none, _none, SINK)
+        # pylint: disable-next=protected-access
+        assert window._time_var is None
+        assert not _has_read_again(_win_of(window))
+
+
+def test_action_modifies() -> None:
+    """Test a data-changing refresh marks the window modified."""
+    with gui_root() as root:
+        window = _make_win(root, _file_source())
+        # pylint: disable-next=protected-access
+        window._changed_refresh()
+        assert _mark_of(window) == MODIFIED_MARK
+
+
+def test_jira_rekey_marks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test applying a Jira add result marks the window modified."""
+    def apply_result(_data: object, _result: object,
+                     refresh: Callable[[], None], _show: object) -> None:
+        refresh()
+    monkeypatch.setattr(backlog_window, 'apply_add_result', apply_result)
+    with gui_root() as root:
+        window = _make_win(root, _jira_source())
+        # pylint: disable-next=protected-access
+        window._on_jira_added(cast(AddedToJira, object()))
+        assert _mark_of(window) == MODIFIED_MARK
+
+
+def test_read_again_reloads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test Read again replaces data, updates time and clears the mark."""
+    monkeypatch.setattr(backlog_window, 'current_time', lambda: T1)
+    monkeypatch.setattr(backlog_window, 'messagebox', MsgRecorder(True))
+    with gui_root() as root:
+        captured: list[object] = []
+        window = _make_win(root, _file_source(), captured)
+        # pylint: disable-next=protected-access
+        window._changed_refresh()
+        # pylint: disable-next=protected-access
+        window._read_again()
+        assert len(captured) == 1
+        new_data = get_demo_backlog()
+        apply = captured[0]
+        assert callable(apply)
+        apply(new_data, None)
+        # pylint: disable-next=protected-access
+        assert window._data is new_data
+        assert _mark_of(window) == ''
+        assert _time_of(window) == 'Read from file at 2026-07-18 15:00:00'
+
+
+def test_read_again_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the discard confirm skips the re-read."""
+    monkeypatch.setattr(backlog_window, 'messagebox', MsgRecorder(False))
+    with gui_root() as root:
+        captured: list[object] = []
+        window = _make_win(root, _file_source(), captured)
+        # pylint: disable-next=protected-access
+        window._changed_refresh()
+        # pylint: disable-next=protected-access
+        window._read_again()
+        assert not captured
+
+
+def test_reread_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test Read again without changes re-reads without confirming."""
+    monkeypatch.setattr(backlog_window, 'messagebox', MsgRecorder(False))
+    with gui_root() as root:
+        captured: list[object] = []
+        window = _make_win(root, _file_source(), captured)
+        # pylint: disable-next=protected-access
+        window._read_again()
+        assert len(captured) == 1
+
+
+def test_save_clears_mark(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test saving to the source file clears the modified mark."""
+    monkeypatch.setattr(backlog_window, 'save_backlog', _saver('/tmp/b.csv'))
+    with gui_root() as root:
+        window = _make_win(root, _file_source())
+        # pylint: disable-next=protected-access
+        window._changed_refresh()
+        # pylint: disable-next=protected-access
+        window._save()
+        assert _mark_of(window) == ''
+
+
+def test_save_keeps_mark(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test saving to a different file keeps the modified mark."""
+    monkeypatch.setattr(backlog_window, 'save_backlog', _saver('/tmp/x.csv'))
+    with gui_root() as root:
+        window = _make_win(root, _file_source())
+        # pylint: disable-next=protected-access
+        window._changed_refresh()
+        # pylint: disable-next=protected-access
+        window._save()
+        assert _mark_of(window) == MODIFIED_MARK
+
+
+def test_save_cancel_keeps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a cancelled save leaves the modified mark in place."""
+    monkeypatch.setattr(backlog_window, 'save_backlog', _saver(None))
+    with gui_root() as root:
+        window = _make_win(root, _jira_source())
+        # pylint: disable-next=protected-access
+        window._changed_refresh()
+        # pylint: disable-next=protected-access
+        window._save()
+        assert _mark_of(window) == MODIFIED_MARK
+
+
+def test_reload_adds_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a re-read that returns a warning disables the operations."""
+    monkeypatch.setattr(backlog_window, 'current_time', lambda: T1)
+    with gui_root() as root:
+        captured: list[object] = []
+        window = _make_win(root, _jira_source(), captured)
+        # pylint: disable-next=protected-access
+        window._read_again()
+        apply = captured[0]
+        assert callable(apply)
+        apply(DATA, 'Broken data')
+        assert 'Broken data' in _label_texts(_win_of(window))
+        menu = _backlog_menu(window)
+        last = menu.index('end')
+        assert last is not None
+        states = {menu.entrycget(i, 'label'): menu.entrycget(i, 'state')
+                  for i in range(last + 1)
+                  if menu.type(i) != 'separator'}
+        assert states['Order by keys…'] == 'disabled'
+        assert states['Save to file…'] == 'normal'

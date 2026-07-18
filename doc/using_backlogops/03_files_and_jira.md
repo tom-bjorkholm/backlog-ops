@@ -19,6 +19,16 @@ Two things are worth stating once, because they shape every workflow:
   from Jira), apply operations to the data in that window, then write it out.
   No intermediate files are needed.
 
+Each backlog window shows, at the top, where its data came from and when it
+was read — the file name for a file, the Jira filter for Jira — so several
+open windows stay easy to tell apart. A **modified** mark appears once you
+change the backlog in that window. A **Read again** button re-reads the same
+source (the same file, or the same Jira preset and filter), replaces the
+window's contents in place, and updates the shown read time, so you can
+refresh a window instead of opening a new one. If the window has unsaved
+changes, Read again asks for confirmation first. Saving back to the same file
+the window was read from clears the modified mark.
+
 ## Convert between file formats
 
 The simplest job: read one file, write another, possibly in a different
@@ -88,7 +98,8 @@ first create that encrypted token file once — see [Creating the encrypted
 token file](01_configuration.md#creating-the-encrypted-token-file).
 
 **GUI** — *File → Read backlog from Jira…* Pick the preset (and optionally a
-filter); a backlog window opens on the Jira data, ready for any operation.
+filter); a backlog window opens on the Jira data, ready for any operation. The
+window's **Read again** button re-reads the same preset and filter in place.
 
 **Library** —
 [`read_jira_from_config`](../backlogops_api.md#backlogops.jira_read.read_jira_from_config).

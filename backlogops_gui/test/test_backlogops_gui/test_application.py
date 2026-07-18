@@ -17,6 +17,7 @@ from backlogops import (
     OutputFormatConfig)
 from backlogops_gui import application
 from backlogops_gui.application import APP_TITLE, BacklogApp
+from backlogops_gui.backlog_window import BacklogSource
 from backlogops_gui.choice_dialogs import ConfigChoice, PresetKind
 from backlogops_gui.format_dialogs import ReadOptions
 from backlogops_gui._migrate_warn import GuiMigrateWarnHook
@@ -28,11 +29,46 @@ from .gui_test_helpers import MsgRecorder, gui_root, root_or_skip
 DATA = BacklogReleases(backlog=[], releases=[])
 
 
-def _opener(store: list[object]) -> Callable[[BacklogReleases, str], None]:
+def _opener(store: list[object]) -> Callable[..., None]:
     """Return a callback that records an opened backlog and title."""
-    def recorder(backlog: BacklogReleases, title: str) -> None:
+    def recorder(backlog: BacklogReleases, title: str, *_a: object,
+                 **_k: object) -> None:
         store.append((backlog, title))
     return recorder
+
+
+def _cap_opener(store: list[tuple[object, ...]]) -> Callable[..., None]:
+    """Return an open_backlog stub recording data, title, source, reload."""
+    def recorder(backlog: BacklogReleases, title: str,
+                 warning: Optional[str] = None, *, source: object = None,
+                 reload: object = None) -> None:
+        store.append((backlog, title, warning, source, reload))
+    return recorder
+
+
+def _win_rec(store: list[tuple[object, ...]]) -> Callable[..., None]:
+    """Return a BacklogWindow stub recording its positional args."""
+    def make(*args: object, **_kw: object) -> None:
+        store.append(args)
+    return make
+
+
+def _read_rec(store: list[object]) -> Callable[..., BacklogReleases]:
+    """Return a backlog reader that records each path it reads."""
+    def read(path: str, _value: object, _presets: object, _sink: object,
+             _levels: object = None, _status: object = None
+             ) -> BacklogReleases:
+        store.append(path)
+        return DATA
+    return read
+
+
+def _applier(store: list[object]
+             ) -> Callable[[BacklogReleases, Optional[str]], None]:
+    """Return an apply callback recording the reloaded data and warning."""
+    def apply(data: BacklogReleases, warning: Optional[str]) -> None:
+        store.append((data, warning))
+    return apply
 
 
 def _raise_none(_arg: object, _sink: object,
@@ -322,6 +358,75 @@ def test_demo_backlog_opens(monkeypatch: pytest.MonkeyPatch) -> None:
     assert opened == [(DATA, 'Demo backlog')]
 
 
+def test_read_file_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test reading a file records a file source and a reload."""
+    monkeypatch.setattr(application, 'choose_input_file', _pick_csv)
+    monkeypatch.setattr(application, 'ask_read_options', _read_opts)
+    monkeypatch.setattr(application, 'read_backlog', _read_data)
+    app = _app()
+    opened: list[tuple[object, ...]] = []
+    monkeypatch.setattr(app, 'open_backlog', _cap_opener(opened))
+    app.read_backlog_file()
+    assert len(opened) == 1
+    source = opened[0][3]
+    assert isinstance(source, BacklogSource)
+    assert source.kind == 'file'
+    assert source.file_name == 'file.csv'
+    assert source.preset_name is None
+    assert opened[0][4] is not None
+
+
+def test_file_reload_rereads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the file reload re-reads the same file and applies the data."""
+    monkeypatch.setattr(application, 'choose_input_file', _pick_csv)
+    monkeypatch.setattr(application, 'ask_read_options', _read_opts)
+    reads: list[object] = []
+    monkeypatch.setattr(application, 'read_backlog', _read_rec(reads))
+    app = _app()
+    opened: list[tuple[object, ...]] = []
+    monkeypatch.setattr(app, 'open_backlog', _cap_opener(opened))
+    app.read_backlog_file()
+    reload = opened[0][4]
+    assert callable(reload)
+    applied: list[object] = []
+    reload(_applier(applied))
+    assert reads == ['file.csv', 'file.csv']
+    assert applied == [(DATA, None)]
+
+
+def test_file_reload_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a failing file reload is reported and applies nothing."""
+    monkeypatch.setattr(application, 'choose_input_file', _pick_csv)
+    monkeypatch.setattr(application, 'ask_read_options', _read_opts)
+    monkeypatch.setattr(application, 'read_backlog', _read_data)
+    app = _app()
+    opened: list[tuple[object, ...]] = []
+    monkeypatch.setattr(app, 'open_backlog', _cap_opener(opened))
+    app.read_backlog_file()
+    reload = opened[0][4]
+    assert callable(reload)
+    monkeypatch.setattr(application, 'read_backlog', _read_fail)
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    applied: list[object] = []
+    reload(_applier(applied))
+    assert not applied
+    assert errors == [('Could not read file', 'bad file')]
+
+
+def test_demo_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the demo backlog records a demo source with no reload."""
+    monkeypatch.setattr(application, 'get_demo_backlog', lambda: DATA)
+    app = _app()
+    opened: list[tuple[object, ...]] = []
+    monkeypatch.setattr(app, 'open_backlog', _cap_opener(opened))
+    app.new_demo_backlog()
+    source = opened[0][3]
+    assert isinstance(source, BacklogSource)
+    assert source.kind == 'demo'
+    assert opened[0][4] is None
+
+
 def test_presets_from_config() -> None:
     """Test the presets come from the current configuration."""
     config = FakeConfig()
@@ -480,8 +585,7 @@ def test_read_options_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_open_backlog(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test opening a backlog constructs a backlog window."""
     made: list[tuple[object, ...]] = []
-    monkeypatch.setattr(application, 'BacklogWindow',
-                        lambda *args: made.append(args))
+    monkeypatch.setattr(application, 'BacklogWindow', _win_rec(made))
     _app().open_backlog(DATA, 'Title')
     assert len(made) == 1
     assert made[0][1] is DATA and made[0][2] == 'Title'

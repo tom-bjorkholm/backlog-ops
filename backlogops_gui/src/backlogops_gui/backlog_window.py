@@ -16,6 +16,8 @@ so they can be tested without a display.
 
 import tkinter as tk
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Callable, Literal, Optional, TextIO
 from tableio import ValueFmt
@@ -36,6 +38,31 @@ from backlogops_gui.table_view import (
 
 RELEASE_COLUMN_WIDTH = 110
 WARNING_WRAP = 760
+MODIFIED_MARK = ' — Modified'
+
+
+def current_time() -> datetime:
+    """Return the current local time, wrapped so tests can control it."""
+    return datetime.now()
+
+
+@dataclass
+class BacklogSource:
+    """Where a backlog window's data came from and when it was read.
+
+    A window's backlog is read from a file, from Jira, or is the built-in
+    demonstration backlog. ``read_time`` is the time of the most recent
+    read and is refreshed when the backlog is read again. Fields that do
+    not apply to the ``kind`` stay None: ``file_name`` and the optional
+    input ``preset_name`` describe a file source, while ``preset_name``
+    and ``issue_filter`` describe a Jira source.
+    """
+
+    kind: Literal['file', 'jira', 'demo']
+    read_time: datetime
+    file_name: Optional[str] = None
+    preset_name: Optional[str] = None
+    issue_filter: Optional[str] = None
 
 
 @dataclass
@@ -82,8 +109,12 @@ class BacklogWindow:
                  gui_display: Callable[
                      [], GuiDisplayConfig] = GuiDisplayConfig,
                  warning: Optional[str] = None,
-                 jira: Optional[JiraHandlers] = None) -> None:
-        """Build the window, its menu and the two tables.
+                 jira: Optional[JiraHandlers] = None, *,
+                 source: Optional[BacklogSource] = None,
+                 reload: Optional[Callable[
+                     [Callable[[BacklogReleases, Optional[str]], None]],
+                     None]] = None) -> None:
+        """Build the window, its menu, its info region and the two tables.
 
         Args:
             root: The parent window the new window belongs to.
@@ -102,6 +133,12 @@ class BacklogWindow:
             jira: The Jira menu handlers to offer, or None for none. Each
                 handler is None when its operation is unavailable, which
                 disables its menu item.
+            source: Where the data came from and when it was read. When
+                given, an information region is shown at the top of the
+                window; when None no information region is shown.
+            reload: Callback that re-reads the same source and delivers the
+                fresh data and any warning to the given apply callback. When
+                given, a "Read again" button is offered; None disables it.
         """
         handlers = jira if jira is not None else JiraHandlers()
         self._data = data
@@ -118,12 +155,19 @@ class BacklogWindow:
         self._rank_in_jira = handlers.rank
         self._order_releases = handlers.order_releases
         self._rename_releases = handlers.rename_releases
+        self._source = source
+        self._reload = reload
+        self._modified = False
+        self._warning_label: Optional[tk.Label] = None
+        self._time_var: Optional[tk.StringVar] = None
+        self._mark_var: Optional[tk.StringVar] = None
         self._win = tk.Toplevel(root)
         self._win.title(title)
         bind_close(self._win)
         self._tables: list[tk.Widget] = []
         self._add_menu()
-        self._add_warning()
+        self._add_info()
+        self._render_warning()
         self._build_tables()
 
     def _report_error(self, title: str, message: str) -> None:
@@ -153,14 +197,116 @@ class BacklogWindow:
         self._tables = []
         self._build_tables()
 
-    def _add_warning(self) -> None:
-        """Show a highly visible warning over restricted backlog data."""
+    def _changed_refresh(self) -> None:
+        """Mark the backlog modified and rebuild the tables."""
+        self._set_modified(True)
+        self._refresh_tables()
+
+    def _render_warning(self) -> None:
+        """Show or clear the highly visible restricted-data warning."""
+        if self._warning_label is not None:
+            self._warning_label.destroy()
+            self._warning_label = None
         if self._warning is None:
             return
-        color = 'yellow'
-        label = tk.Label(self._win, text=self._warning, bg=color, fg='black',
-                         justify='left', wraplength=WARNING_WRAP)
+        label = tk.Label(self._win, text=self._warning, bg='yellow',
+                         fg='black', justify='left', wraplength=WARNING_WRAP)
         label.pack(fill='x', padx=8, pady=(8, 2))
+        self._warning_label = label
+
+    def _add_info(self) -> None:
+        """Add the source information region at the top of the window."""
+        if self._source is None:
+            return
+        self._time_var = tk.StringVar(self._win, self._time_text())
+        self._mark_var = tk.StringVar(self._win, self._mark_text())
+        row = tk.Frame(self._win)
+        row.pack(fill='x', padx=8, pady=(8, 2))
+        tk.Label(row, textvariable=self._time_var).pack(side='left')
+        tk.Label(row, textvariable=self._mark_var, fg='red').pack(side='left')
+        if self._reload is not None:
+            tk.Button(row, text='Read again',
+                      command=self._read_again).pack(side='right')
+        detail = self._detail_text()
+        if detail:
+            tk.Label(self._win, text=detail,
+                     justify='left').pack(anchor='w', padx=8)
+
+    def _time_text(self) -> str:
+        """Return the 'read from … at …' line for the info region."""
+        assert self._source is not None
+        stamp = self._source.read_time.strftime('%Y-%m-%d %H:%M:%S')
+        if self._source.kind == 'file':
+            return f'Read from file at {stamp}'
+        if self._source.kind == 'jira':
+            return f'Read from Jira at {stamp}'
+        return f'Demo backlog created at {stamp}'
+
+    def _detail_text(self) -> str:
+        """Return the file or filter detail line, empty for the demo."""
+        assert self._source is not None
+        if self._source.kind == 'file':
+            return self._file_detail()
+        if self._source.kind == 'jira':
+            shown = self._source.issue_filter or '(none)'
+            return f'Filter: {shown}'
+        return ''
+
+    def _file_detail(self) -> str:
+        """Return the file-name detail, naming the preset when present."""
+        assert self._source is not None
+        detail = f'File: {self._source.file_name}'
+        if self._source.preset_name:
+            detail += f'  (preset {self._source.preset_name})'
+        return detail
+
+    def _mark_text(self) -> str:
+        """Return the modified marker text, empty when unmodified."""
+        return MODIFIED_MARK if self._modified else ''
+
+    def _set_modified(self, modified: bool) -> None:
+        """Set the modified flag and update the info-region marker."""
+        self._modified = modified
+        if self._mark_var is not None:
+            self._mark_var.set(self._mark_text())
+
+    def _read_again(self) -> None:
+        """Re-read from the same source, confirming loss of any changes."""
+        if self._reload is None:
+            return
+        if self._modified and not self._confirm_discard():
+            return
+        self._reload(self._apply_reloaded)
+
+    def _confirm_discard(self) -> bool:
+        """Ask whether to discard in-window changes before re-reading."""
+        return messagebox.askyesno(
+            'Discard changes?',
+            'This window has unsaved changes. Reading again discards them. '
+            'Continue?', parent=self._win)
+
+    def _apply_reloaded(self, data: BacklogReleases,
+                        warning: Optional[str]) -> None:
+        """Replace the shown data after a re-read and refresh the window."""
+        assert self._source is not None
+        was_restricted = self._warning is not None
+        self._data = data
+        self._warning = warning
+        self._source.read_time = current_time()
+        self._set_modified(False)
+        if self._time_var is not None:
+            self._time_var.set(self._time_text())
+        self._rebuild_body(was_restricted)
+
+    def _rebuild_body(self, was_restricted: bool) -> None:
+        """Rebuild the warning, menu and tables after a re-read."""
+        for table in self._tables:
+            table.destroy()
+        self._tables = []
+        self._render_warning()
+        if (self._warning is not None) != was_restricted:
+            self._add_menu()
+        self._build_tables()
 
     def _add_menu(self) -> None:
         """Add the backlog and Jira menus with the action, save and close."""
@@ -269,50 +415,64 @@ class BacklogWindow:
         return make_table(frame, columns, rows)
 
     def _save(self) -> None:
-        """Save the backlog through the shared save helper."""
-        save_backlog(self._win, self._data, self._presets(), self._levels(),
-                     self._sink, self._report_error, self._report_info)
+        """Save the backlog, clearing the mark when the source is rewritten."""
+        saved = save_backlog(self._win, self._data, self._presets(),
+                             self._levels(), self._sink, self._report_error,
+                             self._report_info)
+        if saved is not None and self._saved_to_source(saved):
+            self._set_modified(False)
+
+    def _saved_to_source(self, path: str) -> bool:
+        """Return whether a save path is the file the data was read from."""
+        if self._source is None or self._source.file_name is None:
+            return False
+        source_file = self._source.file_name
+        try:
+            return Path(path).resolve() == Path(source_file).resolve()
+        except OSError:
+            return False
 
     def _order_by_keys(self) -> None:
         """Order the backlog by leading keys and refresh the tables."""
-        order_by_keys(self._win, self._data, self._sink, self._refresh_tables,
+        order_by_keys(self._win, self._data, self._sink, self._changed_refresh,
                       self._report_error, self._report_info)
 
     def _order_by_deps(self) -> None:
         """Order the backlog by dependencies and refresh the tables."""
-        order_by_deps(self._win, self._data, self._sink, self._refresh_tables,
+        order_by_deps(self._win, self._data, self._sink, self._changed_refresh,
                       self._report_error, self._report_info)
 
     def _order_by_release(self) -> None:
         """Order the backlog by release order and refresh the tables."""
         order_by_release(self._win, self._data, self._sink,
-                         self._refresh_tables, self._report_error,
+                         self._changed_refresh, self._report_error,
                          self._report_info)
 
     def _estimate_date(self) -> None:
         """Estimate the ready dates and refresh the tables."""
         estimate_date(self._win, self._data, self._teams(), self._sink,
-                      self._refresh_tables, self._report_error,
+                      self._changed_refresh, self._report_error,
                       self._report_info)
 
     def _set_plan(self) -> None:
         """Copy the estimated dates to the planned dates and refresh."""
-        set_plan(self._data, self._sink, self._refresh_tables,
+        set_plan(self._data, self._sink, self._changed_refresh,
                  self._report_error, self._report_info)
 
     def _adjust_content(self) -> None:
         """Adjust the release content to the estimate and refresh."""
-        adjust_content(self._win, self._data, self._sink, self._refresh_tables,
-                       self._report_error, self._report_info)
+        adjust_content(self._win, self._data, self._sink,
+                       self._changed_refresh, self._report_error,
+                       self._report_info)
 
     def _plan_dates(self) -> None:
         """Set planned release dates from the estimate and refresh."""
-        plan_dates(self._win, self._data, self._sink, self._refresh_tables,
+        plan_dates(self._win, self._data, self._sink, self._changed_refresh,
                    self._report_error, self._report_info)
 
     def _order_dates(self) -> None:
         """Order the releases by date and refresh the tables."""
-        order_dates(self._win, self._data, self._sink, self._refresh_tables,
+        order_dates(self._win, self._data, self._sink, self._changed_refresh,
                     self._report_error, self._report_info)
 
     def _extract_keys(self) -> None:
@@ -327,7 +487,7 @@ class BacklogWindow:
 
     def _on_jira_added(self, result: AddedToJira) -> None:
         """Rekey the shown backlog and show the two result lists."""
-        apply_add_result(self._data, result, self._refresh_tables,
+        apply_add_result(self._data, result, self._changed_refresh,
                          self._show_add_report)
 
     def _show_add_report(self, text: str) -> None:
@@ -375,7 +535,7 @@ class BacklogWindow:
         shown backlog is rekeyed for them, the tables are rebuilt, and the
         update outcome is shown in a copy-pasteable pop-up.
         """
-        apply_update_result(self._data, result, self._refresh_tables,
+        apply_update_result(self._data, result, self._changed_refresh,
                             self._show_update_report)
 
     def _show_update_report(self, text: str) -> None:

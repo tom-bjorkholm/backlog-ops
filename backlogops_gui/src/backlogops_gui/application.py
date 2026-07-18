@@ -9,8 +9,10 @@ writes the running configuration to a file, and creates a demonstration
 backlog. The configuration wizard and the preset wizard first ask whether
 to start empty or be pre-filled from an existing file, so the user can
 edit an existing configuration instead of entering everything again. Each
-backlog opens in its own
-window. On macOS the menu bar sits at the top of the display rather than in
+backlog opens in its own window, whose information region records where the
+data came from and when, marks the window when the backlog has been
+modified, and offers a "Read again" button that re-reads the same source.
+On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
 make clear that the application is running. The teams configuration is
@@ -44,7 +46,8 @@ from backlogops import (
     read_backlog_ops_config, read_io_preset, safe_write_config,
     encrypt_token_file, encrypt_token_to_file)
 from backlogops_gui.backlog_io import read_backlog
-from backlogops_gui.backlog_window import BacklogWindow, JiraHandlers
+from backlogops_gui.backlog_window import (
+    BacklogWindow, BacklogSource, JiraHandlers, current_time)
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 from backlogops_gui.gui_wizard import TkWizardBridge
 from backlogops_gui.choice_dialogs import (
@@ -533,20 +536,52 @@ class BacklogApp:
                                    sorted(presets) if presets else None)
         if options is None:
             return
+        value = options.config_value
         try:
-            data = read_backlog(path, options.config_value, presets, self.log,
-                                self.levels(), self.status_map())
+            data = read_backlog(path, value, presets, self.log, self.levels(),
+                                self.status_map())
         except IO_ERRORS as error:
             self.show_error('Could not read file', str(error))
             return
-        self.open_backlog(data, path)
+        source = self._file_source(path, value, presets)
+        self.open_backlog(data, path, source=source,
+                          reload=self._file_reload(path, value))
+
+    @staticmethod
+    def _file_source(path: str, value: Optional[str],
+                     presets: Optional[dict[str, InputFormatConfig]]
+                     ) -> BacklogSource:
+        """Describe a file backlog source, naming a preset when used."""
+        preset = value if value and presets and value in presets else None
+        return BacklogSource(kind='file', read_time=current_time(),
+                             file_name=path, preset_name=preset)
+
+    def _file_reload(self, path: str, value: Optional[str]) -> Callable[
+            [Callable[[BacklogReleases, Optional[str]], None]], None]:
+        """Return a reload re-reading the same file with the current config."""
+        def reload(apply: Callable[[BacklogReleases, Optional[str]], None]
+                   ) -> None:
+            """Re-read the file, reporting a failure and applying success."""
+            try:
+                data = read_backlog(path, value, self.in_presets(), self.log,
+                                    self.levels(), self.status_map())
+            except IO_ERRORS as error:
+                self.show_error('Could not read file', str(error))
+                return
+            apply(data, None)
+        return reload
 
     def new_demo_backlog(self) -> None:
         """Open a demonstration backlog in a new window."""
-        self.open_backlog(get_demo_backlog(), 'Demo backlog')
+        source = BacklogSource(kind='demo', read_time=current_time())
+        self.open_backlog(get_demo_backlog(), 'Demo backlog', source=source)
 
     def open_backlog(self, data: BacklogReleases, title: str,
-                     warning: Optional[str] = None) -> None:
+                     warning: Optional[str] = None, *,
+                     source: Optional[BacklogSource] = None,
+                     reload: Optional[Callable[
+                         [Callable[[BacklogReleases, Optional[str]], None]],
+                         None]] = None) -> None:
         """Open one backlog and its releases in a new window."""
         handlers = JiraHandlers(
             add_backlog=self.jira.writer.backlog_action(),
@@ -558,7 +593,8 @@ class BacklogApp:
             rename_releases=self.jira.renamer.rename_action())
         BacklogWindow(self.root, data, title, self.out_presets,
                       self.available_teams, self.log, self.levels,
-                      self.gui_display, warning, handlers)
+                      self.gui_display, warning, handlers, source=source,
+                      reload=reload)
 
     def report_versions(self) -> None:
         """Report version information into the log on a worker thread.

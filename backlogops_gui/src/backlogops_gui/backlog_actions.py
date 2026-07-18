@@ -39,7 +39,7 @@ def save_backlog(parent: tk.Misc, data: BacklogReleases,
                  presets: Optional[dict[str, OutputFormatConfig]],
                  levels: Optional[Levels], sink: TextIO,
                  on_error: Callable[[str, str], None],
-                 on_info: Callable[[str, str], None]) -> None:
+                 on_info: Callable[[str, str], None]) -> Optional[str]:
     """Ask where and how to save a backlog and write it.
 
     Args:
@@ -51,21 +51,25 @@ def save_backlog(parent: tk.Misc, data: BacklogReleases,
         sink: Stream that receives low-level write diagnostics.
         on_error: Callback used to report a write failure.
         on_info: Callback used to report a successful write.
+
+    Returns:
+        The path written, or None when the save was cancelled or failed.
     """
     path = choose_output_file(parent)
     if path is None:
-        return
+        return None
     names = sorted(presets) if presets else None
     options = ask_write_options(parent, names)
     if options is None:
-        return
+        return None
     try:
         write_backlog(data, path, options.config_value, presets,
                       options.releases_first, sink, levels)
     except WRITE_ERRORS as error:
         on_error('Could not write file', str(error))
-        return
+        return None
     on_info('Wrote file', f'Wrote {path}')
+    return path
 
 
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments

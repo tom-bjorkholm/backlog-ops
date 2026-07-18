@@ -10,6 +10,7 @@ import pytest
 from backlogops import BacklogOpsConfig, BacklogReleases
 from backlogops_gui import jira_read
 from backlogops_gui.application import BacklogApp
+from backlogops_gui.backlog_window import BacklogSource
 from backlogops_gui.jira_dialogs import JiraReadOptions
 from .jira_test_helpers import (
     ImmediateThread, config, make_app, make_immediate, record_calls)
@@ -32,13 +33,39 @@ ASK_PASS = 'backlogops_gui.jira_base.ask_jira_passphrase'
 THREAD = 'backlogops_gui.jira_base.threading.Thread'
 
 
-def _opener(store: list[object]
-            ) -> Callable[[BacklogReleases, str, Optional[str]], None]:
+def _opener(store: list[object]) -> Callable[..., None]:
     """Return a callback recording an opened backlog including warning."""
     def recorder(backlog: BacklogReleases, title: str,
-                 warning: Optional[str] = None) -> None:
+                 warning: Optional[str] = None, **_k: object) -> None:
         store.append((backlog, title, warning))
     return recorder
+
+
+def _cap_opener(store: list[tuple[object, ...]]) -> Callable[..., None]:
+    """Return an open_backlog stub recording title, source and reload."""
+    def recorder(backlog: BacklogReleases, title: str,
+                 warning: Optional[str] = None, *, source: object = None,
+                 reload: object = None) -> None:
+        store.append((backlog, title, warning, source, reload))
+    return recorder
+
+
+def _applier(store: list[object]
+             ) -> Callable[[BacklogReleases, Optional[str]], None]:
+    """Return an apply callback recording the reloaded data and warning."""
+    def apply(data: BacklogReleases, warning: Optional[str]) -> None:
+        store.append((data, warning))
+    return apply
+
+
+def _read_rec(store: list[object]) -> Callable[..., BacklogReleases]:
+    """Return a Jira reader recording the preset and filter it reads."""
+    def read(_config_obj: object, name: str, *, filter_override: Optional[str],
+             stderr_file: TextIO) -> BacklogReleases:
+        assert stderr_file is not None
+        store.append((name, filter_override))
+        return DATA
+    return read
 
 
 # pylint: disable-next=too-few-public-methods
@@ -254,3 +281,41 @@ def test_read_jira_warning(monkeypatch: pytest.MonkeyPatch) -> None:
     app.jira.reader.read_backlog()
     assert opened == [(bad_data, 'Jira: scrum', jira_read.JIRA_WARNING)]
     assert 'bad jira reference' in app.log.text()
+
+
+def test_jira_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a Jira read records a Jira source with preset and filter."""
+    app = make_app(config())
+    monkeypatch.setattr(ASK_READ, _jira_opts)
+    monkeypatch.setattr(READ_JIRA, _read_data)
+    monkeypatch.setattr(THREAD, make_immediate)
+    monkeypatch.setattr(app, 'show_info', _none)
+    opened: list[tuple[object, ...]] = []
+    monkeypatch.setattr(app, 'open_backlog', _cap_opener(opened))
+    app.jira.reader.read_backlog()
+    source = opened[0][3]
+    assert isinstance(source, BacklogSource)
+    assert source.kind == 'jira'
+    assert source.preset_name == 'scrum'
+    assert source.issue_filter == 'project = SCRUM ORDER BY rank ASC'
+    assert opened[0][4] is not None
+
+
+def test_jira_reload(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the Jira reload re-reads the same preset and filter in place."""
+    app = make_app(config())
+    monkeypatch.setattr(ASK_READ, _jira_opts)
+    reads: list[object] = []
+    monkeypatch.setattr(READ_JIRA, _read_rec(reads))
+    monkeypatch.setattr(THREAD, make_immediate)
+    monkeypatch.setattr(app, 'show_info', _none)
+    opened: list[tuple[object, ...]] = []
+    monkeypatch.setattr(app, 'open_backlog', _cap_opener(opened))
+    app.jira.reader.read_backlog()
+    reload = opened[0][4]
+    assert callable(reload)
+    applied: list[object] = []
+    reload(_applier(applied))
+    filter_text = 'project = SCRUM ORDER BY rank ASC'
+    assert reads == [('scrum', filter_text), ('scrum', filter_text)]
+    assert applied == [(DATA, None)]
