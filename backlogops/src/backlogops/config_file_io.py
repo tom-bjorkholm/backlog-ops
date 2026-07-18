@@ -10,10 +10,13 @@ contents. :func:`safe_write_config` writes any configuration so that a
 crash or a kill at any moment leaves the whole configuration in either the
 old file or a sibling ``.in_progress`` file, never lost between the two.
 
-The detection uses ``config_as_json.config_factory_from_json``, which
-terminates the process with ``SystemExit`` when the file is missing, is not
-valid JSON, or matches no known direction. That suits the command line; a
-graphical caller should catch ``SystemExit`` and report it.
+The direction is chosen from the top-level keys of the file. A common
+mistake is to pick a complete backlog-ops configuration file where a
+stand-alone preset is expected; such a file carries its own identifying
+keys and :func:`read_io_preset` rejects it with a clear ``ValueError``
+instead of silently reading an empty preset. A missing file, invalid JSON,
+or a file that is neither a preset nor a complete configuration is
+rejected the same way, so both interfaces can report the mistake.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -22,9 +25,9 @@ graphical caller should catch ``SystemExit`` and report it.
 import json
 import os
 import sys
+from pathlib import Path
 from typing import TextIO
-from config_as_json import Config, ConfigAutoChangeHook, MatchConfig, \
-    config_factory_from_json
+from config_as_json import Config, ConfigAutoChangeHook
 from backlogops.io_config import InputFormatConfig, OutputFormatConfig
 
 IN_PROGRESS_SUFFIX = '.in_progress'
@@ -38,19 +41,50 @@ _OUTPUT_KEYS = ('backlog_to_external', 'release_to_external',
                 'level_display', 'to_external')
 """Top-level keys that mark a stand-alone output preset file (new or old)."""
 
+_COMPLETE_KEYS = ('input_configs', 'output_configs', 'available_teams',
+                  'jira', 'gui_display', 'persons', 'teams',
+                  'company_work_hours')
+"""Top-level keys that mark a complete backlog-ops config (new or old)."""
 
-# pylint: disable-next=too-few-public-methods
-class _DirectionMatcher:
-    """Match a preset file by the presence of any of its direction keys."""
 
-    def __init__(self, keys: tuple[str, ...]) -> None:
-        """Store the identifying top-level keys of one preset direction."""
-        self._keys = keys
+def _load_preset_json(filename: str) -> dict[str, object]:
+    """Return the JSON object stored in a preset file.
 
-    def __call__(self, json_text: str, _stderr: TextIO) -> bool:
-        """Return True when the JSON object holds any identifying key."""
-        data = json.loads(json_text)
-        return isinstance(data, dict) and any(k in data for k in self._keys)
+    Raises:
+        ValueError: The file is missing or unreadable, does not hold valid
+            JSON, or its top level is not a JSON object.
+    """
+    path = Path(filename)
+    if not path.is_file():
+        raise ValueError(f'Preset file not found: {filename}')
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as error:
+        raise ValueError(f'Cannot read preset file {filename}: '
+                         f'{error}') from error
+    if not isinstance(data, dict):
+        raise ValueError(f'{filename} does not hold a configuration object.')
+    return data
+
+
+def _preset_direction(data: dict[str, object], filename: str) -> str:
+    """Return ``'input'`` or ``'output'`` for a stand-alone preset file.
+
+    Raises:
+        ValueError: The file is a complete backlog-ops configuration, or is
+            neither an input nor an output preset.
+    """
+    if any(key in data for key in _COMPLETE_KEYS):
+        raise ValueError(
+            f'{filename} is a complete backlog-ops configuration file, not '
+            'a stand-alone input or output preset. Edit it with the '
+            'configuration wizard, or choose a stand-alone preset file.')
+    if any(key in data for key in _INPUT_KEYS):
+        return 'input'
+    if any(key in data for key in _OUTPUT_KEYS):
+        return 'output'
+    raise ValueError(f'{filename} is not a recognised input preset, output '
+                     'preset, or backlog-ops configuration file.')
 
 
 def read_io_preset(filename: str, auto_ch_hook: ConfigAutoChangeHook,
@@ -58,10 +92,12 @@ def read_io_preset(filename: str, auto_ch_hook: ConfigAutoChangeHook,
                    ) -> InputFormatConfig | OutputFormatConfig:
     """Read a stand-alone preset file, auto-detecting its direction.
 
-    The direction is chosen by inspecting the file itself: the
-    file-column-to-internal maps or a status map mark an input preset,
+    The direction is chosen by inspecting the top-level keys of the file:
+    the file-column-to-internal maps or a status map mark an input preset,
     while the internal-to-file maps or a level display mark an output
-    preset.
+    preset. A complete backlog-ops configuration file carries its own
+    identifying keys and is rejected, as is a file that matches no
+    direction, so the caller can report the mistake.
 
     Args:
         filename: The stand-alone preset file to read.
@@ -73,17 +109,14 @@ def read_io_preset(filename: str, auto_ch_hook: ConfigAutoChangeHook,
         The input or output preset read from the file.
 
     Raises:
-        SystemExit: The file is missing, is not valid JSON, or matches
-            neither an input nor an output preset.
+        ValueError: The file is missing, is not valid JSON, is a complete
+            backlog-ops configuration, or matches neither direction.
     """
-    matchers = [
-        MatchConfig(_DirectionMatcher(_INPUT_KEYS), InputFormatConfig),
-        MatchConfig(_DirectionMatcher(_OUTPUT_KEYS), OutputFormatConfig)]
-    config = config_factory_from_json(matchers, auto_ch_hook,
-                                      from_json_filename=filename,
-                                      stderr_file=stderr_file)
-    assert isinstance(config, (InputFormatConfig, OutputFormatConfig))
-    return config
+    direction = _preset_direction(_load_preset_json(filename), filename)
+    config_class = (InputFormatConfig if direction == 'input'
+                    else OutputFormatConfig)
+    return config_class(from_json_filename=filename, auto_ch_hook=auto_ch_hook,
+                        stderr_file=stderr_file)
 
 
 def safe_write_config(config: Config, output: str,

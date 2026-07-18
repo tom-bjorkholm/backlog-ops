@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Optional, TypeVar
 import pytest
 from backlogops import (
-    InputFormatConfig, LevelDisplay, NoTextIO, OutputFormatConfig)
+    BacklogOpsConfig, InputFormatConfig, LevelDisplay, NoTextIO,
+    OutputFormatConfig)
 from backlogops_cli.list import command_modules
 from backlogops_cli import preset_wizard
 
@@ -189,10 +190,31 @@ def test_missing_input(tmp_path: Path) -> None:
     assert not out.exists()
 
 
-def test_not_preset(tmp_path: Path) -> None:
-    """Test a file that is neither an input nor output preset is rejected."""
+def test_not_preset(tmp_path: Path,
+                    capsys: pytest.CaptureFixture[str]) -> None:
+    """Test a file that is neither preset is reported and returns 1."""
     bad = tmp_path / 'bad.cfg'
     bad.write_text('{"foo": 1}', encoding='utf-8')
-    with pytest.raises(SystemExit):
-        preset_wizard.main(['-i', str(bad), '-o', str(tmp_path / 'out'),
-                            '--no-textual'])
+    out = tmp_path / 'out.cfg'
+    assert preset_wizard.main(['-i', str(bad), '-o', str(out),
+                               '--no-textual']) == 1
+    assert not out.exists()
+    assert 'not a recognised' in capsys.readouterr().err
+
+
+def test_prefill_complete(tmp_path: Path,
+                          capsys: pytest.CaptureFixture[str]) -> None:
+    """Test basing a preset on a complete config file is reported.
+
+    Pointing ``-i`` at a whole backlog-ops configuration file where a
+    stand-alone preset is expected must fail cleanly with a clear message,
+    write no output, and never silently start an empty wizard.
+    """
+    source = tmp_path / 'full.cfg'
+    config = BacklogOpsConfig(stderr_file=NoTextIO())
+    config.write(to_json_filename=source, stderr_file=NoTextIO())
+    out = tmp_path / 'out.cfg'
+    assert preset_wizard.main(['-i', str(source), '-o', str(out),
+                               '--no-textual']) == 1
+    assert not out.exists()
+    assert 'complete backlog-ops' in capsys.readouterr().err

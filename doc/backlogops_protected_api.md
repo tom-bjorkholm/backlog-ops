@@ -16,9 +16,9 @@
   * [IN\_PROGRESS\_SUFFIX](#backlogops.config_file_io.IN_PROGRESS_SUFFIX)
   * [\_INPUT\_KEYS](#backlogops.config_file_io._INPUT_KEYS)
   * [\_OUTPUT\_KEYS](#backlogops.config_file_io._OUTPUT_KEYS)
-  * [\_DirectionMatcher](#backlogops.config_file_io._DirectionMatcher)
-    * [\_\_init\_\_](#backlogops.config_file_io._DirectionMatcher.__init__)
-    * [\_\_call\_\_](#backlogops.config_file_io._DirectionMatcher.__call__)
+  * [\_COMPLETE\_KEYS](#backlogops.config_file_io._COMPLETE_KEYS)
+  * [\_load\_preset\_json](#backlogops.config_file_io._load_preset_json)
+  * [\_preset\_direction](#backlogops.config_file_io._preset_direction)
   * [read\_io\_preset](#backlogops.config_file_io.read_io_preset)
   * [safe\_write\_config](#backlogops.config_file_io.safe_write_config)
 * [backlogops.apply\_format\_rules](#backlogops.apply_format_rules)
@@ -1237,10 +1237,13 @@ contents. :func:`safe_write_config` writes any configuration so that a
 crash or a kill at any moment leaves the whole configuration in either the
 old file or a sibling ``.in_progress`` file, never lost between the two.
 
-The detection uses ``config_as_json.config_factory_from_json``, which
-terminates the process with ``SystemExit`` when the file is missing, is not
-valid JSON, or matches no known direction. That suits the command line; a
-graphical caller should catch ``SystemExit`` and report it.
+The direction is chosen from the top-level keys of the file. A common
+mistake is to pick a complete backlog-ops configuration file where a
+stand-alone preset is expected; such a file carries its own identifying
+keys and :func:`read_io_preset` rejects it with a clear ``ValueError``
+instead of silently reading an empty preset. A missing file, invalid JSON,
+or a file that is neither a preset nor a complete configuration is
+rejected the same way, so both interfaces can report the mistake.
 
 <a id="backlogops.config_file_io.IN_PROGRESS_SUFFIX"></a>
 
@@ -1260,35 +1263,41 @@ Top-level keys that mark a stand-alone input preset file (new or old).
 
 Top-level keys that mark a stand-alone output preset file (new or old).
 
-<a id="backlogops.config_file_io._DirectionMatcher"></a>
+<a id="backlogops.config_file_io._COMPLETE_KEYS"></a>
 
-## \_DirectionMatcher Objects
+#### \_COMPLETE\_KEYS
 
-```python
-class _DirectionMatcher()
-```
+Top-level keys that mark a complete backlog-ops config (new or old).
 
-Match a preset file by the presence of any of its direction keys.
+<a id="backlogops.config_file_io._load_preset_json"></a>
 
-<a id="backlogops.config_file_io._DirectionMatcher.__init__"></a>
-
-#### \_\_init\_\_
+#### \_load\_preset\_json
 
 ```python
-def __init__(keys: tuple[str, ...]) -> None
+def _load_preset_json(filename: str) -> dict[str, object]
 ```
 
-Store the identifying top-level keys of one preset direction.
+Return the JSON object stored in a preset file.
 
-<a id="backlogops.config_file_io._DirectionMatcher.__call__"></a>
+**Raises**:
 
-#### \_\_call\_\_
+- `ValueError` - The file is missing or unreadable, does not hold valid
+  JSON, or its top level is not a JSON object.
+
+<a id="backlogops.config_file_io._preset_direction"></a>
+
+#### \_preset\_direction
 
 ```python
-def __call__(json_text: str, _stderr: TextIO) -> bool
+def _preset_direction(data: dict[str, object], filename: str) -> str
 ```
 
-Return True when the JSON object holds any identifying key.
+Return ``'input'`` or ``'output'`` for a stand-alone preset file.
+
+**Raises**:
+
+- `ValueError` - The file is a complete backlog-ops configuration, or is
+  neither an input nor an output preset.
 
 <a id="backlogops.config_file_io.read_io_preset"></a>
 
@@ -1304,10 +1313,12 @@ def read_io_preset(
 
 Read a stand-alone preset file, auto-detecting its direction.
 
-The direction is chosen by inspecting the file itself: the
-file-column-to-internal maps or a status map mark an input preset,
+The direction is chosen by inspecting the top-level keys of the file:
+the file-column-to-internal maps or a status map mark an input preset,
 while the internal-to-file maps or a level display mark an output
-preset.
+preset. A complete backlog-ops configuration file carries its own
+identifying keys and is rejected, as is a file that matches no
+direction, so the caller can report the mistake.
 
 **Arguments**:
 
@@ -1324,8 +1335,8 @@ preset.
 
 **Raises**:
 
-- `SystemExit` - The file is missing, is not valid JSON, or matches
-  neither an input nor an output preset.
+- `ValueError` - The file is missing, is not valid JSON, is a complete
+  backlog-ops configuration, or matches neither direction.
 
 <a id="backlogops.config_file_io.safe_write_config"></a>
 

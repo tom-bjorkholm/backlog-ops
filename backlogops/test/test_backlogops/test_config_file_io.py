@@ -2,8 +2,9 @@
 """Tests for reading a preset file and crash-safe configuration writing.
 
 :func:`read_io_preset` reads a stand-alone preset file and detects its
-direction from the file contents, terminating with ``SystemExit`` when the
-file is missing or is not a preset. :func:`safe_write_config` writes a
+direction from the file contents, raising ``ValueError`` when the file is
+missing, is not valid JSON, is a complete backlog-ops configuration, or is
+neither an input nor an output preset. :func:`safe_write_config` writes a
 configuration through a ``.in_progress`` sibling and an atomic move, so a
 crash before the move leaves the old file intact and the new configuration
 in the sibling.
@@ -18,8 +19,8 @@ from typing import Optional
 import pytest
 from config_as_json import ConfigAutoChangeHook
 from backlogops import (
-    InputFormatConfig, LevelDisplay, NoTextIO, OutputFormatConfig,
-    read_io_preset, safe_write_config)
+    BacklogOpsConfig, InputFormatConfig, LevelDisplay, NoTextIO,
+    OutputFormatConfig, read_io_preset, safe_write_config)
 
 
 def _write_input(path: Path) -> None:
@@ -59,18 +60,40 @@ def test_read_output_preset(tmp_path: Path) -> None:
     assert config.level_display == LevelDisplay.NUMERIC
 
 
-def test_read_missing_exits(tmp_path: Path) -> None:
-    """Test reading a missing preset file terminates with SystemExit."""
-    with pytest.raises(SystemExit):
+def test_read_missing(tmp_path: Path) -> None:
+    """Test reading a missing preset file raises a clear ValueError."""
+    with pytest.raises(ValueError, match='not found'):
         read_io_preset(str(tmp_path / 'nope.cfg'), _hook(), NoTextIO())
+
+
+def test_read_bad_json(tmp_path: Path) -> None:
+    """Test a file that is not valid JSON is rejected with ValueError."""
+    bad = tmp_path / 'bad.cfg'
+    bad.write_text('{not json', encoding='utf-8')
+    with pytest.raises(ValueError, match='Cannot read'):
+        read_io_preset(str(bad), _hook(), NoTextIO())
 
 
 def test_read_not_preset(tmp_path: Path) -> None:
     """Test a file that is neither input nor output preset is rejected."""
     bad = tmp_path / 'bad.cfg'
     bad.write_text('{"foo": 1}', encoding='utf-8')
-    with pytest.raises(SystemExit):
+    with pytest.raises(ValueError, match='not a recognised'):
         read_io_preset(str(bad), _hook(), NoTextIO())
+
+
+def test_read_complete_config(tmp_path: Path) -> None:
+    """Test a complete backlog-ops config file is rejected as not a preset.
+
+    Picking the whole configuration where a stand-alone preset is expected
+    is a common mistake; it must be reported clearly, not read as an empty
+    preset whose wizard then asks nothing.
+    """
+    source = tmp_path / 'full.cfg'
+    config = BacklogOpsConfig(stderr_file=NoTextIO())
+    config.write(to_json_filename=source, stderr_file=NoTextIO())
+    with pytest.raises(ValueError, match='complete backlog-ops'):
+        read_io_preset(str(source), _hook(), NoTextIO())
 
 
 def _map_of(path: Path) -> dict[str, Optional[str]]:

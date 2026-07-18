@@ -80,6 +80,11 @@ def _preset_exit(_path: object, _hook: object, captured: TextIO) -> object:
     raise SystemExit(1)
 
 
+def _preset_reject(_path: object, _hook: object, _captured: TextIO) -> object:
+    """Reject a complete-config file, as the preset reader now does."""
+    raise ValueError('full.cfg is a complete backlog-ops configuration file.')
+
+
 def _pick_teams(_parent: object) -> str:
     """Return a configuration file name without an extension."""
     return 'teams'
@@ -293,6 +298,28 @@ def test_preset_read_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     app.create_preset_file()
     assert not picked
     assert len(errors) == 1
+
+
+def test_preset_read_reject(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a complete-config pre-fill is reported and writes nothing.
+
+    Basing the preset wizard on a whole configuration file raises a
+    ``ValueError``; the GUI must show an error pop-up and never ask for an
+    output file or run the wizard.
+    """
+    monkeypatch.setattr(application, 'ask_source_choice',
+                        _source(SourceChoice.FROM_FILE))
+    monkeypatch.setattr(application, 'choose_existing_preset', _pick_teams)
+    monkeypatch.setattr(application, 'read_io_preset', _preset_reject)
+    picked: list[object] = []
+    monkeypatch.setattr(application, 'choose_config_file', picked.append)
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    app.create_preset_file()
+    assert not picked
+    assert len(errors) == 1
+    assert 'complete backlog-ops' in errors[0][1]
 
 
 def test_preset_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
