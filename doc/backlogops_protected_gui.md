@@ -411,6 +411,11 @@
   * [int\_answer](#backlogops_gui.wizard_form.int_answer)
   * [multi\_count\_error](#backlogops_gui.wizard_form.multi_count_error)
   * [\_Input](#backlogops_gui.wizard_form._Input)
+  * [HelpTooltip](#backlogops_gui.wizard_form.HelpTooltip)
+    * [\_\_init\_\_](#backlogops_gui.wizard_form.HelpTooltip.__init__)
+    * [show](#backlogops_gui.wizard_form.HelpTooltip.show)
+    * [hide](#backlogops_gui.wizard_form.HelpTooltip.hide)
+    * [\_geometry](#backlogops_gui.wizard_form.HelpTooltip._geometry)
   * [FormRow](#backlogops_gui.wizard_form.FormRow)
   * [\_text\_input](#backlogops_gui.wizard_form._text_input)
   * [\_int\_input](#backlogops_gui.wizard_form._int_input)
@@ -430,6 +435,7 @@
   * [\_multi\_error](#backlogops_gui.wizard_form._multi_error)
   * [\_set\_widget\_state](#backlogops_gui.wizard_form._set_widget_state)
   * [\_enable\_row](#backlogops_gui.wizard_form._enable_row)
+  * [\_row\_tooltip](#backlogops_gui.wizard_form._row_tooltip)
   * [FormEditor](#backlogops_gui.wizard_form.FormEditor)
     * [\_\_init\_\_](#backlogops_gui.wizard_form.FormEditor.__init__)
     * [\_apply\_initial](#backlogops_gui.wizard_form.FormEditor._apply_initial)
@@ -5258,6 +5264,63 @@ class _Input(NamedTuple)
 
 A built input: the widget to place, plus type-specific handles.
 
+<a id="backlogops_gui.wizard_form.HelpTooltip"></a>
+
+## HelpTooltip Objects
+
+```python
+class HelpTooltip()
+```
+
+A hover bubble showing a field's help text over its widgets.
+
+The bubble is a borderless top-level window shown when the pointer
+enters a bound widget and destroyed when it leaves, so help appears
+on hover as it does in the textual bridge. It uses neither a
+transient window, forced focus nor a grab, which can crash Tk in
+automated runs.
+
+<a id="backlogops_gui.wizard_form.HelpTooltip.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(text: str, anchor: tk.Widget,
+             widgets: Sequence[tk.Widget]) -> None
+```
+
+Bind hover show and hide on each widget for the help text.
+
+<a id="backlogops_gui.wizard_form.HelpTooltip.show"></a>
+
+#### show
+
+```python
+def show() -> None
+```
+
+Show the help bubble just below the anchor widget.
+
+<a id="backlogops_gui.wizard_form.HelpTooltip.hide"></a>
+
+#### hide
+
+```python
+def hide() -> None
+```
+
+Destroy the help bubble when one is shown.
+
+<a id="backlogops_gui.wizard_form.HelpTooltip._geometry"></a>
+
+#### \_geometry
+
+```python
+def _geometry() -> str
+```
+
+Return the position string placing the bubble under the anchor.
+
 <a id="backlogops_gui.wizard_form.FormRow"></a>
 
 ## FormRow Objects
@@ -5267,7 +5330,7 @@ A built input: the widget to place, plus type-specific handles.
 class FormRow()
 ```
 
-One built form row: its field, label and input handles.
+One built form row: its field, label, input and help tooltip.
 
 <a id="backlogops_gui.wizard_form._text_input"></a>
 
@@ -5456,6 +5519,17 @@ def _enable_row(row: FormRow, enabled: bool) -> None
 ```
 
 Enable or disable one form row, greying its label when disabled.
+
+<a id="backlogops_gui.wizard_form._row_tooltip"></a>
+
+#### \_row\_tooltip
+
+```python
+def _row_tooltip(field: AskField, label: tk.Label,
+                 widget: tk.Widget) -> Optional[HelpTooltip]
+```
+
+Return a hover tooltip for the field's help text, or None.
 
 <a id="backlogops_gui.wizard_form.FormEditor"></a>
 

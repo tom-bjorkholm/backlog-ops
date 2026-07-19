@@ -14,8 +14,9 @@ from tableio_cfg_json import AnswerFields, AnswerField, AskField, \
     AskChoiceField, AskMultiChoiceField, AnswerTextField, AnswerIntField, \
     AnswerPathField, AnswerYesNoField, AnswerChoiceField, \
     AnswerMultiChoiceField
-from backlogops_gui.wizard_form import FormEditor, int_answer, int_text, \
-    multi_count_error, out_of_range, range_error, text_answer, _INT_ERROR
+from backlogops_gui.wizard_form import FormEditor, HelpTooltip, int_answer, \
+    int_text, multi_count_error, out_of_range, range_error, text_answer, \
+    _INT_ERROR
 from .gui_test_helpers import gui_root
 
 
@@ -267,3 +268,40 @@ def test_form_disable_state() -> None:
         # pylint: disable-next=protected-access
         editor._apply_disabled(())
         assert str(row.widget.cget('state')) == 'normal'
+
+
+def test_form_tooltip_help() -> None:
+    """Test a field with help text gets a tooltip carrying that text."""
+    with gui_root() as root:
+        field = AskTextField('Name', 'Type your name')
+        editor, _ = _build(root, [field])
+        # pylint: disable-next=protected-access
+        row = editor._rows[0]
+        assert row.tooltip is not None
+        assert row.tooltip.text == 'Type your name'
+
+
+def test_form_no_tooltip() -> None:
+    """Test a field without help text gets no tooltip."""
+    with gui_root() as root:
+        field = AskTextField('Name', None)
+        editor, _ = _build(root, [field])
+        # pylint: disable-next=protected-access
+        assert editor._rows[0].tooltip is None
+
+
+def _bubbles(anchor: tk.Widget) -> list[tk.Toplevel]:
+    """Return the tooltip top-level windows parented to a widget."""
+    return [child for child in anchor.winfo_children()
+            if isinstance(child, tk.Toplevel)]
+
+
+def test_tooltip_show_hide() -> None:
+    """Test showing then hiding a tooltip creates and removes its bubble."""
+    with gui_root() as root:
+        anchor = tk.Label(root, text='x')
+        tip = HelpTooltip('help me', anchor, (anchor,))
+        tip.show()
+        assert len(_bubbles(anchor)) == 1
+        tip.hide()
+        assert not _bubbles(anchor)

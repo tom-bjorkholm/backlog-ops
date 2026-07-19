@@ -38,6 +38,8 @@ INT_WIDTH = 14
 CHOICE_WIDTH = 30
 _INT_ERROR = 'Please enter an integer.'
 _CHOICE_REQUIRED = 'Please choose a value.'
+TOOLTIP_BG = '#ffffe0'
+TOOLTIP_WRAP = 320
 
 
 def text_answer(text: str, nullable: bool,
@@ -114,15 +116,60 @@ class _Input(NamedTuple):
     path: Optional[PathRow]
 
 
+class HelpTooltip:
+    """A hover bubble showing a field's help text over its widgets.
+
+    The bubble is a borderless top-level window shown when the pointer
+    enters a bound widget and destroyed when it leaves, so help appears
+    on hover as it does in the textual bridge. It uses neither a
+    transient window, forced focus nor a grab, which can crash Tk in
+    automated runs.
+    """
+
+    def __init__(self, text: str, anchor: tk.Widget,
+                 widgets: Sequence[tk.Widget]) -> None:
+        """Bind hover show and hide on each widget for the help text."""
+        self.text = text
+        self._anchor = anchor
+        self._tip: Optional[tk.Toplevel] = None
+        for widget in widgets:
+            widget.bind('<Enter>', lambda _event: self.show(), add='+')
+            widget.bind('<Leave>', lambda _event: self.hide(), add='+')
+
+    def show(self) -> None:
+        """Show the help bubble just below the anchor widget."""
+        if self._tip is not None:
+            return
+        tip = tk.Toplevel(self._anchor)
+        tip.wm_overrideredirect(True)
+        tip.wm_geometry(self._geometry())
+        tk.Label(tip, text=self.text, background=TOOLTIP_BG, relief='solid',
+                 borderwidth=1, justify='left', wraplength=TOOLTIP_WRAP).pack()
+        self._tip = tip
+
+    def hide(self) -> None:
+        """Destroy the help bubble when one is shown."""
+        if self._tip is not None:
+            self._tip.destroy()
+            self._tip = None
+
+    def _geometry(self) -> str:
+        """Return the position string placing the bubble under the anchor."""
+        x = self._anchor.winfo_rootx()
+        y = self._anchor.winfo_rooty() + self._anchor.winfo_height() + 2
+        return f'+{x}+{y}'
+
+
 @dataclass(frozen=True)
 class FormRow:
-    """One built form row: its field, label and input handles."""
+    """One built form row: its field, label, input and help tooltip."""
 
     field: AskField
     label: tk.Label
     widget: tk.Widget
     var: Optional[tk.BooleanVar]
     path: Optional[PathRow]
+    tooltip: Optional[HelpTooltip] = None
 
 
 def _text_input(grid: tk.Misc, field: AskTextField,
@@ -290,6 +337,14 @@ def _enable_row(row: FormRow, enabled: bool) -> None:
     row.label.configure(fg='black' if enabled else 'grey')
 
 
+def _row_tooltip(field: AskField, label: tk.Label,
+                 widget: tk.Widget) -> Optional[HelpTooltip]:
+    """Return a hover tooltip for the field's help text, or None."""
+    if field.help_text is None:
+        return None
+    return HelpTooltip(field.help_text, label, (label, widget))
+
+
 class FormEditor:
     """A two-column grid that asks a whole wizard form on one screen."""
 
@@ -324,7 +379,9 @@ class FormEditor:
         label.grid(row=index, column=0, sticky='nw', padx=4, pady=3)
         built = _make_input(grid, field, partial(self._changed, index))
         built.widget.grid(row=index, column=1, sticky='w', padx=4, pady=3)
-        return FormRow(field, label, built.widget, built.var, built.path)
+        tooltip = _row_tooltip(field, label, built.widget)
+        return FormRow(field, label, built.widget, built.var, built.path,
+                       tooltip)
 
     def answers(self) -> list[AnswerField]:
         """Return the current answer of every row, in field order."""

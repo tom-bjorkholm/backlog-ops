@@ -362,7 +362,10 @@ _ISSUE_MAP_Q = ('Use a level-to-issue-type map when writing (otherwise the '
                 'level name is the issue type)?')
 """Form question offering a level-to-issue-type write map."""
 
-_FILTER_HELP = 'Leave blank to rank the default project by rank order.'
+_FILTER_EG = default_jira_filter('<project key>')
+"""Illustrative blank-filter default shown in the filter help text."""
+_FILTER_HELP = ('Leave blank to select the default project in rank '
+                f'order, i.e. {_FILTER_EG}.')
 """Help shown for the blank-defaulting issue filter field."""
 
 

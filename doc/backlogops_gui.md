@@ -197,6 +197,10 @@
   * [range\_error](#backlogops_gui.wizard_form.range_error)
   * [int\_answer](#backlogops_gui.wizard_form.int_answer)
   * [multi\_count\_error](#backlogops_gui.wizard_form.multi_count_error)
+  * [HelpTooltip](#backlogops_gui.wizard_form.HelpTooltip)
+    * [\_\_init\_\_](#backlogops_gui.wizard_form.HelpTooltip.__init__)
+    * [show](#backlogops_gui.wizard_form.HelpTooltip.show)
+    * [hide](#backlogops_gui.wizard_form.HelpTooltip.hide)
   * [FormRow](#backlogops_gui.wizard_form.FormRow)
   * [FormEditor](#backlogops_gui.wizard_form.FormEditor)
     * [\_\_init\_\_](#backlogops_gui.wizard_form.FormEditor.__init__)
@@ -2653,6 +2657,53 @@ def multi_count_error(min_select: int, max_select: Optional[int]) -> str
 
 Return the message shown when the selected count is not allowed.
 
+<a id="backlogops_gui.wizard_form.HelpTooltip"></a>
+
+## HelpTooltip Objects
+
+```python
+class HelpTooltip()
+```
+
+A hover bubble showing a field's help text over its widgets.
+
+The bubble is a borderless top-level window shown when the pointer
+enters a bound widget and destroyed when it leaves, so help appears
+on hover as it does in the textual bridge. It uses neither a
+transient window, forced focus nor a grab, which can crash Tk in
+automated runs.
+
+<a id="backlogops_gui.wizard_form.HelpTooltip.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(text: str, anchor: tk.Widget,
+             widgets: Sequence[tk.Widget]) -> None
+```
+
+Bind hover show and hide on each widget for the help text.
+
+<a id="backlogops_gui.wizard_form.HelpTooltip.show"></a>
+
+#### show
+
+```python
+def show() -> None
+```
+
+Show the help bubble just below the anchor widget.
+
+<a id="backlogops_gui.wizard_form.HelpTooltip.hide"></a>
+
+#### hide
+
+```python
+def hide() -> None
+```
+
+Destroy the help bubble when one is shown.
+
 <a id="backlogops_gui.wizard_form.FormRow"></a>
 
 ## FormRow Objects
@@ -2662,7 +2713,7 @@ Return the message shown when the selected count is not allowed.
 class FormRow()
 ```
 
-One built form row: its field, label and input handles.
+One built form row: its field, label, input and help tooltip.
 
 <a id="backlogops_gui.wizard_form.FormEditor"></a>
 

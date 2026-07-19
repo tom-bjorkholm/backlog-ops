@@ -614,6 +614,7 @@
   * [\_build\_preset\_list](#backlogops.jira_wizard._build_preset_list)
   * [\_WRITE\_MAP\_Q](#backlogops.jira_wizard._WRITE_MAP_Q)
   * [\_ISSUE\_MAP\_Q](#backlogops.jira_wizard._ISSUE_MAP_Q)
+  * [\_FILTER\_EG](#backlogops.jira_wizard._FILTER_EG)
   * [\_FILTER\_HELP](#backlogops.jira_wizard._FILTER_HELP)
   * [\_issue\_type\_field](#backlogops.jira_wizard._issue_type_field)
   * [\_preset\_fields](#backlogops.jira_wizard._preset_fields)
@@ -10575,6 +10576,12 @@ Form question offering a separate backlog write map.
 #### \_ISSUE\_MAP\_Q
 
 Form question offering a level-to-issue-type write map.
+
+<a id="backlogops.jira_wizard._FILTER_EG"></a>
+
+#### \_FILTER\_EG
+
+Illustrative blank-filter default shown in the filter help text.
 
 <a id="backlogops.jira_wizard._FILTER_HELP"></a>
 
