@@ -3522,8 +3522,8 @@ Fields:
                          team members when velocity was measured. Used
                          to rescale the velocity when the team capacity
                          changes. Must be positive.
-    sprint_length: The length of the sprint in working days. Must be
-                   positive.
+    sprint_length: The length of the sprint counted in working days,
+                   not calendar days. Must be positive.
     aliases: The aliases for the team. A backlog might refer to the
              team using the team name or an alias. Compared
              case-insensitively. Each alias must be unique and not

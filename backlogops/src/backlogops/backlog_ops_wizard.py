@@ -317,7 +317,8 @@ def _build_teams(nav: _Navigator, person_names: list[str],
 def _team_fields(member_count: int) -> list[FormField]:
     """Return the velocity, capacity and sprint fields of a team form.
 
-    The full-time-equivalent sum defaults to the number of members, the
+    The sprint length is asked as a count of working days. The
+    full-time-equivalent sum defaults to the number of members, the
     common case where every member works full time.
     """
     return [
@@ -342,7 +343,8 @@ def _ask_team(nav: _Navigator, person_names: list[str],
     """Ask for one team and its memberships.
 
     The team members are asked first, then the velocity, the matching
-    full-time-equivalent sum and the sprint length together on one form.
+    full-time-equivalent sum and the sprint length (in working days)
+    together on one form.
     """
     name = nav.ask_text('Team name', seed=seed.name if seed else None)
     members = nav.level(

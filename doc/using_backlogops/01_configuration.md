@@ -61,7 +61,8 @@ are:
 
 This is what date estimation needs. A team has a **velocity** measured
 against a reference workforce size (`sum_fte_at_velocity`) and a
-`sprint_length`; each member is a person with a full-time-equivalent (`fte`).
+`sprint_length` **counted in working days, not calendar days**; each
+member is a person with a full-time-equivalent (`fte`).
 Persons and members can carry **exceptions** — vacations, parental leave, a
 month at half time — and the company calendar carries holidays.
 
@@ -85,7 +86,7 @@ month at half time — and the company calendar carries holidays.
     },
     "teams": [
         {"name": "Phoenix", "velocity": 30.0, "sum_fte_at_velocity": 2.0,
-         "sprint_length": 14, "aliases": [],
+         "sprint_length": 10, "aliases": [],
          "members": [
              {"person_name": "Ada", "fte": 1.0, "start_date": "2026-01-01",
               "fte_exceptions": [
@@ -96,10 +97,12 @@ month at half time — and the company calendar carries holidays.
 }
 ```
 
-Read this as: *Team Phoenix delivers 30 story points per 14-day sprint when
-it has 2 full-time people. Ada is full time from January (but half time in
-February for training) and takes July 1–20 off; Bo is half time.* From this
-plus the backlog, estimation can compute when each item will be ready.
+Read this as: *Team Phoenix delivers 30 story points per two-week sprint of
+10 working days (Monday–Friday) when it has 2 full-time people. Ada is full
+time from January (but half time in February for training) and takes July
+1–20 off; Bo is half time.* The sprint length is counted in **working days**,
+not calendar days. From this plus the backlog, estimation can compute when
+each item will be ready.
 
 ### Levels
 
@@ -368,10 +371,10 @@ You rarely write these files by hand. Three tools build and maintain them.
 
 Builds a complete backlog-ops file interactively: the workforce, the company
 calendar, named presets, levels and the status map. Related questions are
-grouped onto single forms — a team's velocity and sprint length, a work-hour
-exception's dates and hours, a team membership, and each Jira connection and
-preset — so in the GUI or textual interface you see them together and can
-fill them in any order before moving on.
+grouped onto single forms — a team's velocity and sprint length (in working
+days), a work-hour exception's dates and hours, a team membership, and each
+Jira connection and preset — so in the GUI or textual interface you see them
+together and can fill them in any order before moving on.
 
 - **CLI:** `python3 -m backlogops_cli.config_wizard` — add `-i old.cfg` to
   start from an existing file (see [Starting from an existing

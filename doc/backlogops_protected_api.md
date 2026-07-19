@@ -5937,8 +5937,8 @@ Fields:
                          team members when velocity was measured. Used
                          to rescale the velocity when the team capacity
                          changes. Must be positive.
-    sprint_length: The length of the sprint in working days. Must be
-                   positive.
+    sprint_length: The length of the sprint counted in working days,
+                   not calendar days. Must be positive.
     aliases: The aliases for the team. A backlog might refer to the
              team using the team name or an alias. Compared
              case-insensitively. Each alias must be unique and not
@@ -13725,7 +13725,8 @@ def _team_fields(member_count: int) -> list[FormField]
 
 Return the velocity, capacity and sprint fields of a team form.
 
-The full-time-equivalent sum defaults to the number of members, the
+The sprint length is asked as a count of working days. The
+full-time-equivalent sum defaults to the number of members, the
 common case where every member works full time.
 
 <a id="backlogops.backlog_ops_wizard._team_seed"></a>
@@ -13751,7 +13752,8 @@ def _ask_team(nav: _Navigator,
 Ask for one team and its memberships.
 
 The team members are asked first, then the velocity, the matching
-full-time-equivalent sum and the sprint length together on one form.
+full-time-equivalent sum and the sprint length (in working days)
+together on one form.
 
 <a id="backlogops.backlog_ops_wizard._build_aliases"></a>
 
@@ -15438,9 +15440,11 @@ def points_on(team: Team, day: date) -> float
 Return the story points the team completes on one day.
 
 The team velocity is the story points done in one sprint at the
-recorded summed full-time equivalent. It is rescaled by the
-team's effective full-time equivalent on the day and spread over
-the working days of a sprint.
+recorded summed full-time equivalent. Because sprint_length is a
+count of working days (not calendar days) and a non-working day
+contributes no capacity, dividing the velocity by sprint_length
+gives the story points per working day. That daily rate is
+rescaled by the team's effective full-time equivalent on the day.
 
 <a id="backlogops.estimate_ready_date._Workforce.advance"></a>
 

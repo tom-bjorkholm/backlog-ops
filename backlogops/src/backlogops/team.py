@@ -138,8 +138,8 @@ class Team:
                              team members when velocity was measured. Used
                              to rescale the velocity when the team capacity
                              changes. Must be positive.
-        sprint_length: The length of the sprint in working days. Must be
-                       positive.
+        sprint_length: The length of the sprint counted in working days,
+                       not calendar days. Must be positive.
         aliases: The aliases for the team. A backlog might refer to the
                  team using the team name or an alias. Compared
                  case-insensitively. Each alias must be unique and not
@@ -167,7 +167,8 @@ class Team:
                              'must be positive', stderr_file, 'Team')
         if self.sprint_length <= 0:
             report_bad_value('sprint_length', self.sprint_length,
-                             'must be positive', stderr_file, 'Team')
+                             'must be a positive number of working days',
+                             stderr_file, 'Team')
 
     def check_consistency(self, stderr_file: TextIO = sys.stderr) -> None:
         """Check the consistency of the team.

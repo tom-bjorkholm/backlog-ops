@@ -138,9 +138,11 @@ class _Workforce:
         """Return the story points the team completes on one day.
 
         The team velocity is the story points done in one sprint at the
-        recorded summed full-time equivalent. It is rescaled by the
-        team's effective full-time equivalent on the day and spread over
-        the working days of a sprint.
+        recorded summed full-time equivalent. Because sprint_length is a
+        count of working days (not calendar days) and a non-working day
+        contributes no capacity, dividing the velocity by sprint_length
+        gives the story points per working day. That daily rate is
+        rescaled by the team's effective full-time equivalent on the day.
         """
         if team.sprint_length <= 0 or team.sum_fte_at_velocity <= 0.0:
             return 0.0
