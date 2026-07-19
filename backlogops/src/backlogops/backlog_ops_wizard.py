@@ -34,7 +34,8 @@ from backlogops.work_hours import CompanyWorkHours, ExceptionWorkHours
 from backlogops.wizard_helpers import _backlog_map_fields
 from backlogops.wizard_navigator import _Navigator, _ask_level_display
 from backlogops.wizard_forms import FormField, FormResult, choice_field, \
-    date_field, int_field, number_field, opt_date_field, yes_no_field
+    date_field, int_field, number_field, opt_date_field, text_field, \
+    unique_name_field, yes_no_field
 from backlogops.io_preset_wizard import _build_input_presets, \
     _build_output_presets
 from backlogops.jira_wizard import _build_jira_config
@@ -219,24 +220,18 @@ def _levels_or_none(levels: list[Level]) -> Optional[list[Level]]:
 
 def _build_company(nav: _Navigator,
                    default: Optional[AvailableTeams]) -> CompanyWorkHours:
-    """Ask for the company weekly schedule and exception periods."""
+    """Ask for the company weekly schedule and holiday periods.
+
+    The weekly schedule is one table and the holiday, closure and
+    special-work periods are a second table, so the whole company work
+    schedule is two screens.
+    """
     company = default.company_work_hours if default else None
     work_hours = nav.ask_schedule(seed=company.work_hours if company else None)
-    question = 'Number of company holiday, closure or special-work periods'
-    exceptions = nav.level(lambda: _build_exceptions(
-        nav, question, company.exceptions if company else None))
+    exceptions = nav.ask_exceptions(
+        'Company holiday, closure and special-work periods.',
+        seed=company.exceptions if company else None)
     return CompanyWorkHours(work_hours=work_hours, exceptions=exceptions)
-
-
-def _build_exceptions(nav: _Navigator, count_question: str,
-                      defaults: Optional[list[ExceptionWorkHours]]
-                      ) -> list[ExceptionWorkHours]:
-    """Ask for a counted list of work-hour exception periods."""
-    seq = defaults or []
-    count = nav.ask_count(count_question, seed=len(seq))
-    return [nav.level(partial(_ask_exception, nav,
-                              seq[k] if k < len(seq) else None))
-            for k in range(count)]
 
 
 def _exc_seed(exc: Optional[ExceptionWorkHours]) -> Optional[FormResult]:
@@ -293,15 +288,34 @@ def _build_persons(nav: _Navigator,
     return persons
 
 
+def _person_fields(taken: set[str]) -> list[FormField]:
+    """Return the name and exception-count fields of a person form."""
+    return [unique_name_field('name', 'Person name', taken),
+            int_field('n_exc', 'Number of vacation or work-hour exceptions',
+                      default=0, minimum=0)]
+
+
+def _person_seed(seed: Optional[Person]) -> Optional[FormResult]:
+    """Return the person form values from a person."""
+    if seed is None:
+        return None
+    return FormResult({'name': seed.name, 'n_exc': len(seed.exceptions)})
+
+
 def _ask_person(nav: _Navigator, persons: dict[str, Person],
                 seed: Optional[Person] = None) -> Person:
-    """Ask for one person and the personal work-hour exceptions."""
-    name = nav.ask_person_name('Person name', persons,
-                               seed=seed.name if seed else None)
-    question = f'Number of vacation or work-hour exceptions for {name}'
-    exceptions = nav.level(lambda: _build_exceptions(
-        nav, question, seed.exceptions if seed else None))
-    return Person(name=name, exceptions=exceptions)
+    """Ask a person's name and exception count, then the exceptions.
+
+    The name and the number of personal work-hour exceptions are one
+    form; each exception period is then a separate form.
+    """
+    values = nav.ask_form('Configure the person.',
+                          _person_fields(set(persons)),
+                          seed=_person_seed(seed))
+    seq = seed.exceptions if seed else []
+    exceptions = nav.counted(values.whole('n_exc'), seq,
+                             partial(_ask_exception, nav))
+    return Person(name=values.text('name'), exceptions=exceptions)
 
 
 def _build_teams(nav: _Navigator, person_names: list[str],
@@ -314,83 +328,103 @@ def _build_teams(nav: _Navigator, person_names: list[str],
             for k in range(count)]
 
 
-def _team_fields(member_count: int) -> list[FormField]:
-    """Return the velocity, capacity and sprint fields of a team form.
+def _team_fields(person_names: list[str],
+                 seed: Optional[Team]) -> list[FormField]:
+    """Return the fields of the combined team form.
 
-    The sprint length is asked as a count of working days. The
-    full-time-equivalent sum defaults to the number of members, the
-    common case where every member works full time.
+    The team name, the number of members and aliases, the velocity and
+    the sprint length are asked together. The member count is capped at
+    the number of persons, since a person joins a team at most once. The
+    full-time-equivalent sum is asked later, after the members, so it can
+    default to the entered member count.
     """
+    max_members = len(person_names)
+    members = min(len(seed.members), max_members) if seed else 0
+    aliases = len(seed.aliases) if seed else 0
     return [
+        text_field('name', 'Team name'),
+        int_field('members', 'Number of team members', default=members,
+                  minimum=0, maximum=max_members),
+        int_field('aliases', 'Number of team aliases', default=aliases,
+                  minimum=0),
         number_field('velocity', 'Team velocity', default=0.0, minimum=0.0),
-        number_field('sum_fte', 'Sum of full-time equivalents at that '
-                     'velocity', default=float(member_count)),
         int_field('sprint', 'Sprint length in working days', default=10,
                   minimum=1)]
 
 
 def _team_seed(team: Optional[Team]) -> Optional[FormResult]:
-    """Return the team velocity and sprint form values from a team."""
+    """Return the combined team form values from a team."""
     if team is None:
         return None
-    return FormResult({'velocity': team.velocity,
-                       'sum_fte': team.sum_fte_at_velocity,
+    return FormResult({'name': team.name, 'members': len(team.members),
+                       'aliases': len(team.aliases),
+                       'velocity': team.velocity,
                        'sprint': team.sprint_length})
 
 
 def _ask_team(nav: _Navigator, person_names: list[str],
               seed: Optional[Team] = None) -> Team:
-    """Ask for one team and its memberships.
+    """Ask for one team on one form, then its members, sum-FTE and aliases.
 
-    The team members are asked first, then the velocity, the matching
-    full-time-equivalent sum and the sprint length (in working days)
-    together on one form.
+    The name, member and alias counts, velocity and sprint length are one
+    form. The members follow, then the full-time-equivalent sum (which
+    defaults to the number of members entered), then the aliases.
     """
-    name = nav.ask_text('Team name', seed=seed.name if seed else None)
-    members = nav.level(
-        lambda: _build_members(nav, person_names,
-                               seed.members if seed else None))
-    params = nav.ask_form('Configure the team velocity and sprint.',
-                          _team_fields(len(members)), seed=_team_seed(seed))
-    aliases = nav.level(
-        lambda: _build_aliases(nav, seed.aliases if seed else None))
-    return Team(name=name, velocity=params.number('velocity'),
-                sum_fte_at_velocity=params.number('sum_fte'),
-                sprint_length=params.whole('sprint'), aliases=aliases,
+    values = nav.ask_form('Configure the team.',
+                          _team_fields(person_names, seed),
+                          seed=_team_seed(seed))
+    members = _build_members(nav, person_names, values.whole('members'),
+                             seed.members if seed else [])
+    sum_fte = _ask_sum_fte(nav, values.number('velocity'), len(members),
+                           seed.sum_fte_at_velocity if seed else None)
+    aliases = _build_aliases(nav, values.whole('aliases'),
+                             seed.aliases if seed else [])
+    return Team(name=values.text('name'), velocity=values.number('velocity'),
+                sum_fte_at_velocity=sum_fte,
+                sprint_length=values.whole('sprint'), aliases=aliases,
                 members=members)
 
 
-def _build_aliases(nav: _Navigator,
-                   defaults: Optional[list[str]]) -> list[str]:
-    """Ask for a counted list of team aliases."""
-    seq = defaults or []
-    count = nav.ask_count('Number of team aliases', seed=len(seq))
-    return [nav.ask_text('Team alias', seed=seq[k] if k < len(seq) else None)
-            for k in range(count)]
+def _ask_sum_fte(nav: _Navigator, velocity: float, member_count: int,
+                 seed: Optional[float]) -> float:
+    """Ask the sum of full-time equivalents that matches the velocity.
+
+    It defaults to the number of members entered, the common case where
+    every member works full time, and its question names the velocity.
+    """
+    default = seed if seed is not None else float(member_count)
+    question = ('Sum of full-time equivalents in this team for the velocity '
+                f'of {velocity:g}')
+    values = nav.ask_form('Configure the team full-time-equivalent sum.',
+                          [number_field('sum_fte', question, default=default)],
+                          seed=FormResult({'sum_fte': default}))
+    return values.number('sum_fte')
 
 
-def _build_members(nav: _Navigator, person_names: list[str],
-                   defaults: Optional[list[Membership]]) -> list[Membership]:
-    """Ask for a counted list of team memberships of distinct persons.
+def _build_aliases(nav: _Navigator, count: int, seq: list[str]) -> list[str]:
+    """Collect ``count`` team aliases, pre-filled from the seed aliases."""
+    def build(seed: Optional[str]) -> str:
+        """Ask one team alias, pre-filled from a seed alias."""
+        return nav.ask_text('Team alias', seed=seed)
+    return nav.counted(count, seq, build)
+
+
+def _build_members(nav: _Navigator, person_names: list[str], count: int,
+                   seq: list[Membership]) -> list[Membership]:
+    """Collect ``count`` memberships of distinct persons, seeded when known.
 
     A person joins a team at most once, so each membership is chosen from
-    the persons not yet members of this team, and the count cannot exceed
-    the number of available persons.
+    the persons not yet members of this team; the count is capped at the
+    number of persons on the team form.
     """
-    if not person_names:
-        nav.show('No persons defined yet, so the team has no members.')
-        return []
-    seq = defaults or []
-    count = nav.ask_count('Number of team members', len(person_names),
-                          seed=len(seq))
     available = list(person_names)
-    members: list[Membership] = []
-    for k in range(count):
-        seed = seq[k] if k < len(seq) else None
-        membership = nav.level(partial(_ask_membership, nav, available, seed))
-        members.append(membership)
-        available.remove(membership.person_name)
-    return members
+
+    def build(seed: Optional[Membership]) -> Membership:
+        """Ask one membership from the remaining persons, then reserve it."""
+        member = _ask_membership(nav, available, seed)
+        available.remove(member.person_name)
+        return member
+    return nav.counted(count, seq, build)
 
 
 def _membership_fields(person_names: list[str]) -> list[FormField]:
@@ -400,7 +434,9 @@ def _membership_fields(person_names: list[str]) -> list[FormField]:
         number_field('fte', 'Full-time equivalent in this team', default=1.0,
                      minimum=0.0, maximum=1.0),
         opt_date_field('start', 'Membership start date'),
-        opt_date_field('end', 'Membership end date')]
+        opt_date_field('end', 'Membership end date'),
+        int_field('n_fte', 'Number of full-time-equivalent exceptions',
+                  default=0, minimum=0)]
 
 
 def _member_seed(member: Optional[Membership]) -> Optional[FormResult]:
@@ -408,34 +444,29 @@ def _member_seed(member: Optional[Membership]) -> Optional[FormResult]:
     if member is None:
         return None
     return FormResult({'person': member.person_name, 'fte': member.fte,
-                       'start': member.start_date, 'end': member.end_date})
+                       'start': member.start_date, 'end': member.end_date,
+                       'n_fte': len(member.fte_exceptions)})
 
 
 def _ask_membership(nav: _Navigator, person_names: list[str],
                     seed: Optional[Membership] = None) -> Membership:
-    """Ask for one team membership on a form, then its FTE exceptions."""
+    """Ask a membership and its FTE-exception count, then the exceptions.
+
+    The person, full-time equivalent, dates and the number of FTE
+    exceptions are one form; each FTE exception period is then a separate
+    form.
+    """
     values = nav.ask_form('Configure the team membership.',
                           _membership_fields(person_names), _period_rule,
                           seed=_member_seed(seed))
-    fte_exceptions = nav.level(lambda: _build_fte_exceptions(
-        nav, seed.fte_exceptions if seed else None))
+    seq = seed.fte_exceptions if seed else []
+    fte_exceptions = nav.counted(values.whole('n_fte'), seq,
+                                 partial(_ask_fte_exception, nav))
     return Membership(person_name=values.text('person'),
                       fte=values.number('fte'),
                       start_date=values.opt_day('start'),
                       end_date=values.opt_day('end'),
                       fte_exceptions=fte_exceptions)
-
-
-def _build_fte_exceptions(nav: _Navigator,
-                          defaults: Optional[list[FteException]]
-                          ) -> list[FteException]:
-    """Ask for a counted list of full-time-equivalent exception periods."""
-    seq = defaults or []
-    count = nav.ask_count('Number of full-time-equivalent exceptions',
-                          seed=len(seq))
-    return [nav.level(partial(_ask_fte_exception, nav,
-                              seq[k] if k < len(seq) else None))
-            for k in range(count)]
 
 
 def _fte_exception_fields() -> list[FormField]:

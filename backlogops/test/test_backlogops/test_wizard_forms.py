@@ -170,6 +170,32 @@ def test_int_field_bounds() -> None:
     assert (ask.default, ask.min_value, ask.max_value) == (10, 1, None)
 
 
+@pytest.mark.parametrize('name, taken, ok', [
+    ('Ada', set(), True), ('', set(), False), (None, set(), False),
+    ('ada', {'ada'}, False), ('Bo', {'ada'}, True)])
+def test_unique_name_field(name: Optional[str], taken: set[str],
+                           ok: bool) -> None:
+    """Test a unique-name field rejects an empty or already-used name."""
+    field = wf.unique_name_field('n', 'Name', taken)
+    assert (field.error(_text_answer(field, name)) is None) is ok
+
+
+@pytest.mark.parametrize('minimum, maximum, seed, expected', [
+    (0, 2, 5, 2), (0, 2, 1, 1), (3, 9, 1, 3), (3, 9, 5, 5)])
+def test_int_seed_clamped(minimum: int, maximum: int, seed: int,
+                          expected: int) -> None:
+    """Test a seeded integer default is clamped into the field's bounds.
+
+    A blank answer keeps the seeded default, so the kept value shows the
+    clamped default even when the seed is out of range.
+    """
+    field = wf.int_field('i', 'Count', default=minimum, minimum=minimum,
+                         maximum=maximum)
+    result = wf.run_form(_console(['']), 'Form', [field],
+                         seed=FormResult({'i': seed}))
+    assert result.whole('i') == expected
+
+
 @pytest.mark.parametrize('default, text', [(2.5, '2.5'), (3.0, '3'),
                                            (0.0, '0')])
 def test_number_default_text(default: float, text: str) -> None:

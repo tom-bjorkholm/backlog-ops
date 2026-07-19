@@ -32,7 +32,7 @@ from backlogops.wizard_helpers import (
     _parse_jira_map)
 from backlogops.wizard_navigator import _Navigator
 
-_PREFIX = [''] * 7 + ['0', '0', '0', '0', '0'] + ['', '', '', '', '']
+_PREFIX = [''] * 7 + ['', '0', '0', '0', '0'] + ['', '', '', '', '']
 """Default answers for the wizard stages that precede the Jira stage."""
 
 JIRA_FULL = (['1', 'main', 'cloud', 'https://x.atlassian.net', 'me@x.com',

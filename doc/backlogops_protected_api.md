@@ -157,12 +157,15 @@
     * [ask\_text](#backlogops.wizard_navigator._Navigator.ask_text)
     * [ask\_int](#backlogops.wizard_navigator._Navigator.ask_int)
     * [ask\_count](#backlogops.wizard_navigator._Navigator.ask_count)
+    * [counted](#backlogops.wizard_navigator._Navigator.counted)
+    * [\_collect](#backlogops.wizard_navigator._Navigator._collect)
+    * [\_build\_item](#backlogops.wizard_navigator._Navigator._build_item)
     * [ask\_choice](#backlogops.wizard_navigator._Navigator.ask_choice)
     * [ask\_form](#backlogops.wizard_navigator._Navigator.ask_form)
-    * [ask\_person\_name](#backlogops.wizard_navigator._Navigator.ask_person_name)
     * [ask\_preset\_name](#backlogops.wizard_navigator._Navigator.ask_preset_name)
     * [ask\_tableio](#backlogops.wizard_navigator._Navigator.ask_tableio)
     * [ask\_schedule](#backlogops.wizard_navigator._Navigator.ask_schedule)
+    * [ask\_exceptions](#backlogops.wizard_navigator._Navigator.ask_exceptions)
     * [ask\_levels](#backlogops.wizard_navigator._Navigator.ask_levels)
     * [ask\_renames](#backlogops.wizard_navigator._Navigator.ask_renames)
     * [ask\_status\_map](#backlogops.wizard_navigator._Navigator.ask_status_map)
@@ -170,7 +173,7 @@
     * [ask\_issue\_type\_map](#backlogops.wizard_navigator._Navigator.ask_issue_type_map)
     * [\_ask](#backlogops.wizard_navigator._Navigator._ask)
     * [\_next\_path](#backlogops.wizard_navigator._Navigator._next_path)
-    * [\_prune\_items](#backlogops.wizard_navigator._Navigator._prune_items)
+    * [\_forget\_beyond](#backlogops.wizard_navigator._Navigator._forget_beyond)
   * [\_ask\_level\_display](#backlogops.wizard_navigator._ask_level_display)
 * [backlogops.release\_change\_io](#backlogops.release_change_io)
   * [CONTENT\_HEADER](#backlogops.release_change_io.CONTENT_HEADER)
@@ -775,6 +778,7 @@
   * [\_seeded\_fields](#backlogops.wizard_forms._seeded_fields)
   * [\_seed\_field](#backlogops.wizard_forms._seed_field)
   * [\_reseed\_ask](#backlogops.wizard_forms._reseed_ask)
+  * [\_clamped\_int](#backlogops.wizard_forms._clamped_int)
   * [\_as\_text](#backlogops.wizard_forms._as_text)
   * [run\_form](#backlogops.wizard_forms.run_form)
   * [\_values\_of](#backlogops.wizard_forms._values_of)
@@ -792,6 +796,7 @@
   * [path\_field](#backlogops.wizard_forms.path_field)
   * [secret\_field](#backlogops.wizard_forms.secret_field)
   * [name\_field](#backlogops.wizard_forms.name_field)
+  * [unique\_name\_field](#backlogops.wizard_forms.unique_name_field)
   * [choice\_field](#backlogops.wizard_forms.choice_field)
   * [yes\_no\_field](#backlogops.wizard_forms.yes_no_field)
   * [int\_field](#backlogops.wizard_forms.int_field)
@@ -822,23 +827,24 @@
   * [\_build\_gui\_display](#backlogops.backlog_ops_wizard._build_gui_display)
   * [\_levels\_or\_none](#backlogops.backlog_ops_wizard._levels_or_none)
   * [\_build\_company](#backlogops.backlog_ops_wizard._build_company)
-  * [\_build\_exceptions](#backlogops.backlog_ops_wizard._build_exceptions)
   * [\_exc\_seed](#backlogops.backlog_ops_wizard._exc_seed)
   * [\_period\_rule](#backlogops.backlog_ops_wizard._period_rule)
   * [\_exception\_fields](#backlogops.backlog_ops_wizard._exception_fields)
   * [\_ask\_exception](#backlogops.backlog_ops_wizard._ask_exception)
   * [\_build\_persons](#backlogops.backlog_ops_wizard._build_persons)
+  * [\_person\_fields](#backlogops.backlog_ops_wizard._person_fields)
+  * [\_person\_seed](#backlogops.backlog_ops_wizard._person_seed)
   * [\_ask\_person](#backlogops.backlog_ops_wizard._ask_person)
   * [\_build\_teams](#backlogops.backlog_ops_wizard._build_teams)
   * [\_team\_fields](#backlogops.backlog_ops_wizard._team_fields)
   * [\_team\_seed](#backlogops.backlog_ops_wizard._team_seed)
   * [\_ask\_team](#backlogops.backlog_ops_wizard._ask_team)
+  * [\_ask\_sum\_fte](#backlogops.backlog_ops_wizard._ask_sum_fte)
   * [\_build\_aliases](#backlogops.backlog_ops_wizard._build_aliases)
   * [\_build\_members](#backlogops.backlog_ops_wizard._build_members)
   * [\_membership\_fields](#backlogops.backlog_ops_wizard._membership_fields)
   * [\_member\_seed](#backlogops.backlog_ops_wizard._member_seed)
   * [\_ask\_membership](#backlogops.backlog_ops_wizard._ask_membership)
-  * [\_build\_fte\_exceptions](#backlogops.backlog_ops_wizard._build_fte_exceptions)
   * [\_fte\_exception\_fields](#backlogops.backlog_ops_wizard._fte_exception_fields)
   * [\_fte\_seed](#backlogops.backlog_ops_wizard._fte_seed)
   * [\_ask\_fte\_exception](#backlogops.backlog_ops_wizard._ask_fte_exception)
@@ -883,13 +889,19 @@
 * [backlogops.wizard\_helpers](#backlogops.wizard_helpers)
   * [\_read\_text](#backlogops.wizard_helpers._read_text)
   * [\_read\_int](#backlogops.wizard_helpers._read_int)
-  * [\_read\_unique\_name](#backlogops.wizard_helpers._read_unique_name)
   * [\_read\_preset\_name](#backlogops.wizard_helpers._read_preset_name)
   * [\_read\_tableio](#backlogops.wizard_helpers._read_tableio)
   * [\_is\_nonneg](#backlogops.wizard_helpers._is_nonneg)
   * [\_sched\_check](#backlogops.wizard_helpers._sched_check)
   * [\_parse\_schedule](#backlogops.wizard_helpers._parse_schedule)
   * [\_read\_schedule](#backlogops.wizard_helpers._read_schedule)
+  * [\_MAX\_EXCEPTIONS](#backlogops.wizard_helpers._MAX_EXCEPTIONS)
+  * [\_EXC\_HINT](#backlogops.wizard_helpers._EXC_HINT)
+  * [\_parse\_yes\_no](#backlogops.wizard_helpers._parse_yes_no)
+  * [\_exc\_check](#backlogops.wizard_helpers._exc_check)
+  * [\_parse\_exceptions](#backlogops.wizard_helpers._parse_exceptions)
+  * [\_exc\_cells](#backlogops.wizard_helpers._exc_cells)
+  * [\_read\_exceptions](#backlogops.wizard_helpers._read_exceptions)
   * [\_MAX\_EXTRA\_COLUMNS](#backlogops.wizard_helpers._MAX_EXTRA_COLUMNS)
   * [\_RENAME\_INSTRUCTION](#backlogops.wizard_helpers._RENAME_INSTRUCTION)
   * [\_RENAME\_REASON](#backlogops.wizard_helpers._RENAME_REASON)
@@ -3711,6 +3723,51 @@ def ask_count(question: str,
 
 Ask how many items to collect, forgetting any surplus items.
 
+The items follow the count as siblings in the current level, so a
+lowered count forgets the remembered items past it.
+
+<a id="backlogops.wizard_navigator._Navigator.counted"></a>
+
+#### counted
+
+```python
+def counted(count: int, seeds: Sequence[_D], build: Callable[[Optional[_D]],
+                                                             _T]) -> list[_T]
+```
+
+Collect ``count`` items in a dedicated level, forgetting surplus.
+
+The items live in their own nesting level, so the count that drives
+them may be asked anywhere, such as on a shared form. Item ``k`` is
+built by ``build`` from ``seeds[k]`` when it exists and from None
+otherwise, so raising a count reuses the earlier items as seeds
+while extra items start blank. A cancel-level within an item
+re-asks that item, and a lowered count forgets the items past it so
+a later raise does not resurrect them.
+
+<a id="backlogops.wizard_navigator._Navigator._collect"></a>
+
+#### \_collect
+
+```python
+def _collect(count: int, seeds: Sequence[_D], build: Callable[[Optional[_D]],
+                                                              _T]) -> list[_T]
+```
+
+Forget the surplus items of this level, then collect ``count``.
+
+<a id="backlogops.wizard_navigator._Navigator._build_item"></a>
+
+#### \_build\_item
+
+```python
+@staticmethod
+def _build_item(seeds: Sequence[_D], build: Callable[[Optional[_D]], _T],
+                index: int) -> _T
+```
+
+Build one counted item, seeded from ``seeds`` when it reaches it.
+
 <a id="backlogops.wizard_navigator._Navigator.ask_choice"></a>
 
 #### ask\_choice
@@ -3739,19 +3796,6 @@ def ask_form(question: str,
 ```
 
 Ask a whole form on one screen, pre-filled from a seed result.
-
-<a id="backlogops.wizard_navigator._Navigator.ask_person_name"></a>
-
-#### ask\_person\_name
-
-```python
-def ask_person_name(question: str,
-                    persons: dict[str, Person],
-                    *,
-                    seed: Optional[str] = None) -> str
-```
-
-Ask for a person name that is not already used, pre-filled.
 
 <a id="backlogops.wizard_navigator._Navigator.ask_preset_name"></a>
 
@@ -3792,6 +3836,19 @@ def ask_schedule(*,
 ```
 
 Ask the weekly work-hours schedule as one table question.
+
+<a id="backlogops.wizard_navigator._Navigator.ask_exceptions"></a>
+
+#### ask\_exceptions
+
+```python
+def ask_exceptions(question: str,
+                   *,
+                   seed: Optional[list[ExceptionWorkHours]] = None
+                   ) -> list[ExceptionWorkHours]
+```
+
+Ask the work-hour exception periods as one variable-row table.
 
 <a id="backlogops.wizard_navigator._Navigator.ask_levels"></a>
 
@@ -3897,20 +3954,21 @@ def _next_path() -> tuple[int, ...]
 
 Return the position of the next question in the current level.
 
-<a id="backlogops.wizard_navigator._Navigator._prune_items"></a>
+<a id="backlogops.wizard_navigator._Navigator._forget_beyond"></a>
 
-#### \_prune\_items
+#### \_forget\_beyond
 
 ```python
-def _prune_items(scope: tuple[int, ...], child: int, count: int) -> None
+def _forget_beyond(scope: tuple[int, ...], limit: int) -> None
 ```
 
-Forget the remembered items after a count in its own level.
+Forget the remembered answers of items after ``limit`` in a level.
 
-A count is the first question of a dedicated level and its items
-follow it, so the items kept are the ones up to the count; a lower
-count drops the surplus while a higher count keeps what was
-entered.
+A path is dropped when it lies within ``scope`` and its own index
+in that level is beyond ``limit``, so a lowered count drops the
+surplus items while a higher count keeps what was entered. The
+limit is the last index to keep, whether the count precedes the
+items as a sibling or drives a dedicated sub-level.
 
 <a id="backlogops.wizard_navigator._ask_level_display"></a>
 
@@ -13050,6 +13108,20 @@ def _reseed_ask(ask: AskField, value: object) -> AskField
 
 Return a copy of an ask field with its default set from a value.
 
+<a id="backlogops.wizard_forms._clamped_int"></a>
+
+#### \_clamped\_int
+
+```python
+def _clamped_int(value: int, ask: AskIntField) -> int
+```
+
+Return an integer default clamped into the field's inclusive bounds.
+
+A remembered count seeded above a now-smaller maximum, such as a
+member count above the current number of persons, is offered at the
+maximum instead of failing the field's range check.
+
 <a id="backlogops.wizard_forms._as_text"></a>
 
 #### \_as\_text
@@ -13261,6 +13333,25 @@ def name_field(key: str,
 ```
 
 Return a field for a unique letters-and-digits name.
+
+<a id="backlogops.wizard_forms.unique_name_field"></a>
+
+#### unique\_name\_field
+
+```python
+def unique_name_field(key: str,
+                      question: str,
+                      taken: set[str],
+                      *,
+                      help_text: Optional[str] = None) -> FormField
+```
+
+Return a required free-text field whose value must be unused.
+
+The answer must be non-empty and, compared case-insensitively, must
+not already be one of ``taken``, which holds the lower-cased names
+already in use. This suits a person name that must be unique but may
+otherwise contain any characters, unlike the stricter name_field.
 
 <a id="backlogops.wizard_forms.choice_field"></a>
 
@@ -13624,20 +13715,11 @@ def _build_company(nav: _Navigator,
                    default: Optional[AvailableTeams]) -> CompanyWorkHours
 ```
 
-Ask for the company weekly schedule and exception periods.
+Ask for the company weekly schedule and holiday periods.
 
-<a id="backlogops.backlog_ops_wizard._build_exceptions"></a>
-
-#### \_build\_exceptions
-
-```python
-def _build_exceptions(
-        nav: _Navigator, count_question: str,
-        defaults: Optional[list[ExceptionWorkHours]]
-) -> list[ExceptionWorkHours]
-```
-
-Ask for a counted list of work-hour exception periods.
+The weekly schedule is one table and the holiday, closure and
+special-work periods are a second table, so the whole company work
+schedule is two screens.
 
 <a id="backlogops.backlog_ops_wizard._exc_seed"></a>
 
@@ -13692,6 +13774,26 @@ def _build_persons(nav: _Navigator,
 
 Ask for a counted list of persons and their exceptions.
 
+<a id="backlogops.backlog_ops_wizard._person_fields"></a>
+
+#### \_person\_fields
+
+```python
+def _person_fields(taken: set[str]) -> list[FormField]
+```
+
+Return the name and exception-count fields of a person form.
+
+<a id="backlogops.backlog_ops_wizard._person_seed"></a>
+
+#### \_person\_seed
+
+```python
+def _person_seed(seed: Optional[Person]) -> Optional[FormResult]
+```
+
+Return the person form values from a person.
+
 <a id="backlogops.backlog_ops_wizard._ask_person"></a>
 
 #### \_ask\_person
@@ -13702,7 +13804,10 @@ def _ask_person(nav: _Navigator,
                 seed: Optional[Person] = None) -> Person
 ```
 
-Ask for one person and the personal work-hour exceptions.
+Ask a person's name and exception count, then the exceptions.
+
+The name and the number of personal work-hour exceptions are one
+form; each exception period is then a separate form.
 
 <a id="backlogops.backlog_ops_wizard._build_teams"></a>
 
@@ -13720,14 +13825,17 @@ Ask for a counted list of teams and their memberships.
 #### \_team\_fields
 
 ```python
-def _team_fields(member_count: int) -> list[FormField]
+def _team_fields(person_names: list[str],
+                 seed: Optional[Team]) -> list[FormField]
 ```
 
-Return the velocity, capacity and sprint fields of a team form.
+Return the fields of the combined team form.
 
-The sprint length is asked as a count of working days. The
-full-time-equivalent sum defaults to the number of members, the
-common case where every member works full time.
+The team name, the number of members and aliases, the velocity and
+the sprint length are asked together. The member count is capped at
+the number of persons, since a person joins a team at most once. The
+full-time-equivalent sum is asked later, after the members, so it can
+default to the entered member count.
 
 <a id="backlogops.backlog_ops_wizard._team_seed"></a>
 
@@ -13737,7 +13845,7 @@ common case where every member works full time.
 def _team_seed(team: Optional[Team]) -> Optional[FormResult]
 ```
 
-Return the team velocity and sprint form values from a team.
+Return the combined team form values from a team.
 
 <a id="backlogops.backlog_ops_wizard._ask_team"></a>
 
@@ -13749,37 +13857,50 @@ def _ask_team(nav: _Navigator,
               seed: Optional[Team] = None) -> Team
 ```
 
-Ask for one team and its memberships.
+Ask for one team on one form, then its members, sum-FTE and aliases.
 
-The team members are asked first, then the velocity, the matching
-full-time-equivalent sum and the sprint length (in working days)
-together on one form.
+The name, member and alias counts, velocity and sprint length are one
+form. The members follow, then the full-time-equivalent sum (which
+defaults to the number of members entered), then the aliases.
+
+<a id="backlogops.backlog_ops_wizard._ask_sum_fte"></a>
+
+#### \_ask\_sum\_fte
+
+```python
+def _ask_sum_fte(nav: _Navigator, velocity: float, member_count: int,
+                 seed: Optional[float]) -> float
+```
+
+Ask the sum of full-time equivalents that matches the velocity.
+
+It defaults to the number of members entered, the common case where
+every member works full time, and its question names the velocity.
 
 <a id="backlogops.backlog_ops_wizard._build_aliases"></a>
 
 #### \_build\_aliases
 
 ```python
-def _build_aliases(nav: _Navigator,
-                   defaults: Optional[list[str]]) -> list[str]
+def _build_aliases(nav: _Navigator, count: int, seq: list[str]) -> list[str]
 ```
 
-Ask for a counted list of team aliases.
+Collect ``count`` team aliases, pre-filled from the seed aliases.
 
 <a id="backlogops.backlog_ops_wizard._build_members"></a>
 
 #### \_build\_members
 
 ```python
-def _build_members(nav: _Navigator, person_names: list[str],
-                   defaults: Optional[list[Membership]]) -> list[Membership]
+def _build_members(nav: _Navigator, person_names: list[str], count: int,
+                   seq: list[Membership]) -> list[Membership]
 ```
 
-Ask for a counted list of team memberships of distinct persons.
+Collect ``count`` memberships of distinct persons, seeded when known.
 
 A person joins a team at most once, so each membership is chosen from
-the persons not yet members of this team, and the count cannot exceed
-the number of available persons.
+the persons not yet members of this team; the count is capped at the
+number of persons on the team form.
 
 <a id="backlogops.backlog_ops_wizard._membership_fields"></a>
 
@@ -13811,19 +13932,11 @@ def _ask_membership(nav: _Navigator,
                     seed: Optional[Membership] = None) -> Membership
 ```
 
-Ask for one team membership on a form, then its FTE exceptions.
+Ask a membership and its FTE-exception count, then the exceptions.
 
-<a id="backlogops.backlog_ops_wizard._build_fte_exceptions"></a>
-
-#### \_build\_fte\_exceptions
-
-```python
-def _build_fte_exceptions(
-        nav: _Navigator,
-        defaults: Optional[list[FteException]]) -> list[FteException]
-```
-
-Ask for a counted list of full-time-equivalent exception periods.
+The person, full-time equivalent, dates and the number of FTE
+exceptions are one form; each FTE exception period is then a separate
+form.
 
 <a id="backlogops.backlog_ops_wizard._fte_exception_fields"></a>
 
@@ -14636,23 +14749,6 @@ The default is clamped into the bounds so a remembered count above a
 now-smaller maximum is offered at the maximum. The bridge shows the
 default, pre-fills it where it can, and returns it for an empty answer.
 
-<a id="backlogops.wizard_helpers._read_unique_name"></a>
-
-#### \_read\_unique\_name
-
-```python
-def _read_unique_name(ui: WizardUiBridge,
-                      question: str,
-                      persons: dict[str, Person],
-                      default: Optional[str] = None) -> str
-```
-
-Ask for a person name that is not already a key in ``persons``.
-
-An optional default is shown, pre-filled where the bridge can, and
-returned for an empty answer, so a re-asked person keeps its earlier
-name. A None answer means there was no default and an empty entry.
-
 <a id="backlogops.wizard_helpers._read_preset_name"></a>
 
 #### \_read\_preset\_name
@@ -14729,6 +14825,90 @@ Ask the weekly work-hours schedule as one table question.
 
 The hours are pre-filled from the seed schedule, or from the default
 work week when no seed is given.
+
+<a id="backlogops.wizard_helpers._MAX_EXCEPTIONS"></a>
+
+#### \_MAX\_EXCEPTIONS
+
+Upper bound on the number of exception-period rows the wizard accepts.
+
+<a id="backlogops.wizard_helpers._EXC_HINT"></a>
+
+#### \_EXC\_HINT
+
+Help text shown above the work-hour exception table.
+
+<a id="backlogops.wizard_helpers._parse_yes_no"></a>
+
+#### \_parse\_yes\_no
+
+```python
+def _parse_yes_no(text: Optional[str]) -> Optional[bool]
+```
+
+Return the boolean a yes/no cell holds, or None when invalid.
+
+A blank cell counts as 'no', so an added but unset flag means the
+period adds no work on days that are normally free.
+
+<a id="backlogops.wizard_helpers._exc_check"></a>
+
+#### \_exc\_check
+
+```python
+def _exc_check(table: list[list[Optional[str]]],
+               position: tuple[int, int]) -> tuple[bool, str]
+```
+
+Give early feedback on one work-hour exception cell.
+
+<a id="backlogops.wizard_helpers._parse_exceptions"></a>
+
+#### \_parse\_exceptions
+
+```python
+def _parse_exceptions(
+        table: list[list[Optional[str]]]
+) -> Optional[list[ExceptionWorkHours]]
+```
+
+Return the exception periods from a table, or None when invalid.
+
+A row with both dates blank is treated as an unused row and skipped.
+Any other row needs a valid start and end date with the end on or
+after the start, non-negative work hours (blank means zero) and a
+yes/no adds-free-day-work flag (blank means no).
+
+<a id="backlogops.wizard_helpers._exc_cells"></a>
+
+#### \_exc\_cells
+
+```python
+def _exc_cells(
+        exceptions: Sequence[ExceptionWorkHours]) -> list[list[TableCell]]
+```
+
+Return table rows filled from the given exception periods.
+
+<a id="backlogops.wizard_helpers._read_exceptions"></a>
+
+#### \_read\_exceptions
+
+```python
+def _read_exceptions(
+    ui: WizardUiBridge,
+    question: str,
+    seed: Optional[Sequence[ExceptionWorkHours]] = None
+) -> list[ExceptionWorkHours]
+```
+
+Ask the work-hour exception periods as one variable-row table.
+
+The table starts from the seed periods, or empty when none are given,
+and may be left empty for no exceptions. Individual cells are checked
+as they are entered; an inconsistent whole table, such as a period
+whose end precedes its start, is re-asked with the user's own rows
+kept.
 
 <a id="backlogops.wizard_helpers._MAX_EXTRA_COLUMNS"></a>
 

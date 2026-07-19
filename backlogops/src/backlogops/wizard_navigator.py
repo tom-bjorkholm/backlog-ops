@@ -18,6 +18,7 @@ The field-reading and parsing helpers the navigator calls live in
 # MIT License
 
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Callable, Optional, Sequence, TextIO, TypeVar
 from tableio import FileAccess
 from tableio_cfg_json import TioJsonConfig, WizardBack, WizardCancelLevel, \
@@ -25,13 +26,12 @@ from tableio_cfg_json import TioJsonConfig, WizardBack, WizardCancelLevel, \
 from backlogops.backlog import Status
 from backlogops.jira_io_config import JiraColumnMap, JiraIssueTypeMap
 from backlogops.levels import Level, LevelDisplay, Levels
-from backlogops.person import Person
-from backlogops.work_hours import ScheduleWorkHours
+from backlogops.work_hours import ExceptionWorkHours, ScheduleWorkHours
 from backlogops.wizard_forms import FormField, FormResult, run_form, _no_rule
-from backlogops.wizard_helpers import _RenameKind, _read_int, \
-    _read_issue_type_map, _read_jira_map, _read_levels, _read_preset_name, \
-    _read_renames, _read_schedule, _read_status_map, _read_tableio, \
-    _read_text, _read_unique_name
+from backlogops.wizard_helpers import _RenameKind, _read_exceptions, \
+    _read_int, _read_issue_type_map, _read_jira_map, _read_levels, \
+    _read_preset_name, _read_renames, _read_schedule, _read_status_map, \
+    _read_tableio, _read_text
 
 _T = TypeVar('_T')
 _D = TypeVar('_D')
@@ -182,12 +182,43 @@ class _Navigator:
 
     def ask_count(self, question: str, maximum: Optional[int] = None, *,
                   seed: Optional[int] = None) -> int:
-        """Ask how many items to collect, forgetting any surplus items."""
+        """Ask how many items to collect, forgetting any surplus items.
+
+        The items follow the count as siblings in the current level, so a
+        lowered count forgets the remembered items past it.
+        """
         scope = tuple(self._walk.prefix)
         child = self._walk.counters[-1]
         count = self.ask_int(question, 0, 0, maximum, seed=seed)
-        self._prune_items(scope, child, count)
+        self._forget_beyond(scope, child + count)
         return count
+
+    def counted(self, count: int, seeds: Sequence[_D],
+                build: Callable[[Optional[_D]], _T]) -> list[_T]:
+        """Collect ``count`` items in a dedicated level, forgetting surplus.
+
+        The items live in their own nesting level, so the count that drives
+        them may be asked anywhere, such as on a shared form. Item ``k`` is
+        built by ``build`` from ``seeds[k]`` when it exists and from None
+        otherwise, so raising a count reuses the earlier items as seeds
+        while extra items start blank. A cancel-level within an item
+        re-asks that item, and a lowered count forgets the items past it so
+        a later raise does not resurrect them.
+        """
+        return self.level(lambda: self._collect(count, seeds, build))
+
+    def _collect(self, count: int, seeds: Sequence[_D],
+                 build: Callable[[Optional[_D]], _T]) -> list[_T]:
+        """Forget the surplus items of this level, then collect ``count``."""
+        self._forget_beyond(tuple(self._walk.prefix), count - 1)
+        return [self.level(partial(self._build_item, seeds, build, k))
+                for k in range(count)]
+
+    @staticmethod
+    def _build_item(seeds: Sequence[_D], build: Callable[[Optional[_D]], _T],
+                    index: int) -> _T:
+        """Build one counted item, seeded from ``seeds`` when it reaches it."""
+        return build(seeds[index] if index < len(seeds) else None)
 
     def ask_choice(self, question: str, choices: Sequence[str],
                    default: Optional[str] = None, *,
@@ -210,16 +241,6 @@ class _Navigator:
             return run_form(self._ui, question, fields, rule, pre)
         result = self._ask(ask, seed)
         assert isinstance(result, FormResult)
-        return result
-
-    def ask_person_name(self, question: str, persons: dict[str, Person], *,
-                        seed: Optional[str] = None) -> str:
-        """Ask for a person name that is not already used, pre-filled."""
-        def ask(sd: object, _bw: bool) -> object:
-            pre = sd if isinstance(sd, str) else None
-            return _read_unique_name(self._ui, question, persons, pre)
-        result = self._ask(ask, seed)
-        assert isinstance(result, str)
         return result
 
     def ask_preset_name(self, question: str, used: set[str], *,
@@ -254,6 +275,17 @@ class _Navigator:
             return _read_schedule(self._ui, pre)
         result = self._ask(ask, seed)
         assert isinstance(result, dict)
+        return result
+
+    def ask_exceptions(self, question: str, *,
+                       seed: Optional[list[ExceptionWorkHours]] = None
+                       ) -> list[ExceptionWorkHours]:
+        """Ask the work-hour exception periods as one variable-row table."""
+        def ask(sd: object, _bw: bool) -> object:
+            pre = sd if isinstance(sd, list) else None
+            return _read_exceptions(self._ui, question, pre)
+        result = self._ask(ask, seed)
+        assert isinstance(result, list)
         return result
 
     def ask_levels(self, *, seed: Optional[list[Level]] = None) -> list[Level]:
@@ -358,17 +390,16 @@ class _Navigator:
         walk.counters[-1] += 1
         return tuple(walk.prefix + [child])
 
-    def _prune_items(self, scope: tuple[int, ...], child: int,
-                     count: int) -> None:
-        """Forget the remembered items after a count in its own level.
+    def _forget_beyond(self, scope: tuple[int, ...], limit: int) -> None:
+        """Forget the remembered answers of items after ``limit`` in a level.
 
-        A count is the first question of a dedicated level and its items
-        follow it, so the items kept are the ones up to the count; a lower
-        count drops the surplus while a higher count keeps what was
-        entered.
+        A path is dropped when it lies within ``scope`` and its own index
+        in that level is beyond ``limit``, so a lowered count drops the
+        surplus items while a higher count keeps what was entered. The
+        limit is the last index to keep, whether the count precedes the
+        items as a sibling or drives a dedicated sub-level.
         """
         depth = len(scope)
-        limit = child + count
         for path in list(self._seeds):
             if (len(path) > depth and path[:depth] == scope
                     and path[depth] > limit):

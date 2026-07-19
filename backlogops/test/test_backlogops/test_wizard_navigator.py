@@ -58,6 +58,50 @@ def _run_names(answers: list[str]) -> list[str]:
     return _Navigator(_bridge(answers)).run(_names_body)
 
 
+def _cnames_body(nav: _Navigator, default: Optional[list[str]]) -> list[str]:
+    """Ask a plain count, collect that many names via counted(), then a tail.
+
+    The count is a plain integer question rather than ask_count, so the
+    forgetting of surplus items is driven by counted() itself, as it is
+    when the count lives on a shared form.
+    """
+    seq = default or []
+    count = nav.ask_int('How many', 0, 0, seed=len(seq))
+
+    def build(seed: Optional[str]) -> str:
+        """Ask one pre-fillable, blank-keepable name."""
+        return nav.ask_text('Name', allow_empty=True, seed=seed)
+    names = nav.counted(count, seq, build)
+    nav.ask_text('Tail', default='T', allow_empty=True)
+    return names
+
+
+def _run_cnames(answers: list[str]) -> list[str]:
+    """Run the counted()-based names body with scripted console answers."""
+    return _Navigator(_bridge(answers)).run(_cnames_body)
+
+
+def test_counted_increase() -> None:
+    """Test counted() keeps entered items when its form count is raised."""
+    names = _run_cnames(['2', 'Ada', 'Bo', ':b', ':b', ':b', '3',
+                         '', '', 'Cy', ''])
+    assert names == ['Ada', 'Bo', 'Cy']
+
+
+def test_counted_decrease() -> None:
+    """Test counted() drops the surplus when its form count is lowered."""
+    names = _run_cnames(['3', 'Ada', 'Bo', 'Cy', ':b', ':b', ':b', ':b',
+                         '2', '', '', ''])
+    assert names == ['Ada', 'Bo']
+
+
+def test_counted_forgets() -> None:
+    """Test counted() forgets a dropped item rather than resurrecting it."""
+    names = _run_cnames(['3', 'Ada', 'Bo', 'Cy', ':b', ':b', ':b', ':b',
+                         '2', '', '', ':b', ':b', ':b', '3', '', '', '', ''])
+    assert names == ['Ada', 'Bo', '']
+
+
 def test_count_increase_keeps() -> None:
     """Test raising a count keeps the already-entered items pre-filled.
 
@@ -90,12 +134,13 @@ def test_decrease_forgets() -> None:
 
 
 def test_back_prefill_name() -> None:
-    """Test a re-asked person name is pre-filled with the earlier answer.
+    """Test a re-asked person form is pre-filled with the earlier answers.
 
-    The user enters a name, goes back to it, and leaves the re-asked
-    question blank, which keeps the pre-filled name instead of re-asking.
+    The user fills the person form, steps back to it from the team count,
+    and leaves the re-asked form blank, which keeps the pre-filled name
+    and exception count instead of re-entering them.
     """
-    teams = _run(SCHED + ['0', '1', 'Ada', ':b', '', '0', '0'])
+    teams = _run(SCHED + ['', '1', 'Ada', '0', ':b', '', '', '0'])
     assert sorted(teams.persons) == ['ada']
 
 

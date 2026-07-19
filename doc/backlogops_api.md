@@ -356,6 +356,7 @@
   * [path\_field](#backlogops.wizard_forms.path_field)
   * [secret\_field](#backlogops.wizard_forms.secret_field)
   * [name\_field](#backlogops.wizard_forms.name_field)
+  * [unique\_name\_field](#backlogops.wizard_forms.unique_name_field)
   * [choice\_field](#backlogops.wizard_forms.choice_field)
   * [yes\_no\_field](#backlogops.wizard_forms.yes_no_field)
   * [int\_field](#backlogops.wizard_forms.int_field)
@@ -7517,6 +7518,25 @@ def name_field(key: str,
 ```
 
 Return a field for a unique letters-and-digits name.
+
+<a id="backlogops.wizard_forms.unique_name_field"></a>
+
+#### unique\_name\_field
+
+```python
+def unique_name_field(key: str,
+                      question: str,
+                      taken: set[str],
+                      *,
+                      help_text: Optional[str] = None) -> FormField
+```
+
+Return a required free-text field whose value must be unused.
+
+The answer must be non-empty and, compared case-insensitively, must
+not already be one of ``taken``, which holds the lower-cased names
+already in use. This suits a person name that must be unique but may
+otherwise contain any characters, unlike the stricter name_field.
 
 <a id="backlogops.wizard_forms.choice_field"></a>
 

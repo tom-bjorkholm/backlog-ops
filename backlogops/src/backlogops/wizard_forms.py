@@ -145,8 +145,9 @@ def _reseed_ask(ask: AskField, value: object) -> AskField:
     """Return a copy of an ask field with its default set from a value."""
     if isinstance(ask, AskYesNoField):
         return replace(ask, default=bool(value))
-    if isinstance(ask, AskIntField) and isinstance(value, int):
-        return replace(ask, default=value)
+    if isinstance(ask, AskIntField) and isinstance(value, int) \
+            and not isinstance(value, bool):
+        return replace(ask, default=_clamped_int(value, ask))
     if isinstance(ask, AskChoiceField) and isinstance(value, str) \
             and value in ask.choices:
         return replace(ask, default=value)
@@ -157,6 +158,20 @@ def _reseed_ask(ask: AskField, value: object) -> AskField:
         options = replace(ask.path_options, default=Path(value))
         return replace(ask, path_options=options)
     return ask
+
+
+def _clamped_int(value: int, ask: AskIntField) -> int:
+    """Return an integer default clamped into the field's inclusive bounds.
+
+    A remembered count seeded above a now-smaller maximum, such as a
+    member count above the current number of persons, is offered at the
+    maximum instead of failing the field's range check.
+    """
+    if ask.min_value is not None:
+        value = max(value, ask.min_value)
+    if ask.max_value is not None:
+        value = min(value, ask.max_value)
+    return value
 
 
 def _as_text(value: object) -> Optional[str]:
@@ -350,6 +365,28 @@ def name_field(key: str, question: str, used: set[str], *,
     def error(answer: AnswerField) -> Optional[str]:
         """Reject a badly formed or already used name."""
         return name_error(_answer_text(answer), used)
+    return FormField(key, ask, error, _answer_text)
+
+
+def unique_name_field(key: str, question: str, taken: set[str], *,
+                      help_text: Optional[str] = None) -> FormField:
+    """Return a required free-text field whose value must be unused.
+
+    The answer must be non-empty and, compared case-insensitively, must
+    not already be one of ``taken``, which holds the lower-cased names
+    already in use. This suits a person name that must be unique but may
+    otherwise contain any characters, unlike the stricter name_field.
+    """
+    ask = AskTextField(question, help_text, nullable=True)
+
+    def error(answer: AnswerField) -> Optional[str]:
+        """Reject an empty name or one already used, case-insensitively."""
+        text = _answer_text(answer)
+        if not text:
+            return _REQUIRED
+        if text.lower() in taken:
+            return f'The name {text!r} is already used.'
+        return None
     return FormField(key, ask, error, _answer_text)
 
 
