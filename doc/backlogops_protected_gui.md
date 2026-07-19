@@ -59,6 +59,8 @@
 * [backlogops\_gui.report\_windows](#backlogops_gui.report_windows)
   * [show\_change\_list](#backlogops_gui.report_windows.show_change_list)
   * [show\_text\_report](#backlogops_gui.report_windows.show_text_report)
+* [backlogops\_gui.auto\_scroll](#backlogops_gui.auto_scroll)
+  * [auto\_hide](#backlogops_gui.auto_scroll.auto_hide)
 * [backlogops\_gui.token\_dialog](#backlogops_gui.token_dialog)
   * [EncryptTokenRequest](#backlogops_gui.token_dialog.EncryptTokenRequest)
   * [EncryptTokenDialog](#backlogops_gui.token_dialog.EncryptTokenDialog)
@@ -350,6 +352,7 @@
     * [\_add\_actions](#backlogops_gui.backlog_window.BacklogWindow._add_actions)
     * [\_add\_jira\_actions](#backlogops_gui.backlog_window.BacklogWindow._add_jira_actions)
     * [\_add\_table](#backlogops_gui.backlog_window.BacklogWindow._add_table)
+    * [\_scroll\_tree](#backlogops_gui.backlog_window.BacklogWindow._scroll_tree)
     * [\_make\_tree](#backlogops_gui.backlog_window.BacklogWindow._make_tree)
     * [\_save](#backlogops_gui.backlog_window.BacklogWindow._save)
     * [\_saved\_to\_source](#backlogops_gui.backlog_window.BacklogWindow._saved_to_source)
@@ -393,8 +396,11 @@
     * [values](#backlogops_gui.wizard_table.TableEditor.values)
     * [add\_row](#backlogops_gui.wizard_table.TableEditor.add_row)
     * [remove\_row](#backlogops_gui.wizard_table.TableEditor.remove_row)
-    * [\_build\_grid\_area](#backlogops_gui.wizard_table.TableEditor._build_grid_area)
     * [\_build\_scroll](#backlogops_gui.wizard_table.TableEditor._build_scroll)
+    * [\_pack\_box](#backlogops_gui.wizard_table.TableEditor._pack_box)
+    * [\_add\_vertical](#backlogops_gui.wizard_table.TableEditor._add_vertical)
+    * [\_inner\_frame](#backlogops_gui.wizard_table.TableEditor._inner_frame)
+    * [\_resize](#backlogops_gui.wizard_table.TableEditor._resize)
     * [\_scroll\_to\_end](#backlogops_gui.wizard_table.TableEditor._scroll_to_end)
     * [\_build\_header](#backlogops_gui.wizard_table.TableEditor._build_header)
     * [\_append\_cells](#backlogops_gui.wizard_table.TableEditor._append_cells)
@@ -1184,6 +1190,38 @@ Show read-only, copy-pasteable text with a Dismiss button.
 The text is shown in a disabled text box, which still lets the user
 select and copy it. The created window is returned so a caller or a
 test can drive or close it.
+
+<a id="backlogops_gui.auto_scroll"></a>
+
+# backlogops\_gui.auto\_scroll
+
+A scroll command that shows a scrollbar only while it can scroll.
+
+A table that fits its area needs no scrollbar, and a scrollbar that is
+always shown wastes space and hints at hidden content that is not there.
+:func:`auto_hide` returns the scroll command for a scrolling widget: the
+command hides the scrollbar while the whole range is visible and shows it
+again once the widget grows past its area. It works for any widget that
+reports its position through an ``xscrollcommand`` or ``yscrollcommand``,
+so the wizard table canvas and the read-only backlog tree can share it.
+
+<a id="backlogops_gui.auto_scroll.auto_hide"></a>
+
+#### auto\_hide
+
+```python
+def auto_hide(
+        scrollbar: ttk.Scrollbar
+) -> Callable[[float | str, float | str], None]
+```
+
+Return a scroll command that hides the scrollbar when it is full.
+
+The result is used as a widget's ``xscrollcommand`` or
+``yscrollcommand``. Tk reports the position as two fractions, which it
+passes as strings, so the command accepts either a number or its
+string form. The scrollbar must be laid out with the grid manager,
+whose ``grid_remove`` remembers its cell across the hide.
 
 <a id="backlogops_gui.token_dialog"></a>
 
@@ -4588,7 +4626,19 @@ Add one labeled, scrollable table and return its frame.
 
 The narrow table keeps its few columns at a fixed width and does
 not take the spare space, so it stays clearly narrower than the
-backlog table that fills the window.
+backlog table. A horizontal scrollbar appears only while the
+columns are wider than the window.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._scroll_tree"></a>
+
+#### \_scroll\_tree
+
+```python
+@staticmethod
+def _scroll_tree(frame: tk.LabelFrame, tree: ttk.Treeview) -> None
+```
+
+Grid the tree with a vertical and auto-hiding x-scrollbar.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._make_tree"></a>
 
@@ -4939,10 +4989,12 @@ An editable grid of cells for one wizard table question.
 
 A table question shown by the wizard is rendered as a grid of cells. A
 fixed table fills its seed rows only; a variable table, asked with both a
-minimum and a maximum row count, offers add-row and remove-row buttons and
-shows its grid in a scrolling area. :class:`TableEditor` builds the grid,
-reads the final cell strings back, and runs the optional per-cell partial
-check for early feedback.
+minimum and a maximum row count, offers add-row and remove-row buttons.
+Every table shows its grid in a scrolling area: it scrolls horizontally
+when its columns are wider than the window, and a variable table also
+scrolls vertically within a fixed height so a long table stays usable.
+:class:`TableEditor` builds the grid, reads the final cell strings back,
+and runs the optional per-cell partial check for early feedback.
 
 <a id="backlogops_gui.wizard_table._uniform"></a>
 
@@ -5007,9 +5059,10 @@ An editable grid of cells for one table question.
 
 A fixed table fills the seed rows only. A variable table, asked with
 both a minimum and a maximum row count, adds editable rows up to the
-maximum and removes the last row down to the minimum. A variable
-table shows its grid in a scrolling area, so a long table stays
-usable while the wizard window is resized.
+maximum and removes the last row down to the minimum. Every table
+scrolls horizontally when its columns overflow the window, and a
+variable table also scrolls vertically within a fixed height, so a
+long or wide table stays usable while the wizard window is resized.
 
 <a id="backlogops_gui.wizard_table.TableEditor.__init__"></a>
 
@@ -5066,16 +5119,6 @@ def remove_row() -> None
 
 Remove the last row, down to the minimum row count.
 
-<a id="backlogops_gui.wizard_table.TableEditor._build_grid_area"></a>
-
-#### \_build\_grid\_area
-
-```python
-def _build_grid_area(parent: tk.Misc) -> tk.Frame
-```
-
-Return the frame holding the grid, scrolling when variable.
-
 <a id="backlogops_gui.wizard_table.TableEditor._build_scroll"></a>
 
 #### \_build\_scroll
@@ -5084,7 +5127,52 @@ Return the frame holding the grid, scrolling when variable.
 def _build_scroll(parent: tk.Misc) -> tk.Frame
 ```
 
-Build an expanding scrolling area and return its inner frame.
+Build a scrolling area and return its inner grid frame.
+
+Every table scrolls horizontally through an auto-hiding scrollbar
+so a table wider than the window stays reachable. A variable table
+also scrolls vertically within a fixed height, while a fixed table
+grows to show all of its rows.
+
+<a id="backlogops_gui.wizard_table.TableEditor._pack_box"></a>
+
+#### \_pack\_box
+
+```python
+def _pack_box(box: tk.Frame) -> None
+```
+
+Pack the scroll box, expanding a variable table to the window.
+
+<a id="backlogops_gui.wizard_table.TableEditor._add_vertical"></a>
+
+#### \_add\_vertical
+
+```python
+def _add_vertical(box: tk.Frame, canvas: tk.Canvas) -> None
+```
+
+Give a variable table a fixed height and a vertical scrollbar.
+
+<a id="backlogops_gui.wizard_table.TableEditor._inner_frame"></a>
+
+#### \_inner\_frame
+
+```python
+def _inner_frame(canvas: tk.Canvas) -> tk.Frame
+```
+
+Create the grid frame inside the canvas and track its size.
+
+<a id="backlogops_gui.wizard_table.TableEditor._resize"></a>
+
+#### \_resize
+
+```python
+def _resize(canvas: tk.Canvas, inner: tk.Frame) -> None
+```
+
+Track the scroll region and fit a fixed table to its rows.
 
 <a id="backlogops_gui.wizard_table.TableEditor._scroll_to_end"></a>
 

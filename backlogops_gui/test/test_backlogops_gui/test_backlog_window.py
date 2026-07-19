@@ -6,6 +6,7 @@
 
 import tkinter as tk
 from datetime import datetime
+from tkinter import ttk
 from typing import Callable, Optional, cast
 import pytest
 from backlogops import (
@@ -174,6 +175,23 @@ def test_backlog_update_menu() -> None:
         # pylint: disable-next=protected-access
         window._backlog_update()
         assert got and got[0] is DATA
+
+
+def test_tables_have_hscroll() -> None:
+    """Test each table wires a Treeview to an auto-hiding x-scrollbar."""
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK)
+        # pylint: disable-next=protected-access
+        frames = [w for w in window._win.winfo_children()
+                  if isinstance(w, tk.LabelFrame)]
+        assert frames
+        for frame in frames:
+            kids = frame.winfo_children()
+            trees = [w for w in kids if isinstance(w, ttk.Treeview)]
+            hbars = [w for w in kids if isinstance(w, ttk.Scrollbar)
+                     and str(w.cget('orient')) == 'horizontal']
+            assert len(trees) == 1 and len(hbars) == 1
+            assert trees[0].cget('xscrollcommand') != ''
 
 
 def test_rank_menu() -> None:

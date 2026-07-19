@@ -35,6 +35,8 @@
 * [backlogops\_gui.report\_windows](#backlogops_gui.report_windows)
   * [show\_change\_list](#backlogops_gui.report_windows.show_change_list)
   * [show\_text\_report](#backlogops_gui.report_windows.show_text_report)
+* [backlogops\_gui.auto\_scroll](#backlogops_gui.auto_scroll)
+  * [auto\_hide](#backlogops_gui.auto_scroll.auto_hide)
 * [backlogops\_gui.token\_dialog](#backlogops_gui.token_dialog)
   * [EncryptTokenRequest](#backlogops_gui.token_dialog.EncryptTokenRequest)
   * [EncryptTokenDialog](#backlogops_gui.token_dialog.EncryptTokenDialog)
@@ -638,6 +640,38 @@ Show read-only, copy-pasteable text with a Dismiss button.
 The text is shown in a disabled text box, which still lets the user
 select and copy it. The created window is returned so a caller or a
 test can drive or close it.
+
+<a id="backlogops_gui.auto_scroll"></a>
+
+# backlogops\_gui.auto\_scroll
+
+A scroll command that shows a scrollbar only while it can scroll.
+
+A table that fits its area needs no scrollbar, and a scrollbar that is
+always shown wastes space and hints at hidden content that is not there.
+:func:`auto_hide` returns the scroll command for a scrolling widget: the
+command hides the scrollbar while the whole range is visible and shows it
+again once the widget grows past its area. It works for any widget that
+reports its position through an ``xscrollcommand`` or ``yscrollcommand``,
+so the wizard table canvas and the read-only backlog tree can share it.
+
+<a id="backlogops_gui.auto_scroll.auto_hide"></a>
+
+#### auto\_hide
+
+```python
+def auto_hide(
+        scrollbar: ttk.Scrollbar
+) -> Callable[[float | str, float | str], None]
+```
+
+Return a scroll command that hides the scrollbar when it is full.
+
+The result is used as a widget's ``xscrollcommand`` or
+``yscrollcommand``. Tk reports the position as two fractions, which it
+passes as strings, so the command accepts either a number or its
+string form. The scrollbar must be laid out with the grid manager,
+whose ``grid_remove`` remembers its cell across the hide.
 
 <a id="backlogops_gui.token_dialog"></a>
 
@@ -2479,10 +2513,12 @@ An editable grid of cells for one wizard table question.
 
 A table question shown by the wizard is rendered as a grid of cells. A
 fixed table fills its seed rows only; a variable table, asked with both a
-minimum and a maximum row count, offers add-row and remove-row buttons and
-shows its grid in a scrolling area. :class:`TableEditor` builds the grid,
-reads the final cell strings back, and runs the optional per-cell partial
-check for early feedback.
+minimum and a maximum row count, offers add-row and remove-row buttons.
+Every table shows its grid in a scrolling area: it scrolls horizontally
+when its columns are wider than the window, and a variable table also
+scrolls vertically within a fixed height so a long table stays usable.
+:class:`TableEditor` builds the grid, reads the final cell strings back,
+and runs the optional per-cell partial check for early feedback.
 
 <a id="backlogops_gui.wizard_table.Cell"></a>
 
@@ -2511,9 +2547,10 @@ An editable grid of cells for one table question.
 
 A fixed table fills the seed rows only. A variable table, asked with
 both a minimum and a maximum row count, adds editable rows up to the
-maximum and removes the last row down to the minimum. A variable
-table shows its grid in a scrolling area, so a long table stays
-usable while the wizard window is resized.
+maximum and removes the last row down to the minimum. Every table
+scrolls horizontally when its columns overflow the window, and a
+variable table also scrolls vertically within a fixed height, so a
+long or wide table stays usable while the wizard window is resized.
 
 <a id="backlogops_gui.wizard_table.TableEditor.__init__"></a>
 

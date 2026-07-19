@@ -5,7 +5,9 @@
 # MIT License
 
 import tkinter as tk
+from tkinter import ttk
 from typing import Optional
+import pytest
 from tableio_cfg_json import TableCell, TableColumn
 from backlogops_gui.wizard_table import TableEditor, _new_row_template, \
     _uniform
@@ -140,6 +142,27 @@ def test_choice_no_value() -> None:
         cells = [[TableCell(value=None, choices=('a', 'b'))]]
         editor = TableEditor(tk.Frame(root), columns, cells, None)
         assert editor.values() == [['']]
+
+
+@pytest.mark.parametrize('min_rows,max_rows,variable', [
+    (None, None, False),
+    (0, 5, True)])
+def test_hscroll_present(min_rows: Optional[int], max_rows: Optional[int],
+                         variable: bool) -> None:
+    """Test every table builds a canvas with one horizontal scrollbar."""
+    with gui_root() as root:
+        columns = [TableColumn(header='A'), TableColumn(header='B')]
+        cells = [[TableCell(value='a'), TableCell(value='b')]]
+        editor = TableEditor(tk.Frame(root), columns, cells, None,
+                             min_rows=min_rows, max_rows=max_rows)
+        assert editor.is_variable() is variable
+        # pylint: disable-next=protected-access
+        canvas = editor._canvas
+        assert canvas is not None
+        bars = [w for w in canvas.master.winfo_children()
+                if isinstance(w, ttk.Scrollbar)
+                and str(w.cget('orient')) == 'horizontal']
+        assert len(bars) == 1
 
 
 def test_table_scroll_expands() -> None:

@@ -27,6 +27,7 @@ from backlogops import (
     RankedInJira, RenamedReleasesInJira, UpdatedBacklogInJira,
     UpdatedReleasesInJira, format_order_result, format_rank_result,
     format_release_result, format_release_updates, format_rename_result)
+from backlogops_gui.auto_scroll import auto_hide
 from backlogops_gui.backlog_actions import (
     adjust_content, apply_add_result, apply_update_result, estimate_date,
     extract_keys, order_by_deps, order_by_keys, order_by_release, order_dates,
@@ -390,20 +391,29 @@ class BacklogWindow:
 
         The narrow table keeps its few columns at a fixed width and does
         not take the spare space, so it stays clearly narrower than the
-        backlog table that fills the window.
+        backlog table. A horizontal scrollbar appears only while the
+        columns are wider than the window.
         """
         frame = tk.LabelFrame(self._win, text=heading)
         tree = self._make_tree(frame, columns, rows, narrow)
-        scroll = ttk.Scrollbar(frame, orient='vertical', command=tree.yview)
-        tree.configure(yscrollcommand=scroll.set)
-        scroll.pack(side='right', fill='y')
+        self._scroll_tree(frame, tree)
         if narrow:
             frame.pack(padx=8, pady=6, anchor='w')
-            tree.pack(side='left')
         else:
             frame.pack(padx=8, pady=6, fill='both', expand=True)
-            tree.pack(side='left', fill='both', expand=True)
         return frame
+
+    @staticmethod
+    def _scroll_tree(frame: tk.LabelFrame, tree: ttk.Treeview) -> None:
+        """Grid the tree with a vertical and auto-hiding x-scrollbar."""
+        vbar = ttk.Scrollbar(frame, orient='vertical', command=tree.yview)
+        hbar = ttk.Scrollbar(frame, orient='horizontal', command=tree.xview)
+        tree.configure(yscrollcommand=vbar.set, xscrollcommand=auto_hide(hbar))
+        tree.grid(row=0, column=0, sticky='nsew')
+        vbar.grid(row=0, column=1, sticky='ns')
+        hbar.grid(row=1, column=0, sticky='ew')
+        frame.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
 
     @staticmethod
     def _make_tree(frame: tk.Misc, columns: list[str],
@@ -412,7 +422,7 @@ class BacklogWindow:
         if narrow:
             return make_table(frame, columns, rows, width=RELEASE_COLUMN_WIDTH,
                               stretch=False)
-        return make_table(frame, columns, rows)
+        return make_table(frame, columns, rows, stretch=False)
 
     def _save(self) -> None:
         """Save the backlog, clearing the mark when the source is rewritten."""

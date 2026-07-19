@@ -305,7 +305,7 @@ one with the list of releases. You will want to use the menus.
 
 ## Test summary
 
-- Test result: 2572 passed, 7 deselected in 49s
+- Test result: 2582 passed, 7 deselected in 48s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

@@ -3,10 +3,12 @@
 
 A table question shown by the wizard is rendered as a grid of cells. A
 fixed table fills its seed rows only; a variable table, asked with both a
-minimum and a maximum row count, offers add-row and remove-row buttons and
-shows its grid in a scrolling area. :class:`TableEditor` builds the grid,
-reads the final cell strings back, and runs the optional per-cell partial
-check for early feedback.
+minimum and a maximum row count, offers add-row and remove-row buttons.
+Every table shows its grid in a scrolling area: it scrolls horizontally
+when its columns are wider than the window, and a variable table also
+scrolls vertically within a fixed height so a long table stays usable.
+:class:`TableEditor` builds the grid, reads the final cell strings back,
+and runs the optional per-cell partial check for early feedback.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -17,6 +19,7 @@ from dataclasses import dataclass
 from tkinter import ttk
 from typing import Optional, Sequence, TypeVar
 from tableio_cfg_json import PartialCheck, TableCell, TableColumn
+from backlogops_gui.auto_scroll import auto_hide
 from backlogops_gui.gui_style import style_input
 
 WRAP_LENGTH = 520
@@ -84,9 +87,10 @@ class TableEditor:
 
     A fixed table fills the seed rows only. A variable table, asked with
     both a minimum and a maximum row count, adds editable rows up to the
-    maximum and removes the last row down to the minimum. A variable
-    table shows its grid in a scrolling area, so a long table stays
-    usable while the wizard window is resized.
+    maximum and removes the last row down to the minimum. Every table
+    scrolls horizontally when its columns overflow the window, and a
+    variable table also scrolls vertically within a fixed height, so a
+    long or wide table stays usable while the wizard window is resized.
     """
 
     # pylint: disable-next=too-many-arguments,too-many-positional-arguments
@@ -104,7 +108,7 @@ class TableEditor:
         self._template = _new_row_template(columns, rows)
         self._cells: list[list[Cell]] = []
         self._canvas: Optional[tk.Canvas] = None
-        self._grid = self._build_grid_area(parent)
+        self._grid = self._build_scroll(parent)
         self._status = tk.Label(parent, fg='red', wraplength=WRAP_LENGTH,
                                 justify='left')
         self._status.pack(anchor='w')
@@ -138,29 +142,55 @@ class TableEditor:
             cell.widget.destroy()
         self._show('')
 
-    def _build_grid_area(self, parent: tk.Misc) -> tk.Frame:
-        """Return the frame holding the grid, scrolling when variable."""
-        if not self._variable:
-            frame = tk.Frame(parent)
-            frame.pack(anchor='w', pady=6)
-            return frame
-        return self._build_scroll(parent)
-
     def _build_scroll(self, parent: tk.Misc) -> tk.Frame:
-        """Build an expanding scrolling area and return its inner frame."""
+        """Build a scrolling area and return its inner grid frame.
+
+        Every table scrolls horizontally through an auto-hiding scrollbar
+        so a table wider than the window stays reachable. A variable table
+        also scrolls vertically within a fixed height, while a fixed table
+        grows to show all of its rows.
+        """
         box = tk.Frame(parent)
-        box.pack(anchor='w', fill='both', expand=True, pady=6)
-        canvas = tk.Canvas(box, height=TABLE_VIEW_HEIGHT, highlightthickness=0)
-        scrollbar = tk.Scrollbar(box, orient='vertical', command=canvas.yview)
-        canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side='right', fill='y')
-        canvas.pack(side='left', fill='both', expand=True)
+        self._pack_box(box)
+        canvas = tk.Canvas(box, highlightthickness=0)
+        hbar = ttk.Scrollbar(box, orient='horizontal', command=canvas.xview)
+        canvas.configure(xscrollcommand=auto_hide(hbar))
+        canvas.grid(row=0, column=0, sticky='nsew')
+        hbar.grid(row=1, column=0, sticky='ew')
+        self._add_vertical(box, canvas)
+        box.rowconfigure(0, weight=1)
+        box.columnconfigure(0, weight=1)
+        self._canvas = canvas
+        return self._inner_frame(canvas)
+
+    def _pack_box(self, box: tk.Frame) -> None:
+        """Pack the scroll box, expanding a variable table to the window."""
+        if self._variable:
+            box.pack(anchor='w', fill='both', expand=True, pady=6)
+        else:
+            box.pack(anchor='w', fill='x', pady=6)
+
+    def _add_vertical(self, box: tk.Frame, canvas: tk.Canvas) -> None:
+        """Give a variable table a fixed height and a vertical scrollbar."""
+        if not self._variable:
+            return
+        canvas.configure(height=TABLE_VIEW_HEIGHT)
+        vbar = ttk.Scrollbar(box, orient='vertical', command=canvas.yview)
+        canvas.configure(yscrollcommand=vbar.set)
+        vbar.grid(row=0, column=1, sticky='ns')
+
+    def _inner_frame(self, canvas: tk.Canvas) -> tk.Frame:
+        """Create the grid frame inside the canvas and track its size."""
         inner = tk.Frame(canvas)
         canvas.create_window((0, 0), window=inner, anchor='nw')
-        inner.bind('<Configure>', lambda _event: canvas.configure(
-            scrollregion=canvas.bbox('all')))
-        self._canvas = canvas
+        inner.bind('<Configure>', lambda _e: self._resize(canvas, inner))
         return inner
+
+    def _resize(self, canvas: tk.Canvas, inner: tk.Frame) -> None:
+        """Track the scroll region and fit a fixed table to its rows."""
+        canvas.configure(scrollregion=canvas.bbox('all'))
+        if not self._variable:
+            canvas.configure(height=inner.winfo_reqheight())
 
     def _scroll_to_end(self) -> None:
         """Bring the newly added last row into the scrolling area."""
