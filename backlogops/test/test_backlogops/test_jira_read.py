@@ -14,6 +14,8 @@ from datetime import date
 from types import SimpleNamespace
 from typing import Callable, Optional
 import pytest
+from jira.client import ResultList
+from jira.resources import Resource
 import backlogops
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog import Status
@@ -21,15 +23,15 @@ from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.backlog_releases import BacklogReleases
 from backlogops.jira_io_config import (
     DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP, JiraAttrPath, JiraAttrType,
-    JiraConnectConfig, JiraIOConfig, JiraPreset, JiraType, TokenStorage,
-    default_jira_filter)
+    JiraColumnMap, JiraConnectConfig, JiraIOConfig, JiraPreset, JiraType,
+    TokenStorage, default_jira_filter)
 from backlogops.no_text_io import NoTextIO
 import backlogops.jira_connect as jc
 from backlogops.jira_connect import JiraConnections, _connect
 from backlogops.jira_read import (
     build_backlog_releases, read_backlog_from_jira, read_jira_from_config,
     resolve_jql, _coerce, _coerce_field, _custom_ids, _filtered_values,
-    _resolve)
+    _resolve, _search_fields)
 
 NO = NoTextIO()
 
@@ -331,12 +333,23 @@ class _FakeClient:
         self.versions = versions
         self.jql = ''
         self.project = ''
+        self.fields_asked: object = None
 
-    def search_issues(self, jql: str, **kwargs: object) -> list[object]:
-        """Record the filter and return the canned issues."""
+    def enhanced_search_issues(self, jql: str, *, fields: object = None,
+                               **kwargs: object) -> ResultList[Resource]:
+        """Record the Cloud query and return the canned issues once."""
         _ = kwargs
         self.jql = jql
-        return self.issues
+        self.fields_asked = fields
+        return ResultList[Resource](self.issues, _nextPageToken=None)
+
+    def search_issues(self, jql: str, *, fields: object = None,
+                      **kwargs: object) -> ResultList[Resource]:
+        """Record the server query and return the canned issues once."""
+        _ = kwargs
+        self.jql = jql
+        self.fields_asked = fields
+        return ResultList[Resource](self.issues, _nextPageToken=None)
 
     def project_versions(self, project: str) -> list[object]:
         """Record the project and return the canned versions."""
@@ -403,6 +416,50 @@ def test_read_from_config(monkeypatch: pytest.MonkeyPatch) -> None:
     data = read_jira_from_config(config, 'p')
     assert data.backlog[0].level == 1
     assert data.releases[0].name == 'R1'
+
+
+def test_search_fields() -> None:
+    """Test only the mapped Jira fields are requested for a read."""
+    fields = _search_fields(DEF_BACKLOG_COLUMN_MAP, _custom_ids(FIELDS))
+    assert 'key' not in fields
+    assert set(fields) == {
+        'issuetype', 'summary', 'status', 'parent', 'fixVersions',
+        'issuelinks', 'description', 'customfield_10008',
+        'customfield_10001', 'customfield_10016'}
+    assert len(fields) == len(set(fields))
+
+
+def test_field_unresolved() -> None:
+    """Test an unresolved custom field name is left out of the request."""
+    col_map: JiraColumnMap = {
+        'x': (JiraAttrPath(JiraAttrType.CUSTOM_FIELD, ('Nope',)),)}
+    assert not _search_fields(col_map, {})
+
+
+def test_read_limits_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the read fetches only the mapped fields, not every field."""
+    client = _FakeClient([_issue()], [_version()])
+    monkeypatch.setattr(jc, '_connect', _fake_connect(client))
+    connections = JiraConnections(_io_config(), None)
+    read_backlog_from_jira(connections, 'p')
+    asked = client.fields_asked
+    assert isinstance(asked, list)
+    assert '*all' not in asked
+    assert 'summary' in asked and 'customfield_10016' in asked
+    assert 'key' not in asked
+
+
+def test_read_server(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a server connection reads through the offset search path."""
+    client = _FakeClient([_issue()], [_version()])
+    monkeypatch.setattr(jc, '_connect', _fake_connect(client))
+    config = _io_config()
+    config.connections['c'].jira_type = JiraType.SERVER
+    connections = JiraConnections(config, None)
+    data = read_backlog_from_jira(connections, 'p')
+    assert data.backlog[0].key == 'S-1'
+    asked = client.fields_asked
+    assert isinstance(asked, list) and 'summary' in asked
 
 
 def test_reexport() -> None:

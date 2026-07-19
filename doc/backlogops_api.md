@@ -217,6 +217,8 @@
   * [estimate\_release\_dates](#backlogops.release_backlog_updates.estimate_release_dates)
   * [release\_plan\_on\_estimate](#backlogops.release_backlog_updates.release_plan_on_estimate)
   * [adjust\_release\_content](#backlogops.release_backlog_updates.adjust_release_content)
+* [backlogops.jira\_search](#backlogops.jira_search)
+  * [search\_all\_issues](#backlogops.jira_search.search_all_issues)
 * [backlogops.releases](#backlogops.releases)
   * [Release](#backlogops.releases.Release)
     * [check\_consistency](#backlogops.releases.Release.check_consistency)
@@ -4720,6 +4722,50 @@ recorded only for an item whose release actually changes.
 
 - `ValueError` - If the buffer is negative.
 
+<a id="backlogops.jira_search"></a>
+
+# backlogops.jira\_search
+
+Read every issue of a Jira search, paging over large backlogs.
+
+Jira returns the issues matching a Jira Query Language filter in pages, so
+a backlog of many thousands of issues arrives over many requests.
+:func:`search_all_issues` reads every page and returns all the issues. A
+Cloud connection is paged with the token-based search endpoint and a
+server connection with the offset-based one, chosen by the ``is_cloud``
+flag the caller already knows from the Jira connection configuration.
+Progress is reported once a read spans more than one page, so a small read
+stays silent while a large read shows that it is making progress.
+
+<a id="backlogops.jira_search.search_all_issues"></a>
+
+#### search\_all\_issues
+
+```python
+def search_all_issues(client: JIRA,
+                      is_cloud: bool,
+                      jql: str,
+                      fields: Sequence[str],
+                      *,
+                      stderr_file: TextIO = sys.stderr) -> list[object]
+```
+
+Return every issue matching a filter, reading all pages.
+
+**Arguments**:
+
+- `client` - The live Jira client to search with.
+- `is_cloud` - Whether the connection is a Cloud connection, so the
+  token-based search endpoint is used instead of the offset one.
+- `jql` - The Jira Query Language filter to run.
+- `fields` - The Jira field ids to fetch for each issue.
+- `stderr_file` - Stream used for progress messages.
+  
+
+**Returns**:
+
+  The issues matching the filter, read from every page.
+
 <a id="backlogops.releases"></a>
 
 # backlogops.releases
@@ -4944,6 +4990,10 @@ versions to read the releases, and maps each Jira attribute to an
 internal field through the preset's column maps. Custom field display
 names in a column map (such as 'Story point estimate') are resolved to
 their field ids through the live custom field list of the Jira instance.
+Only the fields named by the column map are fetched, and the issues are
+read page by page through :func:`backlogops.jira_search.search_all_issues`,
+so a backlog of many thousands of items is read in full without fetching
+every field of every issue.
 
 The caller may override the preset's filter for one read. When no filter
 is configured at all, the default filter selects every issue in the

@@ -10,6 +10,10 @@ versions to read the releases, and maps each Jira attribute to an
 internal field through the preset's column maps. Custom field display
 names in a column map (such as 'Story point estimate') are resolved to
 their field ids through the live custom field list of the Jira instance.
+Only the fields named by the column map are fetched, and the issues are
+read page by page through :func:`backlogops.jira_search.search_all_issues`,
+so a backlog of many thousands of items is read in full without fetching
+every field of every issue.
 
 The caller may override the preset's filter for one read. When no filter
 is configured at all, the default filter selects every issue in the
@@ -29,7 +33,8 @@ from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.backlog_releases import BacklogReleases
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
-    JiraColumnMap, JiraPreset, default_jira_filter
+    JiraColumnMap, JiraPreset, JiraType, default_jira_filter
+from backlogops.jira_search import search_all_issues
 from backlogops.levels import Levels
 from backlogops.releases import Release
 from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS
@@ -83,6 +88,40 @@ def _field_id(name: str, custom_ids: dict[str, str]) -> Optional[str]:
     if name.startswith('customfield_'):
         return name
     return custom_ids.get(name)
+
+
+def _attr_field_id(attr: JiraAttrPath,
+                   custom_ids: dict[str, str]) -> Optional[str]:
+    """Return the Jira field an attribute path needs fetched, or None.
+
+    An ATTRIBUTE path reads a direct issue attribute such as the key, which
+    Jira always returns, so it needs no field fetched. A CUSTOM_FIELD path
+    needs the field id its display name resolves to. A FIELD or
+    FILTERED_FIELD path needs its first step, which names the field under
+    ``fields``.
+    """
+    if attr.kind is JiraAttrType.ATTRIBUTE:
+        return None
+    if attr.kind is JiraAttrType.CUSTOM_FIELD:
+        return _field_id(attr.path[0], custom_ids)
+    return attr.path[0]
+
+
+def _search_fields(column_map: JiraColumnMap,
+                   custom_ids: dict[str, str]) -> list[str]:
+    """Return the Jira fields to fetch for a backlog column map.
+
+    Only the fields the map reads are requested, so a large backlog is not
+    weighed down by every field of every issue. Fields are kept in the
+    order first seen and never repeated.
+    """
+    fields: list[str] = []
+    for attrs in column_map.values():
+        for attr in attrs:
+            field = _attr_field_id(attr, custom_ids)
+            if field is not None and field not in fields:
+                fields.append(field)
+    return fields
 
 
 def _resolve(attr_root: object, field_root: object, attr: JiraAttrPath,
@@ -292,7 +331,7 @@ def resolve_jql(preset: JiraPreset, filter_override: Optional[str]) -> str:
     return default_jira_filter(preset.def_project)
 
 
-# pylint: disable-next=too-many-arguments
+# pylint: disable-next=too-many-arguments,too-many-locals
 def read_backlog_from_jira(
         connections: JiraConnections, preset_name: str, *,
         filter_override: Optional[str] = None, levels: Optional[Levels] = None,
@@ -332,9 +371,15 @@ def read_backlog_from_jira(
     release_map = jira_config.release_column_maps[
         preset.release_column_map_name]
     jql = resolve_jql(preset, filter_override)
-    issues = client.search_issues(jql, maxResults=False)
+    fields_list = client.fields()
+    custom_ids = _custom_ids(fields_list)
+    is_cloud = jira_config.connections[
+        preset.connection_name].jira_type is JiraType.CLOUD
+    issues = search_all_issues(client, is_cloud, jql,
+                               _search_fields(backlog_map, custom_ids),
+                               stderr_file=stderr_file)
     versions = client.project_versions(preset.def_project)
-    return build_backlog_releases(issues, versions, client.fields(),
+    return build_backlog_releases(issues, versions, fields_list,
                                   backlog_map=backlog_map,
                                   release_map=release_map, levels=levels,
                                   status_map=status_map,
