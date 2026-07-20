@@ -11,6 +11,7 @@ and with owner-only permissions.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import os
 import stat
 import sys
 from pathlib import Path
@@ -153,6 +154,27 @@ def test_stale_tmp_refused(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError):
         encrypt_token_to_file('tok', passphrase='pw', filename=target,
                               ok_to_overwrite=_deny)
+    assert not target.exists()
+
+
+def test_move_fail_cleanup(tmp_path: Path,
+                           monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a failed atomic move removes the temporary file it left behind.
+
+    The move is made to fail after the temporary file has been written, so
+    the finally clause must delete it and no target file must appear.
+    """
+    target = tmp_path / 'token.enc'
+    tmpfile = target.with_suffix(target.suffix + '.in_progress')
+
+    def _boom(_src: object, _dst: object) -> None:
+        """Fail the atomic move to simulate a crash before it completes."""
+        raise OSError('simulated crash before move')
+    monkeypatch.setattr(os, 'replace', _boom)
+    with pytest.raises(OSError):
+        encrypt_token_to_file('tok', passphrase='pw', filename=target,
+                              ok_to_overwrite=_deny)
+    assert not tmpfile.exists()
     assert not target.exists()
 
 

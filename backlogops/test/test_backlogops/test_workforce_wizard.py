@@ -14,8 +14,11 @@ import io
 from datetime import date
 import pytest
 from tableio_cfg_json import WizardUiBridgeConsole
-from backlogops.backlog_ops_wizard import available_teams_wizard
-from backlogops.work_hours import DEFAULT_WORK_WEEK, WeekDay
+from backlogops.backlog_ops_wizard import available_teams_wizard, \
+    _exc_seed, _fte_seed, _member_seed
+from backlogops.team import FteException, Membership
+from backlogops.work_hours import DEFAULT_WORK_WEEK, ExceptionWorkHours, \
+    WeekDay
 from .wizard_test_helpers import COMPANY, SCHED, run_workforce
 
 
@@ -224,3 +227,52 @@ def test_abort() -> None:
     """Test an abort request ends the wizard with an end-of-input error."""
     with pytest.raises(EOFError):
         run_workforce([':q'])
+
+
+def test_exc_seed() -> None:
+    """Test a stored exception pre-fills the work-hour exception form."""
+    exc = ExceptionWorkHours(start_date=date(2026, 1, 1),
+                             end_date=date(2026, 1, 5), hours_per_day=4.0,
+                             new_work_days=True)
+    result = _exc_seed(exc)
+    assert result is not None
+    assert result.day('start') == date(2026, 1, 1)
+    assert result.day('end') == date(2026, 1, 5)
+    assert result.number('hours') == 4.0
+    assert result.flag('new_days') is True
+
+
+def test_member_seed() -> None:
+    """Test a stored membership pre-fills the membership form values."""
+    member = Membership(person_name='Ada', fte=0.5,
+                        start_date=date(2026, 1, 1), end_date=None,
+                        fte_exceptions=[_fte_exc()])
+    result = _member_seed(member)
+    assert result is not None
+    assert result.text('person') == 'Ada'
+    assert result.number('fte') == 0.5
+    assert result.opt_day('start') == date(2026, 1, 1)
+    assert result.opt_day('end') is None
+    assert result.whole('n_fte') == 1
+
+
+def _fte_exc() -> FteException:
+    """Return a full-time-equivalent exception period for seeding."""
+    return FteException(start_date=date(2026, 2, 1), end_date=date(2026, 2, 5),
+                        fte=0.5)
+
+
+def test_fte_seed() -> None:
+    """Test a stored fte exception pre-fills the fte-exception form."""
+    result = _fte_seed(_fte_exc())
+    assert result is not None
+    assert result.day('start') == date(2026, 2, 1)
+    assert result.day('end') == date(2026, 2, 5)
+    assert result.number('fte') == 0.5
+
+
+def test_seed_none() -> None:
+    """Test each workforce seed helper returns None for no source."""
+    assert _exc_seed(None) is None
+    assert _member_seed(None) is None
+    assert _fte_seed(None) is None

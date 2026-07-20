@@ -19,12 +19,19 @@ from backlogops.backlog_ops_config import BacklogOpsConfig, \
 from backlogops.backlog_ops_wizard import (
     backlog_ops_wizard, _WORKFORCE_HEAD, _INPUT_PRESETS_HEAD,
     _OUTPUT_PRESETS_HEAD)
-from backlogops.io_preset_wizard import preset_wizard
+from backlogops.io_preset_wizard import preset_wizard, _preset_direction
 from backlogops.levels import DEFAULT_LEVELS, LevelDisplay
 from .wizard_test_helpers import (
     COMPANY, CONFIG_HEADS, CSV_OPTS, GUI_MAPS_KEEP, JIRA_SKIP, LEVELS_KEEP,
     MAPS_KEEP, SCHED, STATUS_KEEP, bridge, config_stdout, run_config,
     teams_stdout)
+
+
+def test_preset_direction() -> None:
+    """Test a default preset's type selects the stand-alone direction."""
+    assert _preset_direction(InputFormatConfig()) == 'input'
+    assert _preset_direction(OutputFormatConfig()) == 'output'
+    assert _preset_direction(None) is None
 
 
 def test_preset_wizard() -> None:

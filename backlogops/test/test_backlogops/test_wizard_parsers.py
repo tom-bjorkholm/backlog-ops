@@ -18,7 +18,7 @@ from tableio_cfg_json import TableCell, WizardBack, WizardUiBridgeConsole
 from backlogops import Status
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType
 from backlogops.levels import DEFAULT_LEVELS
-from backlogops.work_hours import WeekDay
+from backlogops.work_hours import ExceptionWorkHours, WeekDay
 from backlogops.wizard_navigator import _Navigator
 from backlogops.wizard_helpers import (
     _backlog_map_fields, _parse_column_renames, _parse_input_renames,
@@ -335,3 +335,56 @@ def test_itmap_parse(table: list[list[Optional[str]]],
                      expected: dict[int, str]) -> None:
     """Test only real overrides are kept and identity rows are dropped."""
     assert _parse_issue_types(table) == expected
+
+
+def test_exceptions_seeded() -> None:
+    """Test a seed period pre-fills the exception table rows shown."""
+    seed = [ExceptionWorkHours(start_date=date(2026, 1, 1),
+                               end_date=date(2026, 1, 5), hours_per_day=4.0,
+                               new_work_days=True)]
+    scripted = TableScript([[['2026-01-01', '2026-01-05', '4', 'yes']]])
+    assert _read_exceptions(scripted, 'Periods?', seed) == seed
+    assert scripted.seen[0] == [[TableCell(value='2026-01-01'),
+                                 TableCell(value='2026-01-05'),
+                                 TableCell(value='4'),
+                                 TableCell(value='yes')]]
+
+
+def test_output_rename_seeded() -> None:
+    """Test a stored output map pre-fills rows and blanks a dropped one.
+
+    A field present in the seed shows its stored target, a dropped field
+    shows a blank target, a field absent from the seed keeps its own name,
+    and a stored key that is no longer a field is kept as an extra row.
+    """
+    fields = ['key', 'title', 'note']
+    seed: dict[str, Optional[str]] = {'key': 'Key', 'title': None,
+                                      'extra': 'Extra'}
+    kind = _RenameKind(fields, True, 'External', False)
+    scripted = TableScript([[['key', 'key']]])
+    _read_renames(scripted, kind, seed)
+    assert scripted.seen[0] == [
+        [TableCell(value='key'), TableCell(value='Key')],
+        [TableCell(value='title'), TableCell(value='')],
+        [TableCell(value='note'), TableCell(value='note')],
+        [TableCell(value='extra'), TableCell(value='Extra')]]
+
+
+def test_input_rename_seeded() -> None:
+    """Test a stored input map pre-fills rows, incl. shared and dropped.
+
+    Each file column shows against its internal field, a field with no
+    stored source keeps its own name, a source for a no-longer field is
+    kept as an extra row, and a dropped source shows a blank field.
+    """
+    fields = ['key', 'title']
+    seed: dict[str, Optional[str]] = {'Key col': 'key',
+                                      'Extra src': 'gone', 'Junk': None}
+    kind = _RenameKind(fields, True, 'File column', True)
+    scripted = TableScript([[['key', 'key']]])
+    _read_renames(scripted, kind, seed)
+    assert scripted.seen[0] == [
+        [TableCell(value='key'), TableCell(value='Key col')],
+        [TableCell(value='title'), TableCell(value='title')],
+        [TableCell(value='gone'), TableCell(value='Extra src')],
+        [TableCell(value=''), TableCell(value='Junk')]]

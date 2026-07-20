@@ -295,7 +295,7 @@ class BacklogWindow:
         self._warning = warning
         self._source.read_time = current_time()
         self._set_modified(False)
-        if self._time_var is not None:
+        if self._time_var is not None:  # pragma: no branch
             self._time_var.set(self._time_text())
         self._rebuild_body(was_restricted)
 

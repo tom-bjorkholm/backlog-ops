@@ -80,6 +80,22 @@ def test_existing_dir_ok(tmp_path: Path) -> None:
     assert done is True and path == tmp_path and reason is None
 
 
+def test_path_exists_oserror(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an OS error while checking a path becomes a retry reason.
+
+    Some paths cannot even be tested for existence, such as a name that is
+    too long; the checker turns that OS error into a re-ask reason.
+    """
+    def _raise(_self: Path, **_kw: object) -> bool:
+        """Fail the existence check as the OS would for an unusable path."""
+        raise OSError('boom')
+    monkeypatch.setattr(Path, 'exists', _raise)
+    done, path, reason = validate_path(
+        '/some/path', PathAskOptions(kind=WizardPathKind.FILE))
+    assert done is False and path is None
+    assert reason is not None and 'Invalid path' in reason
+
+
 def test_start_loc_seed() -> None:
     """Test the initial directory and file come from the seed text."""
     assert _start_location('/a/b/c.csv', None) == ('/a/b', 'c.csv')
@@ -165,3 +181,14 @@ def test_path_row_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
         # pylint: disable-next=protected-access
         row._browse()
         assert row.get() == 'keep'
+
+
+def test_browse_no_change(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test browsing without a change callback still fills the entry."""
+    with gui_root() as root:
+        monkeypatch.setattr('backlogops_gui.wizard_path.pick_path',
+                            lambda *a: '/picked')
+        row = PathRow(root, PathAskOptions(), '')
+        # pylint: disable-next=protected-access
+        row._browse()
+        assert row.get() == '/picked'

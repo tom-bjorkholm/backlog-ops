@@ -17,9 +17,10 @@ from typing import Optional
 import pytest
 from tableio_cfg_json import AnswerPathField, AnswerTextField, \
     AskChoiceField, AskIntField, AskPathField, AskTextField, \
-    WizardPathKind, WizardUiBridgeConsole
+    AskYesNoField, WizardPathKind, WizardUiBridgeConsole
 import backlogops.wizard_forms as wf
-from backlogops.wizard_forms import FormField, FormResult
+from backlogops.wizard_forms import FormField, FormResult, _as_text, \
+    _parse_float, _seed_field
 
 
 def _console(answers: list[str]) -> WizardUiBridgeConsole:
@@ -277,3 +278,43 @@ def test_path_form_seed() -> None:
     """Test a seeded path pre-fills so a blank answer keeps it."""
     result = _path_form([''], seed=FormResult({'p': '/tmp/seed.txt'}))
     assert result.path('p') == Path('/tmp/seed.txt')
+
+
+@pytest.mark.parametrize('value, expected', [
+    (date(2026, 1, 2), '2026-01-02'), (True, None), (2.5, '2.5'),
+    (3.0, '3'), ('hi', 'hi'), (7, None)])
+def test_as_text(value: object, expected: Optional[str]) -> None:
+    """Test a seed value becomes a text default only for text-like types.
+
+    A date is shown as an ISO date and a decimal in compact form, a string
+    is kept as is, and a boolean or a whole number has no text default.
+    """
+    assert _as_text(value) == expected
+
+
+@pytest.mark.parametrize('text, expected', [
+    (None, None), ('', None), ('abc', None), ('2.5', 2.5), ('-1', -1.0)])
+def test_parse_float(text: Optional[str], expected: Optional[float]) -> None:
+    """Test a decimal parses and a blank or non-number gives None."""
+    assert _parse_float(text) == expected
+
+
+def test_seed_none_keeps() -> None:
+    """Test a field with no seed value is left unchanged."""
+    field = wf.text_field('t', 'Text')
+    assert _seed_field(field, None) is field
+
+
+def test_seed_field_yes_no() -> None:
+    """Test a yes/no field is reseeded with its stored boolean default."""
+    ask = _seed_field(wf.yes_no_field('g', 'Gate?', False), True).ask
+    assert isinstance(ask, AskYesNoField)
+    assert ask.default is True
+
+
+def test_int_seed_no_min() -> None:
+    """Test a seeded integer over the max is clamped with no minimum set."""
+    field = wf.int_field('i', 'Count', default=0, maximum=2)
+    result = wf.run_form(_console(['']), 'Form', [field],
+                         seed=FormResult({'i': 5}))
+    assert result.whole('i') == 2

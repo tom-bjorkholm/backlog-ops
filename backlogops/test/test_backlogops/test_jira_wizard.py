@@ -20,11 +20,11 @@ from backlogops.backlog_ops_wizard import backlog_ops_wizard
 from backlogops.jira_io_config import (
     JiraAttrPath, JiraAttrType, default_jira_filter)
 from backlogops.jira_io_config import JiraConnectConfig, JiraIssueTypeMap, \
-    TokenStorage
+    JiraPreset, TokenStorage
 from backlogops.jira_wizard import (
     _PresetChoices, _build_connections, _build_issue_type_maps,
     _build_preset_list, _connection_disabled, _connection_fields,
-    _connection_rule, _preset_rule)
+    _connection_rule, _preset_rule, _preset_seed, _store_token)
 from backlogops.levels import DEFAULT_LEVELS
 from backlogops.wizard_forms import FormResult
 from backlogops.wizard_helpers import (
@@ -394,3 +394,66 @@ def test_conn_keep_token() -> None:
     conn = nav.run(_build_connections, {'enc': default})['enc']
     assert conn.stored_token == default.stored_token
     assert conn.get_token(lambda: 'phrase') == 'SECRET'
+
+
+def test_blank_token_fresh() -> None:
+    """Test a blank token on a fresh connection leaves it without a token.
+
+    A new internally stored connection has no default to fall back on, so a
+    blank token field neither stores a new token nor keeps an old one.
+    """
+    nav = _Navigator(_console([]))
+    connection = JiraConnectConfig(stderr_file=nav.error_file())
+    connection.token_storage = TokenStorage.CLEAR_INTERNAL
+    _store_token(nav, connection, FormResult({'api_token': None}), None)
+    assert connection.stored_token is None
+
+
+def _seed_preset(write_map: str, issue_map: str) -> JiraPreset:
+    """Return a stored preset with the given write and issue-type maps."""
+    preset = JiraPreset()
+    preset.connection_name = 'c1'
+    preset.backlog_column_map_name = 'm1'
+    preset.backlog_write_map_name = write_map
+    preset.release_column_map_name = 'm2'
+    preset.issue_type_map_name = issue_map
+    preset.def_project = 'PROJ'
+    preset.def_filter = 'flt'
+    return preset
+
+
+def test_preset_seed_none() -> None:
+    """Test no stored preset yields no seeded form values."""
+    assert _preset_seed(None, None, _choices(['c1'], ['m1'], ['m2'])) is None
+
+
+def test_preset_seed_full() -> None:
+    """Test a stored preset fills each form value, incl. the issue map."""
+    choices = _choices(['c1'], ['m1', 'wr'], ['m2'], ['im'])
+    result = _preset_seed('p1', _seed_preset('wr', 'im'), choices)
+    assert result is not None
+    assert result.text('name') == 'p1'
+    assert result.text('connection') == 'c1'
+    assert result.text('backlog_map') == 'm1'
+    assert result.flag('separate_write') is True
+    assert result.text('write_map') == 'wr'
+    assert result.text('release_map') == 'm2'
+    assert result.text('def_project') == 'PROJ'
+    assert result.text('def_filter') == 'flt'
+    assert result.flag('use_issue_type') is True
+    assert result.text('issue_type_map') == 'im'
+
+
+def test_preset_seed_defaults() -> None:
+    """Test empty write and issue maps fall back to the first choices.
+
+    A preset that reuses its read map for writing offers the first backlog
+    map as the disabled write map. With no issue-type maps configured, the
+    issue-type form rows are left out of the seed entirely.
+    """
+    result = _preset_seed('p1', _seed_preset('', ''),
+                          _choices(['c1'], ['m1'], ['m2']))
+    assert result is not None
+    assert result.flag('separate_write') is False
+    assert result.text('write_map') == 'm1'
+    assert result.raw('use_issue_type') is None

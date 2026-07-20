@@ -6,6 +6,7 @@
 
 import tkinter as tk
 from datetime import datetime
+from pathlib import Path
 from tkinter import ttk
 from typing import Callable, Optional, cast
 import pytest
@@ -611,3 +612,87 @@ def test_reload_adds_warning(monkeypatch: pytest.MonkeyPatch) -> None:
                   if menu.type(i) != 'separator'}
         assert states['Order by keys…'] == 'disabled'
         assert states['Save to file…'] == 'normal'
+
+
+def test_rerender_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a re-read replaces an existing restricted-data warning label."""
+    monkeypatch.setattr(backlog_window, 'current_time', lambda: T1)
+    with gui_root() as root:
+        captured: list[object] = []
+        window = BacklogWindow(root, DATA, 'T', _none, _none, SINK,
+                               warning='First warning', source=_jira_source(),
+                               reload=_reload_stub(captured))
+        assert 'First warning' in _label_texts(_win_of(window))
+        # pylint: disable-next=protected-access
+        window._read_again()
+        apply = captured[0]
+        assert callable(apply)
+        apply(DATA, 'Second warning')
+        texts = _label_texts(_win_of(window))
+        assert 'Second warning' in texts and 'First warning' not in texts
+
+
+def test_file_detail_preset() -> None:
+    """Test a file read from a preset names the preset in the detail line."""
+    with gui_root() as root:
+        source = BacklogSource(kind='file', read_time=T0,
+                               file_name='/tmp/b.csv', preset_name='scrum')
+        window = BacklogWindow(root, DATA, 'T', _none, _none, SINK,
+                               source=source)
+        assert ('File: /tmp/b.csv  (preset scrum)'
+                in _label_texts(_win_of(window)))
+
+
+def test_set_modified_no_info() -> None:
+    """Test a data change on a source-less window updates no marker."""
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'T', _none, _none, SINK)
+        # pylint: disable-next=protected-access
+        assert window._mark_var is None
+        # pylint: disable-next=protected-access
+        window._changed_refresh()
+        # pylint: disable-next=protected-access
+        assert window._mark_var is None
+
+
+def test_read_again_no_reload() -> None:
+    """Test Read again is a safe no-op when no reload was provided."""
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'T', _none, _none, SINK,
+                               source=_file_source())
+        # pylint: disable-next=protected-access
+        assert window._reload is None
+        # pylint: disable-next=protected-access
+        window._read_again()
+
+
+def test_save_no_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test saving a source-less window does not try to match the source."""
+    monkeypatch.setattr(backlog_window, 'save_backlog', _saver('/tmp/x.csv'))
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'T', _none, _none, SINK)
+        # pylint: disable-next=protected-access
+        window._save()
+        # pylint: disable-next=protected-access
+        assert window._mark_var is None
+
+
+def test_save_path_oserror(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an OS error while comparing paths keeps the modified mark.
+
+    A path that cannot be resolved must not be taken for the source file,
+    so the save leaves the window marked modified rather than clearing it.
+    """
+    monkeypatch.setattr(backlog_window, 'save_backlog', _saver('/tmp/b.csv'))
+
+    def _raise(_self: Path) -> Path:
+        """Fail to resolve a path as the OS would for an unusable one."""
+        raise OSError('boom')
+    with gui_root() as root:
+        window = _make_win(root, _file_source())
+        # pylint: disable-next=protected-access
+        window._changed_refresh()
+        monkeypatch.setattr(Path, 'resolve', _raise)
+        # pylint: disable-next=protected-access
+        window._save()
+        assert _mark_of(window) == MODIFIED_MARK

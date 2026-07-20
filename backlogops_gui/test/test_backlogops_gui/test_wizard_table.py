@@ -183,6 +183,27 @@ def test_table_scroll_expands() -> None:
         assert str(info['expand']) == '1'
 
 
+def test_fixed_table_resize() -> None:
+    """Test a fixed table fits its canvas height to its rows on a resize.
+
+    A resize event of a non-variable table sets the canvas height to the
+    requested height of the grid, so the whole fixed table is shown.
+    """
+    with gui_root() as root:
+        columns = [TableColumn(header='A')]
+        cells = [[TableCell(value='v')]]
+        editor = TableEditor(tk.Frame(root), columns, cells, None)
+        assert editor.is_variable() is False
+        # pylint: disable-next=protected-access
+        canvas = editor._canvas
+        assert canvas is not None
+        inner = canvas.winfo_children()[0]
+        assert isinstance(inner, tk.Frame)
+        # pylint: disable-next=protected-access
+        editor._resize(canvas, inner)
+        assert int(canvas.cget('height')) == inner.winfo_reqheight()
+
+
 def test_table_feedback() -> None:
     """Test a table with a check binds cells and shows per-cell feedback.
 

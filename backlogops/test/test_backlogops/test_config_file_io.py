@@ -82,6 +82,14 @@ def test_read_not_preset(tmp_path: Path) -> None:
         read_io_preset(str(bad), _hook(), NoTextIO())
 
 
+def test_read_not_object(tmp_path: Path) -> None:
+    """Test a JSON file whose top level is not an object is rejected."""
+    bad = tmp_path / 'arr.cfg'
+    bad.write_text('[1, 2, 3]', encoding='utf-8')
+    with pytest.raises(ValueError, match='configuration object'):
+        read_io_preset(str(bad), _hook(), NoTextIO())
+
+
 def test_read_complete_config(tmp_path: Path) -> None:
     """Test a complete backlog-ops config file is rejected as not a preset.
 

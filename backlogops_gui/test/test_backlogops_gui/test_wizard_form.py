@@ -305,3 +305,89 @@ def test_tooltip_show_hide() -> None:
         assert len(_bubbles(anchor)) == 1
         tip.hide()
         assert not _bubbles(anchor)
+
+
+def test_tooltip_show_twice() -> None:
+    """Test showing an already-shown tooltip keeps a single bubble."""
+    with gui_root() as root:
+        anchor = tk.Label(root, text='x')
+        tip = HelpTooltip('help me', anchor, (anchor,))
+        tip.show()
+        tip.show()
+        assert len(_bubbles(anchor)) == 1
+
+
+def test_tooltip_hide_none() -> None:
+    """Test hiding a tooltip that was never shown does nothing."""
+    with gui_root() as root:
+        anchor = tk.Label(root, text='x')
+        tip = HelpTooltip('help me', anchor, (anchor,))
+        tip.hide()
+        assert not _bubbles(anchor)
+
+
+def test_multi_error_bounds() -> None:
+    """Test a multi-select row reports too few and too many, accepts in range.
+
+    With no pick the count is below the minimum, two picks exceed the
+    maximum, and a single pick meets the exactly-one requirement.
+    """
+    with gui_root() as root:
+        field = AskMultiChoiceField('Cols', None, choices=('a', 'b', 'c'),
+                                    min_select=1, max_select=1)
+        editor, _ = _build(root, [field])
+        # pylint: disable-next=protected-access
+        assert editor._field_error(0) is not None
+        # pylint: disable-next=protected-access
+        listbox = editor._rows[0].widget
+        assert isinstance(listbox, tk.Listbox)
+        listbox.selection_set(0, 1)
+        # pylint: disable-next=protected-access
+        assert editor._field_error(0) is not None
+        listbox.selection_clear(0, 'end')
+        listbox.selection_set(0)
+        # pylint: disable-next=protected-access
+        assert editor._field_error(0) is None
+
+
+def test_form_disable_path() -> None:
+    """Test disabling a path row disables it through the path helper."""
+    with gui_root() as root:
+        field = AskPathField('File', None,
+                             PathAskOptions(kind=WizardPathKind.FILE))
+        editor, _ = _build(root, [field])
+        # pylint: disable-next=protected-access
+        editor._apply_disabled((0,))
+        # pylint: disable-next=protected-access
+        row = editor._rows[0]
+        assert row.path is not None
+        # pylint: disable-next=protected-access
+        assert str(row.path._entry.cget('state')) == 'disabled'
+
+
+def test_form_live_validator() -> None:
+    """Test a live change runs the whole-form validator and shows it."""
+    with gui_root() as root:
+        field = AskChoiceField('Fmt', None, choices=('a', 'b'), default='a')
+        editor, _ = _build(root, [field], _invalid)
+        # pylint: disable-next=protected-access
+        editor._changed(0)
+        # pylint: disable-next=protected-access
+        assert editor._status.cget('text') == 'nope'
+
+
+def test_disabled_row_change() -> None:
+    """Test a change on a disabled row hides that row's own error.
+
+    The validator disables the second row, so a change there shows the
+    validator's message (empty) instead of the row's own required error.
+    """
+    with gui_root() as root:
+        first = AskChoiceField('Fmt', None, choices=('a', 'b'), default='a')
+        second = AskChoiceField('Delim', None, choices=(',', ';'))
+        editor, _ = _build(root, [first, second], _disable_second)
+        assert 1 in editor._disabled
+        # pylint: disable-next=protected-access
+        editor._changed(1)
+        # pylint: disable-next=protected-access
+        assert editor._status.cget('text') == ''

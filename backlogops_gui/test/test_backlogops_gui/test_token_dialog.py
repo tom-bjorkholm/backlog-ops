@@ -182,6 +182,18 @@ def test_browse_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
         assert _clear_text(dialog) == 'keep.txt'
 
 
+def test_browse_out_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the output Browse dialog leaves the field unchanged."""
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(SAVE_DIALOG, lambda **_kw: '')
+    with gui_root() as root:
+        dialog = EncryptTokenDialog(root)
+        _fill(dialog, {'out': 'keep.enc'})
+        # pylint: disable-next=protected-access
+        dialog._browse_out()
+        assert _out_text(dialog) == 'keep.enc'
+
+
 def test_ask_cancelled(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the wrapper returns None when the dialog is cancelled."""
     monkeypatch.setattr(token_dialog, 'EncryptTokenDialog',
