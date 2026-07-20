@@ -59,6 +59,15 @@ B1 = [
      'the library. It is based on TkInter. The ambition is to keep it '
      'as a thin wrapper around the library.')
 ]
+PSTATUS1 = 'backlogops is in beta. The algorithms intended for its ' \
+    'initial scope are in place, so the main work from here is on the ' \
+    'user experience rather than on new core functionality. The three ' \
+    'packages share a version number and are released together.'
+PSTATUS2 = 'The library is not meant to ever be "finished": using it for ' \
+    'real planning keeps surfacing new ideas. Some of those will be added ' \
+    'to backlogops itself, and others will fit better in separate ' \
+    'packages built on top of backlogops. Early adopters are very ' \
+    'welcome, and their feedback shapes what comes next.'
 P2 = 'The following functionality is available in all 3 packages:'
 B2 = [
     'Reading backlog and releases from file types that TableIO supports '
@@ -266,6 +275,9 @@ def create_pypi_readme(readme_type: ReadmeType, path: Path) -> None:
             mft.new_bullet_item(text='')
             mft.add_url(url=b1_item[1], text=b1_item[0], bold=True)
             mft.add_text(text=b1_item[2])
+        mft.new_heading(level=2, text='Project status')
+        mft.new_paragraph(text=PSTATUS1)
+        mft.new_paragraph(text=PSTATUS2)
         mft.new_heading(level=2, text='Available functionality')
         mft.new_paragraph(text=P2)
         for b2_item in B2:

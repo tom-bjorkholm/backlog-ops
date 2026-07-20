@@ -66,6 +66,10 @@ is in the menus.
     - Write configuration...: This lets you write the configuration you
       have in application to a file.
 
+    - Encrypt Jira API token file...: Encrypt a Jira API token to a
+      pass-phrase-protected file, for use with the ENCRYPTED_FILE token
+      storage mode.
+
 - Help
 
     - Report version information: Show version information for the

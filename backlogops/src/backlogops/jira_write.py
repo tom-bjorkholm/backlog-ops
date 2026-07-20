@@ -822,7 +822,8 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
         The stored items with their Jira keys and remapped references, the
         already-present items, the items whose creation failed with a
         reason, the map from each stored item's original key to its Jira
-        key, and the created issues whose status could not be matched.
+        key, the created issues whose status could not be matched, and the
+        parent and dependency links Jira refused to write.
 
     Raises:
         KeyError: If the preset or a referenced connection or map is

@@ -1,10 +1,10 @@
 #! /usr/local/bin/python3
 """Shared behavior for the Jira operations of the application.
 
-The Jira read, write and update operations all resolve a Jira connection
-and materialize an encrypted API token before starting, run their network
-call on a worker thread, and hand success or failure back to the GUI
-thread. :class:`JiraAction` holds a reference to the running
+All the Jira operations resolve a Jira connection and materialize an
+encrypted API token before starting, run their network call on a worker
+thread, and hand success or failure back to the GUI thread.
+:class:`JiraAction` holds a reference to the running
 :class:`~backlogops_gui.application.BacklogApp` and provides those shared
 steps, so each concrete Jira collaborator only implements the call, the
 success reporting and, where needed, the dialog that gathers its options.

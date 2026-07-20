@@ -749,8 +749,8 @@ class JiraIOConfig(Config):
             stderr_file: The file to report errors to.
 
         Raises:
-            KeyError: If a preset refers to a connection or column map
-                name that is not defined.
+            KeyError: If a preset refers to a connection, column map, or
+                issue-type map name that is not defined.
         """
         for name, preset in self.presets.items():
             self._check_preset_refs(name, preset, stderr_file)

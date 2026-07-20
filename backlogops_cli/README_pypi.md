@@ -14,6 +14,18 @@ There are 3 related packages for backlog operations:
   interface to use the functions in the library. It is based on TkInter. The
   ambition is to keep it as a thin wrapper around the library.
 
+## Project status
+
+backlogops is in beta. The algorithms intended for its initial scope are in
+place, so the main work from here is on the user experience rather than on new
+core functionality. The three packages share a version number and are released
+together.
+
+The library is not meant to ever be "finished": using it for real planning keeps
+surfacing new ideas. Some of those will be added to backlogops itself, and
+others will fit better in separate packages built on top of backlogops. Early
+adopters are very welcome, and their feedback shapes what comes next.
+
 ## Available functionality
 
 The following functionality is available in all 3 packages:
@@ -276,7 +288,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 2638 passed, 7 deselected in 51s
+- Test result: 2638 passed, 7 deselected in 53s
 - No flake8 warnings.
 - No mypy errors found.
 - No python layout warnings.

@@ -1612,10 +1612,10 @@ Close the wizard window when one was opened.
 
 Shared behavior for the Jira operations of the application.
 
-The Jira read, write and update operations all resolve a Jira connection
-and materialize an encrypted API token before starting, run their network
-call on a worker thread, and hand success or failure back to the GUI
-thread. :class:`JiraAction` holds a reference to the running
+All the Jira operations resolve a Jira connection and materialize an
+encrypted API token before starting, run their network call on a worker
+thread, and hand success or failure back to the GUI thread.
+:class:`JiraAction` holds a reference to the running
 :class:`~backlogops_gui.application.BacklogApp` and provides those shared
 steps, so each concrete Jira collaborator only implements the call, the
 success reporting and, where needed, the dialog that gathers its options.
@@ -2354,13 +2354,14 @@ Bind the close-window key to run the window's close action.
 A window that shows one backlog and its releases as two tables.
 
 The window shows the backlog and the releases as two read-only tables and
-carries a menu with the actions that can be done to the backlog. The
+carries two menus with the actions that can be done to the backlog. The
 backlog table fills the window, while the releases table, which has only a
-few columns, is kept narrow so its columns are not spread out. The menu
-offers reordering, ready-date estimation, release planning, key
-extraction, the Jira operations, saving to a file and closing the window.
-The operations themselves live in :mod:`backlogops_gui.backlog_actions`,
-so they can be tested without a display.
+few columns, is kept narrow so its columns are not spread out. The
+``Backlog`` menu offers reordering, ready-date estimation, release
+planning, key extraction, saving to a file and closing the window; the
+``Jira`` menu offers the Jira operations. The operations themselves live
+in :mod:`backlogops_gui.backlog_actions`, so they can be tested without a
+display.
 
 <a id="backlogops_gui.backlog_window.current_time"></a>
 
@@ -3397,7 +3398,7 @@ Ask the user to fill the given table rows and return them.
 
 # backlogops\_gui.jira\_actions
 
-The Jira read, write and update collaborators of the application.
+The Jira operation collaborators of the application.
 
 The Jira menu actions of a backlog window are split across focused
 collaborators so each stays focused as the Jira support grows.

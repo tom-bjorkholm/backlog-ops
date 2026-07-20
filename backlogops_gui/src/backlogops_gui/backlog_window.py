@@ -2,13 +2,14 @@
 """A window that shows one backlog and its releases as two tables.
 
 The window shows the backlog and the releases as two read-only tables and
-carries a menu with the actions that can be done to the backlog. The
+carries two menus with the actions that can be done to the backlog. The
 backlog table fills the window, while the releases table, which has only a
-few columns, is kept narrow so its columns are not spread out. The menu
-offers reordering, ready-date estimation, release planning, key
-extraction, the Jira operations, saving to a file and closing the window.
-The operations themselves live in :mod:`backlogops_gui.backlog_actions`,
-so they can be tested without a display.
+few columns, is kept narrow so its columns are not spread out. The
+``Backlog`` menu offers reordering, ready-date estimation, release
+planning, key extraction, saving to a file and closing the window; the
+``Jira`` menu offers the Jira operations. The operations themselves live
+in :mod:`backlogops_gui.backlog_actions`, so they can be tested without a
+display.
 """
 
 # Copyright (c) 2026, Tom Björkholm

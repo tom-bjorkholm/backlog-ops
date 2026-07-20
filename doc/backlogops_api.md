@@ -2386,12 +2386,16 @@ Top-level backlog-ops configuration stored as config-as-json.
 
 The :class:`BacklogOpsConfig` is the single configuration object an
 application reads and writes. It groups together the available workforce,
-the named TableIO input and output presets, and an optional set of
-backlog item levels:
+the named TableIO input and output presets, the status-name map, the GUI
+display settings, the Jira configuration, and an optional set of backlog
+item levels:
 
 * ``available_teams`` is the workforce (persons, teams and company work
   hours), bridged to JSON by :class:`AvailableTeamsConfig`;
 * ``input_configs`` and ``output_configs`` are named TableIO presets;
+* ``status_input_map`` maps the status names in files and Jira to the
+  internal statuses;
+* ``gui_display`` holds the GUI column-rename and level-display settings;
 * ``jira`` is the Jira input and output configuration, bridged to JSON by
   :class:`backlogops.jira_io_config.JiraIOConfig`;
 * ``levels`` is the optional list of backlog item levels. It is omitted
@@ -3229,8 +3233,8 @@ Check every preset refers to a defined connection and maps.
 
 **Raises**:
 
-- `KeyError` - If a preset refers to a connection or column map
-  name that is not defined.
+- `KeyError` - If a preset refers to a connection, column map, or
+  issue-type map name that is not defined.
 
 <a id="backlogops.jira_io_config.JiraIOConfig.get_preset"></a>
 
@@ -7004,7 +7008,8 @@ backlog is never modified.
   The stored items with their Jira keys and remapped references, the
   already-present items, the items whose creation failed with a
   reason, the map from each stored item's original key to its Jira
-  key, and the created issues whose status could not be matched.
+  key, the created issues whose status could not be matched, and the
+  parent and dependency links Jira refused to write.
   
 
 **Raises**:
@@ -7683,7 +7688,8 @@ The public helpers :func:`available_teams_wizard` and
 :func:`backlog_ops_wizard` ask the user for the company work hours, the
 persons and their personal work-hour exceptions, the teams with their
 members, and, for the full configuration, the named TableIO presets, the
-backlog item levels and the GUI display. They drive any ``WizardUiBridge``
+backlog item levels, the status-name map, the GUI display and the Jira
+integration. They drive any ``WizardUiBridge``
 of ``tableio_cfg_json``, so the same wizard logic runs on a console text
 interface, a Textual full-screen interface or a graphical user interface.
 
@@ -7744,8 +7750,9 @@ Interactively create a backlog-ops configuration.
 
 The workforce is entered as by :func:`available_teams_wizard`, the
 user may then add any number of named input and output TableIO
-configuration presets, edit the backlog item levels, and finally
-choose how the GUI renames columns and shows levels. Each input preset
+configuration presets, edit the backlog item levels, adjust the global
+status-name map, and finally choose how the GUI renames columns and
+shows levels. Each input preset
 asks how it reads the backlog and releases file columns into the
 internal fields, and each output preset asks how it renames those
 columns and how levels are written; the column tables start pre-filled

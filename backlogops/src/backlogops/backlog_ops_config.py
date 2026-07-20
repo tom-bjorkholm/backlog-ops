@@ -3,12 +3,16 @@
 
 The :class:`BacklogOpsConfig` is the single configuration object an
 application reads and writes. It groups together the available workforce,
-the named TableIO input and output presets, and an optional set of
-backlog item levels:
+the named TableIO input and output presets, the status-name map, the GUI
+display settings, the Jira configuration, and an optional set of backlog
+item levels:
 
 * ``available_teams`` is the workforce (persons, teams and company work
   hours), bridged to JSON by :class:`AvailableTeamsConfig`;
 * ``input_configs`` and ``output_configs`` are named TableIO presets;
+* ``status_input_map`` maps the status names in files and Jira to the
+  internal statuses;
+* ``gui_display`` holds the GUI column-rename and level-display settings;
 * ``jira`` is the Jira input and output configuration, bridged to JSON by
   :class:`backlogops.jira_io_config.JiraIOConfig`;
 * ``levels`` is the optional list of backlog item levels. It is omitted

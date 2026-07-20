@@ -1,5 +1,5 @@
 #! /usr/local/bin/python3
-"""The Jira read, write and update collaborators of the application.
+"""The Jira operation collaborators of the application.
 
 The Jira menu actions of a backlog window are split across focused
 collaborators so each stays focused as the Jira support grows.

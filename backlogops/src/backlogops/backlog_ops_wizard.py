@@ -5,7 +5,8 @@ The public helpers :func:`available_teams_wizard` and
 :func:`backlog_ops_wizard` ask the user for the company work hours, the
 persons and their personal work-hour exceptions, the teams with their
 members, and, for the full configuration, the named TableIO presets, the
-backlog item levels and the GUI display. They drive any ``WizardUiBridge``
+backlog item levels, the status-name map, the GUI display and the Jira
+integration. They drive any ``WizardUiBridge``
 of ``tableio_cfg_json``, so the same wizard logic runs on a console text
 interface, a Textual full-screen interface or a graphical user interface.
 
@@ -119,8 +120,9 @@ def backlog_ops_wizard(ui_bridge: WizardUiBridge, *,
 
     The workforce is entered as by :func:`available_teams_wizard`, the
     user may then add any number of named input and output TableIO
-    configuration presets, edit the backlog item levels, and finally
-    choose how the GUI renames columns and shows levels. Each input preset
+    configuration presets, edit the backlog item levels, adjust the global
+    status-name map, and finally choose how the GUI renames columns and
+    shows levels. Each input preset
     asks how it reads the backlog and releases file columns into the
     internal fields, and each output preset asks how it renames those
     columns and how levels are written; the column tables start pre-filled
