@@ -58,6 +58,7 @@ EXCEPTIONS = (FileNotFoundError, ValueError, FileExistsError,
               NotADirectoryError, OSError)
 
 
+# pylint: disable-next=too-many-return-statements
 def _run(parsed: argparse.Namespace) -> int:
     """Run the encrypt-token-file command with the given parsed arguments.
 

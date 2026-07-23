@@ -27,9 +27,10 @@ def _sink(sink: Optional[TextIO]) -> TextIO:
     return sink if sink is not None else NoTextIO()
 
 
+# pylint: disable-next=too-many-arguments
 def read_backlog(path: str, value: Optional[str],
                  presets: Optional[dict[str, InputFormatConfig]],
-                 sink: Optional[TextIO] = None,
+                 sink: Optional[TextIO] = None, *,
                  levels: Optional[Levels] = None,
                  status_map: Optional[dict[str, Status]] = None
                  ) -> BacklogReleases:

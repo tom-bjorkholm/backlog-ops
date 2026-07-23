@@ -77,6 +77,7 @@ def _result() -> UpdatedBacklogInJira:
 def _fake_update(captured: dict[str, object], result: UpdatedBacklogInJira
                  ) -> Callable[..., UpdatedBacklogInJira]:
     """Return a stand-in update recording the fields, mode and link policy."""
+    # pylint: disable-next=too-many-arguments
     def update(connections: object, preset: str, backlog: object, *,
                on_missing_key: OnMissingKey, fields_to_update: list[str],
                link_update: LinkUpdate,
@@ -231,6 +232,7 @@ def test_quiet(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 def test_missing_raises(tmp_path: Path,
                         monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a raised missing key returns one."""
+    # pylint: disable-next=too-many-arguments
     def _raising(connections: object, preset: str, backlog: object, *,
                  on_missing_key: OnMissingKey, fields_to_update: list[str],
                  link_update: LinkUpdate,

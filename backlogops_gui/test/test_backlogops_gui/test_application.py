@@ -56,8 +56,9 @@ def _win_rec(store: list[tuple[object, ...]]) -> Callable[..., None]:
 def _read_rec(store: list[object]) -> Callable[..., BacklogReleases]:
     """Return a backlog reader that records each path it reads."""
     def read(path: str, _value: object, _presets: object, _sink: object,
-             _levels: object = None, _status: object = None
+             levels: object = None, status_map: object = None
              ) -> BacklogReleases:
+        _ = (_value, _presets, _sink, levels, status_map)  # unused
         store.append(path)
         return DATA
     return read
@@ -107,16 +108,18 @@ def _read_opts(_parent: object, _presets: object) -> ReadOptions:
 
 
 def _read_data(_path: object, _value: object, _presets: object, _sink: object,
-               _levels: object = None,
-               _status_map: object = None) -> BacklogReleases:
+               levels: object = None,
+               status_map: object = None) -> BacklogReleases:
     """Return fixed data as if a backlog file was read."""
+    _ = (_path, _value, _presets, _sink, levels, status_map)  # unused
     return DATA
 
 
 def _read_fail(_path: object, _value: object, _presets: object, _sink: object,
-               _levels: object = None,
-               _status_map: object = None) -> BacklogReleases:
+               levels: object = None,
+               status_map: object = None) -> BacklogReleases:
     """Raise as if reading a backlog file failed."""
+    _ = (_path, _value, _presets, _sink, levels, status_map)  # unused
     raise ValueError('bad file')
 
 

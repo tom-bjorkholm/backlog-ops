@@ -386,6 +386,7 @@ def test_disabled_row_change() -> None:
         first = AskChoiceField('Fmt', None, choices=('a', 'b'), default='a')
         second = AskChoiceField('Delim', None, choices=(',', ';'))
         editor, _ = _build(root, [first, second], _disable_second)
+        # pylint: disable-next=protected-access
         assert 1 in editor._disabled
         # pylint: disable-next=protected-access
         editor._changed(1)

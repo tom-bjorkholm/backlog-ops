@@ -31,6 +31,7 @@ def _hook_spy(store: list[object]) -> Callable[..., object]:
     """Return a resolver spy that records the auto-change hook then stops."""
     def spy(value: object, *, data_file: object, presets: object,
             auto_ch_hook: object) -> object:
+        _ = value, data_file, presets  # unused
         store.append(auto_ch_hook)
         raise _StopResolve()
     return spy

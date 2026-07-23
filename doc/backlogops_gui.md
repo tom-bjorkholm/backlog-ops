@@ -3102,6 +3102,7 @@ def read_backlog(
         value: Optional[str],
         presets: Optional[dict[str, InputFormatConfig]],
         sink: Optional[TextIO] = None,
+        *,
         levels: Optional[Levels] = None,
         status_map: Optional[dict[str, Status]] = None) -> BacklogReleases
 ```

@@ -40,6 +40,7 @@ def _key_file(path: Path) -> None:
 # pylint: disable-next=too-many-arguments
 def _fake_rank(captured: dict[str, object]) -> Callable[..., RankedInJira]:
     """Return a stand-in rank that records its arguments."""
+    # pylint: disable-next=too-many-arguments
     def rank(connections: object, preset_name: str, keys: object, *,
              filter_override: object = None, anchor: object = None,
              honor_relations: bool = False, levels: object = None,

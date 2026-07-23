@@ -538,8 +538,9 @@ class BacklogApp:
             return
         value = options.config_value
         try:
-            data = read_backlog(path, value, presets, self.log, self.levels(),
-                                self.status_map())
+            data = read_backlog(path, value, presets, self.log,
+                                levels=self.levels(),
+                                status_map=self.status_map())
         except IO_ERRORS as error:
             self.show_error('Could not read file', str(error))
             return
@@ -564,7 +565,8 @@ class BacklogApp:
             """Re-read the file, reporting a failure and applying success."""
             try:
                 data = read_backlog(path, value, self.in_presets(), self.log,
-                                    self.levels(), self.status_map())
+                                    levels=self.levels(),
+                                    status_map=self.status_map())
             except IO_ERRORS as error:
                 self.show_error('Could not read file', str(error))
                 return
