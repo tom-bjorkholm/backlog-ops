@@ -5,18 +5,20 @@
 # MIT License
 
 import tkinter as tk
+from datetime import date
 from pathlib import Path
 from typing import Optional, Sequence
 import pytest
 from tableio_cfg_json import AnswerFields, AnswerField, AskField, \
     PartFormValidationResult, PartialFormValidator, PathAskOptions, \
     WizardPathKind, AskTextField, AskIntField, AskPathField, AskYesNoField, \
-    AskChoiceField, AskMultiChoiceField, AnswerTextField, AnswerIntField, \
-    AnswerPathField, AnswerYesNoField, AnswerChoiceField, \
-    AnswerMultiChoiceField
-from backlogops_gui.wizard_form import FormEditor, HelpTooltip, int_answer, \
-    int_text, multi_count_error, out_of_range, range_error, text_answer, \
-    _INT_ERROR
+    AskChoiceField, AskMultiChoiceField, AskFloatField, AskDateField, \
+    AskDurationField, AnswerTextField, AnswerIntField, AnswerPathField, \
+    AnswerYesNoField, AnswerChoiceField, AnswerMultiChoiceField, \
+    AnswerFloatField, AnswerDateField
+from backlogops_gui.wizard_form import FormEditor, HelpTooltip, \
+    handles_field, int_answer, int_text, multi_count_error, out_of_range, \
+    range_error, text_answer, _INT_ERROR
 from .gui_test_helpers import gui_root
 
 
@@ -392,3 +394,71 @@ def test_disabled_row_change() -> None:
         editor._changed(1)
         # pylint: disable-next=protected-access
         assert editor._status.cget('text') == ''
+
+
+def test_handles_field() -> None:
+    """Test the form reports it can show the typed field kinds."""
+    assert handles_field(AskFloatField('n', None)) is True
+    assert handles_field(AskDateField('d', None)) is True
+
+
+def test_form_float_default() -> None:
+    """Test a float field starts from its default answer."""
+    with gui_root() as root:
+        field = AskFloatField('Amount', None, default=1.5)
+        editor, _ = _build(root, [field])
+        assert editor.answers() == [AnswerFloatField(field, 1.5)]
+
+
+def test_form_float_required() -> None:
+    """Test a required float with no default blocks submit."""
+    with gui_root() as root:
+        field = AskFloatField('Amount', None)
+        editor, recorded = _build(root, [field])
+        editor.submit()
+        assert not recorded
+        # pylint: disable-next=protected-access
+        assert editor._status.cget('text') != ''
+
+
+def test_form_date_read() -> None:
+    """Test a date field reads the ISO text typed into its entry."""
+    with gui_root() as root:
+        field = AskDateField('When', None)
+        editor, _ = _build(root, [field])
+        # pylint: disable-next=protected-access
+        row = editor._rows[0]
+        assert row.typed is not None
+        row.typed.set_text('2026-07-24')
+        answer = editor.answers()[0]
+        assert isinstance(answer, AnswerDateField)
+        assert answer.value == date(2026, 7, 24)
+
+
+def test_form_disable_typed() -> None:
+    """Test disabling a typed row disables its entry widget."""
+    with gui_root() as root:
+        field = AskDurationField('Length', None)
+        editor, _ = _build(root, [field])
+        # pylint: disable-next=protected-access
+        editor._apply_disabled((0,))
+        # pylint: disable-next=protected-access
+        assert str(editor._rows[0].widget.cget('state')) == 'disabled'
+
+
+def _prefill_date(_answers: AnswerFields,
+                  _index: int) -> PartFormValidationResult:
+    """Return a validator result prefilling the second row with a date."""
+    return PartFormValidationResult(True, '', (), ((1, date(2026, 8, 1)),))
+
+
+def test_form_prefill_applied() -> None:
+    """Test a validator prefill is written into its target row's input."""
+    with gui_root() as root:
+        first = AskTextField('Name', None, default='x')
+        second = AskDateField('When', None, nullable=True)
+        editor, _ = _build(root, [first, second], _prefill_date)
+        # pylint: disable-next=protected-access
+        row = editor._rows[1]
+        assert row.typed is not None
+        assert row.typed.text() == '2026-08-01'

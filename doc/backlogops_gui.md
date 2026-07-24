@@ -103,6 +103,40 @@
 * [backlogops\_gui.gui\_style](#backlogops_gui.gui_style)
   * [style\_input](#backlogops_gui.gui_style.style_input)
   * [focus\_first\_input](#backlogops_gui.gui_style.focus_first_input)
+* [backlogops\_gui.wizard\_typed](#backlogops_gui.wizard_typed)
+  * [parse\_float](#backlogops_gui.wizard_typed.parse_float)
+  * [parse\_date](#backlogops_gui.wizard_typed.parse_date)
+  * [parse\_time](#backlogops_gui.wizard_typed.parse_time)
+  * [parse\_datetime](#backlogops_gui.wizard_typed.parse_datetime)
+  * [parse\_duration](#backlogops_gui.wizard_typed.parse_duration)
+  * [format\_duration](#backlogops_gui.wizard_typed.format_duration)
+  * [format\_value](#backlogops_gui.wizard_typed.format_value)
+  * [value\_out\_of\_range](#backlogops_gui.wizard_typed.value_out_of_range)
+  * [ordered\_range\_error](#backlogops_gui.wizard_typed.ordered_range_error)
+  * [is\_typed](#backlogops_gui.wizard_typed.is_typed)
+  * [field\_hint](#backlogops_gui.wizard_typed.field_hint)
+  * [default\_text](#backlogops_gui.wizard_typed.default_text)
+  * [typed\_value](#backlogops_gui.wizard_typed.typed_value)
+  * [typed\_error](#backlogops_gui.wizard_typed.typed_error)
+  * [typed\_answer](#backlogops_gui.wizard_typed.typed_answer)
+  * [date\_of](#backlogops_gui.wizard_typed.date_of)
+  * [calendar\_seed](#backlogops_gui.wizard_typed.calendar_seed)
+  * [combined\_text](#backlogops_gui.wizard_typed.combined_text)
+* [backlogops\_gui.wizard\_pick\_row](#backlogops_gui.wizard_pick_row)
+  * [TypedInput](#backlogops_gui.wizard_pick_row.TypedInput)
+    * [text](#backlogops_gui.wizard_pick_row.TypedInput.text)
+    * [set\_text](#backlogops_gui.wizard_pick_row.TypedInput.set_text)
+    * [set\_enabled](#backlogops_gui.wizard_pick_row.TypedInput.set_enabled)
+  * [HintEntry](#backlogops_gui.wizard_pick_row.HintEntry)
+    * [\_\_init\_\_](#backlogops_gui.wizard_pick_row.HintEntry.__init__)
+    * [text](#backlogops_gui.wizard_pick_row.HintEntry.text)
+    * [set\_text](#backlogops_gui.wizard_pick_row.HintEntry.set_text)
+    * [set\_enabled](#backlogops_gui.wizard_pick_row.HintEntry.set_enabled)
+  * [PickRow](#backlogops_gui.wizard_pick_row.PickRow)
+    * [\_\_init\_\_](#backlogops_gui.wizard_pick_row.PickRow.__init__)
+    * [text](#backlogops_gui.wizard_pick_row.PickRow.text)
+    * [set\_text](#backlogops_gui.wizard_pick_row.PickRow.set_text)
+    * [set\_enabled](#backlogops_gui.wizard_pick_row.PickRow.set_enabled)
 * [backlogops\_gui.gui\_wizard](#backlogops_gui.gui_wizard)
   * [TkWizardBridge](#backlogops_gui.gui_wizard.TkWizardBridge)
     * [\_\_init\_\_](#backlogops_gui.gui_wizard.TkWizardBridge.__init__)
@@ -114,6 +148,7 @@
     * [ask\_multi](#backlogops_gui.gui_wizard.TkWizardBridge.ask_multi)
     * [ask\_table](#backlogops_gui.gui_wizard.TkWizardBridge.ask_table)
     * [ask\_form](#backlogops_gui.gui_wizard.TkWizardBridge.ask_form)
+    * [supports\_form\_field](#backlogops_gui.gui_wizard.TkWizardBridge.supports_form_field)
     * [show](#backlogops_gui.gui_wizard.TkWizardBridge.show)
     * [error\_file](#backlogops_gui.gui_wizard.TkWizardBridge.error_file)
     * [close](#backlogops_gui.gui_wizard.TkWizardBridge.close)
@@ -150,6 +185,12 @@
 * [backlogops\_gui.jira\_rank](#backlogops_gui.jira_rank)
   * [JiraRanker](#backlogops_gui.jira_rank.JiraRanker)
     * [rank\_action](#backlogops_gui.jira_rank.JiraRanker.rank_action)
+* [backlogops\_gui.wizard\_calendar](#backlogops_gui.wizard_calendar)
+  * [month\_weeks](#backlogops_gui.wizard_calendar.month_weeks)
+  * [shift\_month](#backlogops_gui.wizard_calendar.shift_month)
+  * [day\_out\_of\_range](#backlogops_gui.wizard_calendar.day_out_of_range)
+  * [CalendarPicker](#backlogops_gui.wizard_calendar.CalendarPicker)
+    * [\_\_init\_\_](#backlogops_gui.wizard_calendar.CalendarPicker.__init__)
 * [backlogops\_gui.tcltk\_version](#backlogops_gui.tcltk_version)
   * [warning\_for\_version](#backlogops_gui.tcltk_version.warning_for_version)
   * [check\_tcltk\_version](#backlogops_gui.tcltk_version.check_tcltk_version)
@@ -195,6 +236,7 @@
     * [add\_row](#backlogops_gui.wizard_table.TableEditor.add_row)
     * [remove\_row](#backlogops_gui.wizard_table.TableEditor.remove_row)
 * [backlogops\_gui.wizard\_form](#backlogops_gui.wizard_form)
+  * [handles\_field](#backlogops_gui.wizard_form.handles_field)
   * [text\_answer](#backlogops_gui.wizard_form.text_answer)
   * [int\_text](#backlogops_gui.wizard_form.int_text)
   * [out\_of\_range](#backlogops_gui.wizard_form.out_of_range)
@@ -213,6 +255,8 @@
 * [backlogops\_gui.modal\_dialog](#backlogops_gui.modal_dialog)
   * [ModalDialog](#backlogops_gui.modal_dialog.ModalDialog)
     * [\_\_init\_\_](#backlogops_gui.modal_dialog.ModalDialog.__init__)
+* [backlogops\_gui.wizard\_prefill](#backlogops_gui.wizard_prefill)
+  * [valid\_prefills](#backlogops_gui.wizard_prefill.valid_prefills)
 * [backlogops\_gui.jira\_order](#backlogops_gui.jira_order)
   * [JiraOrderer](#backlogops_gui.jira_order.JiraOrderer)
     * [order\_action](#backlogops_gui.jira_order.JiraOrderer.order_action)
@@ -224,6 +268,7 @@
   * [PathRow](#backlogops_gui.wizard_path.PathRow)
     * [\_\_init\_\_](#backlogops_gui.wizard_path.PathRow.__init__)
     * [get](#backlogops_gui.wizard_path.PathRow.get)
+    * [set\_text](#backlogops_gui.wizard_path.PathRow.set_text)
     * [set\_enabled](#backlogops_gui.wizard_path.PathRow.set_enabled)
 * [backlogops\_gui.log\_buffer](#backlogops_gui.log_buffer)
   * [LogBuffer](#backlogops_gui.log_buffer.LogBuffer)
@@ -1407,6 +1452,379 @@ def focus_first_input(window: tk.Misc) -> None
 
 Give the keyboard focus to the first editable input, if any.
 
+<a id="backlogops_gui.wizard_typed"></a>
+
+# backlogops\_gui.wizard\_typed
+
+Text parsing and formatting for the typed wizard form fields.
+
+The float, date, time, date-time and duration form fields each turn user
+text into a typed value and a typed value back into text. This module
+holds that conversion for the Tkinter bridge, together with the format
+hints and the parse and range error messages, so the graphical form
+accepts the same text a user would type on the console.
+
+A duration is written as an optional day count and a clock part,
+``<days> d HH:MM:SS``, where the seconds may carry a decimal fraction, or
+as a single non-negative number of seconds. Dates, times and date-times
+use the ISO 8601 forms accepted by the standard library fromisoformat()
+parsers.
+
+<a id="backlogops_gui.wizard_typed.parse_float"></a>
+
+#### parse\_float
+
+```python
+def parse_float(text: str) -> Optional[float]
+```
+
+Return a finite float from text, or None when not a number.
+
+<a id="backlogops_gui.wizard_typed.parse_date"></a>
+
+#### parse\_date
+
+```python
+def parse_date(text: str) -> Optional[date]
+```
+
+Return an ISO date from text, or None when not a valid date.
+
+<a id="backlogops_gui.wizard_typed.parse_time"></a>
+
+#### parse\_time
+
+```python
+def parse_time(text: str) -> Optional[time]
+```
+
+Return an ISO time from text, or None when not a valid time.
+
+<a id="backlogops_gui.wizard_typed.parse_datetime"></a>
+
+#### parse\_datetime
+
+```python
+def parse_datetime(text: str) -> Optional[datetime]
+```
+
+Return an ISO date-time from text, or None when not valid.
+
+<a id="backlogops_gui.wizard_typed.parse_duration"></a>
+
+#### parse\_duration
+
+```python
+def parse_duration(text: str) -> Optional[timedelta]
+```
+
+Return a duration from text, or None when it is not valid.
+
+A lone non-negative number is read as a count of seconds; otherwise
+the text must be ``<hours>:<minutes>:<seconds>`` with an optional
+``<days> d`` prefix, and the seconds may carry a decimal fraction.
+
+<a id="backlogops_gui.wizard_typed.format_duration"></a>
+
+#### format\_duration
+
+```python
+def format_duration(value: timedelta) -> str
+```
+
+Return a duration as ``<days> d HH:MM:SS`` with any fraction.
+
+<a id="backlogops_gui.wizard_typed.format_value"></a>
+
+#### format\_value
+
+```python
+def format_value(value: object) -> str
+```
+
+Return the text a typed value would round-trip from.
+
+<a id="backlogops_gui.wizard_typed.value_out_of_range"></a>
+
+#### value\_out\_of\_range
+
+```python
+def value_out_of_range(value: _Ordered, minimum: Optional[_Ordered],
+                       maximum: Optional[_Ordered]) -> bool
+```
+
+Return whether value lies outside the inclusive bounds.
+
+<a id="backlogops_gui.wizard_typed.ordered_range_error"></a>
+
+#### ordered\_range\_error
+
+```python
+def ordered_range_error(minimum: Optional[object],
+                        maximum: Optional[object]) -> str
+```
+
+Return the message shown when a typed value is out of range.
+
+<a id="backlogops_gui.wizard_typed.is_typed"></a>
+
+#### is\_typed
+
+```python
+def is_typed(field: AskField) -> bool
+```
+
+Return whether field is one of the five typed form fields.
+
+<a id="backlogops_gui.wizard_typed.field_hint"></a>
+
+#### field\_hint
+
+```python
+def field_hint(field: AskField) -> str
+```
+
+Return the accepted-format hint shown for a typed field.
+
+<a id="backlogops_gui.wizard_typed.default_text"></a>
+
+#### default\_text
+
+```python
+def default_text(field: AskField) -> str
+```
+
+Return the starting entry text for a typed field's default.
+
+<a id="backlogops_gui.wizard_typed.typed_value"></a>
+
+#### typed\_value
+
+```python
+def typed_value(field: AskField, text: str) -> Optional[object]
+```
+
+Return the typed value of a typed field for its widget text.
+
+An empty text yields the field default. A non-empty text is parsed;
+unparsable or out-of-range text yields None, and the caller reports
+the error separately through typed_error().
+
+<a id="backlogops_gui.wizard_typed.typed_error"></a>
+
+#### typed\_error
+
+```python
+def typed_error(field: AskField, text: str) -> Optional[str]
+```
+
+Return the parse or range error of a typed field's widget text.
+
+Empty text is accepted when the field is nullable or has a default,
+and otherwise reports that a value is required.
+
+<a id="backlogops_gui.wizard_typed.typed_answer"></a>
+
+#### typed\_answer
+
+```python
+def typed_answer(field: AskField, value: Optional[object]) -> AnswerField
+```
+
+Wrap a typed value in the answer matching a typed field.
+
+<a id="backlogops_gui.wizard_typed.date_of"></a>
+
+#### date\_of
+
+```python
+def date_of(value: Optional[object]) -> Optional[date]
+```
+
+Return the date part of a date or datetime, or None.
+
+<a id="backlogops_gui.wizard_typed.calendar_seed"></a>
+
+#### calendar\_seed
+
+```python
+def calendar_seed(field: AskField,
+                  text: str) -> tuple[date, Optional[date], Optional[date]]
+```
+
+Return the calendar seed date and its inclusive day bounds.
+
+A date-time field's bounds are its date parts, so the calendar offers
+the acceptable days and the field itself validates the exact value.
+
+<a id="backlogops_gui.wizard_typed.combined_text"></a>
+
+#### combined\_text
+
+```python
+def combined_text(field: AskField, picked: date, current: str) -> str
+```
+
+Return the input text for a picked date, keeping any typed time.
+
+<a id="backlogops_gui.wizard_pick_row"></a>
+
+# backlogops\_gui.wizard\_pick\_row
+
+Placeholder-aware entries for the typed wizard form fields.
+
+The float, time and duration form fields are shown as a text entry that
+displays its accepted-format hint as greyed placeholder text while empty,
+so the user learns the format without cluttering the field label. A date
+or date-time field adds a Pick button that opens a month calendar, and
+typing the ``?`` token into the entry opens the same calendar.
+
+:class:`HintEntry` is the placeholder entry, and :class:`PickRow` bundles
+one with the calendar button. Both satisfy :class:`TypedInput`, the small
+interface the form editor uses to read, write, and enable a typed row.
+
+<a id="backlogops_gui.wizard_pick_row.TypedInput"></a>
+
+## TypedInput Objects
+
+```python
+class TypedInput(Protocol)
+```
+
+The read, write and enable interface of a typed form input.
+
+<a id="backlogops_gui.wizard_pick_row.TypedInput.text"></a>
+
+#### text
+
+```python
+def text() -> str
+```
+
+Return the current text, empty when only a placeholder shows.
+
+<a id="backlogops_gui.wizard_pick_row.TypedInput.set_text"></a>
+
+#### set\_text
+
+```python
+def set_text(text: str) -> None
+```
+
+Replace the current text, showing the placeholder when empty.
+
+<a id="backlogops_gui.wizard_pick_row.TypedInput.set_enabled"></a>
+
+#### set\_enabled
+
+```python
+def set_enabled(enabled: bool) -> None
+```
+
+Enable or disable the input for user editing.
+
+<a id="backlogops_gui.wizard_pick_row.HintEntry"></a>
+
+## HintEntry Objects
+
+```python
+class HintEntry()
+```
+
+A text entry showing a greyed format hint while it is empty.
+
+<a id="backlogops_gui.wizard_pick_row.HintEntry.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, hint: str, initial: str,
+             on_change: Callable[[], None]) -> None
+```
+
+Build the entry, showing initial text or the greyed hint.
+
+<a id="backlogops_gui.wizard_pick_row.HintEntry.text"></a>
+
+#### text
+
+```python
+def text() -> str
+```
+
+Return the entered text, empty when only the hint shows.
+
+<a id="backlogops_gui.wizard_pick_row.HintEntry.set_text"></a>
+
+#### set\_text
+
+```python
+def set_text(text: str) -> None
+```
+
+Replace the text, showing the greyed hint when text is empty.
+
+<a id="backlogops_gui.wizard_pick_row.HintEntry.set_enabled"></a>
+
+#### set\_enabled
+
+```python
+def set_enabled(enabled: bool) -> None
+```
+
+Enable or disable the entry for user editing.
+
+<a id="backlogops_gui.wizard_pick_row.PickRow"></a>
+
+## PickRow Objects
+
+```python
+class PickRow()
+```
+
+A hint entry paired with a Pick button that opens a calendar.
+
+<a id="backlogops_gui.wizard_pick_row.PickRow.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, field: AskField, hint: str, initial: str,
+             on_change: Callable[[], None]) -> None
+```
+
+Build the entry and Pick button inside a new frame.
+
+<a id="backlogops_gui.wizard_pick_row.PickRow.text"></a>
+
+#### text
+
+```python
+def text() -> str
+```
+
+Return the entered date or date-time text.
+
+<a id="backlogops_gui.wizard_pick_row.PickRow.set_text"></a>
+
+#### set\_text
+
+```python
+def set_text(text: str) -> None
+```
+
+Replace the entered text, showing the hint when empty.
+
+<a id="backlogops_gui.wizard_pick_row.PickRow.set_enabled"></a>
+
+#### set\_enabled
+
+```python
+def set_enabled(enabled: bool) -> None
+```
+
+Enable or disable both the entry and the Pick button.
+
 <a id="backlogops_gui.gui_wizard"></a>
 
 # backlogops\_gui.gui\_wizard
@@ -1571,6 +1989,16 @@ def ask_form(
 ```
 
 Ask a whole form on one screen; see WizardUiBridge.ask_form.
+
+<a id="backlogops_gui.gui_wizard.TkWizardBridge.supports_form_field"></a>
+
+#### supports\_form\_field
+
+```python
+def supports_form_field(field: AskField) -> bool
+```
+
+Report that the Tk form shows every current field type.
 
 <a id="backlogops_gui.gui_wizard.TkWizardBridge.show"></a>
 
@@ -2030,6 +2458,78 @@ def rank_action(
 ```
 
 Return the rank handler, or None when it is unavailable.
+
+<a id="backlogops_gui.wizard_calendar"></a>
+
+# backlogops\_gui.wizard\_calendar
+
+A modal month calendar for the Tkinter date and date-time fields.
+
+A date field, and the date part of a date-time field, are shown in the
+Tkinter form as a text entry paired with a Pick button. Pressing that
+button, or typing the ``?`` token into the entry, opens this calendar.
+The user steps between months and years and clicks a day to return it;
+Cancel or closing the window returns nothing so the entry keeps its
+value. Days outside a field's inclusive bounds are shown disabled, so the
+calendar only offers acceptable dates.
+
+The calendar is event driven: a day or Cancel button calls the picked
+callback and destroys the window. No nested wait loop is entered, so the
+one already running for the wizard window keeps processing events while
+the calendar is open.
+
+<a id="backlogops_gui.wizard_calendar.month_weeks"></a>
+
+#### month\_weeks
+
+```python
+def month_weeks(year: int, month: int) -> list[list[int]]
+```
+
+Return the weeks of a month as day numbers, 0 for padding days.
+
+<a id="backlogops_gui.wizard_calendar.shift_month"></a>
+
+#### shift\_month
+
+```python
+def shift_month(year: int, month: int, action: str) -> tuple[int, int]
+```
+
+Return the year and month reached by one navigation action.
+
+<a id="backlogops_gui.wizard_calendar.day_out_of_range"></a>
+
+#### day\_out\_of\_range
+
+```python
+def day_out_of_range(day: date, minimum: Optional[date],
+                     maximum: Optional[date]) -> bool
+```
+
+Return whether a day lies outside the inclusive date bounds.
+
+<a id="backlogops_gui.wizard_calendar.CalendarPicker"></a>
+
+## CalendarPicker Objects
+
+```python
+class CalendarPicker()
+```
+
+A month calendar window returning the date the user clicks.
+
+<a id="backlogops_gui.wizard_calendar.CalendarPicker.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(parent: tk.Misc, seed: date, minimum: Optional[date],
+             maximum: Optional[date], on_pick: Callable[[Optional[date]],
+                                                        None]) -> None
+```
+
+Build the calendar window on the seed month and show it.
 
 <a id="backlogops_gui.tcltk_version"></a>
 
@@ -2656,6 +3156,16 @@ and friends) turn the raw text of a text or integer field into its typed
 answer. They are shared with the reused wizard window, which asks a
 standalone integer question with the same rules.
 
+<a id="backlogops_gui.wizard_form.handles_field"></a>
+
+#### handles\_field
+
+```python
+def handles_field(field: AskField) -> bool
+```
+
+Return whether the Tk form can show the given field type.
+
 <a id="backlogops_gui.wizard_form.text_answer"></a>
 
 #### text\_answer
@@ -2857,6 +3367,43 @@ def __init__(parent: tk.Misc, title: str) -> None
 
 Create the modal top-level window and its close handler.
 
+<a id="backlogops_gui.wizard_prefill"></a>
+
+# backlogops\_gui.wizard\_prefill
+
+Validate a partial validator's prefill requests for the form editor.
+
+A partial form validator may return prefill values: requests to place a
+value into another row's input during live editing, as if the user had
+typed it. :func:`valid_prefills` turns those requests into the ones the
+Tkinter form editor should apply.
+
+A prefill aimed at the row that just changed is skipped. A row index
+outside the form raises ``IndexError`` and a value whose Python type does
+not match its field raises ``TypeError``, because both are validator
+bugs and should surface as early as possible. A choice value not among
+the field's choices, any prefill of a sensitive text field, and a
+multi-choice value with no valid member are dropped instead, so a
+portable validator stays safe. These rules match the console and Textual
+bridges, so a validator behaves the same on every bridge.
+
+<a id="backlogops_gui.wizard_prefill.valid_prefills"></a>
+
+#### valid\_prefills
+
+```python
+def valid_prefills(
+        fields: Sequence[AskField], changed: int,
+        prefills: PrefillValues) -> Iterator[tuple[int, PrefillValueType]]
+```
+
+Yield the prefill requests the form editor should apply.
+
+A request aimed at the changed row is skipped so writing back never
+fights the user's current edit. A row index outside the form raises
+IndexError and a value whose type does not match its field raises
+TypeError. Requests that are valid but not applicable are dropped.
+
 <a id="backlogops_gui.jira_order"></a>
 
 # backlogops\_gui.jira\_order
@@ -2995,6 +3542,16 @@ def get() -> str
 ```
 
 Return the current path text.
+
+<a id="backlogops_gui.wizard_path.PathRow.set_text"></a>
+
+#### set\_text
+
+```python
+def set_text(text: str) -> None
+```
+
+Replace the path text, enabling the entry briefly if disabled.
 
 <a id="backlogops_gui.wizard_path.PathRow.set_enabled"></a>
 

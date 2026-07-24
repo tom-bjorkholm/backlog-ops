@@ -18,10 +18,11 @@ session happens in a single pop-up that does not jump around the display.
 from typing import Optional, Sequence, TextIO
 from pathlib import Path
 import tkinter as tk
-from tableio_cfg_json import AnswerFields, AskFields, PartialCheck, \
+from tableio_cfg_json import AnswerFields, AskField, AskFields, PartialCheck, \
     PartialFormValidator, PathAskOptions, TableCell, TableColumn, \
     WizardUiBridge
 from backlogops import NoTextIO
+from backlogops_gui.wizard_form import handles_field
 from backlogops_gui.wizard_window import WizardWindow
 
 
@@ -111,6 +112,10 @@ class TkWizardBridge(WizardUiBridge):
         """Ask a whole form on one screen; see WizardUiBridge.ask_form."""
         return self._window_obj().ask_form(long_question, ask_fields,
                                            re_ask_reason, partial_validator)
+
+    def supports_form_field(self, field: AskField) -> bool:
+        """Report that the Tk form shows every current field type."""
+        return handles_field(field)
 
     def show(self, message: str) -> None:
         """Show an informational message to the user."""

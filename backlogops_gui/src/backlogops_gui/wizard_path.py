@@ -149,6 +149,17 @@ class PathRow:
         """Return the current path text."""
         return self._entry.get()
 
+    def set_text(self, text: str) -> None:
+        """Replace the path text, enabling the entry briefly if disabled."""
+        if self._entry.get() == text:
+            return
+        state = self._entry['state']
+        self._entry['state'] = 'normal'
+        self._entry.delete(0, 'end')
+        if text != '':
+            self._entry.insert(0, text)
+        self._entry['state'] = state
+
     def set_enabled(self, enabled: bool) -> None:
         """Enable or disable both the entry and the Browse button."""
         state = 'normal' if enabled else 'disabled'

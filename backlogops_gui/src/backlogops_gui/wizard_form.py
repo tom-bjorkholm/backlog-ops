@@ -24,11 +24,17 @@ from pathlib import Path
 from tkinter import ttk
 from typing import Callable, NamedTuple, Optional, Sequence
 from tableio_cfg_json import AskField, AnswerField, PartialFormValidator, \
-    AskTextField, AskIntField, AskPathField, AskYesNoField, AskChoiceField, \
-    AskMultiChoiceField, AnswerTextField, AnswerIntField, AnswerPathField, \
-    AnswerYesNoField, AnswerChoiceField, AnswerMultiChoiceField
+    PrefillValues, PrefillValueType, AskTextField, AskIntField, AskPathField, \
+    AskYesNoField, AskChoiceField, AskMultiChoiceField, AskFloatField, \
+    AskDateField, AskTimeField, AskDateTimeField, AskDurationField, \
+    AnswerTextField, AnswerIntField, AnswerPathField, AnswerYesNoField, \
+    AnswerChoiceField, AnswerMultiChoiceField
 from backlogops_gui.gui_style import style_input
 from backlogops_gui.wizard_path import PathRow, validate_path
+from backlogops_gui.wizard_pick_row import HintEntry, PickRow, TypedInput
+from backlogops_gui.wizard_prefill import valid_prefills
+from backlogops_gui.wizard_typed import default_text, field_hint, \
+    format_value, is_typed, typed_answer, typed_error, typed_value
 
 WRAP_LENGTH = 520
 LABEL_WRAP = 220
@@ -40,6 +46,14 @@ _INT_ERROR = 'Please enter an integer.'
 _CHOICE_REQUIRED = 'Please choose a value.'
 TOOLTIP_BG = '#ffffe0'
 TOOLTIP_WRAP = 320
+_HANDLED = (AskTextField, AskIntField, AskPathField, AskYesNoField,
+            AskChoiceField, AskMultiChoiceField, AskFloatField, AskDateField,
+            AskTimeField, AskDateTimeField, AskDurationField)
+
+
+def handles_field(field: AskField) -> bool:
+    """Return whether the Tk form can show the given field type."""
+    return isinstance(field, _HANDLED)
 
 
 def text_answer(text: str, nullable: bool,
@@ -114,6 +128,7 @@ class _Input(NamedTuple):
     widget: tk.Widget
     var: Optional[tk.BooleanVar]
     path: Optional[PathRow]
+    typed: Optional[TypedInput] = None
 
 
 class HelpTooltip:
@@ -169,6 +184,7 @@ class FormRow:
     widget: tk.Widget
     var: Optional[tk.BooleanVar]
     path: Optional[PathRow]
+    typed: Optional[TypedInput] = None
     tooltip: Optional[HelpTooltip] = None
 
 
@@ -249,9 +265,31 @@ def _preselect(box: tk.Listbox, choices: Sequence[str],
             box.selection_set(index)
 
 
-def _make_input(grid: tk.Misc, field: AskField,
+def _hint_input(grid: tk.Misc, field: AskField,
                 change: Callable[[], None]) -> _Input:
-    """Build the input widget matching the field type."""
+    """Build a placeholder entry for a float, time or duration field."""
+    entry = HintEntry(grid, field_hint(field), default_text(field), change)
+    return _Input(entry.entry, None, None, entry)
+
+
+def _pick_input(grid: tk.Misc, field: AskField,
+                change: Callable[[], None]) -> _Input:
+    """Build a date or date-time entry with a calendar Pick button."""
+    row = PickRow(grid, field, field_hint(field), default_text(field), change)
+    return _Input(row.frame, None, None, row)
+
+
+def _typed_input(grid: tk.Misc, field: AskField,
+                 change: Callable[[], None]) -> _Input:
+    """Build the input widget for one of the five typed fields."""
+    if isinstance(field, (AskFloatField, AskTimeField, AskDurationField)):
+        return _hint_input(grid, field, change)
+    return _pick_input(grid, field, change)
+
+
+def _basic_input(grid: tk.Misc, field: AskField,
+                 change: Callable[[], None]) -> _Input:
+    """Build the input widget for one of the original field kinds."""
     if isinstance(field, AskTextField):
         return _text_input(grid, field, change)
     if isinstance(field, AskIntField):
@@ -264,6 +302,14 @@ def _make_input(grid: tk.Misc, field: AskField,
         return _choice_input(grid, field, change)
     assert isinstance(field, AskMultiChoiceField)
     return _multi_input(grid, field, change)
+
+
+def _make_input(grid: tk.Misc, field: AskField,
+                change: Callable[[], None]) -> _Input:
+    """Build the input widget matching the field type."""
+    if is_typed(field):
+        return _typed_input(grid, field, change)
+    return _basic_input(grid, field, change)
 
 
 def _entry_widget(row: FormRow) -> tk.Entry:
@@ -324,6 +370,9 @@ def _multi_error(row: FormRow, field: AskMultiChoiceField) -> Optional[str]:
 
 def _set_widget_state(row: FormRow, enabled: bool) -> None:
     """Enable or disable a row's input widget, keeping combo read-only."""
+    if row.typed is not None:
+        row.typed.set_enabled(enabled)
+        return
     if row.path is not None:
         row.path.set_enabled(enabled)
         return
@@ -337,12 +386,97 @@ def _enable_row(row: FormRow, enabled: bool) -> None:
     row.label.configure(fg='black' if enabled else 'grey')
 
 
+def _hint_note(field: AskField) -> Optional[str]:
+    """Return the format hint sentence for a typed field, or None."""
+    return f'Enter {field_hint(field)}.' if is_typed(field) else None
+
+
+def _tooltip_text(field: AskField) -> Optional[str]:
+    """Return the tooltip text combining help text and format hint."""
+    note = _hint_note(field)
+    if field.help_text is None:
+        return note
+    return field.help_text if note is None else f'{field.help_text}\n{note}'
+
+
 def _row_tooltip(field: AskField, label: tk.Label,
                  widget: tk.Widget) -> Optional[HelpTooltip]:
-    """Return a hover tooltip for the field's help text, or None."""
-    if field.help_text is None:
+    """Return a hover tooltip for the field's help and format hint."""
+    text = _tooltip_text(field)
+    if text is None:
         return None
-    return HelpTooltip(field.help_text, label, (label, widget))
+    return HelpTooltip(text, label, (label, widget))
+
+
+def _set_entry_text(entry: tk.Entry, text: str) -> None:
+    """Replace a text or integer entry's text, enabling it if disabled."""
+    if entry.get() == text:
+        return
+    state = entry['state']
+    entry['state'] = 'normal'
+    entry.delete(0, 'end')
+    entry.insert(0, text)
+    entry['state'] = state
+
+
+def _set_combo(box: ttk.Combobox, value: str) -> None:
+    """Set a drop-down's value, enabling it briefly if disabled."""
+    if box.get() == value:
+        return
+    state = box['state']
+    box['state'] = 'normal'
+    box.set(value)
+    box['state'] = state
+
+
+def _set_multi(box: tk.Listbox, choices: Sequence[str],
+               value: PrefillValueType) -> None:
+    """Select the values of a multi-selection list, enabling it briefly."""
+    assert isinstance(value, (list, tuple))
+    wanted = set(value)
+    state = box['state']
+    box['state'] = 'normal'
+    box.selection_clear(0, 'end')
+    for index, choice in enumerate(choices):
+        if choice in wanted:
+            box.selection_set(index)
+    box['state'] = state
+
+
+def _basic_answer(row: FormRow) -> AnswerField:
+    """Return the answer of a row of one of the original field kinds."""
+    field = row.field
+    if isinstance(field, AskTextField):
+        text = _entry_widget(row).get()
+        return AnswerTextField(field, text_answer(text, field.nullable,
+                                                  field.default))
+    if isinstance(field, AskIntField):
+        return AnswerIntField(field, _int_value(row, field))
+    if isinstance(field, AskPathField):
+        return AnswerPathField(field, _path_value(row, field))
+    if isinstance(field, AskYesNoField):
+        assert row.var is not None
+        return AnswerYesNoField(field, bool(row.var.get()))
+    if isinstance(field, AskChoiceField):
+        return AnswerChoiceField(field, _choice_value(row))
+    assert isinstance(field, AskMultiChoiceField)
+    return AnswerMultiChoiceField(field, _multi_values(row, field))
+
+
+def _basic_error(row: FormRow) -> Optional[str]:
+    """Return the own error of a row of an original field kind, or None."""
+    field = row.field
+    if isinstance(field, AskIntField):
+        return _int_error(row, field)
+    if isinstance(field, AskPathField):
+        assert row.path is not None
+        done, _, reason = validate_path(row.path.get(), field.path_options)
+        return None if done else reason
+    if isinstance(field, AskChoiceField):
+        return None if _choice_value(row) is not None else _CHOICE_REQUIRED
+    if isinstance(field, AskMultiChoiceField):
+        return _multi_error(row, field)
+    return None
 
 
 class FormEditor:
@@ -370,6 +504,34 @@ class FormEditor:
         if self._validator is not None:
             result = self._validator(self.answers(), 0)
             self._apply_disabled(result.disable_row_idxs)
+            self._apply_prefills(result.prefill_values, 0)
+
+    def _apply_prefills(self, prefills: PrefillValues, changed: int) -> None:
+        """Write the validator's valid prefills into their row inputs."""
+        fields = [row.field for row in self._rows]
+        for index, value in valid_prefills(fields, changed, prefills):
+            self._write_value(self._rows[index], value)
+
+    def _write_value(self, row: FormRow, value: PrefillValueType) -> None:
+        """Write one prefill value into a row's input by field type."""
+        field = row.field
+        if row.typed is not None:
+            row.typed.set_text(format_value(value))
+        elif isinstance(field, (AskTextField, AskIntField)):
+            _set_entry_text(_entry_widget(row), str(value))
+        elif isinstance(field, AskPathField):
+            assert row.path is not None
+            row.path.set_text(str(value))
+        elif isinstance(field, AskYesNoField):
+            assert row.var is not None
+            row.var.set(bool(value))
+        elif isinstance(field, AskChoiceField):
+            assert isinstance(row.widget, ttk.Combobox)
+            _set_combo(row.widget, str(value))
+        else:
+            assert isinstance(field, AskMultiChoiceField)
+            assert isinstance(row.widget, tk.Listbox)
+            _set_multi(row.widget, field.choices, value)
 
     def _build_row(self, grid: tk.Misc, index: int,
                    field: AskField) -> FormRow:
@@ -381,7 +543,7 @@ class FormEditor:
         built.widget.grid(row=index, column=1, sticky='w', padx=4, pady=3)
         tooltip = _row_tooltip(field, label, built.widget)
         return FormRow(field, label, built.widget, built.var, built.path,
-                       tooltip)
+                       built.typed, tooltip)
 
     def answers(self) -> list[AnswerField]:
         """Return the current answer of every row, in field order."""
@@ -427,6 +589,7 @@ class FormEditor:
             return ''
         result = self._validator(answers, index)
         self._apply_disabled(result.disable_row_idxs)
+        self._apply_prefills(result.prefill_values, index)
         return '' if result.is_valid else result.message
 
     def _first_error(self) -> Optional[str]:
@@ -452,35 +615,16 @@ class FormEditor:
     def _read(self, index: int) -> AnswerField:
         """Return the current answer of one row read from its widget."""
         row = self._rows[index]
-        field = row.field
-        if isinstance(field, AskTextField):
-            text = _entry_widget(row).get()
-            return AnswerTextField(field, text_answer(text, field.nullable,
-                                                      field.default))
-        if isinstance(field, AskIntField):
-            return AnswerIntField(field, _int_value(row, field))
-        if isinstance(field, AskPathField):
-            return AnswerPathField(field, _path_value(row, field))
-        if isinstance(field, AskYesNoField):
-            assert row.var is not None
-            return AnswerYesNoField(field, bool(row.var.get()))
-        if isinstance(field, AskChoiceField):
-            return AnswerChoiceField(field, _choice_value(row))
-        assert isinstance(field, AskMultiChoiceField)
-        return AnswerMultiChoiceField(field, _multi_values(row, field))
+        if is_typed(row.field):
+            assert row.typed is not None
+            value = typed_value(row.field, row.typed.text())
+            return typed_answer(row.field, value)
+        return _basic_answer(row)
 
     def _field_error(self, index: int) -> Optional[str]:
         """Return one field's own validation error, or None when valid."""
         row = self._rows[index]
-        field = row.field
-        if isinstance(field, AskIntField):
-            return _int_error(row, field)
-        if isinstance(field, AskPathField):
-            assert row.path is not None
-            done, _, reason = validate_path(row.path.get(), field.path_options)
-            return None if done else reason
-        if isinstance(field, AskChoiceField):
-            return None if _choice_value(row) is not None else _CHOICE_REQUIRED
-        if isinstance(field, AskMultiChoiceField):
-            return _multi_error(row, field)
-        return None
+        if is_typed(row.field):
+            assert row.typed is not None
+            return typed_error(row.field, row.typed.text())
+        return _basic_error(row)
