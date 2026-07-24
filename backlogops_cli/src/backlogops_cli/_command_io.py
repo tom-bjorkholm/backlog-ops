@@ -12,9 +12,10 @@ underscore in the module name keeps it out of the command listing.
 
 import argparse
 import sys
+from getpass import getpass
 from pathlib import Path
 from collections.abc import Callable
-from typing import Optional, TextIO
+from typing import Optional, TextIO, TypeVar
 import argcomplete
 from backlogops_cli._migrate_warn import (
     CliMigrateWarnHook, CliPresetMigrateWarnHook)
@@ -26,6 +27,9 @@ from backlogops import (
     get_backlog_ops_config, read_backlog_releases, resolve_input_config,
     resolve_output_config, write_backlog_releases, write_content_changes,
     write_date_changes)
+
+ResultT = TypeVar('ResultT')
+"""Result type of a Jira write, carried from the operation to the report."""
 
 RANK_ANCHOR_CHOICES = {
     'backlog-top': JiraRankAnchor.BACKLOG_TOP,
@@ -97,6 +101,11 @@ def parsed_args(parser: argparse.ArgumentParser,
     return parser.parse_args(args)
 
 
+def jira_passphrase() -> str:
+    """Ask for the Jira API token pass phrase on the terminal."""
+    return getpass('Jira API token pass phrase: ')
+
+
 def add_input_args(parser: argparse.ArgumentParser) -> None:
     """Add the input-file and input-config arguments."""
     parser.add_argument('-i', '--input', dest='input', required=True,
@@ -118,6 +127,18 @@ def add_config_arg(parser: argparse.ArgumentParser) -> None:
                         'file is found from $BACKLOGOPS_CFG, else '
                         'backlogops.cfg in $BACKLOGOPS_DIR, else '
                         '$HOME/.backlogops.cfg.')
+
+
+def add_preset_arg(parser: argparse.ArgumentParser) -> None:
+    """Add the required ``-p``/``--preset`` Jira preset argument."""
+    parser.add_argument('-p', '--preset', dest='preset', required=True,
+                        help='Name of the Jira preset in the configuration.')
+
+
+def add_quiet_arg(parser: argparse.ArgumentParser) -> None:
+    """Add the ``-q``/``--quiet`` flag suppressing the result lists."""
+    parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
+                        help='Do not print the result lists to stdout.')
 
 
 def _resolve_config(parsed: argparse.Namespace) -> BacklogOpsConfig:
@@ -265,6 +286,23 @@ def build_io_parser(description: str, *, with_input: bool = True,
     return parser
 
 
+def build_jira_parser(description: str, *,
+                      with_input: bool = True) -> argparse.ArgumentParser:
+    """Create a parser with the config, preset and optional input options.
+
+    The Jira commands all take a backlog-ops configuration and a required
+    ``-p``/``--preset``. Most also read an input file, so ``with_input``
+    adds the input-file and input-config options by default; a command
+    that does not read a backlog file passes ``with_input=False``.
+    """
+    parser = argparse.ArgumentParser(description=description)
+    if with_input:
+        add_input_args(parser)
+    add_config_arg(parser)
+    add_preset_arg(parser)
+    return parser
+
+
 def _write_output(parsed: argparse.Namespace,
                   config: Optional[BacklogOpsConfig],
                   data: BacklogReleases) -> None:
@@ -314,6 +352,63 @@ def run_write(parsed: argparse.Namespace,
         print(f'Could not write {parsed.output}: {error}', file=sys.stderr)
         return 1
     print(f'Wrote {parsed.output}')
+    return 0
+
+
+def run_write_command(
+        build_parser: Callable[[], argparse.ArgumentParser],
+        produce: Callable[[argparse.Namespace, Optional[BacklogOpsConfig]],
+                          BacklogReleases],
+        args: Optional[list[str]]) -> int:
+    """Parse the command line and write the produced backlog and releases.
+
+    Folds argument parsing and :func:`run_write` so an ordering command's
+    ``main`` stays a single delegating call. ``produce`` receives the
+    parsed args and the resolved config (or None) and returns the data.
+    """
+    parsed = parsed_args(build_parser(), args)
+    return run_write(parsed, lambda config: produce(parsed, config))
+
+
+def write_result_file(config: BacklogOpsConfig, path: str,
+                      data: BacklogReleases, force: bool) -> None:
+    """Write one backlog-and-releases result file, honoring ``--force``."""
+    out_config = resolve_output_config(None, data_file=path,
+                                       presets=config.output_configs,
+                                       auto_ch_hook=CliPresetMigrateWarnHook())
+    write_backlog_releases(data, path, out_config, FormatRules(),
+                           levels=config.get_levels(),
+                           file_exists_callback=overwrite_callback(force))
+    print(f'Wrote {path}')
+
+
+def run_added_to_jira(
+        parsed: argparse.Namespace,
+        add: Callable[
+            [argparse.Namespace, BacklogOpsConfig, BacklogReleases], ResultT],
+        report: Callable[[ResultT], str], exists_error: type[Exception],
+        fail_note: str) -> int:
+    """Read the input, add it to Jira, and print the added lists.
+
+    ``add`` receives the parsed args, the config and the input data, adds
+    to Jira, writes any ``--added``/``--existing`` files, and returns the
+    result. ``report`` formats that result for stdout, printed unless
+    ``-q``/``--quiet`` was given. ``exists_error`` is the key-exists error
+    meaning nothing was added; other value or OS errors are reported with
+    ``fail_note``.
+    """
+    try:
+        config = required_config(parsed)
+        data = read_input(parsed, config)
+        result = add(parsed, config, data)
+    except exists_error:
+        print('Nothing added to Jira.', file=sys.stderr)
+        return 1
+    except (ValueError, TypeError, KeyError, OSError) as error:
+        print(f'{fail_note}: {error}', file=sys.stderr)
+        return 1
+    if not parsed.quiet:
+        print(report(result))
     return 0
 
 

@@ -24,24 +24,21 @@ terminal only when it is needed.
 
 import argparse
 import sys
-from getpass import getpass
 from typing import Optional
 from jira import JIRAError
 from backlogops import (
     BacklogOpsConfig, JiraConnections, RankedInJira, format_rank_result,
     jira_rank_move_keys, read_key_list)
 from backlogops_cli._command_io import (
-    RANK_ANCHOR_CHOICES, add_config_arg, parsed_args, required_config)
+    RANK_ANCHOR_CHOICES, add_quiet_arg, build_jira_parser, jira_passphrase,
+    parsed_args, required_config)
 
 DESCRIPTION = 'Move key-list items to a chosen anchor in the Jira rank order'
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the rank-in-Jira command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_config_arg(parser)
-    parser.add_argument('-p', '--preset', dest='preset', required=True,
-                        help='Name of the Jira preset in the configuration.')
+    parser = build_jira_parser(DESCRIPTION, with_input=False)
     parser.add_argument('-k', '--key-list', dest='key_list', required=True,
                         help='Key list file naming the issues to move.')
     parser.add_argument('--anchor', dest='anchor',
@@ -59,14 +56,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--filter', dest='filter', metavar='JQL', default=None,
                         help='JQL filter reading the backlog; it may only '
                         'order by rank. Omit to use the preset filter.')
-    parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
-                        help='Do not print the result lists to stdout.')
+    add_quiet_arg(parser)
     return parser
-
-
-def _passphrase() -> str:
-    """Ask for the Jira token pass phrase on the terminal."""
-    return getpass('Jira API token pass phrase: ')
 
 
 def _rank(parsed: argparse.Namespace,
@@ -74,7 +65,7 @@ def _rank(parsed: argparse.Namespace,
     """Move the key-list items in the Jira rank order using the preset."""
     print(f"Ranking items in Jira using preset '{parsed.preset}'...",
           file=sys.stderr)
-    connections = JiraConnections(config.get_jira_config(), _passphrase)
+    connections = JiraConnections(config.get_jira_config(), jira_passphrase)
     keys = read_key_list(parsed.key_list)
     result = jira_rank_move_keys(connections, parsed.preset, keys,
                                  filter_override=parsed.filter,
@@ -112,8 +103,7 @@ def main(args: Optional[list[str]] = None) -> int:
     Returns:
         ``0`` on success, ``1`` when the items cannot be ranked.
     """
-    parsed = parsed_args(build_parser(), args)
-    return _run(parsed)
+    return _run(parsed_args(build_parser(), args))
 
 
 if __name__ == '__main__':  # pragma: no cover

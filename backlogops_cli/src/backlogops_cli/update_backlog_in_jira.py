@@ -32,15 +32,14 @@ only when it is needed.
 
 import argparse
 import sys
-from getpass import getpass
 from typing import Optional
 from backlogops import (
     BacklogOpsConfig, ItemNotInJiraError, JiraConnections, LinkUpdate,
     OnMissingKey, UpdatedBacklogInJira, format_backlog_updates,
     update_backlog_in_jira, updatable_backlog_fields)
 from backlogops_cli._command_io import (
-    add_config_arg, add_input_args, add_rank_arg, parsed_args, rank_anchor,
-    read_input, required_config)
+    add_quiet_arg, add_rank_arg, build_jira_parser, jira_passphrase,
+    parsed_args, rank_anchor, read_input, required_config)
 
 DESCRIPTION = 'Update a backlog in Jira, changing only the chosen columns'
 
@@ -53,11 +52,7 @@ _STORE_ALL = 'all'
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the update-backlog command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_input_args(parser)
-    add_config_arg(parser)
-    parser.add_argument('-p', '--preset', dest='preset', required=True,
-                        help='Name of the Jira preset in the configuration.')
+    parser = build_jira_parser(DESCRIPTION)
     _add_column_flags(parser)
     parser.add_argument('--on-missing', dest='on_missing',
                         choices=sorted(_MISSING_MODES), default='raise',
@@ -70,8 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
                         'removing links it no longer has; add only adds '
                         'missing links.')
     add_rank_arg(parser)
-    parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
-                        help='Do not print the result lists to stdout.')
+    add_quiet_arg(parser)
     return parser
 
 
@@ -85,11 +79,6 @@ def _add_column_flags(parser: argparse.ArgumentParser) -> None:
     group.add_argument('-e', '--exclude', dest='exclude', nargs='+',
                        metavar='COLUMN',
                        help='Update every mapped writable column but these.')
-
-
-def _passphrase() -> str:
-    """Ask for the Jira token pass phrase on the terminal."""
-    return getpass('Jira API token pass phrase: ')
 
 
 def _resolve_fields(parsed: argparse.Namespace,
@@ -118,7 +107,7 @@ def _update(parsed: argparse.Namespace, config: BacklogOpsConfig,
     """Update the input backlog in Jira using the named preset."""
     print(f"Updating backlog in Jira using preset '{parsed.preset}'...",
           file=sys.stderr)
-    connections = JiraConnections(config.get_jira_config(), _passphrase)
+    connections = JiraConnections(config.get_jira_config(), jira_passphrase)
     fields = _resolve_fields(parsed, connections)
     mode = _MISSING_MODES[parsed.on_missing]
     link_update = _LINK_MODES[parsed.links]
@@ -169,8 +158,7 @@ def main(args: Optional[list[str]] = None) -> int:
         ``0`` on success, ``1`` when the backlog cannot be updated or a key
         is not present in Jira with the raise policy.
     """
-    parsed = parsed_args(build_parser(), args)
-    return _run(parsed)
+    return _run(parsed_args(build_parser(), args))
 
 
 if __name__ == '__main__':  # pragma: no cover

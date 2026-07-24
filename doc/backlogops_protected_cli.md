@@ -2,14 +2,12 @@
 
 * [backlogops\_cli.jira\_fields](#backlogops_cli.jira_fields)
   * [build\_parser](#backlogops_cli.jira_fields.build_parser)
-  * [\_passphrase](#backlogops_cli.jira_fields._passphrase)
   * [\_print\_pairs](#backlogops_cli.jira_fields._print_pairs)
   * [\_run](#backlogops_cli.jira_fields._run)
   * [main](#backlogops_cli.jira_fields.main)
 * [backlogops\_cli.update\_backlog\_in\_jira](#backlogops_cli.update_backlog_in_jira)
   * [build\_parser](#backlogops_cli.update_backlog_in_jira.build_parser)
   * [\_add\_column\_flags](#backlogops_cli.update_backlog_in_jira._add_column_flags)
-  * [\_passphrase](#backlogops_cli.update_backlog_in_jira._passphrase)
   * [\_resolve\_fields](#backlogops_cli.update_backlog_in_jira._resolve_fields)
   * [\_update](#backlogops_cli.update_backlog_in_jira._update)
   * [\_report\_summary](#backlogops_cli.update_backlog_in_jira._report_summary)
@@ -42,13 +40,17 @@
   * [\_read\_config](#backlogops_cli.config_wizard._read_config)
   * [main](#backlogops_cli.config_wizard.main)
 * [backlogops\_cli.\_command\_io](#backlogops_cli._command_io)
+  * [ResultT](#backlogops_cli._command_io.ResultT)
   * [RANK\_ANCHOR\_CHOICES](#backlogops_cli._command_io.RANK_ANCHOR_CHOICES)
   * [rank\_anchor](#backlogops_cli._command_io.rank_anchor)
   * [add\_rank\_arg](#backlogops_cli._command_io.add_rank_arg)
   * [overwrite\_callback](#backlogops_cli._command_io.overwrite_callback)
   * [parsed\_args](#backlogops_cli._command_io.parsed_args)
+  * [jira\_passphrase](#backlogops_cli._command_io.jira_passphrase)
   * [add\_input\_args](#backlogops_cli._command_io.add_input_args)
   * [add\_config\_arg](#backlogops_cli._command_io.add_config_arg)
+  * [add\_preset\_arg](#backlogops_cli._command_io.add_preset_arg)
+  * [add\_quiet\_arg](#backlogops_cli._command_io.add_quiet_arg)
   * [\_resolve\_config](#backlogops_cli._command_io._resolve_config)
   * [required\_config](#backlogops_cli._command_io.required_config)
   * [optional\_config](#backlogops_cli._command_io.optional_config)
@@ -57,8 +59,12 @@
   * [add\_force\_arg](#backlogops_cli._command_io.add_force_arg)
   * [add\_output\_args](#backlogops_cli._command_io.add_output_args)
   * [build\_io\_parser](#backlogops_cli._command_io.build_io_parser)
+  * [build\_jira\_parser](#backlogops_cli._command_io.build_jira_parser)
   * [\_write\_output](#backlogops_cli._command_io._write_output)
   * [run\_write](#backlogops_cli._command_io.run_write)
+  * [run\_write\_command](#backlogops_cli._command_io.run_write_command)
+  * [write\_result\_file](#backlogops_cli._command_io.write_result_file)
+  * [run\_added\_to\_jira](#backlogops_cli._command_io.run_added_to_jira)
   * [DEFAULT\_BUFFER\_DAYS](#backlogops_cli._command_io.DEFAULT_BUFFER_DAYS)
   * [add\_buffer\_arg](#backlogops_cli._command_io.add_buffer_arg)
   * [add\_changes\_arg](#backlogops_cli._command_io.add_changes_arg)
@@ -69,10 +75,9 @@
   * [\_save\_changes](#backlogops_cli._command_io._save_changes)
 * [backlogops\_cli.add\_to\_jira](#backlogops_cli.add_to_jira)
   * [build\_parser](#backlogops_cli.add_to_jira.build_parser)
-  * [\_passphrase](#backlogops_cli.add_to_jira._passphrase)
   * [\_add](#backlogops_cli.add_to_jira._add)
-  * [\_write\_backlog\_file](#backlogops_cli.add_to_jira._write_backlog_file)
   * [\_write\_result\_files](#backlogops_cli.add_to_jira._write_result_files)
+  * [\_add\_and\_write](#backlogops_cli.add_to_jira._add_and_write)
   * [\_run](#backlogops_cli.add_to_jira._run)
   * [main](#backlogops_cli.add_to_jira.main)
 * [backlogops\_cli.convert](#backlogops_cli.convert)
@@ -80,10 +85,9 @@
   * [main](#backlogops_cli.convert.main)
 * [backlogops\_cli.add\_releases\_to\_jira](#backlogops_cli.add_releases_to_jira)
   * [build\_parser](#backlogops_cli.add_releases_to_jira.build_parser)
-  * [\_passphrase](#backlogops_cli.add_releases_to_jira._passphrase)
   * [\_add](#backlogops_cli.add_releases_to_jira._add)
-  * [\_write\_file](#backlogops_cli.add_releases_to_jira._write_file)
   * [\_write\_result\_files](#backlogops_cli.add_releases_to_jira._write_result_files)
+  * [\_add\_and\_write](#backlogops_cli.add_releases_to_jira._add_and_write)
   * [\_run](#backlogops_cli.add_releases_to_jira._run)
   * [main](#backlogops_cli.add_releases_to_jira.main)
 * [backlogops\_cli.extract\_keys](#backlogops_cli.extract_keys)
@@ -93,7 +97,6 @@
   * [main](#backlogops_cli.extract_keys.main)
 * [backlogops\_cli.rank\_in\_jira](#backlogops_cli.rank_in_jira)
   * [build\_parser](#backlogops_cli.rank_in_jira.build_parser)
-  * [\_passphrase](#backlogops_cli.rank_in_jira._passphrase)
   * [\_rank](#backlogops_cli.rank_in_jira._rank)
   * [\_run](#backlogops_cli.rank_in_jira._run)
   * [main](#backlogops_cli.rank_in_jira.main)
@@ -134,7 +137,6 @@
   * [main](#backlogops_cli.preset_wizard.main)
 * [backlogops\_cli.order\_releases\_in\_jira](#backlogops_cli.order_releases_in_jira)
   * [build\_parser](#backlogops_cli.order_releases_in_jira.build_parser)
-  * [\_passphrase](#backlogops_cli.order_releases_in_jira._passphrase)
   * [\_names](#backlogops_cli.order_releases_in_jira._names)
   * [\_order](#backlogops_cli.order_releases_in_jira._order)
   * [\_run](#backlogops_cli.order_releases_in_jira._run)
@@ -145,13 +147,11 @@
   * [main](#backlogops_cli.order_by_keys.main)
 * [backlogops\_cli.read\_jira](#backlogops_cli.read_jira)
   * [build\_parser](#backlogops_cli.read_jira.build_parser)
-  * [\_passphrase](#backlogops_cli.read_jira._passphrase)
   * [\_warn\_if\_inconsistent](#backlogops_cli.read_jira._warn_if_inconsistent)
   * [\_read\_jira](#backlogops_cli.read_jira._read_jira)
   * [main](#backlogops_cli.read_jira.main)
 * [backlogops\_cli.update\_releases\_in\_jira](#backlogops_cli.update_releases_in_jira)
   * [build\_parser](#backlogops_cli.update_releases_in_jira.build_parser)
-  * [\_passphrase](#backlogops_cli.update_releases_in_jira._passphrase)
   * [\_select](#backlogops_cli.update_releases_in_jira._select)
   * [\_update](#backlogops_cli.update_releases_in_jira._update)
   * [\_run](#backlogops_cli.update_releases_in_jira._run)
@@ -163,7 +163,6 @@
   * [main](#backlogops_cli.encrypt_token_file.main)
 * [backlogops\_cli.rename\_releases\_in\_jira](#backlogops_cli.rename_releases_in_jira)
   * [build\_parser](#backlogops_cli.rename_releases_in_jira.build_parser)
-  * [\_passphrase](#backlogops_cli.rename_releases_in_jira._passphrase)
   * [\_renames](#backlogops_cli.rename_releases_in_jira._renames)
   * [\_rename](#backlogops_cli.rename_releases_in_jira._rename)
   * [\_run](#backlogops_cli.rename_releases_in_jira._run)
@@ -199,16 +198,6 @@ def build_parser() -> argparse.ArgumentParser
 ```
 
 Build the command line parser for the field diagnostic command.
-
-<a id="backlogops_cli.jira_fields._passphrase"></a>
-
-#### \_passphrase
-
-```python
-def _passphrase() -> str
-```
-
-Ask for the Jira token pass phrase on the terminal.
 
 <a id="backlogops_cli.jira_fields._print_pairs"></a>
 
@@ -298,16 +287,6 @@ def _add_column_flags(parser: argparse.ArgumentParser) -> None
 ```
 
 Add the mutually exclusive, required column-selection flags.
-
-<a id="backlogops_cli.update_backlog_in_jira._passphrase"></a>
-
-#### \_passphrase
-
-```python
-def _passphrase() -> str
-```
-
-Ask for the Jira token pass phrase on the terminal.
 
 <a id="backlogops_cli.update_backlog_in_jira._resolve_fields"></a>
 
@@ -681,6 +660,12 @@ The helpers here are used by more than one command (for example by the
 ``convert`` command and the ``demo_backlog`` command). The leading
 underscore in the module name keeps it out of the command listing.
 
+<a id="backlogops_cli._command_io.ResultT"></a>
+
+#### ResultT
+
+Result type of a Jira write, carried from the operation to the report.
+
 <a id="backlogops_cli._command_io.RANK_ANCHOR_CHOICES"></a>
 
 #### RANK\_ANCHOR\_CHOICES
@@ -750,6 +735,16 @@ def parsed_args(parser: argparse.ArgumentParser,
 
 Enable shell completion and parse the command line arguments.
 
+<a id="backlogops_cli._command_io.jira_passphrase"></a>
+
+#### jira\_passphrase
+
+```python
+def jira_passphrase() -> str
+```
+
+Ask for the Jira API token pass phrase on the terminal.
+
 <a id="backlogops_cli._command_io.add_input_args"></a>
 
 #### add\_input\_args
@@ -773,6 +768,26 @@ Add the ``-c``/``--config`` backlog-ops configuration argument.
 The configuration file holds the workforce, the named input and output
 presets, the levels and the global status map. Without ``-c`` the file
 is discovered the same way as the GUI.
+
+<a id="backlogops_cli._command_io.add_preset_arg"></a>
+
+#### add\_preset\_arg
+
+```python
+def add_preset_arg(parser: argparse.ArgumentParser) -> None
+```
+
+Add the required ``-p``/``--preset`` Jira preset argument.
+
+<a id="backlogops_cli._command_io.add_quiet_arg"></a>
+
+#### add\_quiet\_arg
+
+```python
+def add_quiet_arg(parser: argparse.ArgumentParser) -> None
+```
+
+Add the ``-q``/``--quiet`` flag suppressing the result lists.
 
 <a id="backlogops_cli._command_io._resolve_config"></a>
 
@@ -925,6 +940,23 @@ command that does not read (or does not write) a backlog file.
 
   The parser with the requested common options added.
 
+<a id="backlogops_cli._command_io.build_jira_parser"></a>
+
+#### build\_jira\_parser
+
+```python
+def build_jira_parser(description: str,
+                      *,
+                      with_input: bool = True) -> argparse.ArgumentParser
+```
+
+Create a parser with the config, preset and optional input options.
+
+The Jira commands all take a backlog-ops configuration and a required
+``-p``/``--preset``. Most also read an input file, so ``with_input``
+adds the input-file and input-config options by default; a command
+that does not read a backlog file passes ``with_input=False``.
+
 <a id="backlogops_cli._command_io._write_output"></a>
 
 #### \_write\_output
@@ -971,6 +1003,54 @@ reported as an error.
 **Returns**:
 
   ``0`` on success, ``1`` when the data cannot be built or written.
+
+<a id="backlogops_cli._command_io.run_write_command"></a>
+
+#### run\_write\_command
+
+```python
+def run_write_command(build_parser: Callable[[], argparse.ArgumentParser],
+                      produce: Callable[
+                          [argparse.Namespace, Optional[BacklogOpsConfig]],
+                          BacklogReleases], args: Optional[list[str]]) -> int
+```
+
+Parse the command line and write the produced backlog and releases.
+
+Folds argument parsing and :func:`run_write` so an ordering command's
+``main`` stays a single delegating call. ``produce`` receives the
+parsed args and the resolved config (or None) and returns the data.
+
+<a id="backlogops_cli._command_io.write_result_file"></a>
+
+#### write\_result\_file
+
+```python
+def write_result_file(config: BacklogOpsConfig, path: str,
+                      data: BacklogReleases, force: bool) -> None
+```
+
+Write one backlog-and-releases result file, honoring ``--force``.
+
+<a id="backlogops_cli._command_io.run_added_to_jira"></a>
+
+#### run\_added\_to\_jira
+
+```python
+def run_added_to_jira(parsed: argparse.Namespace, add: Callable[
+    [argparse.Namespace, BacklogOpsConfig, BacklogReleases],
+    ResultT], report: Callable[[ResultT], str], exists_error: type[Exception],
+                      fail_note: str) -> int
+```
+
+Read the input, add it to Jira, and print the added lists.
+
+``add`` receives the parsed args, the config and the input data, adds
+to Jira, writes any ``--added``/``--existing`` files, and returns the
+result. ``report`` formats that result for stdout, printed unless
+``-q``/``--quiet`` was given. ``exists_error`` is the key-exists error
+meaning nothing was added; other value or OS errors are reported with
+``fail_note``.
 
 <a id="backlogops_cli._command_io.DEFAULT_BUFFER_DAYS"></a>
 
@@ -1118,16 +1198,6 @@ def build_parser() -> argparse.ArgumentParser
 
 Build the command line parser for the add-to-Jira command.
 
-<a id="backlogops_cli.add_to_jira._passphrase"></a>
-
-#### \_passphrase
-
-```python
-def _passphrase() -> str
-```
-
-Ask for the Jira token pass phrase on the terminal.
-
 <a id="backlogops_cli.add_to_jira._add"></a>
 
 #### \_add
@@ -1139,17 +1209,6 @@ def _add(parsed: argparse.Namespace, config: BacklogOpsConfig,
 
 Add the input backlog to Jira using the named write preset.
 
-<a id="backlogops_cli.add_to_jira._write_backlog_file"></a>
-
-#### \_write\_backlog\_file
-
-```python
-def _write_backlog_file(config: BacklogOpsConfig, path: str,
-                        data: BacklogReleases, force: bool) -> None
-```
-
-Write one returned backlog and the input releases to a file.
-
 <a id="backlogops_cli.add_to_jira._write_result_files"></a>
 
 #### \_write\_result\_files
@@ -1160,6 +1219,17 @@ def _write_result_files(parsed: argparse.Namespace, config: BacklogOpsConfig,
 ```
 
 Write the added and already-present backlogs to any named files.
+
+<a id="backlogops_cli.add_to_jira._add_and_write"></a>
+
+#### \_add\_and\_write
+
+```python
+def _add_and_write(parsed: argparse.Namespace, config: BacklogOpsConfig,
+                   data: BacklogReleases) -> AddedToJira
+```
+
+Add the backlog to Jira and write any requested result files.
 
 <a id="backlogops_cli.add_to_jira._run"></a>
 
@@ -1261,16 +1331,6 @@ def build_parser() -> argparse.ArgumentParser
 
 Build the command line parser for the add-releases command.
 
-<a id="backlogops_cli.add_releases_to_jira._passphrase"></a>
-
-#### \_passphrase
-
-```python
-def _passphrase() -> str
-```
-
-Ask for the Jira token pass phrase on the terminal.
-
 <a id="backlogops_cli.add_releases_to_jira._add"></a>
 
 #### \_add
@@ -1281,17 +1341,6 @@ def _add(parsed: argparse.Namespace, config: BacklogOpsConfig,
 ```
 
 Add the input releases to Jira using the named preset.
-
-<a id="backlogops_cli.add_releases_to_jira._write_file"></a>
-
-#### \_write\_file
-
-```python
-def _write_file(config: BacklogOpsConfig, path: str, data: BacklogReleases,
-                force: bool) -> None
-```
-
-Write one backlog-and-releases result to a file.
 
 <a id="backlogops_cli.add_releases_to_jira._write_result_files"></a>
 
@@ -1304,6 +1353,17 @@ def _write_result_files(parsed: argparse.Namespace, config: BacklogOpsConfig,
 ```
 
 Write the added and already-present releases to any named files.
+
+<a id="backlogops_cli.add_releases_to_jira._add_and_write"></a>
+
+#### \_add\_and\_write
+
+```python
+def _add_and_write(parsed: argparse.Namespace, config: BacklogOpsConfig,
+                   data: BacklogReleases) -> AddedReleasesToJira
+```
+
+Add the releases to Jira and write any requested result files.
 
 <a id="backlogops_cli.add_releases_to_jira._run"></a>
 
@@ -1428,16 +1488,6 @@ def build_parser() -> argparse.ArgumentParser
 ```
 
 Build the command line parser for the rank-in-Jira command.
-
-<a id="backlogops_cli.rank_in_jira._passphrase"></a>
-
-#### \_passphrase
-
-```python
-def _passphrase() -> str
-```
-
-Ask for the Jira token pass phrase on the terminal.
 
 <a id="backlogops_cli.rank_in_jira._rank"></a>
 
@@ -2011,16 +2061,6 @@ argparse checks that exactly one of them is given. Giving the input file
 with ``-i``/``--input`` is itself the third source; ``-I`` only names its
 format.
 
-<a id="backlogops_cli.order_releases_in_jira._passphrase"></a>
-
-#### \_passphrase
-
-```python
-def _passphrase() -> str
-```
-
-Ask for the Jira token pass phrase on the terminal.
-
 <a id="backlogops_cli.order_releases_in_jira._names"></a>
 
 #### \_names
@@ -2155,16 +2195,6 @@ def build_parser() -> argparse.ArgumentParser
 
 Build the command line parser for the read-from-Jira command.
 
-<a id="backlogops_cli.read_jira._passphrase"></a>
-
-#### \_passphrase
-
-```python
-def _passphrase() -> str
-```
-
-Ask for the Jira token pass phrase on the terminal.
-
 <a id="backlogops_cli.read_jira._warn_if_inconsistent"></a>
 
 #### \_warn\_if\_inconsistent
@@ -2239,16 +2269,6 @@ def build_parser() -> argparse.ArgumentParser
 ```
 
 Build the command line parser for the update-releases command.
-
-<a id="backlogops_cli.update_releases_in_jira._passphrase"></a>
-
-#### \_passphrase
-
-```python
-def _passphrase() -> str
-```
-
-Ask for the Jira token pass phrase on the terminal.
 
 <a id="backlogops_cli.update_releases_in_jira._select"></a>
 
@@ -2410,16 +2430,6 @@ Build the command line parser for the rename-releases command.
 The single rename and the batch file form a required, mutually exclusive
 group, so argparse checks that exactly one way is given. ``--rename``
 takes both names at once, so its old and new name always travel together.
-
-<a id="backlogops_cli.rename_releases_in_jira._passphrase"></a>
-
-#### \_passphrase
-
-```python
-def _passphrase() -> str
-```
-
-Ask for the Jira token pass phrase on the terminal.
 
 <a id="backlogops_cli.rename_releases_in_jira._renames"></a>
 

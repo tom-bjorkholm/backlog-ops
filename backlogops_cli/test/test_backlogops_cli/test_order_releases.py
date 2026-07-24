@@ -8,14 +8,10 @@ import io
 from datetime import date
 from pathlib import Path
 import pytest
-from backlogops import (
-    BacklogItem, BacklogReleases, Release, Status, read_backlog_releases,
-    resolve_input_config, resolve_output_config, write_backlog_releases)
-from backlogops.no_text_io import NoTextIO
+from backlogops import BacklogItem, Release, Status
 from backlogops_cli.list import command_modules
 from backlogops_cli import order_releases
-
-NO_OUTPUT = NoTextIO()
+from .cli_test_helpers import read_data_file, write_data_file
 
 
 def _write_source(path: Path) -> None:
@@ -27,16 +23,12 @@ def _write_source(path: Path) -> None:
                 Release(name='RA', planned_date=date(2026, 1, 1),
                         estimated_date=date(2026, 3, 1)),
                 Release(name='RN', estimated_date=date(2026, 2, 1))]
-    data = BacklogReleases(backlog=backlog, releases=releases)
-    config = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    write_backlog_releases(data, path, config, stderr_file=NO_OUTPUT)
+    write_data_file(path, backlog, releases)
 
 
 def _release_names(path: Path) -> list[str]:
     """Return the ordered release names read back from an output file."""
-    config = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    data = read_backlog_releases(path, config, stderr_file=NO_OUTPUT)
-    return [release.name for release in data.releases]
+    return [release.name for release in read_data_file(path).releases]
 
 
 def test_in_command_list() -> None:

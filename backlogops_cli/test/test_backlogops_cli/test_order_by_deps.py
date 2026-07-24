@@ -6,14 +6,11 @@
 
 from pathlib import Path
 import pytest
-from backlogops import (
-    BacklogItem, BacklogReleases, Status, read_backlog_releases,
-    resolve_input_config, resolve_output_config, write_backlog_releases)
-from backlogops.no_text_io import NoTextIO
+from backlogops import BacklogItem, Status
 from backlogops_cli.list import command_modules
 from backlogops_cli import order_by_deps
+from .cli_test_helpers import read_data_file, write_data_file
 
-NO_OUTPUT = NoTextIO()
 SPECS = [('C', ['P']), ('X', []), ('P', [])]
 
 
@@ -22,16 +19,12 @@ def _write_source(path: Path) -> None:
     backlog = [BacklogItem(key=key, level=1, title=key, story_points=1,
                            status=Status.TODO, depends_on_f2s=list(deps))
                for key, deps in SPECS]
-    data = BacklogReleases(backlog=backlog, releases=[])
-    config = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    write_backlog_releases(data, path, config, stderr_file=NO_OUTPUT)
+    write_data_file(path, backlog, [])
 
 
 def _result_keys(path: Path) -> list[str]:
     """Return the ordered keys read back from an output file."""
-    config = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    data = read_backlog_releases(path, config, stderr_file=NO_OUTPUT)
-    return [item.key for item in data.backlog]
+    return [item.key for item in read_data_file(path).backlog]
 
 
 def test_in_command_list() -> None:

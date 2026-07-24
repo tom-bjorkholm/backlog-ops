@@ -17,7 +17,8 @@ from .gui_test_helpers import MsgRecorder, gui_root
 from .dialog_test_helpers import cancel_show, confirm_show, no_wait
 
 MESSAGEBOX = 'backlogops_gui.backlog_dialogs.messagebox'
-ASK_OPEN = 'backlogops_gui.backlog_dialogs.filedialog.askopenfilename'
+KEY_MSGBOX = 'backlogops_gui.key_list_box.messagebox'
+ASK_OPEN = 'backlogops_gui.key_list_box.filedialog.askopenfilename'
 
 
 def test_action_dataclasses() -> None:
@@ -177,7 +178,7 @@ def test_keys_load_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test loading keys from a file fills the text box."""
     monkeypatch.setattr(ModalDialog, '_show', no_wait)
     monkeypatch.setattr(ASK_OPEN, lambda **kw: 'keys.txt')
-    reader = 'backlogops_gui.backlog_dialogs.read_key_list'
+    reader = 'backlogops_gui.key_list_box.read_key_list'
     monkeypatch.setattr(reader, lambda name, stderr_file: ['X', 'Y'])
     with gui_root() as root:
         dialog = KeysDialog(root, NoTextIO())
@@ -206,8 +207,8 @@ def test_keys_load_error(monkeypatch: pytest.MonkeyPatch) -> None:
     rec = MsgRecorder()
     monkeypatch.setattr(ModalDialog, '_show', no_wait)
     monkeypatch.setattr(ASK_OPEN, lambda **kw: 'keys.txt')
-    monkeypatch.setattr('backlogops_gui.backlog_dialogs.read_key_list', boom)
-    monkeypatch.setattr(MESSAGEBOX, rec)
+    monkeypatch.setattr('backlogops_gui.key_list_box.read_key_list', boom)
+    monkeypatch.setattr(KEY_MSGBOX, rec)
     with gui_root() as root:
         dialog = KeysDialog(root, NoTextIO())
         # pylint: disable-next=protected-access

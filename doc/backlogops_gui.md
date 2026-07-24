@@ -60,7 +60,6 @@
   * [ask\_read\_options](#backlogops_gui.format_dialogs.ask_read_options)
   * [ask\_write\_options](#backlogops_gui.format_dialogs.ask_write_options)
 * [backlogops\_gui.jira\_dialogs](#backlogops_gui.jira_dialogs)
-  * [KEY\_READ\_ERRORS](#backlogops_gui.jira_dialogs.KEY_READ_ERRORS)
   * [MISSING\_MODE\_TEXT](#backlogops_gui.jira_dialogs.MISSING_MODE_TEXT)
   * [LINK\_MODE\_TEXT](#backlogops_gui.jira_dialogs.LINK_MODE_TEXT)
   * [RANK\_ANCHOR\_TEXT](#backlogops_gui.jira_dialogs.RANK_ANCHOR_TEXT)
@@ -172,6 +171,9 @@
   * [extract\_keys](#backlogops_gui.backlog_actions.extract_keys)
   * [apply\_add\_result](#backlogops_gui.backlog_actions.apply_add_result)
   * [apply\_update\_result](#backlogops_gui.backlog_actions.apply_update_result)
+* [backlogops\_gui.key\_list\_box](#backlogops_gui.key_list_box)
+  * [build\_key\_box](#backlogops_gui.key_list_box.build_key_box)
+  * [load\_keys\_into](#backlogops_gui.key_list_box.load_keys_into)
 * [backlogops\_gui.close\_binding](#backlogops_gui.close_binding)
   * [bind\_close](#backlogops_gui.close_binding.bind_close)
 * [backlogops\_gui.backlog\_window](#backlogops_gui.backlog_window)
@@ -945,12 +947,6 @@ which columns to update, how parent and dependency links are reconciled,
 and optionally a rank anchor. Ranking items picks a preset, filter, keys,
 an anchor and whether to honour relations. A separate dialog collects the
 masked pass phrase for an encrypted Jira API token.
-
-<a id="backlogops_gui.jira_dialogs.KEY_READ_ERRORS"></a>
-
-#### KEY\_READ\_ERRORS
-
-Errors caught when loading a key list file into the rank dialog.
 
 <a id="backlogops_gui.jira_dialogs.MISSING_MODE_TEXT"></a>
 
@@ -2315,6 +2311,40 @@ Rekey any added items, refresh the view and show the update lists.
 Only the items added under the ``ADD`` policy took new Jira keys, so
 the shown backlog is rekeyed with the add result's key map, the view is
 rebuilt, and the update outcome is shown through ``show_report``.
+
+<a id="backlogops_gui.key_list_box"></a>
+
+# backlogops\_gui.key\_list\_box
+
+Shared key-list text box with a load-from-file button for dialogs.
+
+The order-by-keys dialog and the Jira rank dialog both let the user type
+or paste a list of keys and load it from a file. This module holds that
+shared widget and the file reading so the two dialogs do not repeat it.
+
+<a id="backlogops_gui.key_list_box.build_key_box"></a>
+
+#### build\_key\_box
+
+```python
+def build_key_box(win: tk.Misc,
+                  label: str,
+                  command: Callable[[], None],
+                  *,
+                  label_pady: tuple[int, int] = (10, 2)) -> tk.Text
+```
+
+Add a key-entry label, text box and load-from-file button.
+
+<a id="backlogops_gui.key_list_box.load_keys_into"></a>
+
+#### load\_keys\_into
+
+```python
+def load_keys_into(win: tk.Misc, text: tk.Text, sink: TextIO) -> None
+```
+
+Read a key list file into the text box, reporting failures.
 
 <a id="backlogops_gui.close_binding"></a>
 

@@ -8,14 +8,12 @@ from datetime import date
 from pathlib import Path
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogItem, BacklogReleases, Membership, Person, Release,
-    Status, Team, read_backlog_releases, resolve_input_config,
-    resolve_output_config, write_available_teams, write_backlog_releases)
+    AvailableTeams, BacklogItem, Membership, Person, Release, Status, Team,
+    write_available_teams)
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import estimate_ready_date
-
-NO_OUTPUT = NoTextIO()
+from .cli_test_helpers import read_data_file, write_data_file
 
 
 def _write_teams(path: Path) -> None:
@@ -24,23 +22,19 @@ def _write_teams(path: Path) -> None:
     one = Team(name='T', velocity=10.0, sum_fte_at_velocity=1.0,
                sprint_length=10, members=[Membership(person_name='Ann')])
     teams = AvailableTeams(persons={'ann': ann}, teams=[one])
-    write_available_teams(teams, path, NO_OUTPUT)
+    write_available_teams(teams, path, NoTextIO())
 
 
 def _write_backlog(path: Path) -> None:
     """Write a small backlog with one three-point item to estimate."""
     backlog = [BacklogItem(key='a', level=1, title='a', story_points=3,
                            status=Status.TODO)]
-    data = BacklogReleases(backlog=backlog, releases=[])
-    config = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    write_backlog_releases(data, path, config, stderr_file=NO_OUTPUT)
+    write_data_file(path, backlog, [])
 
 
 def _read_item(path: Path) -> BacklogItem:
     """Return the single backlog item read back from an output file."""
-    config = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    data = read_backlog_releases(path, config, stderr_file=NO_OUTPUT)
-    return data.backlog[0]
+    return read_data_file(path).backlog[0]
 
 
 def _sources(tmp_path: Path) -> tuple[Path, Path, Path]:
@@ -130,9 +124,7 @@ def _write_backlog_release(path: Path) -> None:
     """Write a backlog whose single item belongs to a release R1."""
     backlog = [BacklogItem(key='a', level=1, title='a', story_points=3,
                            status=Status.TODO, release='R1')]
-    data = BacklogReleases(backlog=backlog, releases=[Release(name='R1')])
-    config = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    write_backlog_releases(data, path, config, stderr_file=NO_OUTPUT)
+    write_data_file(path, backlog, [Release(name='R1')])
 
 
 def test_changes_file_written(tmp_path: Path) -> None:

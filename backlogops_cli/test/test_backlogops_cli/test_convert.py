@@ -7,25 +7,22 @@
 from pathlib import Path
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogItem, BacklogOpsConfig, BacklogReleases,
-    Release, Status, make_input_config, make_output_config,
-    read_backlog_releases, resolve_input_config, resolve_output_config,
-    write_backlog_releases)
+    AvailableTeams, BacklogItem, BacklogOpsConfig, Release, Status,
+    make_input_config, resolve_input_config)
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import convert
+from .cli_test_helpers import (
+    read_data_file, write_data_file, write_preset_config)
 
 NO_OUTPUT = NoTextIO()
 
 
 def _write_source(path: Path) -> None:
     """Write a small backlog and releases file used as convert input."""
-    data = BacklogReleases(
-        backlog=[BacklogItem(key='A1', level=1, title='First', story_points=5,
-                             status=Status.TODO, release='R1')],
-        releases=[Release(name='R1')])
-    config = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    write_backlog_releases(data, path, config, stderr_file=NO_OUTPUT)
+    backlog = [BacklogItem(key='A1', level=1, title='First', story_points=5,
+                           status=Status.TODO, release='R1')]
+    write_data_file(path, backlog, [Release(name='R1')])
 
 
 def test_in_command_list() -> None:
@@ -46,9 +43,7 @@ def test_convert_round_trip(tmp_path: Path) -> None:
     target = tmp_path / 'out.csv'
     _write_source(source)
     assert convert.main(['-i', str(source), '-o', str(target)]) == 0
-    config = resolve_input_config(None, data_file=target,
-                                  stderr_file=NO_OUTPUT)
-    back = read_backlog_releases(target, config, stderr_file=NO_OUTPUT)
+    back = read_data_file(target)
     assert [item.key for item in back.backlog] == ['A1']
     assert [release.name for release in back.releases] == ['R1']
 
@@ -56,15 +51,7 @@ def test_convert_round_trip(tmp_path: Path) -> None:
 def test_output_preset(tmp_path: Path) -> None:
     """Test an output preset from the teams file renames written columns."""
     teams_file = tmp_path / 'teams.cfg'
-    config = BacklogOpsConfig(
-        available_teams=AvailableTeams(persons={}, teams=[]),
-        stderr_file=NO_OUTPUT)
-    preset = make_output_config(
-        resolve_output_config(None, data_file='x.csv',
-                              stderr_file=NO_OUTPUT).tableio,
-        {'level': 'Type'}, {}, stderr_file=NO_OUTPUT)
-    config.output_configs = {'rep': preset}
-    config.write(to_json_filename=teams_file, stderr_file=NO_OUTPUT)
+    write_preset_config(teams_file)
     source = tmp_path / 'in.ods'
     target = tmp_path / 'out.csv'
     _write_source(source)
@@ -94,10 +81,7 @@ def _write_status_source(path: Path, status: str) -> None:
 
 def _converted_status(target: Path) -> Status:
     """Return the status of the one item read back from a written file."""
-    config = resolve_input_config(None, data_file=target,
-                                  stderr_file=NO_OUTPUT)
-    back = read_backlog_releases(target, config, stderr_file=NO_OUTPUT)
-    return back.backlog[0].status
+    return read_data_file(target).backlog[0].status
 
 
 def test_global_status_map(tmp_path: Path) -> None:
@@ -137,15 +121,7 @@ def test_config_discovered(tmp_path: Path,
                            monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an output preset is found via $BACKLOGOPS_CFG without -c."""
     teams_file = tmp_path / 'teams.cfg'
-    config = BacklogOpsConfig(
-        available_teams=AvailableTeams(persons={}, teams=[]),
-        stderr_file=NO_OUTPUT)
-    preset = make_output_config(
-        resolve_output_config(None, data_file='x.csv',
-                              stderr_file=NO_OUTPUT).tableio,
-        {'level': 'Type'}, {}, stderr_file=NO_OUTPUT)
-    config.output_configs = {'rep': preset}
-    config.write(to_json_filename=teams_file, stderr_file=NO_OUTPUT)
+    write_preset_config(teams_file)
     monkeypatch.setenv('BACKLOGOPS_CFG', str(teams_file))
     source, target = tmp_path / 'in.ods', tmp_path / 'out.csv'
     _write_source(source)

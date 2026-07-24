@@ -18,12 +18,11 @@ phrase asked on the terminal only when it is needed.
 
 import argparse
 import sys
-from getpass import getpass
 from typing import Optional
 from backlogops import (
     BacklogOpsConfig, BacklogReleases, read_jira_from_config)
 from backlogops_cli._command_io import (
-    build_io_parser, parsed_args, run_write)
+    build_io_parser, jira_passphrase, parsed_args, run_write)
 
 DESCRIPTION = 'Read a backlog and releases from Jira and store to a file'
 
@@ -38,11 +37,6 @@ def build_parser() -> argparse.ArgumentParser:
                         help='Jira filter to use instead of the preset '
                         'default.')
     return parser
-
-
-def _passphrase() -> str:
-    """Ask for the Jira token pass phrase on the terminal."""
-    return getpass('Jira API token pass phrase: ')
 
 
 def _warn_if_inconsistent(data: BacklogReleases) -> None:
@@ -67,7 +61,7 @@ def _read_jira(parsed: argparse.Namespace,
           file=sys.stderr)
     data = read_jira_from_config(config, parsed.preset,
                                  filter_override=parsed.filter,
-                                 passphrase=_passphrase)
+                                 passphrase=jira_passphrase)
     print(f'Read {len(data.backlog)} backlog items and '
           f'{len(data.releases)} releases from Jira.', file=sys.stderr)
     _warn_if_inconsistent(data)

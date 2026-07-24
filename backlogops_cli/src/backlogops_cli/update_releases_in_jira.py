@@ -23,14 +23,14 @@ only when it is needed.
 
 import argparse
 import sys
-from getpass import getpass
 from typing import Optional
 from backlogops import (
     BacklogOpsConfig, ItemNotInJiraError, JiraConnections, OnMissingKey,
     Releases, UpdatedReleasesInJira, format_release_updates,
     update_releases_in_jira)
 from backlogops_cli._command_io import (
-    add_config_arg, add_input_args, parsed_args, read_input, required_config)
+    add_quiet_arg, build_jira_parser, jira_passphrase, parsed_args,
+    read_input, required_config)
 
 DESCRIPTION = 'Update releases in Jira, setting dates to the planned dates'
 
@@ -40,11 +40,7 @@ _MISSING_MODES = {'raise': OnMissingKey.RAISE, 'ignore': OnMissingKey.IGNORE,
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the update-releases command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_input_args(parser)
-    add_config_arg(parser)
-    parser.add_argument('-p', '--preset', dest='preset', required=True,
-                        help='Name of the Jira preset in the configuration.')
+    parser = build_jira_parser(DESCRIPTION)
     parser.add_argument('--on-missing', dest='on_missing',
                         choices=sorted(_MISSING_MODES), default='raise',
                         help='What to do with a release whose name is not in '
@@ -57,14 +53,8 @@ def build_parser() -> argparse.ArgumentParser:
                         action='store_true',
                         help='Update only the releases named with --release; '
                         'without it every input release is updated.')
-    parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
-                        help='Do not print the result lists to stdout.')
+    add_quiet_arg(parser)
     return parser
-
-
-def _passphrase() -> str:
-    """Ask for the Jira token pass phrase on the terminal."""
-    return getpass('Jira API token pass phrase: ')
 
 
 def _select(parsed: argparse.Namespace, releases: Releases) -> Releases:
@@ -89,7 +79,7 @@ def _update(parsed: argparse.Namespace, config: BacklogOpsConfig,
     """Update the selected releases in Jira using the named preset."""
     print(f"Updating releases in Jira using preset '{parsed.preset}'...",
           file=sys.stderr)
-    connections = JiraConnections(config.get_jira_config(), _passphrase)
+    connections = JiraConnections(config.get_jira_config(), jira_passphrase)
     mode = _MISSING_MODES[parsed.on_missing]
     result = update_releases_in_jira(connections, parsed.preset, releases,
                                      on_missing_key=mode)
@@ -127,8 +117,7 @@ def main(args: Optional[list[str]] = None) -> int:
         ``0`` on success, ``1`` when the releases cannot be updated or a
         name is not present in Jira with the raise policy.
     """
-    parsed = parsed_args(build_parser(), args)
-    return _run(parsed)
+    return _run(parsed_args(build_parser(), args))
 
 
 if __name__ == '__main__':  # pragma: no cover

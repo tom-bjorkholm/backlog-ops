@@ -105,6 +105,44 @@ def test_add_config_arg() -> None:
     assert parser.parse_args(['--config', 'f.cfg']).config == 'f.cfg'
 
 
+def test_add_preset_arg() -> None:
+    """Test -p/--preset is required and sets the preset name."""
+    parser = argparse.ArgumentParser()
+    _command_io.add_preset_arg(parser)
+    assert parser.parse_args(['-p', 'w']).preset == 'w'
+    with pytest.raises(SystemExit):
+        parser.parse_args([])
+
+
+def test_add_quiet_arg() -> None:
+    """Test -q/--quiet defaults to False and is set by the flag."""
+    parser = argparse.ArgumentParser()
+    _command_io.add_quiet_arg(parser)
+    assert parser.parse_args([]).quiet is False
+    assert parser.parse_args(['-q']).quiet is True
+
+
+def test_jira_parser() -> None:
+    """Test build_jira_parser adds config, preset and input by default."""
+    parser = _command_io.build_jira_parser('desc')
+    parsed = parser.parse_args(['-i', 'in', '-c', 'cfg', '-p', 'w'])
+    assert (parsed.input, parsed.config, parsed.preset) == ('in', 'cfg', 'w')
+
+
+def test_jira_no_input() -> None:
+    """Test with_input=False drops the input options but keeps preset."""
+    parser = _command_io.build_jira_parser('desc', with_input=False)
+    assert parser.parse_args(['-p', 'w']).preset == 'w'
+    with pytest.raises(SystemExit):
+        parser.parse_args(['-i', 'in', '-p', 'w'])
+
+
+def test_jira_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the Jira pass phrase prompt reads from getpass."""
+    monkeypatch.setattr(_command_io, 'getpass', lambda _prompt: 'secret')
+    assert _command_io.jira_passphrase() == 'secret'
+
+
 def test_io_parser_full() -> None:
     """Test the parser has input, config and output options by default."""
     parser = _command_io.build_io_parser('desc')

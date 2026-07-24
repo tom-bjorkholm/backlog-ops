@@ -16,34 +16,11 @@ from pathlib import Path
 from typing import Callable
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogItem, BacklogOpsConfig, BacklogReleases,
-    FormatRules, ItemNotInJiraError, OnMissingKey, Release, Status,
-    UpdatedReleasesInJira, allow_overwrite, resolve_output_config,
-    write_backlog_ops_config, write_backlog_releases)
-from backlogops.no_text_io import NoTextIO
+    ItemNotInJiraError, OnMissingKey, Release, UpdatedReleasesInJira)
 from backlogops_cli.list import command_modules
 from backlogops_cli import update_releases_in_jira
-from backlogops_cli.update_releases_in_jira import _passphrase, _select
-
-NO = NoTextIO()
-
-
-def _config_file(path: Path) -> None:
-    """Write a minimal backlog-ops configuration to a file."""
-    config = BacklogOpsConfig(
-        available_teams=AvailableTeams(persons={}, teams=[]), stderr_file=NO)
-    write_backlog_ops_config(config, path, NO)
-
-
-def _write_input(path: Path) -> None:
-    """Write an input file holding one backlog item and two releases."""
-    data = BacklogReleases(
-        backlog=[BacklogItem(key='A', level=1, title='First', story_points=5,
-                             status=Status.TODO, release='R1')],
-        releases=[Release(name='R1'), Release(name='R2')])
-    out_config = resolve_output_config(None, data_file=path, stderr_file=NO)
-    write_backlog_releases(data, path, out_config, FormatRules(),
-                           file_exists_callback=allow_overwrite)
+from backlogops_cli.update_releases_in_jira import _select
+from .cli_test_helpers import write_item_input, write_min_config
 
 
 def _result() -> UpdatedReleasesInJira:
@@ -88,13 +65,6 @@ def _args(tmp_path: Path, *extra: str) -> list[str]:
             str(tmp_path / 'ops.cfg'), *extra]
 
 
-def test_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the pass phrase prompt reads from getpass."""
-    monkeypatch.setattr(update_releases_in_jira, 'getpass',
-                        lambda _prompt: 'secret')
-    assert _passphrase() == 'secret'
-
-
 def test_select_missing(capsys: pytest.CaptureFixture[str]) -> None:
     """Test a named release absent from the input is reported."""
     parsed = argparse.Namespace(only_listed=True, releases=['R1', 'GONE'])
@@ -119,8 +89,8 @@ def test_default_raise(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                        capsys: pytest.CaptureFixture[str]) -> None:
     """Test the command updates in raise mode and prints the lists."""
     captured = _patch(monkeypatch, _result())
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
+    write_min_config(tmp_path / 'ops.cfg')
+    write_item_input(tmp_path / 'in.csv', ('R1', 'R2'))
     code = update_releases_in_jira.main(_args(tmp_path))
     assert code == 0
     assert captured['mode'] is OnMissingKey.RAISE
@@ -133,8 +103,8 @@ def test_correct_shown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                        capsys: pytest.CaptureFixture[str]) -> None:
     """Test the already-correct releases appear in the report and summary."""
     _patch(monkeypatch, _mixed())
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
+    write_min_config(tmp_path / 'ops.cfg')
+    write_item_input(tmp_path / 'in.csv', ('R1', 'R2'))
     code = update_releases_in_jira.main(_args(tmp_path))
     assert code == 0
     captured = capsys.readouterr()
@@ -149,8 +119,8 @@ def test_on_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, flag: str,
                     mode: OnMissingKey) -> None:
     """Test --on-missing maps to the matching missing-name mode."""
     captured = _patch(monkeypatch, _result())
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
+    write_min_config(tmp_path / 'ops.cfg')
+    write_item_input(tmp_path / 'in.csv', ('R1', 'R2'))
     code = update_releases_in_jira.main(_args(tmp_path, '--on-missing', flag))
     assert code == 0
     assert captured['mode'] is mode
@@ -159,8 +129,8 @@ def test_on_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, flag: str,
 def test_only_listed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test --only-listed limits the update to the named releases."""
     captured = _patch(monkeypatch, _result())
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
+    write_min_config(tmp_path / 'ops.cfg')
+    write_item_input(tmp_path / 'in.csv', ('R1', 'R2'))
     code = update_releases_in_jira.main(
         _args(tmp_path, '--release', 'R1', '--only-listed'))
     assert code == 0
@@ -171,8 +141,8 @@ def test_quiet(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                capsys: pytest.CaptureFixture[str]) -> None:
     """Test -q suppresses the result lists on stdout."""
     _patch(monkeypatch, _result())
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
+    write_min_config(tmp_path / 'ops.cfg')
+    write_item_input(tmp_path / 'in.csv', ('R1', 'R2'))
     update_releases_in_jira.main(_args(tmp_path, '-q'))
     assert 'Updated in Jira' not in capsys.readouterr().out
 
@@ -188,8 +158,8 @@ def test_missing_raises(tmp_path: Path,
         raise ItemNotInJiraError(['R2'], 'Release names')
     monkeypatch.setattr(update_releases_in_jira, 'update_releases_in_jira',
                         _raising)
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
+    write_min_config(tmp_path / 'ops.cfg')
+    write_item_input(tmp_path / 'in.csv', ('R1', 'R2'))
     assert update_releases_in_jira.main(_args(tmp_path)) == 1
 
 

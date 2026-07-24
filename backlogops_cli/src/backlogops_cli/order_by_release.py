@@ -24,7 +24,7 @@ import sys
 from typing import Optional
 from backlogops import BacklogOpsConfig, BacklogReleases
 from backlogops_cli._command_io import (
-    build_io_parser, parsed_args, read_input, run_write)
+    build_io_parser, read_input, run_write_command)
 
 DESCRIPTION = 'Order the backlog to follow the release order'
 
@@ -63,8 +63,7 @@ def main(args: Optional[list[str]] = None) -> int:
         ``0`` on success, ``1`` when the data cannot be read, ordered or
         written.
     """
-    parsed = parsed_args(build_parser(), args)
-    return run_write(parsed, lambda config: _ordered(parsed, config))
+    return run_write_command(build_parser, _ordered, args)
 
 
 if __name__ == '__main__':  # pragma: no cover

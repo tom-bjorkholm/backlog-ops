@@ -9,8 +9,9 @@ import os
 from pathlib import Path
 from typing import Optional
 import pytest
+from test_backlogops.shared_test_data import overallocated_teams
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, Membership, NoTextIO, Person, Team,
+    AvailableTeams, BacklogOpsConfig, NoTextIO, Person,
     read_backlog_ops_config, write_backlog_ops_config)
 from backlogops_cli.list import command_modules
 from backlogops_cli import config_wizard
@@ -191,14 +192,7 @@ def test_main_reports_failure(tmp_path: Path,
                     backward: bool = False) -> BacklogOpsConfig:
         """Return an over-allocated workforce that fails validation."""
         _ = (default, backward)
-        persons = {'ada': Person(name='Ada')}
-        first = Team(name='A', velocity=1.0, sum_fte_at_velocity=1.0,
-                     sprint_length=10, members=[Membership(person_name='Ada')])
-        second = Team(name='B', velocity=1.0, sum_fte_at_velocity=1.0,
-                      sprint_length=10,
-                      members=[Membership(person_name='Ada', fte=0.5)])
-        bad = AvailableTeams(persons=persons, teams=[first, second])
-        return BacklogOpsConfig(available_teams=bad)
+        return BacklogOpsConfig(available_teams=overallocated_teams())
     monkeypatch.setattr(config_wizard, 'backlog_ops_wizard', _bad_wizard)
     assert config_wizard.main(['-o', str(tmp_path / 'teams')]) == 1
     assert not (tmp_path / 'teams.cfg').exists()

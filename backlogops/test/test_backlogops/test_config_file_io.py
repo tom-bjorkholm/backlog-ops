@@ -21,20 +21,7 @@ from config_as_json import ConfigAutoChangeHook
 from backlogops import (
     BacklogOpsConfig, InputFormatConfig, LevelDisplay, NoTextIO,
     OutputFormatConfig, read_io_preset, safe_write_config)
-
-
-def _write_input(path: Path) -> None:
-    """Write an input preset whose backlog map renames one column."""
-    config = InputFormatConfig(stderr_file=NoTextIO())
-    config.backlog_to_internal = {'Type': 'level'}
-    config.write(to_json_filename=path, stderr_file=NoTextIO())
-
-
-def _write_output(path: Path) -> None:
-    """Write an output preset with the numeric level display."""
-    config = OutputFormatConfig(stderr_file=NoTextIO())
-    config.level_display = LevelDisplay.NUMERIC
-    config.write(to_json_filename=path, stderr_file=NoTextIO())
+from .shared_test_data import write_input_preset, write_output_preset
 
 
 def _hook() -> ConfigAutoChangeHook:
@@ -45,7 +32,7 @@ def _hook() -> ConfigAutoChangeHook:
 def test_read_input_preset(tmp_path: Path) -> None:
     """Test an input preset file is detected and read as an input config."""
     source = tmp_path / 'in.cfg'
-    _write_input(source)
+    write_input_preset(source)
     config = read_io_preset(str(source), _hook(), NoTextIO())
     assert isinstance(config, InputFormatConfig)
     assert config.backlog_to_internal == {'Type': 'level'}
@@ -54,7 +41,7 @@ def test_read_input_preset(tmp_path: Path) -> None:
 def test_read_output_preset(tmp_path: Path) -> None:
     """Test an output preset file is detected and read as output config."""
     source = tmp_path / 'out.cfg'
-    _write_output(source)
+    write_output_preset(source)
     config = read_io_preset(str(source), _hook(), NoTextIO())
     assert isinstance(config, OutputFormatConfig)
     assert config.level_display == LevelDisplay.NUMERIC
@@ -123,7 +110,7 @@ def test_safe_write_new_file(tmp_path: Path) -> None:
 def test_safe_write_replaces(tmp_path: Path) -> None:
     """Test writing over an existing file replaces its contents."""
     output = tmp_path / 'old.cfg'
-    _write_input(output)
+    write_input_preset(output)
     config = OutputFormatConfig(stderr_file=NoTextIO())
     config.level_display = LevelDisplay.NUMERIC
     safe_write_config(config, str(output), NoTextIO())
@@ -142,7 +129,7 @@ def test_safe_write_crash(tmp_path: Path,
     configuration must be fully present in the ``.in_progress`` sibling.
     """
     output = tmp_path / 'teams.cfg'
-    _write_input(output)
+    write_input_preset(output)
     new_config = InputFormatConfig(stderr_file=NoTextIO())
     new_config.backlog_to_internal = {'Story': 'level'}
 

@@ -59,6 +59,25 @@ def capture_rank(record: RankCall) -> Callable[..., None]:
     return stub
 
 
+def jira_conn_preset() -> tuple[JiraConnectConfig, JiraPreset]:
+    """Return a Jira connection ``'c'`` and a preset using maps bk and rel.
+
+    The connection stores a clear internal token; the preset points at the
+    backlog map ``'bk'`` and the release map ``'rel'``. The caller sets the
+    default project and wires the connection, maps and preset into a config.
+    Shared with the CLI tests, which build their own configuration around
+    the same connection and preset.
+    """
+    conn = JiraConnectConfig(stderr_file=NO)
+    conn.token_storage = TokenStorage.CLEAR_INTERNAL
+    conn.stored_token = 'TOK'
+    preset = JiraPreset(stderr_file=NO)
+    preset.connection_name = 'c'
+    preset.backlog_column_map_name = 'bk'
+    preset.release_column_map_name = 'rel'
+    return conn, preset
+
+
 def jira_write_config(project: str = 'PROJ',
                       release_map: Optional[JiraColumnMap] = None
                       ) -> JiraIOConfig:
@@ -69,13 +88,7 @@ def jira_write_config(project: str = 'PROJ',
     default project. A caller may pass a custom release map; the backlog
     map is always the default one.
     """
-    conn = JiraConnectConfig(stderr_file=NO)
-    conn.token_storage = TokenStorage.CLEAR_INTERNAL
-    conn.stored_token = 'TOK'
-    preset = JiraPreset(stderr_file=NO)
-    preset.connection_name = 'c'
-    preset.backlog_column_map_name = 'bk'
-    preset.release_column_map_name = 'rel'
+    conn, preset = jira_conn_preset()
     preset.def_project = project
     config = JiraIOConfig(stderr_file=NO)
     config.connections = {'c': conn}

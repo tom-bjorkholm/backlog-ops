@@ -14,22 +14,10 @@ and is discovered by the list command.
 from pathlib import Path
 from typing import Callable
 import pytest
-from backlogops import (
-    AvailableTeams, BacklogOpsConfig, ReleaseRename, RenamedReleasesInJira,
-    write_backlog_ops_config)
-from backlogops.no_text_io import NoTextIO
+from backlogops import ReleaseRename, RenamedReleasesInJira
 from backlogops_cli.list import command_modules
 from backlogops_cli import rename_releases_in_jira as rename_cmd
-from backlogops_cli.rename_releases_in_jira import _passphrase
-
-NO = NoTextIO()
-
-
-def _config_file(path: Path) -> None:
-    """Write a minimal backlog-ops configuration to a file."""
-    config = BacklogOpsConfig(
-        available_teams=AvailableTeams(persons={}, teams=[]), stderr_file=NO)
-    write_backlog_ops_config(config, path, NO)
+from .cli_test_helpers import write_min_config
 
 
 def _fake_rename(captured: dict[str, object]
@@ -59,12 +47,6 @@ def _args(tmp_path: Path, *extra: str) -> list[str]:
     return ['-p', 'w', '-c', str(tmp_path / 'ops.cfg'), *extra]
 
 
-def test_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the pass phrase prompt reads from getpass."""
-    monkeypatch.setattr(rename_cmd, 'getpass', lambda _prompt: 'secret')
-    assert _passphrase() == 'secret'
-
-
 def test_in_command_list() -> None:
     """Test the rename command is discovered by the list command."""
     names = [name for name, _ in command_modules()]
@@ -81,7 +63,7 @@ def test_single_rename(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                        capsys: pytest.CaptureFixture[str]) -> None:
     """Test --rename builds a single rename and prints the result."""
     captured = _patch(monkeypatch)
-    _config_file(tmp_path / 'ops.cfg')
+    write_min_config(tmp_path / 'ops.cfg')
     code = rename_cmd.main(_args(tmp_path, '--rename', 'R1', 'R9'))
     assert code == 0
     assert captured['renames'] == [ReleaseRename('R1', 'R9')]
@@ -92,7 +74,7 @@ def test_single_rename_spaces(tmp_path: Path,
                               monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a --rename old and new name may contain spaces."""
     captured = _patch(monkeypatch)
-    _config_file(tmp_path / 'ops.cfg')
+    write_min_config(tmp_path / 'ops.cfg')
     rename_cmd.main(_args(tmp_path, '--rename', 'Release 1', 'Big Bang 2'))
     assert captured['renames'] == [
         ReleaseRename('Release 1', 'Big Bang 2')]
@@ -101,7 +83,7 @@ def test_single_rename_spaces(tmp_path: Path,
 def test_rename_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test --rename-file reads the old and new names from the file."""
     captured = _patch(monkeypatch)
-    _config_file(tmp_path / 'ops.cfg')
+    write_min_config(tmp_path / 'ops.cfg')
     rename_file = tmp_path / 'renames.txt'
     rename_file.write_text('R1\tR9\nR2\tR8\n', encoding='utf-8')
     rename_cmd.main(_args(tmp_path, '--rename-file', str(rename_file)))
@@ -132,7 +114,7 @@ def test_quiet(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                capsys: pytest.CaptureFixture[str]) -> None:
     """Test -q suppresses the result listing on stdout."""
     _patch(monkeypatch)
-    _config_file(tmp_path / 'ops.cfg')
+    write_min_config(tmp_path / 'ops.cfg')
     rename_cmd.main(_args(tmp_path, '--rename', 'R1', 'R9', '-q'))
     assert 'Renamed in Jira' not in capsys.readouterr().out
 
@@ -144,5 +126,5 @@ def test_error_returns_1(tmp_path: Path,
         """Raise as the rename does when Jira cannot be reached."""
         raise ValueError('boom')
     monkeypatch.setattr(rename_cmd, 'rename_releases_in_jira', _raise)
-    _config_file(tmp_path / 'ops.cfg')
+    write_min_config(tmp_path / 'ops.cfg')
     assert rename_cmd.main(_args(tmp_path, '--rename', 'R1', 'R9')) == 1

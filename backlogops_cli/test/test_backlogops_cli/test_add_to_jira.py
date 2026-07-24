@@ -15,35 +15,12 @@ from pathlib import Path
 from typing import Callable
 import pytest
 from backlogops import (
-    AddedToJira, AvailableTeams, BacklogItem, BacklogOpsConfig,
-    BacklogReleases, ExistsInJiraError, FormatRules, JiraRankAnchor,
-    OnExistingKey, Release, Status, allow_overwrite, read_backlog_releases,
-    resolve_input_config, resolve_output_config, write_backlog_ops_config,
-    write_backlog_releases)
-from backlogops.no_text_io import NoTextIO
+    AddedToJira, BacklogItem, ExistsInJiraError, JiraRankAnchor,
+    OnExistingKey, Status)
 from backlogops_cli.list import command_modules
 from backlogops_cli import add_to_jira
-from backlogops_cli.add_to_jira import _passphrase
-
-NO = NoTextIO()
-
-
-def _config_file(path: Path) -> None:
-    """Write a minimal backlog-ops configuration to a file."""
-    config = BacklogOpsConfig(
-        available_teams=AvailableTeams(persons={}, teams=[]), stderr_file=NO)
-    write_backlog_ops_config(config, path, NO)
-
-
-def _write_input(path: Path) -> None:
-    """Write an input file holding one backlog item and its release."""
-    data = BacklogReleases(
-        backlog=[BacklogItem(key='A', level=1, title='First', story_points=5,
-                             status=Status.TODO, release='R1')],
-        releases=[Release(name='R1')])
-    out_config = resolve_output_config(None, data_file=path, stderr_file=NO)
-    write_backlog_releases(data, path, out_config, FormatRules(),
-                           file_exists_callback=allow_overwrite)
+from .cli_test_helpers import (
+    base_args, prepare_input, raising_call, read_data_file)
 
 
 def _result() -> AddedToJira:
@@ -79,12 +56,6 @@ def _patch(monkeypatch: pytest.MonkeyPatch,
     return captured
 
 
-def test_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the pass phrase prompt reads from getpass."""
-    monkeypatch.setattr(add_to_jira, 'getpass', lambda _prompt: 'secret')
-    assert _passphrase() == 'secret'
-
-
 def test_in_command_list() -> None:
     """Test the add_to_jira command is discovered by the list command."""
     assert 'add_to_jira' in [name for name, _ in command_modules()]
@@ -101,10 +72,8 @@ def test_adds_and_prints(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                          capsys: pytest.CaptureFixture[str]) -> None:
     """Test the command adds by default in raise mode and prints the lists."""
     captured = _patch(monkeypatch, _result())
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
-    code = add_to_jira.main(['-i', str(tmp_path / 'in.csv'), '-p', 'w',
-                             '-c', str(tmp_path / 'ops.cfg')])
+    prepare_input(tmp_path)
+    code = add_to_jira.main(base_args(tmp_path))
     assert code == 0
     assert captured['mode'] is OnExistingKey.RAISE
     out = capsys.readouterr().out
@@ -117,11 +86,8 @@ def test_skip_existing(tmp_path: Path,
                        monkeypatch: pytest.MonkeyPatch) -> None:
     """Test --skip-existing selects the skip mode."""
     captured = _patch(monkeypatch, _result())
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
-    code = add_to_jira.main(['-i', str(tmp_path / 'in.csv'), '-p', 'w',
-                             '-c', str(tmp_path / 'ops.cfg'),
-                             '--skip-existing'])
+    prepare_input(tmp_path)
+    code = add_to_jira.main(base_args(tmp_path, '--skip-existing'))
     assert code == 0
     assert captured['mode'] is OnExistingKey.SKIP
 
@@ -130,28 +96,20 @@ def test_quiet_suppresses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                           capsys: pytest.CaptureFixture[str]) -> None:
     """Test -q suppresses the two lists on stdout."""
     _patch(monkeypatch, _result())
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
-    add_to_jira.main(['-i', str(tmp_path / 'in.csv'), '-p', 'w',
-                      '-c', str(tmp_path / 'ops.cfg'), '-q'])
+    prepare_input(tmp_path)
+    add_to_jira.main(base_args(tmp_path, '-q'))
     assert 'Added to Jira' not in capsys.readouterr().out
 
 
 def test_writes_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the returned backlogs are written to the named files."""
     _patch(monkeypatch, _result())
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
-    added = tmp_path / 'added.csv'
-    existing = tmp_path / 'existing.csv'
-    code = add_to_jira.main([
-        '-i', str(tmp_path / 'in.csv'), '-p', 'w',
-        '-c', str(tmp_path / 'ops.cfg'), '--added-file', str(added),
-        '--existing-file', str(existing)])
+    prepare_input(tmp_path)
+    added, existing = tmp_path / 'added.csv', tmp_path / 'existing.csv'
+    code = add_to_jira.main(base_args(tmp_path, '--added-file', str(added),
+                                      '--existing-file', str(existing)))
     assert code == 0
-    stored = read_backlog_releases(
-        added, resolve_input_config(None, data_file=added, stderr_file=NO),
-        stderr_file=NO)
+    stored = read_data_file(added)
     assert [item.key for item in stored.backlog] == ['PROJ-1']
     assert [release.name for release in stored.releases] == ['R1']
     assert existing.is_file()
@@ -160,17 +118,10 @@ def test_writes_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 def test_exists_returns_one(tmp_path: Path,
                             monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an already-present key without --skip-existing fails."""
-    def _raising(connections: object, preset_name: str, backlog: object, *,
-                 on_existing_key: OnExistingKey,
-                 **kwargs: object) -> AddedToJira:
-        """Raise as the real function does when a key already exists."""
-        _ = (connections, preset_name, backlog, on_existing_key, kwargs)
-        raise ExistsInJiraError(['A'])
-    monkeypatch.setattr(add_to_jira, 'add_backlog_to_jira', _raising)
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
-    code = add_to_jira.main(['-i', str(tmp_path / 'in.csv'), '-p', 'w',
-                             '-c', str(tmp_path / 'ops.cfg')])
+    monkeypatch.setattr(add_to_jira, 'add_backlog_to_jira',
+                        raising_call(ExistsInJiraError(['A'])))
+    prepare_input(tmp_path)
+    code = add_to_jira.main(base_args(tmp_path))
     assert code == 1
 
 
@@ -183,11 +134,8 @@ def test_requires_config(tmp_path: Path) -> None:
 def test_rank_flag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test --rank passes the chosen anchor to the add."""
     captured = _patch(monkeypatch, _result())
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
-    add_to_jira.main(['-i', str(tmp_path / 'in.csv'), '-p', 'w',
-                      '-c', str(tmp_path / 'ops.cfg'),
-                      '--rank', 'backlog-bottom'])
+    prepare_input(tmp_path)
+    add_to_jira.main(base_args(tmp_path, '--rank', 'backlog-bottom'))
     assert captured['rank'] is JiraRankAnchor.BACKLOG_BOTTOM
 
 
@@ -195,8 +143,6 @@ def test_no_rank_default(tmp_path: Path,
                          monkeypatch: pytest.MonkeyPatch) -> None:
     """Test no --rank leaves the rank anchor unset."""
     captured = _patch(monkeypatch, _result())
-    _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
-    add_to_jira.main(['-i', str(tmp_path / 'in.csv'), '-p', 'w',
-                      '-c', str(tmp_path / 'ops.cfg')])
+    prepare_input(tmp_path)
+    add_to_jira.main(base_args(tmp_path))
     assert captured['rank'] is None

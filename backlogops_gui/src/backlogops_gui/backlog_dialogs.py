@@ -13,15 +13,15 @@ returns it, or None when the dialog is cancelled.
 # MIT License
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import messagebox, ttk
 from dataclasses import dataclass
 from datetime import date
 from typing import Optional, TextIO
-from backlogops import DependencyMode, DEFAULT_LEVELS, read_key_list
+from backlogops import DependencyMode, DEFAULT_LEVELS
 from backlogops_gui.gui_style import style_input
+from backlogops_gui.key_list_box import build_key_box, load_keys_into
 from backlogops_gui.modal_dialog import ModalDialog
 
-KEY_READ_ERRORS = (ValueError, TypeError, KeyError, OSError)
 DEFAULT_BUFFER_DAYS = 5
 
 
@@ -63,29 +63,13 @@ class KeysDialog(ModalDialog):
 
     def _build_text(self) -> tk.Text:
         """Add the entry label, text box and the load-from-file button."""
-        tk.Label(self._win, text='Enter keys separated by spaces or '
-                 'newlines:').pack(anchor='w', padx=12, pady=(10, 2))
-        text = tk.Text(self._win, width=40, height=8)
-        style_input(text)
-        text.pack(padx=12, pady=2)
-        tk.Button(self._win, text='Load from file…',
-                  command=self._load).pack(anchor='w', padx=12, pady=4)
-        return text
+        return build_key_box(self._win,
+                             'Enter keys separated by spaces or newlines:',
+                             self._load)
 
     def _load(self) -> None:
         """Read a key list file into the text box, reporting failures."""
-        name = filedialog.askopenfilename(parent=self._win,
-                                          title='Read key list')
-        if not name:
-            return
-        try:
-            keys = read_key_list(name, stderr_file=self._sink)
-        except KEY_READ_ERRORS as error:
-            messagebox.showerror('Could not read key list', str(error),
-                                 parent=self._win)
-            return
-        self._text.delete('1.0', 'end')
-        self._text.insert('end', '\n'.join(keys))
+        load_keys_into(self._win, self._text, self._sink)
 
     def _confirm(self) -> None:
         """Split the text on whitespace and close the dialog."""

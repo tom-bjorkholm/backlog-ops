@@ -15,56 +15,25 @@ failure, and is discovered by the list command.
 from pathlib import Path
 from typing import Callable
 import pytest
+from test_backlogops.jira_write_helpers import jira_write_config
 from backlogops import (
-    AddedToJira, AvailableTeams, BacklogItem, BacklogOpsConfig,
-    BacklogReleases, DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP,
-    FormatRules, ItemNotInJiraError, JiraConnectConfig, JiraIOConfig,
-    JiraPreset, JiraRankAnchor, LinkUpdate, OnMissingKey, Release, Status,
-    TokenStorage, UpdatedBacklogInJira, allow_overwrite,
-    resolve_output_config, write_backlog_ops_config, write_backlog_releases)
+    AddedToJira, AvailableTeams, BacklogOpsConfig, ItemNotInJiraError,
+    JiraRankAnchor, LinkUpdate, OnMissingKey, UpdatedBacklogInJira,
+    write_backlog_ops_config)
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import update_backlog_in_jira
-from backlogops_cli.update_backlog_in_jira import _passphrase
+from .cli_test_helpers import write_item_input
 
 NO = NoTextIO()
-
-
-def _jira_config() -> JiraIOConfig:
-    """Return a Jira config with one preset ``'w'`` and the default maps."""
-    conn = JiraConnectConfig(stderr_file=NO)
-    conn.token_storage = TokenStorage.CLEAR_INTERNAL
-    conn.stored_token = 'TOK'
-    preset = JiraPreset(stderr_file=NO)
-    preset.connection_name = 'c'
-    preset.backlog_column_map_name = 'bk'
-    preset.release_column_map_name = 'rel'
-    preset.def_project = 'PROJ'
-    config = JiraIOConfig(stderr_file=NO)
-    config.connections = {'c': conn}
-    config.backlog_column_maps = {'bk': DEF_BACKLOG_COLUMN_MAP}
-    config.release_column_maps = {'rel': DEF_RELEASE_COLUMN_MAP}
-    config.presets = {'w': preset}
-    return config
 
 
 def _config_file(path: Path) -> None:
     """Write a backlog-ops configuration with a Jira preset to a file."""
     config = BacklogOpsConfig(
         available_teams=AvailableTeams(persons={}, teams=[]), stderr_file=NO)
-    config.jira = _jira_config()
+    config.jira = jira_write_config()
     write_backlog_ops_config(config, path, NO)
-
-
-def _write_input(path: Path) -> None:
-    """Write an input file holding one backlog item and one release."""
-    data = BacklogReleases(
-        backlog=[BacklogItem(key='A', level=1, title='First', story_points=5,
-                             status=Status.TODO, release='R1')],
-        releases=[Release(name='R1')])
-    out_config = resolve_output_config(None, data_file=path, stderr_file=NO)
-    write_backlog_releases(data, path, out_config, FormatRules(),
-                           file_exists_callback=allow_overwrite)
 
 
 def _result() -> UpdatedBacklogInJira:
@@ -110,14 +79,7 @@ def _args(tmp_path: Path, *extra: str) -> list[str]:
 def _prepare(tmp_path: Path) -> None:
     """Write the configuration and the input file used by the tests."""
     _config_file(tmp_path / 'ops.cfg')
-    _write_input(tmp_path / 'in.csv')
-
-
-def test_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the pass phrase prompt reads from getpass."""
-    monkeypatch.setattr(update_backlog_in_jira, 'getpass',
-                        lambda _prompt: 'secret')
-    assert _passphrase() == 'secret'
+    write_item_input(tmp_path / 'in.csv')
 
 
 def test_in_command_list() -> None:

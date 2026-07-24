@@ -18,17 +18,14 @@ masked pass phrase for an encrypted Jira API token.
 # MIT License
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import messagebox, ttk
 from dataclasses import dataclass
 from collections.abc import Mapping
 from typing import Optional, Sequence, TextIO
-from backlogops import (
-    JiraRankAnchor, OnMissingKey, ReleaseRename, read_key_list)
+from backlogops import JiraRankAnchor, OnMissingKey, ReleaseRename
 from backlogops_gui.gui_style import style_input
+from backlogops_gui.key_list_box import build_key_box, load_keys_into
 from backlogops_gui.modal_dialog import ModalDialog
-
-KEY_READ_ERRORS = (ValueError, TypeError, KeyError, OSError)
-"""Errors caught when loading a key list file into the rank dialog."""
 
 MISSING_MODE_TEXT = {
     OnMissingKey.RAISE: 'Stop with an error',
@@ -550,15 +547,9 @@ class JiraRankDialog(ModalDialog):
 
     def _build_keys(self) -> tk.Text:
         """Add the key entry label, text box and load-from-file button."""
-        tk.Label(self._win,
-                 text='Keys to move (separated by spaces or newlines):'
-                 ).pack(anchor='w', padx=12, pady=(8, 2))
-        text = tk.Text(self._win, width=40, height=8)
-        style_input(text)
-        text.pack(padx=12, pady=2)
-        tk.Button(self._win, text='Load from file…',
-                  command=self._load).pack(anchor='w', padx=12, pady=4)
-        return text
+        return build_key_box(self._win,
+                             'Keys to move (separated by spaces or newlines):',
+                             self._load, label_pady=(8, 2))
 
     def _preset_changed(self, _event: object) -> None:
         """Show the selected preset's default issue filter."""
@@ -566,18 +557,7 @@ class JiraRankDialog(ModalDialog):
 
     def _load(self) -> None:
         """Read a key list file into the text box, reporting failures."""
-        name = filedialog.askopenfilename(parent=self._win,
-                                          title='Read key list')
-        if not name:
-            return
-        try:
-            keys = read_key_list(name, stderr_file=self._sink)
-        except KEY_READ_ERRORS as error:
-            messagebox.showerror('Could not read key list', str(error),
-                                 parent=self._win)
-            return
-        self._text.delete('1.0', 'end')
-        self._text.insert('end', '\n'.join(keys))
+        load_keys_into(self._win, self._text, self._sink)
 
     def _confirm(self) -> None:
         """Store the preset, filter, keys and end, requiring preset+keys."""

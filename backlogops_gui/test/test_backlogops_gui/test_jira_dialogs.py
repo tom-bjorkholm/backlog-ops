@@ -23,8 +23,9 @@ from .gui_test_helpers import MsgRecorder, gui_root
 from .dialog_test_helpers import cancel_show, confirm_show, no_wait
 
 MESSAGEBOX = 'backlogops_gui.jira_dialogs.messagebox'
-FILE_DIALOG = 'backlogops_gui.jira_dialogs.filedialog.askopenfilename'
-READ_KEYS = 'backlogops_gui.jira_dialogs.read_key_list'
+KEY_MSGBOX = 'backlogops_gui.key_list_box.messagebox'
+FILE_DIALOG = 'backlogops_gui.key_list_box.filedialog.askopenfilename'
+READ_KEYS = 'backlogops_gui.key_list_box.read_key_list'
 _BL_FIELDS = {'p': ['title', 'status'], 'q': ['title', 'team']}
 """Two presets mapped to their updatable fields for the dialog tests."""
 
@@ -569,7 +570,7 @@ def test_rank_load_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ModalDialog, '_show', no_wait)
     monkeypatch.setattr(FILE_DIALOG, _pick('x.txt'))
     monkeypatch.setattr(READ_KEYS, boom)
-    monkeypatch.setattr(MESSAGEBOX, rec)
+    monkeypatch.setattr(KEY_MSGBOX, rec)
     with gui_root() as root:
         dialog = JiraRankDialog(root, {'a': 'fa'}, NoTextIO())
         # pylint: disable-next=protected-access

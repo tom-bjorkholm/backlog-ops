@@ -8,6 +8,8 @@ import io
 from pathlib import Path
 from typing import Optional, TypeVar
 import pytest
+from test_backlogops.shared_test_data import (
+    write_input_preset, write_output_preset)
 from backlogops import (
     BacklogOpsConfig, InputFormatConfig, LevelDisplay, NoTextIO,
     OutputFormatConfig)
@@ -18,20 +20,6 @@ CSV_OPTS = [''] * 7
 """Blank answers for the CSV format encoding and six option cells."""
 
 _Cfg = TypeVar('_Cfg')
-
-
-def _write_input(path: Path) -> None:
-    """Write a readable input preset whose backlog map renames one column."""
-    config = InputFormatConfig(stderr_file=NoTextIO())
-    config.backlog_to_internal = {'Type': 'level'}
-    config.write(to_json_filename=path, stderr_file=NoTextIO())
-
-
-def _write_output(path: Path) -> None:
-    """Write a readable output preset with the numeric level display."""
-    config = OutputFormatConfig(stderr_file=NoTextIO())
-    config.level_display = LevelDisplay.NUMERIC
-    config.write(to_json_filename=path, stderr_file=NoTextIO())
 
 
 def _echo_preset(_bridge: object, *, default: Optional[_Cfg] = None,
@@ -144,7 +132,7 @@ def test_prefill_input(tmp_path: Path,
     reads back as an input preset with the map from the input file.
     """
     source = tmp_path / 'source.cfg'
-    _write_input(source)
+    write_input_preset(source)
     monkeypatch.setattr(preset_wizard, 'preset_wizard', _echo_preset)
     out = tmp_path / 'out.cfg'
     assert preset_wizard.main(
@@ -157,7 +145,7 @@ def test_prefill_output(tmp_path: Path,
                         monkeypatch: pytest.MonkeyPatch) -> None:
     """Test -i on an output preset detects it and pre-fills the wizard."""
     source = tmp_path / 'source.cfg'
-    _write_output(source)
+    write_output_preset(source)
     monkeypatch.setattr(preset_wizard, 'preset_wizard', _echo_preset)
     out = tmp_path / 'out.cfg'
     assert preset_wizard.main(
@@ -170,7 +158,7 @@ def test_edit_in_place(tmp_path: Path,
                        monkeypatch: pytest.MonkeyPatch) -> None:
     """Test -i and -o naming the same preset file edits it in place."""
     target = tmp_path / 'in.cfg'
-    _write_input(target)
+    write_input_preset(target)
     monkeypatch.setattr(preset_wizard, 'preset_wizard', _echo_preset)
     monkeypatch.setattr('sys.stdin', io.StringIO('y\n'))
     assert preset_wizard.main(

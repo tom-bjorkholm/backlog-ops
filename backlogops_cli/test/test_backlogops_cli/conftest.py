@@ -17,7 +17,13 @@ def _isolate_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     as the GUI when no ``-c`` is given. Without this isolation the tests
     would pick up the developer's ``$HOME/.backlogops.cfg`` and the
     process-wide configuration cache would leak between tests.
+
+    The same reset is used by the backlogops test_get_backlog_ops_config
+    test. A conftest is imported before the backlogops test folder is on
+    ``sys.path``, so this copy cannot import a shared helper; the small
+    duplicate is suppressed rather than worked around with a path hack.
     """
+    # pylint: disable=duplicate-code
     # pylint: disable-next=protected-access
     monkeypatch.setattr(backlog_ops_config._ConfigStore, 'current', None)
     monkeypatch.delenv('BACKLOGOPS_CFG', raising=False)

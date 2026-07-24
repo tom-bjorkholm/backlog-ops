@@ -22,27 +22,21 @@ only when it is needed.
 
 import argparse
 import sys
-from getpass import getpass
 from typing import Optional
 from backlogops import (
     AddedToJira, BacklogOpsConfig, BacklogReleases, ExistsInJiraError,
-    FormatRules, JiraConnections, OnExistingKey, add_backlog_to_jira,
-    format_add_result, resolve_output_config, write_backlog_releases)
+    JiraConnections, OnExistingKey, add_backlog_to_jira, format_add_result)
 from backlogops_cli._command_io import (
-    add_config_arg, add_input_args, add_rank_arg, overwrite_callback,
-    parsed_args, rank_anchor, read_input, required_config)
-from backlogops_cli._migrate_warn import CliPresetMigrateWarnHook
+    add_force_arg, add_quiet_arg, add_rank_arg, build_jira_parser,
+    jira_passphrase, parsed_args, rank_anchor, run_added_to_jira,
+    write_result_file)
 
 DESCRIPTION = 'Add a backlog to Jira, creating a new issue per item'
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the add-to-Jira command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_input_args(parser)
-    add_config_arg(parser)
-    parser.add_argument('-p', '--preset', dest='preset', required=True,
-                        help='Name of the Jira preset in the configuration.')
+    parser = build_jira_parser(DESCRIPTION)
     parser.add_argument('--skip-existing', dest='skip_existing',
                         action='store_true',
                         help='Skip items whose key already exists in Jira '
@@ -55,18 +49,9 @@ def build_parser() -> argparse.ArgumentParser:
                         metavar='FILE',
                         help='Write the items already in Jira to this file. '
                         'Omit to not write it.')
-    parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
-                        help='Do not print the added and already-present '
-                        'lists to stdout.')
-    parser.add_argument('-f', '--force', dest='force', action='store_true',
-                        help='Overwrite existing output files without '
-                        'asking.')
+    add_quiet_arg(parser)
+    add_force_arg(parser)
     return parser
-
-
-def _passphrase() -> str:
-    """Ask for the Jira token pass phrase on the terminal."""
-    return getpass('Jira API token pass phrase: ')
 
 
 def _add(parsed: argparse.Namespace, config: BacklogOpsConfig,
@@ -74,7 +59,7 @@ def _add(parsed: argparse.Namespace, config: BacklogOpsConfig,
     """Add the input backlog to Jira using the named write preset."""
     print(f"Adding backlog to Jira using preset '{parsed.preset}'...",
           file=sys.stderr)
-    connections = JiraConnections(config.get_jira_config(), _passphrase)
+    connections = JiraConnections(config.get_jira_config(), jira_passphrase)
     mode = (OnExistingKey.SKIP if parsed.skip_existing
             else OnExistingKey.RAISE)
     result = add_backlog_to_jira(connections, parsed.preset, data.backlog,
@@ -89,48 +74,31 @@ def _add(parsed: argparse.Namespace, config: BacklogOpsConfig,
     return result
 
 
-def _write_backlog_file(config: BacklogOpsConfig, path: str,
-                        data: BacklogReleases, force: bool) -> None:
-    """Write one returned backlog and the input releases to a file."""
-    out_config = resolve_output_config(None, data_file=path,
-                                       presets=config.output_configs,
-                                       auto_ch_hook=CliPresetMigrateWarnHook())
-    write_backlog_releases(data, path, out_config, FormatRules(),
-                           levels=config.get_levels(),
-                           file_exists_callback=overwrite_callback(force))
-    print(f'Wrote {path}')
-
-
 def _write_result_files(parsed: argparse.Namespace, config: BacklogOpsConfig,
                         data: BacklogReleases, result: AddedToJira) -> None:
     """Write the added and already-present backlogs to any named files."""
     releases = list(data.releases)
     if parsed.added_file is not None:
         added = BacklogReleases(backlog=result.stored, releases=releases)
-        _write_backlog_file(config, parsed.added_file, added, parsed.force)
+        write_result_file(config, parsed.added_file, added, parsed.force)
     if parsed.existing_file is not None:
         present = BacklogReleases(backlog=result.already_present,
                                   releases=releases)
-        _write_backlog_file(config, parsed.existing_file, present,
-                            parsed.force)
+        write_result_file(config, parsed.existing_file, present, parsed.force)
+
+
+def _add_and_write(parsed: argparse.Namespace, config: BacklogOpsConfig,
+                   data: BacklogReleases) -> AddedToJira:
+    """Add the backlog to Jira and write any requested result files."""
+    result = _add(parsed, config, data)
+    _write_result_files(parsed, config, data, result)
+    return result
 
 
 def _run(parsed: argparse.Namespace) -> int:
     """Read the input, add it to Jira, write files and print the lists."""
-    try:
-        config = required_config(parsed)
-        data = read_input(parsed, config)
-        result = _add(parsed, config, data)
-        _write_result_files(parsed, config, data, result)
-    except ExistsInJiraError:
-        print('Nothing added to Jira.', file=sys.stderr)
-        return 1
-    except (ValueError, TypeError, KeyError, OSError) as error:
-        print(f'Could not add to Jira: {error}', file=sys.stderr)
-        return 1
-    if not parsed.quiet:
-        print(format_add_result(result))
-    return 0
+    return run_added_to_jira(parsed, _add_and_write, format_add_result,
+                             ExistsInJiraError, 'Could not add to Jira')
 
 
 def main(args: Optional[list[str]] = None) -> int:
@@ -143,8 +111,7 @@ def main(args: Optional[list[str]] = None) -> int:
         ``0`` on success, ``1`` when the backlog cannot be added or a key
         already exists in Jira without ``--skip-existing``.
     """
-    parsed = parsed_args(build_parser(), args)
-    return _run(parsed)
+    return _run(parsed_args(build_parser(), args))
 
 
 if __name__ == '__main__':  # pragma: no cover

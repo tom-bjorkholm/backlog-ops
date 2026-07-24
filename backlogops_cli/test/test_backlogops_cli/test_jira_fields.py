@@ -12,14 +12,14 @@ fields when asked, and is discovered by the list command.
 
 from pathlib import Path
 import pytest
+from test_backlogops.jira_write_helpers import jira_conn_preset
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, JiraConnectConfig, JiraPreset,
-    TokenStorage, write_backlog_ops_config)
+    AvailableTeams, BacklogOpsConfig, write_backlog_ops_config)
 from backlogops.no_text_io import NoTextIO
 import backlogops.jira_connect as jc
 from backlogops_cli.list import command_modules
 from backlogops_cli import jira_fields
-from backlogops_cli.jira_fields import _passphrase, _print_pairs
+from backlogops_cli.jira_fields import _print_pairs
 
 NO = NoTextIO()
 
@@ -56,25 +56,13 @@ def _config_file(path: Path) -> None:
     """Write a configuration with one Jira connection and preset."""
     config = BacklogOpsConfig(
         available_teams=AvailableTeams(persons={}, teams=[]), stderr_file=NO)
-    conn = JiraConnectConfig(stderr_file=NO)
-    conn.token_storage = TokenStorage.CLEAR_INTERNAL
-    conn.stored_token = 'TOK'
-    preset = JiraPreset(stderr_file=NO)
-    preset.connection_name = 'c'
-    preset.backlog_column_map_name = 'bk'
-    preset.release_column_map_name = 'rel'
+    conn, preset = jira_conn_preset()
     preset.def_project = 'SCRUM'
     config.jira.connections = {'c': conn}
     config.jira.backlog_column_maps = {'bk': {}}
     config.jira.release_column_maps = {'rel': {}}
     config.jira.presets = {'a': preset}
     write_backlog_ops_config(config, path, NO)
-
-
-def test_passphrase(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the pass phrase prompt reads from getpass."""
-    monkeypatch.setattr(jira_fields, 'getpass', lambda _prompt: 'secret')
-    assert _passphrase() == 'secret'
 
 
 def test_print_none(capsys: pytest.CaptureFixture[str]) -> None:

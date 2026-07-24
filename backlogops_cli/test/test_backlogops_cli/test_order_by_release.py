@@ -8,14 +8,11 @@ import io
 from pathlib import Path
 from typing import Optional
 import pytest
-from backlogops import (
-    BacklogItem, BacklogReleases, Release, Status, read_backlog_releases,
-    resolve_input_config, resolve_output_config, write_backlog_releases)
-from backlogops.no_text_io import NoTextIO
+from backlogops import BacklogItem, Release, Status
 from backlogops_cli.list import command_modules
 from backlogops_cli import order_by_release
+from .cli_test_helpers import read_data_file, write_data_file
 
-NO_OUTPUT = NoTextIO()
 RELEASE_ORDER = ['R1', 'R2', 'R3']
 DEFAULT_ORDER = ['B', 'C', 'A', 'D', 'E']
 HONORED_ORDER = ['B', 'D', 'C', 'A', 'E']
@@ -41,23 +38,17 @@ def _write_source(path: Path) -> None:
     backlog = [_item('A', 'R2'), _item('B', 'R1'),
                _item('C', 'R1', ['D']), _item('D', 'R3'), _item('E')]
     releases = [Release(name=name) for name in RELEASE_ORDER]
-    data = BacklogReleases(backlog=backlog, releases=releases)
-    config = resolve_output_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    write_backlog_releases(data, path, config, stderr_file=NO_OUTPUT)
+    write_data_file(path, backlog, releases)
 
 
 def _result_keys(path: Path) -> list[str]:
     """Return the ordered backlog keys read back from an output file."""
-    config = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    data = read_backlog_releases(path, config, stderr_file=NO_OUTPUT)
-    return [item.key for item in data.backlog]
+    return [item.key for item in read_data_file(path).backlog]
 
 
 def _release_names(path: Path) -> list[str]:
     """Return the release names read back from an output file."""
-    config = resolve_input_config(None, data_file=path, stderr_file=NO_OUTPUT)
-    data = read_backlog_releases(path, config, stderr_file=NO_OUTPUT)
-    return [release.name for release in data.releases]
+    return [release.name for release in read_data_file(path).releases]
 
 
 def test_in_command_list() -> None:
@@ -152,11 +143,7 @@ def test_bad_release_fails(tmp_path: Path) -> None:
     references a release absent from the releases list is an error.
     """
     source, target = tmp_path / 'in.ods', tmp_path / 'out.ods'
-    backlog = [_item('A', 'GONE')]
-    data = BacklogReleases(backlog=backlog, releases=[Release(name='R1')])
-    config = resolve_output_config(None, data_file=source,
-                                   stderr_file=NO_OUTPUT)
-    write_backlog_releases(data, source, config, stderr_file=NO_OUTPUT)
+    write_data_file(source, [_item('A', 'GONE')], [Release(name='R1')])
     assert order_by_release.main(['-i', str(source), '-o', str(target)]) == 1
 
 

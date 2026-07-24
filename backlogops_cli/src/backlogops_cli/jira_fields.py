@@ -18,32 +18,23 @@ only when it is needed.
 
 import argparse
 import sys
-from getpass import getpass
 from typing import Optional
 from jira import JIRAError
 from backlogops import (
     JiraConnections, jira_custom_fields, jira_editable_fields)
 from backlogops_cli._command_io import (
-    add_config_arg, parsed_args, required_config)
+    build_jira_parser, jira_passphrase, parsed_args, required_config)
 
 DESCRIPTION = "Print Jira custom fields and an issue's editable fields"
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command line parser for the field diagnostic command."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_config_arg(parser)
-    parser.add_argument('-p', '--preset', dest='preset', required=True,
-                        help='Name of the Jira preset in the configuration.')
+    parser = build_jira_parser(DESCRIPTION, with_input=False)
     parser.add_argument('--issue', dest='issue', metavar='KEY',
                         help="Also print the fields this issue's edit "
                         'screen offers (for example SCRUM-15).')
     return parser
-
-
-def _passphrase() -> str:
-    """Ask for the Jira token pass phrase on the terminal."""
-    return getpass('Jira API token pass phrase: ')
 
 
 def _print_pairs(heading: str, pairs: list[tuple[str, str]]) -> None:
@@ -59,7 +50,8 @@ def _run(parsed: argparse.Namespace) -> int:
     """Print the custom field map and, optionally, editable fields."""
     try:
         config = required_config(parsed)
-        connections = JiraConnections(config.get_jira_config(), _passphrase)
+        connections = JiraConnections(config.get_jira_config(),
+                                      jira_passphrase)
         customs = jira_custom_fields(connections, parsed.preset)
         editable = (jira_editable_fields(connections, parsed.preset,
                                          parsed.issue)

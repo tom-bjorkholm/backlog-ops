@@ -23,14 +23,14 @@ unlocked by a pass phrase asked on the terminal only when it is needed.
 
 import argparse
 import sys
-from getpass import getpass
 from typing import Optional
 from backlogops import (
     BacklogOpsConfig, JiraConnections, OrderedReleasesInJira,
     format_order_result, order_jira_rel_by_date, order_releases_in_jira,
     read_name_list)
 from backlogops_cli._command_io import (
-    add_config_arg, parsed_args, read_input, required_config)
+    add_quiet_arg, build_jira_parser, jira_passphrase, parsed_args,
+    read_input, required_config)
 
 DESCRIPTION = 'Order releases in Jira by date, a name list or the input order'
 
@@ -43,10 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     with ``-i``/``--input`` is itself the third source; ``-I`` only names its
     format.
     """
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_config_arg(parser)
-    parser.add_argument('-p', '--preset', dest='preset', required=True,
-                        help='Name of the Jira preset in the configuration.')
+    parser = build_jira_parser(DESCRIPTION, with_input=False)
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument('--by-date', dest='by_date', action='store_true',
                         help='Order the versions by their release date, '
@@ -61,14 +58,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('-I', '--input-config', dest='input_config',
                         help='Format of the -i/--input file: a config file '
                         'or a preset name.')
-    parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
-                        help='Do not print the result lists to stdout.')
+    add_quiet_arg(parser)
     return parser
-
-
-def _passphrase() -> str:
-    """Ask for the Jira token pass phrase on the terminal."""
-    return getpass('Jira API token pass phrase: ')
 
 
 def _names(parsed: argparse.Namespace, config: BacklogOpsConfig) -> list[str]:
@@ -87,7 +78,7 @@ def _order(parsed: argparse.Namespace,
     """Order the releases in Jira using the chosen order source."""
     print(f"Ordering releases in Jira using preset '{parsed.preset}'...",
           file=sys.stderr)
-    connections = JiraConnections(config.get_jira_config(), _passphrase)
+    connections = JiraConnections(config.get_jira_config(), jira_passphrase)
     if parsed.by_date:
         result = order_jira_rel_by_date(connections, parsed.preset)
     else:
@@ -120,8 +111,7 @@ def main(args: Optional[list[str]] = None) -> int:
     Returns:
         ``0`` on success, ``1`` when the order cannot be resolved or applied.
     """
-    parsed = parsed_args(build_parser(), args)
-    return _run(parsed)
+    return _run(parsed_args(build_parser(), args))
 
 
 if __name__ == '__main__':  # pragma: no cover

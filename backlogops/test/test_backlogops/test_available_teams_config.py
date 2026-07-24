@@ -20,6 +20,7 @@ from backlogops.team import FteException, Membership, Team
 from backlogops.work_hours import (
     CompanyWorkHours, DEFAULT_WORK_WEEK, ExceptionWorkHours, WeekDay)
 from backlogops.no_text_io import NoTextIO
+from .shared_test_data import overallocated_teams
 
 
 def _company() -> CompanyWorkHours:
@@ -121,13 +122,7 @@ def test_unknown_member(tmp_path: Path) -> None:
 
 def test_overallocation(tmp_path: Path) -> None:
     """Test writing an over-allocated person fails the capacity check."""
-    persons = {'ada': Person(name='Ada')}
-    first = Team(name='A', velocity=1.0, sum_fte_at_velocity=1.0,
-                 sprint_length=10, members=[Membership(person_name='Ada')])
-    second = Team(name='B', velocity=1.0, sum_fte_at_velocity=1.0,
-                  sprint_length=10,
-                  members=[Membership(person_name='Ada', fte=0.5)])
-    teams = AvailableTeams(persons=persons, teams=[first, second])
+    teams = overallocated_teams()
     with pytest.raises(ValueError):
         write_available_teams(teams, tmp_path / 'bad.json', NoTextIO())
 
