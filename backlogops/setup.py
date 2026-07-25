@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
   name='backlogops',
-  version='0.4.1',
+  version='0.5',
   description='Library with backlog operations.',
   author='Tom Björkholm',
   author_email='klausuler_linnet0q@icloud.com',
@@ -18,7 +18,7 @@ setup(
     'cryptography >= 49.0.0',
     'jira[cli,opt] >= 3.10.5',
     'tableio >= 1.1',
-    'tableio-cfg-json >= 0.9',
+    'tableio-cfg-json >= 1.0',
     'versionreporter >= 0.4'
   ]
 )

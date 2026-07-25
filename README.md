@@ -16,15 +16,11 @@ This repo holds source code and build scripts for 3 Python packages:
 
 ## Project status
 
-backlogops is in **beta**. The algorithms intended for its initial scope are
-in place, so the main work from here is on the user experience rather than on
-new core functionality. The three packages share a version number and are
-released together.
+The three packages share a version number and are released together.
 
 The library is not meant to ever be "finished": using it for real planning
 keeps surfacing new ideas. Some of those will be added to backlogops itself,
 and others will fit better in separate packages built on top of backlogops.
-Early adopters are very welcome, and their feedback shapes what comes next.
 
 ## Using it
 
@@ -128,10 +124,10 @@ they are included as parts of README_pypi.md.
 
 ## Test summary
 
-- Test result: 2450 passed, 9 deselected in 42s
+- Test result: 2450 passed, 9 deselected in 43s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
-- Built version(s): 0.4.1
+- Built version(s): 0.5
 - Build and test using Python 3.14.6
