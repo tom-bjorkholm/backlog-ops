@@ -124,10 +124,10 @@ they are included as parts of README_pypi.md.
 
 ## Test summary
 
-- Test result: 2450 passed, 9 deselected in 41s
+- Test result: 2450 passed, 9 deselected in 43s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
-- Built version(s): 0.5
+- Built version(s): 0.5.1
 - Build and test using Python 3.14.6
