@@ -337,8 +337,10 @@
   * [month\_weeks](#backlogops_gui.wizard_calendar.month_weeks)
   * [shift\_month](#backlogops_gui.wizard_calendar.shift_month)
   * [day\_out\_of\_range](#backlogops_gui.wizard_calendar.day_out_of_range)
+  * [\_restore\_grab](#backlogops_gui.wizard_calendar._restore_grab)
   * [CalendarPicker](#backlogops_gui.wizard_calendar.CalendarPicker)
     * [\_\_init\_\_](#backlogops_gui.wizard_calendar.CalendarPicker.__init__)
+    * [\_grab](#backlogops_gui.wizard_calendar.CalendarPicker._grab)
     * [\_add\_nav](#backlogops_gui.wizard_calendar.CalendarPicker._add_nav)
     * [\_navigate](#backlogops_gui.wizard_calendar.CalendarPicker._navigate)
     * [\_show\_month](#backlogops_gui.wizard_calendar.CalendarPicker._show_month)
@@ -518,6 +520,7 @@
   * [\_basic\_error](#backlogops_gui.wizard_form._basic_error)
   * [FormEditor](#backlogops_gui.wizard_form.FormEditor)
     * [\_\_init\_\_](#backlogops_gui.wizard_form.FormEditor.__init__)
+    * [\_scroll\_area](#backlogops_gui.wizard_form.FormEditor._scroll_area)
     * [\_apply\_initial](#backlogops_gui.wizard_form.FormEditor._apply_initial)
     * [\_apply\_prefills](#backlogops_gui.wizard_form.FormEditor._apply_prefills)
     * [\_write\_value](#backlogops_gui.wizard_form.FormEditor._write_value)
@@ -4397,6 +4400,11 @@ callback and destroys the window. No nested wait loop is entered, so the
 one already running for the wizard window keeps processing events while
 the calendar is open.
 
+The wizard window holds a modal grab, which would otherwise starve this
+separate window of pointer and keyboard events. The calendar therefore
+takes the grab (and the keyboard focus) while it is open and hands it back
+to the wizard window when it closes.
+
 <a id="backlogops_gui.wizard_calendar.month_weeks"></a>
 
 #### month\_weeks
@@ -4428,6 +4436,16 @@ def day_out_of_range(day: date, minimum: Optional[date],
 
 Return whether a day lies outside the inclusive date bounds.
 
+<a id="backlogops_gui.wizard_calendar._restore_grab"></a>
+
+#### \_restore\_grab
+
+```python
+def _restore_grab(widget: Optional[tk.Misc]) -> None
+```
+
+Give the modal grab back to the widget's window, if it survives.
+
 <a id="backlogops_gui.wizard_calendar.CalendarPicker"></a>
 
 ## CalendarPicker Objects
@@ -4449,6 +4467,19 @@ def __init__(parent: tk.Misc, seed: date, minimum: Optional[date],
 ```
 
 Build the calendar window on the seed month and show it.
+
+<a id="backlogops_gui.wizard_calendar.CalendarPicker._grab"></a>
+
+#### \_grab
+
+```python
+def _grab() -> None
+```
+
+Take the modal grab and focus, retrying until the window shows.
+
+Grabbing fails while the new window is not yet viewable, so it is
+retried on the wizard's event loop until it succeeds.
 
 <a id="backlogops_gui.wizard_calendar.CalendarPicker._add_nav"></a>
 
@@ -4528,7 +4559,7 @@ Close the calendar without returning a date.
 def _finish(chosen: Optional[date]) -> None
 ```
 
-Report the outcome to the callback and destroy the window.
+Report the outcome, destroy the window and restore the grab.
 
 <a id="backlogops_gui.tcltk_version"></a>
 
@@ -6528,6 +6559,21 @@ def __init__(parent: tk.Misc, fields: Sequence[AskField],
 ```
 
 Build one labelled input row per field, plus a status line.
+
+<a id="backlogops_gui.wizard_form.FormEditor._scroll_area"></a>
+
+#### \_scroll\_area
+
+```python
+def _scroll_area(parent: tk.Misc) -> tk.Frame
+```
+
+Build the scrolling field area, returning the frame for the rows.
+
+A tall form (many rows) would overflow the fixed-size wizard
+window, so the labelled rows sit in a frame inside a vertically
+scrolling canvas whose scrollbar appears only when it is needed.
+The status line stays below the scroll area so it is always shown.
 
 <a id="backlogops_gui.wizard_form.FormEditor._apply_initial"></a>
 

@@ -29,6 +29,7 @@ from tableio_cfg_json import AskField, AnswerField, PartialFormValidator, \
     AskDateField, AskTimeField, AskDateTimeField, AskDurationField, \
     AnswerTextField, AnswerIntField, AnswerPathField, AnswerYesNoField, \
     AnswerChoiceField, AnswerMultiChoiceField
+from backlogops_gui.auto_scroll import auto_hide
 from backlogops_gui.gui_style import style_input
 from backlogops_gui.wizard_path import PathRow, validate_path
 from backlogops_gui.wizard_pick_row import HintEntry, PickRow, TypedInput
@@ -490,14 +491,37 @@ class FormEditor:
         self._on_submit = on_submit
         self._disabled: set[int] = set()
         self._last_changed = 0
-        grid = tk.Frame(parent)
-        grid.pack(anchor='w', pady=6)
+        grid = self._scroll_area(parent)
         self._rows = [self._build_row(grid, index, field)
                       for index, field in enumerate(fields)]
-        self._status = tk.Label(parent, fg='red', wraplength=WRAP_LENGTH,
-                                justify='left')
-        self._status.pack(anchor='w')
         self._apply_initial()
+
+    def _scroll_area(self, parent: tk.Misc) -> tk.Frame:
+        """Build the scrolling field area, returning the frame for the rows.
+
+        A tall form (many rows) would overflow the fixed-size wizard
+        window, so the labelled rows sit in a frame inside a vertically
+        scrolling canvas whose scrollbar appears only when it is needed.
+        The status line stays below the scroll area so it is always shown.
+        """
+        outer = tk.Frame(parent)
+        outer.pack(fill='both', expand=True, pady=6)
+        outer.rowconfigure(0, weight=1)
+        outer.columnconfigure(0, weight=1)
+        canvas = tk.Canvas(outer, highlightthickness=0)
+        vbar = ttk.Scrollbar(outer, orient='vertical', command=canvas.yview)
+        canvas.configure(yscrollcommand=auto_hide(vbar))
+        canvas.grid(row=0, column=0, sticky='nsew')
+        vbar.grid(row=0, column=1, sticky='ns')
+        grid = tk.Frame(canvas)
+        canvas.create_window((0, 0), window=grid, anchor='nw')
+        grid.bind('<Configure>', lambda _event: canvas.configure(
+            scrollregion=canvas.bbox('all')))
+        self._status = tk.Label(outer, fg='red', wraplength=WRAP_LENGTH,
+                                justify='left')
+        self._status.grid(row=1, column=0, columnspan=2, sticky='w',
+                          pady=(6, 0))
+        return grid
 
     def _apply_initial(self) -> None:
         """Disable the initially irrelevant rows, showing no message yet."""

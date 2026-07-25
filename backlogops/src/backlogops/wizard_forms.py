@@ -15,9 +15,9 @@ the answers so far make irrelevant. :func:`run_form` shows the fields,
 disables the irrelevant ones, blocks an invalid form and returns the typed
 answers as a :class:`FormResult`.
 
-Dates and decimals have no native field type, so they are asked as text
-fields validated here. :func:`_parse_date` and :func:`_num_text` are shared
-with the table-based wizard helpers.
+Dates use :class:`AskDateField` (a calendar picker in a graphical bridge) and
+decimals use :class:`AskFloatField`, so both come back as typed answers, with
+their format and range checked by the field rather than by validated text.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -27,21 +27,18 @@ from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 from typing import Callable, Optional, Sequence
-from tableio_cfg_json import AnswerField, AskChoiceField, AskField, \
-    AskIntField, AskPathField, AskTextField, AskYesNoField, \
-    PartFormValidationResult, PathAskOptions, WizardPathKind, \
-    WizardUiBridge
+from tableio_cfg_json import AnswerField, AskChoiceField, AskDateField, \
+    AskField, AskFloatField, AskIntField, AskPathField, AskTextField, \
+    AskYesNoField, PartFormValidationResult, PathAskOptions, \
+    WizardPathKind, WizardUiBridge
 from backlogops.io_config import PRESET_NAME_RE
 
 _REQUIRED = 'Please enter a value.'
-_NUMBER_ERROR = 'Please enter a number.'
-_DATE_ERROR = 'Please enter a date as YYYY-MM-DD.'
+_DATE_ERROR = 'Please enter a date.'
 _NAME_ERROR = 'Use only letters and digits for a name.'
 _CHOICE_ERROR = 'Please choose a value.'
 _PHRASE_ERROR = 'Please enter a pass phrase.'
 _INVALID_FORM = 'Please correct the highlighted fields.'
-_DATE_HINT = ' (YYYY-MM-DD)'
-_DATE_HINT_OPT = ' (YYYY-MM-DD, blank for none)'
 
 
 @dataclass(frozen=True)
@@ -148,15 +145,24 @@ def _reseed_ask(ask: AskField, value: object) -> AskField:
     if isinstance(ask, AskIntField) and isinstance(value, int) \
             and not isinstance(value, bool):
         return replace(ask, default=_clamped_int(value, ask))
-    if isinstance(ask, AskChoiceField) and isinstance(value, str) \
-            and value in ask.choices:
-        return replace(ask, default=value)
-    if isinstance(ask, AskTextField) and not ask.sensitive:
-        text = _as_text(value)
-        return ask if text is None else replace(ask, default=text)
     if isinstance(ask, AskPathField) and isinstance(value, str) and value:
         options = replace(ask.path_options, default=Path(value))
         return replace(ask, path_options=options)
+    return _reseed_typed(ask, value)
+
+
+def _reseed_typed(ask: AskField, value: object) -> AskField:
+    """Return ask reseeded for the value-typed fields, else unchanged."""
+    if isinstance(ask, AskFloatField) and isinstance(value, float):
+        return replace(ask, default=value)
+    if isinstance(ask, AskDateField) and isinstance(value, date):
+        return replace(ask, default=value)
+    if isinstance(ask, AskChoiceField) and isinstance(value, str) \
+            and value in ask.choices:
+        return replace(ask, default=value)
+    if isinstance(ask, AskTextField) and not ask.sensitive \
+            and isinstance(value, str):
+        return replace(ask, default=value)
     return ask
 
 
@@ -172,19 +178,6 @@ def _clamped_int(value: int, ask: AskIntField) -> int:
     if ask.max_value is not None:
         value = min(value, ask.max_value)
     return value
-
-
-def _as_text(value: object) -> Optional[str]:
-    """Return a text default for a value, or None when it has no text."""
-    if isinstance(value, date):
-        return value.isoformat()
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, float):
-        return _num_text(value)
-    if isinstance(value, str):
-        return value
-    return None
 
 
 def run_form(bridge: WizardUiBridge, question: str,
@@ -276,29 +269,6 @@ def _answer_path(answer: AnswerField) -> Optional[Path]:
     value = answer.value
     assert value is None or isinstance(value, Path)
     return value
-
-
-def _parse_date(answer: str) -> Optional[date]:
-    """Return the ISO date in ``answer``, or None when it is invalid."""
-    try:
-        return date.fromisoformat(answer)
-    except ValueError:
-        return None
-
-
-def _num_text(value: float) -> str:
-    """Return a compact decimal text for a default numeric value."""
-    return f'{value:g}'
-
-
-def _parse_float(text: Optional[str]) -> Optional[float]:
-    """Return the float in ``text``, or None when it is not a number."""
-    if not text:
-        return None
-    try:
-        return float(text)
-    except ValueError:
-        return None
 
 
 def name_error(name: Optional[str], used: set[str]) -> Optional[str]:
@@ -422,41 +392,32 @@ def int_field(key: str, question: str, *, default: int,
 def number_field(key: str, question: str, *, default: float,
                  minimum: Optional[float] = None,
                  maximum: Optional[float] = None) -> FormField:
-    """Return a decimal field pre-filled with its default."""
-    ask = AskTextField(question, None, nullable=True,
-                       default=_num_text(default))
+    """Return a decimal field pre-filled with its default.
 
-    def error(answer: AnswerField) -> Optional[str]:
-        """Reject a non-numeric or out-of-range decimal answer."""
-        return _number_error(_answer_text(answer), minimum, maximum)
-
-    def value(answer: AnswerField) -> object:
-        """Return the entered decimal, or the default for a blank answer."""
-        parsed = _parse_float(_answer_text(answer))
-        return default if parsed is None else parsed
-    return FormField(key, ask, error, value)
+    The field itself checks that the answer is a number within the
+    inclusive bounds and returns the default for a blank answer.
+    """
+    ask = AskFloatField(question, None, default=default, min_value=minimum,
+                        max_value=maximum)
+    return FormField(key, ask, _no_error, _float_value)
 
 
 def date_field(key: str, question: str, *,
                help_text: Optional[str] = None) -> FormField:
-    """Return a required ISO date field, asked as validated text."""
-    ask = AskTextField(question + _DATE_HINT, help_text, nullable=True)
+    """Return a required date field, shown with a calendar picker."""
+    ask = AskDateField(question, help_text, nullable=True)
 
     def error(answer: AnswerField) -> Optional[str]:
-        """Reject a missing or malformed required date."""
-        return _date_error(_answer_text(answer), required=True)
-    return FormField(key, ask, error, _date_value)
+        """Reject a missing required date."""
+        return None if _answer_date(answer) is not None else _DATE_ERROR
+    return FormField(key, ask, error, _answer_date)
 
 
 def opt_date_field(key: str, question: str, *,
                    help_text: Optional[str] = None) -> FormField:
-    """Return an optional ISO date field that may be left blank."""
-    ask = AskTextField(question + _DATE_HINT_OPT, help_text, nullable=True)
-
-    def error(answer: AnswerField) -> Optional[str]:
-        """Reject a malformed date but accept a blank one."""
-        return _date_error(_answer_text(answer), required=False)
-    return FormField(key, ask, error, _date_value)
+    """Return an optional date field that may be left blank."""
+    ask = AskDateField(question, help_text, nullable=True)
+    return FormField(key, ask, _no_error, _answer_date)
 
 
 def _no_error(_answer: AnswerField) -> Optional[str]:
@@ -472,35 +433,26 @@ def _flag_value(answer: AnswerField) -> object:
 
 
 def _int_value(answer: AnswerField) -> object:
-    """Return the integer an answer holds."""
+    """Return the integer an answer holds, or None when not yet valid.
+
+    A graphical or textual bridge runs the validator after every change,
+    so a field may still be empty or out of range; the strict FormResult
+    getters check the type only when the accepted answer is read.
+    """
     value = answer.value
-    assert isinstance(value, int)
+    assert value is None or isinstance(value, int)
     return value
 
 
-def _date_value(answer: AnswerField) -> object:
+def _float_value(answer: AnswerField) -> object:
+    """Return the decimal an answer holds, or None when not yet valid."""
+    value = answer.value
+    assert value is None or isinstance(value, float)
+    return value
+
+
+def _answer_date(answer: AnswerField) -> Optional[date]:
     """Return the date an answer holds, or None when it is blank."""
-    text = _answer_text(answer)
-    return _parse_date(text) if text else None
-
-
-def _number_error(text: Optional[str], minimum: Optional[float],
-                  maximum: Optional[float]) -> Optional[str]:
-    """Return why a decimal answer is invalid, or None when it is fine."""
-    if not text:
-        return None
-    value = _parse_float(text)
-    if value is None:
-        return _NUMBER_ERROR
-    if minimum is not None and value < minimum:
-        return f'Please enter a value of at least {minimum:g}.'
-    if maximum is not None and value > maximum:
-        return f'Please enter a value of at most {maximum:g}.'
-    return None
-
-
-def _date_error(text: Optional[str], required: bool) -> Optional[str]:
-    """Return why a date answer is invalid, or None when it is fine."""
-    if not text:
-        return _DATE_ERROR if required else None
-    return None if _parse_date(text) else _DATE_ERROR
+    value = answer.value
+    assert value is None or isinstance(value, date)
+    return value

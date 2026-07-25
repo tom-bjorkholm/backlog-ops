@@ -11,22 +11,19 @@ table then a valid one, so their whole-table re-ask paths run.
 # MIT License
 
 import io
-from datetime import date
 from typing import Optional
 import pytest
 from tableio_cfg_json import TableCell, WizardBack, WizardUiBridgeConsole
 from backlogops import Status
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType
 from backlogops.levels import DEFAULT_LEVELS
-from backlogops.work_hours import ExceptionWorkHours, WeekDay
 from backlogops.wizard_navigator import _Navigator
 from backlogops.wizard_helpers import (
     _backlog_map_fields, _parse_column_renames, _parse_input_renames,
     _parse_status_map, _read_int, _read_jira_map, _read_text, _status_target)
 from backlogops.wizard_helpers import (
-    _RenameKind, _is_nonneg, _parse_level_int, _parse_levels, _parse_schedule,
-    _read_exceptions, _read_levels, _read_preset_name, _read_renames,
-    _read_schedule, _read_status_map, _rename_check, _sched_check,
+    _RenameKind, _parse_level_int, _parse_levels, _read_levels,
+    _read_preset_name, _read_renames, _read_status_map, _rename_check,
     _split_aliases, _status_check)
 from backlogops.wizard_helpers import (
     _issue_type_cells, _parse_issue_types, _read_issue_type_map)
@@ -184,29 +181,6 @@ def test_nav_error_file() -> None:
     assert _Navigator(scripted).error_file() is errors
 
 
-@pytest.mark.parametrize('text, expected', [
-    (None, False), ('abc', False), ('-1', False), ('0', True),
-    ('3.5', True)])
-def test_is_nonneg(text: Optional[str], expected: bool) -> None:
-    """Test only a parseable number that is at least zero is accepted."""
-    assert _is_nonneg(text) is expected
-
-
-@pytest.mark.parametrize('table, pos, ok', [
-    ([['Mon', '8']], (0, 0), True),
-    ([['Mon', '8']], (0, 1), True),
-    ([['Mon', 'x']], (0, 1), False)])
-def test_sched_check(table: list[list[Optional[str]]], pos: tuple[int, int],
-                     ok: bool) -> None:
-    """Test only the work-hours column is checked, rejecting non-numbers."""
-    assert _sched_check(table, pos)[0] is ok
-
-
-def test_parse_sched_bad() -> None:
-    """Test a non-numeric work-hours cell makes the schedule invalid."""
-    assert _parse_schedule([WeekDay.MONDAY], [['Mon', 'x']]) is None
-
-
 @pytest.mark.parametrize('table, pos, ok', [
     ([['', 'X']], (0, 1), False),
     ([['key', 'X']], (0, 1), True),
@@ -252,21 +226,6 @@ def test_read_preset_dup() -> None:
     """Test a preset name already in use is re-asked until it is free."""
     assert _read_preset_name(bridge(['used', 'fresh']), 'Q', {'used'}) == \
         'fresh'
-
-
-def test_sched_reask() -> None:
-    """Test an invalid schedule table is re-asked until it parses."""
-    scripted = TableScript([[['Mon', 'x']], [['Mon', '8']]])
-    assert _read_schedule(scripted) == {WeekDay.MONDAY: 8.0}
-
-
-def test_exceptions_reask() -> None:
-    """Test an end-before-start exception table is re-asked until valid."""
-    scripted = TableScript([[['2026-01-06', '2026-01-05', '', 'no']],
-                            [['2026-01-01', '2026-01-05', '', 'no']]])
-    result = _read_exceptions(scripted, 'Periods?')
-    assert result[0].start_date == date(2026, 1, 1)
-    assert result[0].end_date == date(2026, 1, 5)
 
 
 def test_levels_reask() -> None:
@@ -335,19 +294,6 @@ def test_itmap_parse(table: list[list[Optional[str]]],
                      expected: dict[int, str]) -> None:
     """Test only real overrides are kept and identity rows are dropped."""
     assert _parse_issue_types(table) == expected
-
-
-def test_exceptions_seeded() -> None:
-    """Test a seed period pre-fills the exception table rows shown."""
-    seed = [ExceptionWorkHours(start_date=date(2026, 1, 1),
-                               end_date=date(2026, 1, 5), hours_per_day=4.0,
-                               new_work_days=True)]
-    scripted = TableScript([[['2026-01-01', '2026-01-05', '4', 'yes']]])
-    assert _read_exceptions(scripted, 'Periods?', seed) == seed
-    assert scripted.seen[0] == [[TableCell(value='2026-01-01'),
-                                 TableCell(value='2026-01-05'),
-                                 TableCell(value='4'),
-                                 TableCell(value='yes')]]
 
 
 def test_output_rename_seeded() -> None:

@@ -15,12 +15,13 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 import pytest
-from tableio_cfg_json import AnswerPathField, AnswerTextField, \
-    AskChoiceField, AskIntField, AskPathField, AskTextField, \
-    AskYesNoField, WizardPathKind, WizardUiBridgeConsole
+from tableio_cfg_json import AnswerDateField, AnswerField, \
+    AnswerFloatField, AnswerIntField, AnswerPathField, AnswerTextField, \
+    AskChoiceField, AskDateField, AskFloatField, AskIntField, AskPathField, \
+    AskTextField, AskYesNoField, WizardPathKind, WizardUiBridgeConsole
 import backlogops.wizard_forms as wf
-from backlogops.wizard_forms import FormField, FormResult, _as_text, \
-    _parse_float, _seed_field
+from backlogops.wizard_forms import FormField, FormResult, _no_rule, \
+    _seed_field, _validate
 
 
 def _console(answers: list[str]) -> WizardUiBridgeConsole:
@@ -75,11 +76,18 @@ def _path_answer(field: FormField, value: Optional[Path]) -> AnswerPathField:
     return AnswerPathField(ask, value)
 
 
-def _text_default(field: FormField) -> Optional[str]:
-    """Return the pre-filled default text shown for a text field."""
+def _float_answer(field: FormField, value: float) -> AnswerFloatField:
+    """Wrap a raw float as a float answer for the field's own check."""
     ask = field.ask
-    assert isinstance(ask, AskTextField)
-    return ask.default
+    assert isinstance(ask, AskFloatField)
+    return AnswerFloatField(ask, value)
+
+
+def _date_answer(field: FormField, value: Optional[date]) -> AnswerDateField:
+    """Wrap a raw date as a date answer for the field's own check."""
+    ask = field.ask
+    assert isinstance(ask, AskDateField)
+    return AnswerDateField(ask, value)
 
 
 def test_demo_valid() -> None:
@@ -101,16 +109,14 @@ def test_demo_disabled_skip() -> None:
 
 
 def test_demo_number_reask() -> None:
-    """Test an out-of-range amount re-asks the whole form."""
-    result = _run_demo(['no', '20', '2026-01-02', 'a',
-                        'no', '5', '2026-01-02', 'a'])
+    """Test an out-of-range amount is re-asked by the float field itself."""
+    result = _run_demo(['no', '20', '5', '2026-01-02', 'a'])
     assert result.number('amount') == 5.0
 
 
 def test_demo_date_reask() -> None:
-    """Test a malformed date re-asks the whole form until it parses."""
-    result = _run_demo(['no', '5', 'not-a-date', 'a',
-                        'no', '5', '2026-01-02', 'a'])
+    """Test a malformed date is re-asked by the date field itself."""
+    result = _run_demo(['no', '5', 'not-a-date', '2026-01-02', 'a'])
     assert result.day('when') == date(2026, 1, 2)
 
 
@@ -197,18 +203,19 @@ def test_int_seed_clamped(minimum: int, maximum: int, seed: int,
     assert result.whole('i') == expected
 
 
-@pytest.mark.parametrize('default, text', [(2.5, '2.5'), (3.0, '3'),
-                                           (0.0, '0')])
-def test_number_default_text(default: float, text: str) -> None:
-    """Test a decimal field shows a compact default text."""
-    assert _text_default(wf.number_field('x', 'Q', default=default)) == text
+def test_number_field_built() -> None:
+    """Test a decimal field carries its default and inclusive bounds."""
+    ask = wf.number_field('x', 'Q', default=2.5, minimum=0.0, maximum=10.0).ask
+    assert isinstance(ask, AskFloatField)
+    assert (ask.default, ask.min_value, ask.max_value) == (2.5, 0.0, 10.0)
 
 
-def test_date_field_hint() -> None:
-    """Test a date field appends the ISO date hint to its question."""
+def test_date_field_built() -> None:
+    """Test a date field is a nullable date question with no text hint."""
     ask = wf.date_field('d', 'When').ask
-    assert isinstance(ask, AskTextField)
-    assert ask.short_question == 'When (YYYY-MM-DD)'
+    assert isinstance(ask, AskDateField)
+    assert ask.short_question == 'When'
+    assert ask.nullable is True
 
 
 @pytest.mark.parametrize('value, ok', [('hi', True), ('', False),
@@ -219,28 +226,48 @@ def test_text_field_required(value: Optional[str], ok: bool) -> None:
     assert (field.error(_text_answer(field, value)) is None) is ok
 
 
-@pytest.mark.parametrize('text, ok', [('5', True), ('', True), ('abc', False),
-                                      ('-1', False), ('20', False)])
-def test_number_field_error(text: str, ok: bool) -> None:
-    """Test a decimal field rejects a non-number or out-of-range value."""
+def test_validate_no_value() -> None:
+    """Test the validator tolerates a not-yet-valid float or integer answer.
+
+    A graphical or textual bridge runs the validator on every change, so a
+    float or integer field may still hold no valid value (empty or out of
+    range). Building the whole-form result for the rule must not crash.
+    """
+    number = wf.number_field('x', 'Q', default=0.0, minimum=0.0, maximum=24.0)
+    whole = wf.int_field('n', 'N', default=0, minimum=0)
+    num_ask, int_ask = number.ask, whole.ask
+    assert isinstance(num_ask, AskFloatField)
+    assert isinstance(int_ask, AskIntField)
+    answers: list[AnswerField] = [AnswerFloatField(num_ask, None),
+                                  AnswerIntField(int_ask, None)]
+    assert _validate([number, whole], _no_rule, answers, 0).is_valid
+
+
+def test_number_field_value() -> None:
+    """Test a decimal field returns the float its answer holds.
+
+    The float field checks its own range, so the field's own error is
+    never set and the range is enforced by the bridge instead.
+    """
     field = wf.number_field('x', 'Q', default=0.0, minimum=0.0, maximum=10.0)
-    assert (field.error(_text_answer(field, text)) is None) is ok
+    assert field.error(_float_answer(field, 5.0)) is None
+    assert field.value(_float_answer(field, 5.0)) == 5.0
 
 
-@pytest.mark.parametrize('text, ok', [('2026-01-02', True), ('', False),
-                                      ('bad', False), ('2026-13-02', False)])
-def test_date_field_error(text: str, ok: bool) -> None:
-    """Test a required date field rejects a missing or malformed date."""
+@pytest.mark.parametrize('value, ok', [(date(2026, 1, 2), True),
+                                       (None, False)])
+def test_date_field_error(value: Optional[date], ok: bool) -> None:
+    """Test a required date field rejects a missing date."""
     field = wf.date_field('d', 'When')
-    assert (field.error(_text_answer(field, text)) is None) is ok
+    assert (field.error(_date_answer(field, value)) is None) is ok
 
 
-@pytest.mark.parametrize('text, ok', [('2026-01-02', True), ('', True),
-                                      ('bad', False)])
-def test_opt_date_field_error(text: str, ok: bool) -> None:
-    """Test an optional date field accepts a blank but not a bad date."""
+@pytest.mark.parametrize('value', [date(2026, 1, 2), None])
+def test_opt_date_field(value: Optional[date]) -> None:
+    """Test an optional date field accepts any value and returns it."""
     field = wf.opt_date_field('d', 'When')
-    assert (field.error(_text_answer(field, text)) is None) is ok
+    assert field.error(_date_answer(field, value)) is None
+    assert field.value(_date_answer(field, value)) == value
 
 
 def test_path_field_built() -> None:
@@ -278,25 +305,6 @@ def test_path_form_seed() -> None:
     """Test a seeded path pre-fills so a blank answer keeps it."""
     result = _path_form([''], seed=FormResult({'p': '/tmp/seed.txt'}))
     assert result.path('p') == Path('/tmp/seed.txt')
-
-
-@pytest.mark.parametrize('value, expected', [
-    (date(2026, 1, 2), '2026-01-02'), (True, None), (2.5, '2.5'),
-    (3.0, '3'), ('hi', 'hi'), (7, None)])
-def test_as_text(value: object, expected: Optional[str]) -> None:
-    """Test a seed value becomes a text default only for text-like types.
-
-    A date is shown as an ISO date and a decimal in compact form, a string
-    is kept as is, and a boolean or a whole number has no text default.
-    """
-    assert _as_text(value) == expected
-
-
-@pytest.mark.parametrize('text, expected', [
-    (None, None), ('', None), ('abc', None), ('2.5', 2.5), ('-1', -1.0)])
-def test_parse_float(text: Optional[str], expected: Optional[float]) -> None:
-    """Test a decimal parses and a blank or non-number gives None."""
-    assert _parse_float(text) == expected
 
 
 def test_seed_none_keeps() -> None:

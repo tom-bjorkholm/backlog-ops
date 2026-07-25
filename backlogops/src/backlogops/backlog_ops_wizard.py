@@ -31,7 +31,8 @@ from backlogops.levels import DEFAULT_LEVELS, Level
 from backlogops.person import Person
 from backlogops.table_rows import RELEASE_FIELDS
 from backlogops.team import FteException, Membership, Team
-from backlogops.work_hours import CompanyWorkHours, ExceptionWorkHours
+from backlogops.work_hours import CompanyWorkHours, DEFAULT_WORK_WEEK, \
+    ExceptionWorkHours, ScheduleWorkHours, WeekDay
 from backlogops.wizard_helpers import _backlog_map_fields
 from backlogops.wizard_navigator import _Navigator, _ask_level_display
 from backlogops.wizard_forms import FormField, FormResult, choice_field, \
@@ -220,29 +221,145 @@ def _levels_or_none(levels: list[Level]) -> Optional[list[Level]]:
     return levels
 
 
+_COMPANY_QUESTION = (
+    'Configure the company work hours.\n'
+    'Set the work hours for each week day, then, if there are any, the '
+    'first holiday, closure or special-work period and how many more '
+    'there are.')
+"""Instruction shown above the combined company work-hours form."""
+
+
+_MAX_EXCEPTIONS = 60
+"""Upper bound on the number of extra company periods the wizard adds."""
+
+
 def _build_company(nav: _Navigator,
                    default: Optional[AvailableTeams]) -> CompanyWorkHours:
     """Ask for the company weekly schedule and holiday periods.
 
-    The weekly schedule is one table and the holiday, closure and
-    special-work periods are a second table, so the whole company work
-    schedule is two screens.
+    The weekly work hours and the first holiday, closure or special-work
+    period are asked together on one form; any further periods each get
+    their own form whose question lists the periods entered so far.
     """
     company = default.company_work_hours if default else None
-    work_hours = nav.ask_schedule(seed=company.work_hours if company else None)
-    exceptions = nav.ask_exceptions(
-        'Company holiday, closure and special-work periods.',
-        seed=company.exceptions if company else None)
-    return CompanyWorkHours(work_hours=work_hours, exceptions=exceptions)
+    values = nav.ask_form(_COMPANY_QUESTION, _company_fields(), _company_rule,
+                          seed=_company_seed(company))
+    stored = company.exceptions if company else []
+    return CompanyWorkHours(work_hours=_schedule_from(values),
+                            exceptions=_build_exceptions(nav, values, stored))
+
+
+def _schedule_fields() -> list[FormField]:
+    """Return one work-hours field per week day, Monday first.
+
+    A day has between zero and twenty-four work hours, so the float field
+    enforces that inclusive range.
+    """
+    return [number_field(day.name.lower(), day.name.capitalize(),
+                         default=DEFAULT_WORK_WEEK[day], minimum=0.0,
+                         maximum=24.0)
+            for day in WeekDay]
+
+
+def _company_fields() -> list[FormField]:
+    """Return the combined company schedule and first-period fields."""
+    periods_q = 'Any holiday, closure or special-work periods?'
+    more_q = 'Number of additional such periods'
+    return (_schedule_fields()
+            + [yes_no_field('has_periods', periods_q, False)]
+            + _exception_fields()
+            + [int_field('more', more_q, default=0, minimum=0,
+                         maximum=_MAX_EXCEPTIONS)])
+
+
+def _company_rule(values: FormResult) -> tuple[Optional[str], set[str]]:
+    """Disable the period fields with no periods, else order-check them."""
+    if not values.flag('has_periods'):
+        return None, {'start', 'end', 'hours', 'new_days', 'more'}
+    return _period_rule(values)
+
+
+def _company_seed(company: Optional[CompanyWorkHours]) -> Optional[FormResult]:
+    """Return the combined company form values from stored work hours."""
+    if company is None:
+        return None
+    values: dict[str, object] = {
+        day.name.lower(): company.work_hours.get(day, DEFAULT_WORK_WEEK[day])
+        for day in WeekDay}
+    periods = company.exceptions
+    values['has_periods'] = bool(periods)
+    values['more'] = max(len(periods) - 1, 0)
+    if periods:
+        values.update(_period_values(periods[0]))
+    return FormResult(values)
+
+
+def _schedule_from(values: FormResult) -> ScheduleWorkHours:
+    """Return the weekly schedule read from the combined company form."""
+    return {day: values.number(day.name.lower()) for day in WeekDay}
+
+
+def _build_exceptions(nav: _Navigator, values: FormResult,
+                      stored: list[ExceptionWorkHours]
+                      ) -> list[ExceptionWorkHours]:
+    """Return the company periods, the first from the combined form."""
+    if not values.flag('has_periods'):
+        return []
+    first = _period_from(values)
+    rest = stored[1:] if len(stored) > 1 else []
+    return [first] + _more_exceptions(nav, values.whole('more'), first, rest)
+
+
+def _more_exceptions(nav: _Navigator, count: int, first: ExceptionWorkHours,
+                     seeds: list[ExceptionWorkHours]
+                     ) -> list[ExceptionWorkHours]:
+    """Collect the additional company periods after the first one.
+
+    Each period is asked on its own form whose question lists the periods
+    entered so far. The running list is reset on the first item, so a
+    replayed sub-level after a back or cancel request does not double it.
+    """
+    shown = [first]
+
+    def build(item: Optional[tuple[int, Optional[ExceptionWorkHours]]]
+              ) -> ExceptionWorkHours:
+        """Ask one additional period, shown after the earlier ones."""
+        assert item is not None
+        index, seed = item
+        if index == 0:
+            del shown[1:]
+        values = nav.ask_form(_more_question(shown), _exception_fields(),
+                              _period_rule, seed=_exc_seed(seed))
+        shown.append(_period_from(values))
+        return shown[-1]
+    indexed: list[tuple[int, Optional[ExceptionWorkHours]]] = [
+        (k, seeds[k] if k < len(seeds) else None) for k in range(count)]
+    return nav.counted(count, indexed, build)
+
+
+def _more_question(shown: list[ExceptionWorkHours]) -> str:
+    """Return the next-period question listing the periods entered so far."""
+    lines = ['Configure the next holiday, closure or special-work period.',
+             'Periods entered so far:']
+    return '\n'.join(lines + [_period_line(period) for period in shown])
+
+
+def _period_line(period: ExceptionWorkHours) -> str:
+    """Return a one-line summary of one exception period."""
+    extra = ' (adds free-day work)' if period.new_work_days else ''
+    return (f'  {period.start_date} to {period.end_date}: '
+            f'{period.hours_per_day:g} h/day{extra}')
+
+
+def _period_values(period: ExceptionWorkHours) -> dict[str, object]:
+    """Return the form values for one work-hour exception period."""
+    return {'start': period.start_date, 'end': period.end_date,
+            'hours': period.hours_per_day, 'new_days': period.new_work_days}
 
 
 def _exc_seed(exc: Optional[ExceptionWorkHours]) -> Optional[FormResult]:
     """Return the work-hour exception form values from an exception."""
-    if exc is None:
-        return None
-    return FormResult({'start': exc.start_date, 'end': exc.end_date,
-                       'hours': exc.hours_per_day,
-                       'new_days': exc.new_work_days})
+    return None if exc is None else FormResult(_period_values(exc))
 
 
 def _period_rule(values: FormResult) -> tuple[Optional[str], set[str]]:
@@ -265,16 +382,21 @@ def _exception_fields() -> list[FormField]:
                      'normally free?', False)]
 
 
+def _period_from(values: FormResult) -> ExceptionWorkHours:
+    """Return one exception period from a form's period fields."""
+    return ExceptionWorkHours(start_date=values.day('start'),
+                              end_date=values.day('end'),
+                              hours_per_day=values.number('hours'),
+                              new_work_days=values.flag('new_days'))
+
+
 def _ask_exception(nav: _Navigator, seed: Optional[ExceptionWorkHours] = None
                    ) -> ExceptionWorkHours:
     """Ask for one work-hour exception period on a single form."""
     values = nav.ask_form('Configure the work-hour exception period.',
                           _exception_fields(), _period_rule,
                           seed=_exc_seed(seed))
-    return ExceptionWorkHours(start_date=values.day('start'),
-                              end_date=values.day('end'),
-                              hours_per_day=values.number('hours'),
-                              new_work_days=values.flag('new_days'))
+    return _period_from(values)
 
 
 def _build_persons(nav: _Navigator,

@@ -2,12 +2,13 @@
 """Reusable field-input helpers for the wizards.
 
 The ``_read_*`` and ``_parse_*`` helpers ask and validate the single-value
-and whole-table fields, such as a preset name, the weekly work-hours
-schedule, the column rename maps and the backlog item levels, and pre-fill
-each from an optional seed value so a re-asked or default-driven question
-opens on the earlier answer. The re-runnable :class:`_Navigator` that calls
-them lives in :mod:`backlogops.wizard_navigator`; the one-screen form
-toolkit lives in :mod:`backlogops.wizard_forms`. The small domain helper
+and whole-table fields, such as a preset name, the column rename maps and
+the backlog item levels, and pre-fill each from an optional seed value so a
+re-asked or default-driven question opens on the earlier answer. The
+re-runnable :class:`_Navigator` that calls them lives in
+:mod:`backlogops.wizard_navigator`; the one-screen form toolkit, which now
+asks the company work hours and its exception periods, lives in
+:mod:`backlogops.wizard_forms`. The small domain helper
 :func:`_backlog_map_fields` is shared by the configuration and the preset
 wizards.
 
@@ -27,12 +28,10 @@ from tableio_cfg_json import TableCell, TableColumn, TioJsonConfig, \
 from backlogops.backlog import Status
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
     JiraColumnMap, JiraIssueTypeMap
-from backlogops.wizard_forms import name_error, _num_text, _parse_date
+from backlogops.wizard_forms import name_error
 from backlogops.levels import DEFAULT_LEVELS, Level, Levels, levels_from_list
 from backlogops.table_rows import BACKLOG_FIELDS, LEVEL_COLUMN, \
     LEVEL_NAME_COLUMN
-from backlogops.work_hours import DEFAULT_WORK_WEEK, ExceptionWorkHours, \
-    ScheduleWorkHours, WeekDay
 
 
 def _read_text(ui: WizardUiBridge, question: str, default: Optional[str],
@@ -92,173 +91,6 @@ def _read_tableio(ui: WizardUiBridge, file_access: FileAccess,
     capabilities = access_capabilities(file_access, error_file=ui.error_file())
     return tio_json_config_wizard(capabilities, file_access, ui,
                                   default=default, backward=backward)
-
-
-def _is_nonneg(text: Optional[str]) -> bool:
-    """Return whether ``text`` parses as a number that is at least zero."""
-    if text is None:
-        return False
-    try:
-        return float(text) >= 0.0
-    except ValueError:
-        return False
-
-
-def _sched_check(table: list[list[Optional[str]]],
-                 position: tuple[int, int]) -> tuple[bool, str]:
-    """Give early feedback that an edited work-hours cell is a number."""
-    row, col = position
-    if col != 1:
-        return (True, '')
-    ok = _is_nonneg(table[row][1])
-    return (ok, '' if ok else 'Enter work hours as a number that is >= 0.')
-
-
-def _parse_schedule(days: Sequence[WeekDay],
-                    table: Sequence[Sequence[Optional[str]]]
-                    ) -> Optional[ScheduleWorkHours]:
-    """Return the weekly schedule from a table, or None when invalid."""
-    schedule: ScheduleWorkHours = {}
-    for day, row in zip(days, table):
-        hours = row[1]
-        if not _is_nonneg(hours):
-            return None
-        assert hours is not None
-        schedule[day] = float(hours)
-    return schedule
-
-
-def _read_schedule(ui: WizardUiBridge, seed: Optional[ScheduleWorkHours] = None
-                   ) -> ScheduleWorkHours:
-    """Ask the weekly work-hours schedule as one table question.
-
-    The hours are pre-filled from the seed schedule, or from the default
-    work week when no seed is given.
-    """
-    days = list(WeekDay)
-    source = seed if seed is not None else DEFAULT_WORK_WEEK
-    columns = [TableColumn(header='Day', read_only=True),
-               TableColumn(header='Work hours')]
-    cells = [[TableCell(value=day.name.capitalize()),
-              TableCell(value=_num_text(source.get(day,
-                                                   DEFAULT_WORK_WEEK[day])))]
-             for day in days]
-    reason: Optional[str] = None
-    while True:
-        table = ui.ask_table(columns, cells,
-                             'Company work hours per week day:',
-                             re_ask_reason=reason, partial_check=_sched_check)
-        schedule = _parse_schedule(days, table)
-        if schedule is not None:
-            return schedule
-        reason = 'Enter work hours as a number that is at least zero.'
-
-
-_MAX_EXCEPTIONS = 60
-"""Upper bound on the number of exception-period rows the wizard accepts."""
-
-_EXC_HINT = ("Enter each period's dates as YYYY-MM-DD, its work hours per "
-             "day as a number (blank means zero), and 'yes' or 'no' for "
-             'whether it adds work on days that are normally free.')
-"""Help text shown above the work-hour exception table."""
-
-
-def _parse_yes_no(text: Optional[str]) -> Optional[bool]:
-    """Return the boolean a yes/no cell holds, or None when invalid.
-
-    A blank cell counts as 'no', so an added but unset flag means the
-    period adds no work on days that are normally free.
-    """
-    token = '' if text is None else text.strip().lower()
-    if token in ('', 'no', 'n', 'false', '0'):
-        return False
-    if token in ('yes', 'y', 'true', '1'):
-        return True
-    return None
-
-
-def _exc_check(table: list[list[Optional[str]]],
-               position: tuple[int, int]) -> tuple[bool, str]:
-    """Give early feedback on one work-hour exception cell."""
-    row, col = position
-    text = table[row][col] or ''
-    if col in (0, 1):
-        ok = text == '' or _parse_date(text) is not None
-        return (ok, '' if ok else 'Enter the date as YYYY-MM-DD.')
-    if col == 2:
-        ok = text == '' or _is_nonneg(text)
-        return (ok, '' if ok else 'Enter work hours as a number >= 0.')
-    ok = _parse_yes_no(text) is not None
-    return (ok, '' if ok else "Enter 'yes' or 'no'.")
-
-
-def _parse_exceptions(table: list[list[Optional[str]]]
-                      ) -> Optional[list[ExceptionWorkHours]]:
-    """Return the exception periods from a table, or None when invalid.
-
-    A row with both dates blank is treated as an unused row and skipped.
-    Any other row needs a valid start and end date with the end on or
-    after the start, non-negative work hours (blank means zero) and a
-    yes/no adds-free-day-work flag (blank means no).
-    """
-    result: list[ExceptionWorkHours] = []
-    for row in table:
-        start_text, end_text = row[0], row[1]
-        hours_text, adds_text = row[2], row[3]
-        if not start_text and not end_text:
-            continue
-        start = _parse_date(start_text) if start_text else None
-        end = _parse_date(end_text) if end_text else None
-        adds = _parse_yes_no(adds_text)
-        if start is None or end is None or end < start or adds is None:
-            return None
-        if hours_text and not _is_nonneg(hours_text):
-            return None
-        hours = float(hours_text) if hours_text else 0.0
-        result.append(ExceptionWorkHours(start_date=start, end_date=end,
-                                         hours_per_day=hours,
-                                         new_work_days=adds))
-    return result
-
-
-def _exc_cells(exceptions: Sequence[ExceptionWorkHours]
-               ) -> list[list[TableCell]]:
-    """Return table rows filled from the given exception periods."""
-    return [[TableCell(value=exc.start_date.isoformat()),
-             TableCell(value=exc.end_date.isoformat()),
-             TableCell(value=_num_text(exc.hours_per_day)),
-             TableCell(value='yes' if exc.new_work_days else 'no')]
-            for exc in exceptions]
-
-
-def _read_exceptions(ui: WizardUiBridge, question: str,
-                     seed: Optional[Sequence[ExceptionWorkHours]] = None
-                     ) -> list[ExceptionWorkHours]:
-    """Ask the work-hour exception periods as one variable-row table.
-
-    The table starts from the seed periods, or empty when none are given,
-    and may be left empty for no exceptions. Individual cells are checked
-    as they are entered; an inconsistent whole table, such as a period
-    whose end precedes its start, is re-asked with the user's own rows
-    kept.
-    """
-    columns = [TableColumn(header='Start date'),
-               TableColumn(header='End date'),
-               TableColumn(header='Work hours per day'),
-               TableColumn(header='Adds work on free days?')]
-    cells = _exc_cells(seed) if seed else []
-    instruction = f'{question} {_EXC_HINT}'
-    reason: Optional[str] = None
-    while True:
-        table = ui.ask_table(columns, cells, instruction, re_ask_reason=reason,
-                             partial_check=_exc_check, min_rows=0,
-                             max_rows=_MAX_EXCEPTIONS)
-        parsed = _parse_exceptions(table)
-        if parsed is not None:
-            return parsed
-        reason = ('Give each period a start and end date (end not before '
-                  'start), non-negative hours, and yes or no.')
-        cells = _cells_from_table(table)
 
 
 _MAX_EXTRA_COLUMNS = 30

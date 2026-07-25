@@ -13,6 +13,11 @@ The calendar is event driven: a day or Cancel button calls the picked
 callback and destroys the window. No nested wait loop is entered, so the
 one already running for the wizard window keeps processing events while
 the calendar is open.
+
+The wizard window holds a modal grab, which would otherwise starve this
+separate window of pointer and keyboard events. The calendar therefore
+takes the grab (and the keyboard focus) while it is open and hands it back
+to the wizard window when it closes.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -53,6 +58,16 @@ def day_out_of_range(day: date, minimum: Optional[date],
     return value_out_of_range(day, minimum, maximum)
 
 
+def _restore_grab(widget: Optional[tk.Misc]) -> None:
+    """Give the modal grab back to the widget's window, if it survives."""
+    if widget is None or not widget.winfo_exists():
+        return
+    try:
+        widget.winfo_toplevel().grab_set()
+    except tk.TclError:
+        pass
+
+
 # pylint: disable-next=too-few-public-methods
 class CalendarPicker:
     """A month calendar window returning the date the user clicks."""
@@ -69,6 +84,7 @@ class CalendarPicker:
         self._win.title(CALENDAR_TITLE)
         self._win.transient(parent.winfo_toplevel())
         self._win.protocol('WM_DELETE_WINDOW', self._cancel)
+        self._win.bind('<Escape>', lambda _event: self._cancel())
         self._title = tk.Label(self._win)
         self._title.pack(pady=4)
         self._add_nav()
@@ -76,6 +92,22 @@ class CalendarPicker:
         self._grid.pack(padx=6, pady=6)
         tk.Button(self._win, text='Cancel', command=self._cancel).pack(pady=4)
         self._show_month()
+        self._grab()
+
+    def _grab(self) -> None:
+        """Take the modal grab and focus, retrying until the window shows.
+
+        Grabbing fails while the new window is not yet viewable, so it is
+        retried on the wizard's event loop until it succeeds.
+        """
+        if not self._win.winfo_exists():
+            return
+        try:
+            self._win.grab_set()
+        except tk.TclError:
+            self._win.after(50, self._grab)
+            return
+        self._win.focus_set()
 
     def _add_nav(self) -> None:
         """Add the previous and next month and year navigation buttons."""
@@ -131,6 +163,8 @@ class CalendarPicker:
         self._finish(None)
 
     def _finish(self, chosen: Optional[date]) -> None:
-        """Report the outcome to the callback and destroy the window."""
+        """Report the outcome, destroy the window and restore the grab."""
+        parent = self._win.master
         self._on_pick(chosen)
         self._win.destroy()
+        _restore_grab(parent)

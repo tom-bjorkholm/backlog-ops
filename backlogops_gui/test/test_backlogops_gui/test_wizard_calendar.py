@@ -8,8 +8,8 @@ import tkinter as tk
 from datetime import date
 from typing import Optional
 import pytest
-from backlogops_gui.wizard_calendar import CalendarPicker, day_out_of_range, \
-    month_weeks, shift_month
+from backlogops_gui.wizard_calendar import CalendarPicker, _restore_grab, \
+    day_out_of_range, month_weeks, shift_month
 from .gui_test_helpers import gui_root
 
 
@@ -67,6 +67,11 @@ def test_picker_cancel() -> None:
         # pylint: disable-next=protected-access
         picker._cancel()
         assert picked == [None]
+
+
+def test_restore_grab_none() -> None:
+    """Test restoring the grab tolerates having no widget to restore to."""
+    _restore_grab(None)
 
 
 def test_picker_navigate() -> None:

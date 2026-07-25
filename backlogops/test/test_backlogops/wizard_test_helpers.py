@@ -4,9 +4,9 @@
 The wizard tests drive the console bridge with a scripted list of answers.
 These helpers build such a bridge and run the workforce and full-config
 wizards, and the constants name the common blocks of blank answers that
-keep the pre-filled defaults of the schedule, holiday, level, status and
-rename tables. :class:`TableScript` is a bridge that returns queued raw
-tables so the whole-table re-ask paths can be exercised.
+keep the pre-filled defaults of the company work-hours form and the level,
+status and rename tables. :class:`TableScript` is a bridge that returns
+queued raw tables so the whole-table re-ask paths can be exercised.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -43,10 +43,10 @@ STATUS_KEEP = ['']
 """A blank answer that accepts the pre-filled default status map."""
 
 SCHED = [''] * 7
-"""Blank answers that keep the seven default daily work hours."""
+"""Blank answers that keep the seven default daily work-hours fields."""
 
 COMPANY = SCHED + ['']
-"""The schedule kept, then an accepted empty company-holiday table."""
+"""The schedule kept, then a blank that leaves no company-holiday periods."""
 
 CSV_OPTS = [''] * 7
 """Blank answers for the CSV format encoding and six option cells."""

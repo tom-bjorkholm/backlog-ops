@@ -26,12 +26,10 @@ from tableio_cfg_json import TioJsonConfig, WizardBack, WizardCancelLevel, \
 from backlogops.backlog import Status
 from backlogops.jira_io_config import JiraColumnMap, JiraIssueTypeMap
 from backlogops.levels import Level, LevelDisplay, Levels
-from backlogops.work_hours import ExceptionWorkHours, ScheduleWorkHours
 from backlogops.wizard_forms import FormField, FormResult, run_form, _no_rule
-from backlogops.wizard_helpers import _RenameKind, _read_exceptions, \
-    _read_int, _read_issue_type_map, _read_jira_map, _read_levels, \
-    _read_preset_name, _read_renames, _read_schedule, _read_status_map, \
-    _read_tableio, _read_text
+from backlogops.wizard_helpers import _RenameKind, _read_int, \
+    _read_issue_type_map, _read_jira_map, _read_levels, _read_preset_name, \
+    _read_renames, _read_status_map, _read_tableio, _read_text
 
 _T = TypeVar('_T')
 _D = TypeVar('_D')
@@ -265,27 +263,6 @@ class _Navigator:
             return _read_tableio(self._ui, file_access, pre, backward)
         result = self._ask(ask, seed)
         assert isinstance(result, TioJsonConfig)
-        return result
-
-    def ask_schedule(self, *, seed: Optional[ScheduleWorkHours] = None
-                     ) -> ScheduleWorkHours:
-        """Ask the weekly work-hours schedule as one table question."""
-        def ask(sd: object, _bw: bool) -> object:
-            pre = sd if isinstance(sd, dict) else None
-            return _read_schedule(self._ui, pre)
-        result = self._ask(ask, seed)
-        assert isinstance(result, dict)
-        return result
-
-    def ask_exceptions(self, question: str, *,
-                       seed: Optional[list[ExceptionWorkHours]] = None
-                       ) -> list[ExceptionWorkHours]:
-        """Ask the work-hour exception periods as one variable-row table."""
-        def ask(sd: object, _bw: bool) -> object:
-            pre = sd if isinstance(sd, list) else None
-            return _read_exceptions(self._ui, question, pre)
-        result = self._ask(ask, seed)
-        assert isinstance(result, list)
         return result
 
     def ask_levels(self, *, seed: Optional[list[Level]] = None) -> list[Level]:

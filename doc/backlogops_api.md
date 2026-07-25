@@ -7337,9 +7337,9 @@ the answers so far make irrelevant. :func:`run_form` shows the fields,
 disables the irrelevant ones, blocks an invalid form and returns the typed
 answers as a :class:`FormResult`.
 
-Dates and decimals have no native field type, so they are asked as text
-fields validated here. :func:`_parse_date` and :func:`_num_text` are shared
-with the table-based wizard helpers.
+Dates use :class:`AskDateField` (a calendar picker in a graphical bridge) and
+decimals use :class:`AskFloatField`, so both come back as typed answers, with
+their format and range checked by the field rather than by validated text.
 
 <a id="backlogops.wizard_forms.FormField"></a>
 
@@ -7652,6 +7652,9 @@ def number_field(key: str,
 
 Return a decimal field pre-filled with its default.
 
+The field itself checks that the answer is a number within the
+inclusive bounds and returns the default for a blank answer.
+
 <a id="backlogops.wizard_forms.date_field"></a>
 
 #### date\_field
@@ -7663,7 +7666,7 @@ def date_field(key: str,
                help_text: Optional[str] = None) -> FormField
 ```
 
-Return a required ISO date field, asked as validated text.
+Return a required date field, shown with a calendar picker.
 
 <a id="backlogops.wizard_forms.opt_date_field"></a>
 
@@ -7676,7 +7679,7 @@ def opt_date_field(key: str,
                    help_text: Optional[str] = None) -> FormField
 ```
 
-Return an optional ISO date field that may be left blank.
+Return an optional date field that may be left blank.
 
 <a id="backlogops.backlog_ops_wizard"></a>
 

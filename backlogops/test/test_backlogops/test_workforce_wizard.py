@@ -2,7 +2,8 @@
 """Tests for the interactive workforce collection of the wizard.
 
 These end-to-end tests drive the workforce wizard through a scripted
-console bridge: the company schedule and holiday table, the persons and
+console bridge: the combined company work-hours form with its first
+holiday period and any additional holiday-period forms, the persons and
 their exception forms, and the teams with their combined form, members,
 full-time-equivalent sum and aliases.
 """
@@ -36,6 +37,16 @@ def test_schedule_edit() -> None:
     work_hours = teams.company_work_hours.work_hours
     assert work_hours[WeekDay.MONDAY] == 6.0
     assert work_hours[WeekDay.TUESDAY] == 8.0
+
+
+def test_schedule_hours_limit() -> None:
+    """Test a work-hours entry above 24 is re-asked by the float field.
+
+    The Monday field caps the hours at 24, so 26 is re-asked in place and
+    the retry of 8 is kept.
+    """
+    teams = run_workforce(['26', '8'] + [''] * 6 + ['', '', ''])
+    assert teams.company_work_hours.work_hours[WeekDay.MONDAY] == 8.0
 
 
 def test_full_workforce() -> None:
@@ -93,31 +104,31 @@ def test_duplicate_name() -> None:
 
 
 def test_reask_number() -> None:
-    """Test a non-numeric velocity re-asks the whole team form.
+    """Test a non-numeric velocity is re-asked by the float field itself.
 
-    The team name, counts, velocity and sprint length are one form, so a
-    non-numeric velocity re-asks every field; the second attempt enters a
-    valid velocity and keeps the other defaults.
+    The velocity is a float field, so a non-numeric entry is re-asked in
+    place; the retry enters a valid velocity and the sum-of-equivalents
+    form then keeps its default.
     """
     answers = (COMPANY
                + ['0']
                + ['1']
-               + ['Phoenix', '0', '0', 'abc', '']
-               + ['Phoenix', '0', '0', '5', '']
+               + ['Phoenix', '0', '0', 'abc', '5', '']
                + [''])
     teams = run_workforce(answers)
     assert teams.teams[0].velocity == 5.0
 
 
 def test_company_holidays() -> None:
-    """Test a company holiday period is captured through its table.
+    """Test one company holiday period is captured on the combined form.
 
-    The period is one added row: an unparseable start date is re-asked in
-    the cell, then a valid start and end date, blank hours (which mean
-    zero) and 'no' for adding free-day work are accepted.
+    The periods box is ticked; an unparseable start date is re-asked by the
+    date field, then a valid start and end date, blank hours (which mean
+    zero) and 'no' for adding free-day work are accepted, with no more
+    periods.
     """
     answers = (SCHED
-               + [':+', 'bad', '2026-01-01', '2026-01-05', '', 'no', '']
+               + ['y', 'bad', '2026-01-01', '2026-01-05', '', 'n', '0']
                + ['0', '0'])
     teams = run_workforce(answers)
     exception = teams.company_work_hours.exceptions[0]
@@ -125,6 +136,25 @@ def test_company_holidays() -> None:
     assert exception.end_date == date(2026, 1, 5)
     assert exception.hours_per_day == 0.0
     assert exception.new_work_days is False
+
+
+def test_company_two_holidays() -> None:
+    """Test the first and one additional company period are both captured.
+
+    The combined form ticks the periods box, enters the first period and
+    asks for one more; the extra period is then entered on its own form.
+    """
+    answers = (SCHED
+               + ['y', '2026-01-01', '2026-01-05', '', 'n', '1']
+               + ['2026-07-01', '2026-07-10', '8', 'y']
+               + ['0', '0'])
+    teams = run_workforce(answers)
+    periods = teams.company_work_hours.exceptions
+    assert [(p.start_date, p.end_date) for p in periods] == [
+        (date(2026, 1, 1), date(2026, 1, 5)),
+        (date(2026, 7, 1), date(2026, 7, 10))]
+    assert periods[1].hours_per_day == 8.0
+    assert periods[1].new_work_days is True
 
 
 def test_vacation() -> None:

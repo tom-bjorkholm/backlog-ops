@@ -371,10 +371,13 @@ You rarely write these files by hand. Three tools build and maintain them.
 
 Builds a complete backlog-ops file interactively: the workforce, the company
 calendar, named presets, levels and the status map. Related questions are
-grouped onto single forms — a team's velocity and sprint length (in working
-days), a work-hour exception's dates and hours, a team membership, and each
-Jira connection and preset — so in the GUI or textual interface you see them
-together and can fill them in any order before moving on.
+grouped onto single forms — the company's weekly work hours together with its
+first holiday period, a team's velocity and sprint length (in working days), a
+work-hour exception's dates and hours, a team membership, and each Jira
+connection and preset — so in the GUI or textual interface you see them
+together and can fill them in any order before moving on. Dates are entered
+through a calendar picker in the GUI, and every additional company holiday
+period is a form whose heading lists the periods entered so far.
 
 - **CLI:** `python3 -m backlogops_cli.config_wizard` — add `-i old.cfg` to
   start from an existing file (see [Starting from an existing

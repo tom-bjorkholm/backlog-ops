@@ -2478,6 +2478,11 @@ callback and destroys the window. No nested wait loop is entered, so the
 one already running for the wizard window keeps processing events while
 the calendar is open.
 
+The wizard window holds a modal grab, which would otherwise starve this
+separate window of pointer and keyboard events. The calendar therefore
+takes the grab (and the keyboard focus) while it is open and hands it back
+to the wizard window when it closes.
+
 <a id="backlogops_gui.wizard_calendar.month_weeks"></a>
 
 #### month\_weeks

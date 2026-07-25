@@ -164,8 +164,6 @@
     * [ask\_form](#backlogops.wizard_navigator._Navigator.ask_form)
     * [ask\_preset\_name](#backlogops.wizard_navigator._Navigator.ask_preset_name)
     * [ask\_tableio](#backlogops.wizard_navigator._Navigator.ask_tableio)
-    * [ask\_schedule](#backlogops.wizard_navigator._Navigator.ask_schedule)
-    * [ask\_exceptions](#backlogops.wizard_navigator._Navigator.ask_exceptions)
     * [ask\_levels](#backlogops.wizard_navigator._Navigator.ask_levels)
     * [ask\_renames](#backlogops.wizard_navigator._Navigator.ask_renames)
     * [ask\_status\_map](#backlogops.wizard_navigator._Navigator.ask_status_map)
@@ -787,8 +785,8 @@
   * [\_seeded\_fields](#backlogops.wizard_forms._seeded_fields)
   * [\_seed\_field](#backlogops.wizard_forms._seed_field)
   * [\_reseed\_ask](#backlogops.wizard_forms._reseed_ask)
+  * [\_reseed\_typed](#backlogops.wizard_forms._reseed_typed)
   * [\_clamped\_int](#backlogops.wizard_forms._clamped_int)
-  * [\_as\_text](#backlogops.wizard_forms._as_text)
   * [run\_form](#backlogops.wizard_forms.run_form)
   * [\_values\_of](#backlogops.wizard_forms._values_of)
   * [\_validate](#backlogops.wizard_forms._validate)
@@ -796,9 +794,6 @@
   * [\_message](#backlogops.wizard_forms._message)
   * [\_answer\_text](#backlogops.wizard_forms._answer_text)
   * [\_answer\_path](#backlogops.wizard_forms._answer_path)
-  * [\_parse\_date](#backlogops.wizard_forms._parse_date)
-  * [\_num\_text](#backlogops.wizard_forms._num_text)
-  * [\_parse\_float](#backlogops.wizard_forms._parse_float)
   * [name\_error](#backlogops.wizard_forms.name_error)
   * [text\_field](#backlogops.wizard_forms.text_field)
   * [opt\_text\_field](#backlogops.wizard_forms.opt_text_field)
@@ -815,9 +810,8 @@
   * [\_no\_error](#backlogops.wizard_forms._no_error)
   * [\_flag\_value](#backlogops.wizard_forms._flag_value)
   * [\_int\_value](#backlogops.wizard_forms._int_value)
-  * [\_date\_value](#backlogops.wizard_forms._date_value)
-  * [\_number\_error](#backlogops.wizard_forms._number_error)
-  * [\_date\_error](#backlogops.wizard_forms._date_error)
+  * [\_float\_value](#backlogops.wizard_forms._float_value)
+  * [\_answer\_date](#backlogops.wizard_forms._answer_date)
 * [backlogops.backlog\_ops\_wizard](#backlogops.backlog_ops_wizard)
   * [\_GUI\_LEVEL\_QUESTION](#backlogops.backlog_ops_wizard._GUI_LEVEL_QUESTION)
   * [\_GUI\_COLUMN\_HEADER](#backlogops.backlog_ops_wizard._GUI_COLUMN_HEADER)
@@ -835,10 +829,23 @@
   * [\_collect\_config](#backlogops.backlog_ops_wizard._collect_config)
   * [\_build\_gui\_display](#backlogops.backlog_ops_wizard._build_gui_display)
   * [\_levels\_or\_none](#backlogops.backlog_ops_wizard._levels_or_none)
+  * [\_COMPANY\_QUESTION](#backlogops.backlog_ops_wizard._COMPANY_QUESTION)
+  * [\_MAX\_EXCEPTIONS](#backlogops.backlog_ops_wizard._MAX_EXCEPTIONS)
   * [\_build\_company](#backlogops.backlog_ops_wizard._build_company)
+  * [\_schedule\_fields](#backlogops.backlog_ops_wizard._schedule_fields)
+  * [\_company\_fields](#backlogops.backlog_ops_wizard._company_fields)
+  * [\_company\_rule](#backlogops.backlog_ops_wizard._company_rule)
+  * [\_company\_seed](#backlogops.backlog_ops_wizard._company_seed)
+  * [\_schedule\_from](#backlogops.backlog_ops_wizard._schedule_from)
+  * [\_build\_exceptions](#backlogops.backlog_ops_wizard._build_exceptions)
+  * [\_more\_exceptions](#backlogops.backlog_ops_wizard._more_exceptions)
+  * [\_more\_question](#backlogops.backlog_ops_wizard._more_question)
+  * [\_period\_line](#backlogops.backlog_ops_wizard._period_line)
+  * [\_period\_values](#backlogops.backlog_ops_wizard._period_values)
   * [\_exc\_seed](#backlogops.backlog_ops_wizard._exc_seed)
   * [\_period\_rule](#backlogops.backlog_ops_wizard._period_rule)
   * [\_exception\_fields](#backlogops.backlog_ops_wizard._exception_fields)
+  * [\_period\_from](#backlogops.backlog_ops_wizard._period_from)
   * [\_ask\_exception](#backlogops.backlog_ops_wizard._ask_exception)
   * [\_build\_persons](#backlogops.backlog_ops_wizard._build_persons)
   * [\_person\_fields](#backlogops.backlog_ops_wizard._person_fields)
@@ -900,17 +907,6 @@
   * [\_read\_int](#backlogops.wizard_helpers._read_int)
   * [\_read\_preset\_name](#backlogops.wizard_helpers._read_preset_name)
   * [\_read\_tableio](#backlogops.wizard_helpers._read_tableio)
-  * [\_is\_nonneg](#backlogops.wizard_helpers._is_nonneg)
-  * [\_sched\_check](#backlogops.wizard_helpers._sched_check)
-  * [\_parse\_schedule](#backlogops.wizard_helpers._parse_schedule)
-  * [\_read\_schedule](#backlogops.wizard_helpers._read_schedule)
-  * [\_MAX\_EXCEPTIONS](#backlogops.wizard_helpers._MAX_EXCEPTIONS)
-  * [\_EXC\_HINT](#backlogops.wizard_helpers._EXC_HINT)
-  * [\_parse\_yes\_no](#backlogops.wizard_helpers._parse_yes_no)
-  * [\_exc\_check](#backlogops.wizard_helpers._exc_check)
-  * [\_parse\_exceptions](#backlogops.wizard_helpers._parse_exceptions)
-  * [\_exc\_cells](#backlogops.wizard_helpers._exc_cells)
-  * [\_read\_exceptions](#backlogops.wizard_helpers._read_exceptions)
   * [\_MAX\_EXTRA\_COLUMNS](#backlogops.wizard_helpers._MAX_EXTRA_COLUMNS)
   * [\_RENAME\_INSTRUCTION](#backlogops.wizard_helpers._RENAME_INSTRUCTION)
   * [\_RENAME\_REASON](#backlogops.wizard_helpers._RENAME_REASON)
@@ -3833,31 +3829,6 @@ Ask for one TableIO endpoint configuration as one step.
 
 When the step is reached by going back it re-opens the embedded
 endpoint wizard on its last question; a seed pre-fills its answers.
-
-<a id="backlogops.wizard_navigator._Navigator.ask_schedule"></a>
-
-#### ask\_schedule
-
-```python
-def ask_schedule(*,
-                 seed: Optional[ScheduleWorkHours] = None
-                 ) -> ScheduleWorkHours
-```
-
-Ask the weekly work-hours schedule as one table question.
-
-<a id="backlogops.wizard_navigator._Navigator.ask_exceptions"></a>
-
-#### ask\_exceptions
-
-```python
-def ask_exceptions(question: str,
-                   *,
-                   seed: Optional[list[ExceptionWorkHours]] = None
-                   ) -> list[ExceptionWorkHours]
-```
-
-Ask the work-hour exception periods as one variable-row table.
 
 <a id="backlogops.wizard_navigator._Navigator.ask_levels"></a>
 
@@ -13076,9 +13047,9 @@ the answers so far make irrelevant. :func:`run_form` shows the fields,
 disables the irrelevant ones, blocks an invalid form and returns the typed
 answers as a :class:`FormResult`.
 
-Dates and decimals have no native field type, so they are asked as text
-fields validated here. :func:`_parse_date` and :func:`_num_text` are shared
-with the table-based wizard helpers.
+Dates use :class:`AskDateField` (a calendar picker in a graphical bridge) and
+decimals use :class:`AskFloatField`, so both come back as typed answers, with
+their format and range checked by the field rather than by validated text.
 
 <a id="backlogops.wizard_forms.FormField"></a>
 
@@ -13249,6 +13220,16 @@ def _reseed_ask(ask: AskField, value: object) -> AskField
 
 Return a copy of an ask field with its default set from a value.
 
+<a id="backlogops.wizard_forms._reseed_typed"></a>
+
+#### \_reseed\_typed
+
+```python
+def _reseed_typed(ask: AskField, value: object) -> AskField
+```
+
+Return ask reseeded for the value-typed fields, else unchanged.
+
 <a id="backlogops.wizard_forms._clamped_int"></a>
 
 #### \_clamped\_int
@@ -13262,16 +13243,6 @@ Return an integer default clamped into the field's inclusive bounds.
 A remembered count seeded above a now-smaller maximum, such as a
 member count above the current number of persons, is offered at the
 maximum instead of failing the field's range check.
-
-<a id="backlogops.wizard_forms._as_text"></a>
-
-#### \_as\_text
-
-```python
-def _as_text(value: object) -> Optional[str]
-```
-
-Return a text default for a value, or None when it has no text.
 
 <a id="backlogops.wizard_forms.run_form"></a>
 
@@ -13362,36 +13333,6 @@ def _answer_path(answer: AnswerField) -> Optional[Path]
 ```
 
 Return the Path an answer holds, or None when it holds none.
-
-<a id="backlogops.wizard_forms._parse_date"></a>
-
-#### \_parse\_date
-
-```python
-def _parse_date(answer: str) -> Optional[date]
-```
-
-Return the ISO date in ``answer``, or None when it is invalid.
-
-<a id="backlogops.wizard_forms._num_text"></a>
-
-#### \_num\_text
-
-```python
-def _num_text(value: float) -> str
-```
-
-Return a compact decimal text for a default numeric value.
-
-<a id="backlogops.wizard_forms._parse_float"></a>
-
-#### \_parse\_float
-
-```python
-def _parse_float(text: Optional[str]) -> Optional[float]
-```
-
-Return the float in ``text``, or None when it is not a number.
 
 <a id="backlogops.wizard_forms.name_error"></a>
 
@@ -13553,6 +13494,9 @@ def number_field(key: str,
 
 Return a decimal field pre-filled with its default.
 
+The field itself checks that the answer is a number within the
+inclusive bounds and returns the default for a blank answer.
+
 <a id="backlogops.wizard_forms.date_field"></a>
 
 #### date\_field
@@ -13564,7 +13508,7 @@ def date_field(key: str,
                help_text: Optional[str] = None) -> FormField
 ```
 
-Return a required ISO date field, asked as validated text.
+Return a required date field, shown with a calendar picker.
 
 <a id="backlogops.wizard_forms.opt_date_field"></a>
 
@@ -13577,7 +13521,7 @@ def opt_date_field(key: str,
                    help_text: Optional[str] = None) -> FormField
 ```
 
-Return an optional ISO date field that may be left blank.
+Return an optional date field that may be left blank.
 
 <a id="backlogops.wizard_forms._no_error"></a>
 
@@ -13607,38 +13551,31 @@ Return the boolean an answer holds.
 def _int_value(answer: AnswerField) -> object
 ```
 
-Return the integer an answer holds.
+Return the integer an answer holds, or None when not yet valid.
 
-<a id="backlogops.wizard_forms._date_value"></a>
+A graphical or textual bridge runs the validator after every change,
+so a field may still be empty or out of range; the strict FormResult
+getters check the type only when the accepted answer is read.
 
-#### \_date\_value
+<a id="backlogops.wizard_forms._float_value"></a>
+
+#### \_float\_value
 
 ```python
-def _date_value(answer: AnswerField) -> object
+def _float_value(answer: AnswerField) -> object
+```
+
+Return the decimal an answer holds, or None when not yet valid.
+
+<a id="backlogops.wizard_forms._answer_date"></a>
+
+#### \_answer\_date
+
+```python
+def _answer_date(answer: AnswerField) -> Optional[date]
 ```
 
 Return the date an answer holds, or None when it is blank.
-
-<a id="backlogops.wizard_forms._number_error"></a>
-
-#### \_number\_error
-
-```python
-def _number_error(text: Optional[str], minimum: Optional[float],
-                  maximum: Optional[float]) -> Optional[str]
-```
-
-Return why a decimal answer is invalid, or None when it is fine.
-
-<a id="backlogops.wizard_forms._date_error"></a>
-
-#### \_date\_error
-
-```python
-def _date_error(text: Optional[str], required: bool) -> Optional[str]
-```
-
-Return why a date answer is invalid, or None when it is fine.
 
 <a id="backlogops.backlog_ops_wizard"></a>
 
@@ -13849,6 +13786,18 @@ def _levels_or_none(levels: list[Level]) -> Optional[list[Level]]
 
 Return the levels, or None when they match the default levels.
 
+<a id="backlogops.backlog_ops_wizard._COMPANY_QUESTION"></a>
+
+#### \_COMPANY\_QUESTION
+
+Instruction shown above the combined company work-hours form.
+
+<a id="backlogops.backlog_ops_wizard._MAX_EXCEPTIONS"></a>
+
+#### \_MAX\_EXCEPTIONS
+
+Upper bound on the number of extra company periods the wizard adds.
+
 <a id="backlogops.backlog_ops_wizard._build_company"></a>
 
 #### \_build\_company
@@ -13860,9 +13809,120 @@ def _build_company(nav: _Navigator,
 
 Ask for the company weekly schedule and holiday periods.
 
-The weekly schedule is one table and the holiday, closure and
-special-work periods are a second table, so the whole company work
-schedule is two screens.
+The weekly work hours and the first holiday, closure or special-work
+period are asked together on one form; any further periods each get
+their own form whose question lists the periods entered so far.
+
+<a id="backlogops.backlog_ops_wizard._schedule_fields"></a>
+
+#### \_schedule\_fields
+
+```python
+def _schedule_fields() -> list[FormField]
+```
+
+Return one work-hours field per week day, Monday first.
+
+A day has between zero and twenty-four work hours, so the float field
+enforces that inclusive range.
+
+<a id="backlogops.backlog_ops_wizard._company_fields"></a>
+
+#### \_company\_fields
+
+```python
+def _company_fields() -> list[FormField]
+```
+
+Return the combined company schedule and first-period fields.
+
+<a id="backlogops.backlog_ops_wizard._company_rule"></a>
+
+#### \_company\_rule
+
+```python
+def _company_rule(values: FormResult) -> tuple[Optional[str], set[str]]
+```
+
+Disable the period fields with no periods, else order-check them.
+
+<a id="backlogops.backlog_ops_wizard._company_seed"></a>
+
+#### \_company\_seed
+
+```python
+def _company_seed(company: Optional[CompanyWorkHours]) -> Optional[FormResult]
+```
+
+Return the combined company form values from stored work hours.
+
+<a id="backlogops.backlog_ops_wizard._schedule_from"></a>
+
+#### \_schedule\_from
+
+```python
+def _schedule_from(values: FormResult) -> ScheduleWorkHours
+```
+
+Return the weekly schedule read from the combined company form.
+
+<a id="backlogops.backlog_ops_wizard._build_exceptions"></a>
+
+#### \_build\_exceptions
+
+```python
+def _build_exceptions(
+        nav: _Navigator, values: FormResult,
+        stored: list[ExceptionWorkHours]) -> list[ExceptionWorkHours]
+```
+
+Return the company periods, the first from the combined form.
+
+<a id="backlogops.backlog_ops_wizard._more_exceptions"></a>
+
+#### \_more\_exceptions
+
+```python
+def _more_exceptions(
+        nav: _Navigator, count: int, first: ExceptionWorkHours,
+        seeds: list[ExceptionWorkHours]) -> list[ExceptionWorkHours]
+```
+
+Collect the additional company periods after the first one.
+
+Each period is asked on its own form whose question lists the periods
+entered so far. The running list is reset on the first item, so a
+replayed sub-level after a back or cancel request does not double it.
+
+<a id="backlogops.backlog_ops_wizard._more_question"></a>
+
+#### \_more\_question
+
+```python
+def _more_question(shown: list[ExceptionWorkHours]) -> str
+```
+
+Return the next-period question listing the periods entered so far.
+
+<a id="backlogops.backlog_ops_wizard._period_line"></a>
+
+#### \_period\_line
+
+```python
+def _period_line(period: ExceptionWorkHours) -> str
+```
+
+Return a one-line summary of one exception period.
+
+<a id="backlogops.backlog_ops_wizard._period_values"></a>
+
+#### \_period\_values
+
+```python
+def _period_values(period: ExceptionWorkHours) -> dict[str, object]
+```
+
+Return the form values for one work-hour exception period.
 
 <a id="backlogops.backlog_ops_wizard._exc_seed"></a>
 
@@ -13893,6 +13953,16 @@ def _exception_fields() -> list[FormField]
 ```
 
 Return the fields of the one-screen work-hour exception form.
+
+<a id="backlogops.backlog_ops_wizard._period_from"></a>
+
+#### \_period\_from
+
+```python
+def _period_from(values: FormResult) -> ExceptionWorkHours
+```
+
+Return one exception period from a form's period fields.
 
 <a id="backlogops.backlog_ops_wizard._ask_exception"></a>
 
@@ -14849,12 +14919,13 @@ None). A level number is used as is and need not be one of ``levels``.
 Reusable field-input helpers for the wizards.
 
 The ``_read_*`` and ``_parse_*`` helpers ask and validate the single-value
-and whole-table fields, such as a preset name, the weekly work-hours
-schedule, the column rename maps and the backlog item levels, and pre-fill
-each from an optional seed value so a re-asked or default-driven question
-opens on the earlier answer. The re-runnable :class:`_Navigator` that calls
-them lives in :mod:`backlogops.wizard_navigator`; the one-screen form
-toolkit lives in :mod:`backlogops.wizard_forms`. The small domain helper
+and whole-table fields, such as a preset name, the column rename maps and
+the backlog item levels, and pre-fill each from an optional seed value so a
+re-asked or default-driven question opens on the earlier answer. The
+re-runnable :class:`_Navigator` that calls them lives in
+:mod:`backlogops.wizard_navigator`; the one-screen form toolkit, which now
+asks the company work hours and its exception periods, lives in
+:mod:`backlogops.wizard_forms`. The small domain helper
 :func:`_backlog_map_fields` is shared by the configuration and the preset
 wizards.
 
@@ -14920,138 +14991,6 @@ def _read_tableio(ui: WizardUiBridge,
 ```
 
 Ask for one TableIO endpoint configuration through the wizard.
-
-<a id="backlogops.wizard_helpers._is_nonneg"></a>
-
-#### \_is\_nonneg
-
-```python
-def _is_nonneg(text: Optional[str]) -> bool
-```
-
-Return whether ``text`` parses as a number that is at least zero.
-
-<a id="backlogops.wizard_helpers._sched_check"></a>
-
-#### \_sched\_check
-
-```python
-def _sched_check(table: list[list[Optional[str]]],
-                 position: tuple[int, int]) -> tuple[bool, str]
-```
-
-Give early feedback that an edited work-hours cell is a number.
-
-<a id="backlogops.wizard_helpers._parse_schedule"></a>
-
-#### \_parse\_schedule
-
-```python
-def _parse_schedule(
-        days: Sequence[WeekDay], table: Sequence[Sequence[Optional[str]]]
-) -> Optional[ScheduleWorkHours]
-```
-
-Return the weekly schedule from a table, or None when invalid.
-
-<a id="backlogops.wizard_helpers._read_schedule"></a>
-
-#### \_read\_schedule
-
-```python
-def _read_schedule(
-        ui: WizardUiBridge,
-        seed: Optional[ScheduleWorkHours] = None) -> ScheduleWorkHours
-```
-
-Ask the weekly work-hours schedule as one table question.
-
-The hours are pre-filled from the seed schedule, or from the default
-work week when no seed is given.
-
-<a id="backlogops.wizard_helpers._MAX_EXCEPTIONS"></a>
-
-#### \_MAX\_EXCEPTIONS
-
-Upper bound on the number of exception-period rows the wizard accepts.
-
-<a id="backlogops.wizard_helpers._EXC_HINT"></a>
-
-#### \_EXC\_HINT
-
-Help text shown above the work-hour exception table.
-
-<a id="backlogops.wizard_helpers._parse_yes_no"></a>
-
-#### \_parse\_yes\_no
-
-```python
-def _parse_yes_no(text: Optional[str]) -> Optional[bool]
-```
-
-Return the boolean a yes/no cell holds, or None when invalid.
-
-A blank cell counts as 'no', so an added but unset flag means the
-period adds no work on days that are normally free.
-
-<a id="backlogops.wizard_helpers._exc_check"></a>
-
-#### \_exc\_check
-
-```python
-def _exc_check(table: list[list[Optional[str]]],
-               position: tuple[int, int]) -> tuple[bool, str]
-```
-
-Give early feedback on one work-hour exception cell.
-
-<a id="backlogops.wizard_helpers._parse_exceptions"></a>
-
-#### \_parse\_exceptions
-
-```python
-def _parse_exceptions(
-        table: list[list[Optional[str]]]
-) -> Optional[list[ExceptionWorkHours]]
-```
-
-Return the exception periods from a table, or None when invalid.
-
-A row with both dates blank is treated as an unused row and skipped.
-Any other row needs a valid start and end date with the end on or
-after the start, non-negative work hours (blank means zero) and a
-yes/no adds-free-day-work flag (blank means no).
-
-<a id="backlogops.wizard_helpers._exc_cells"></a>
-
-#### \_exc\_cells
-
-```python
-def _exc_cells(
-        exceptions: Sequence[ExceptionWorkHours]) -> list[list[TableCell]]
-```
-
-Return table rows filled from the given exception periods.
-
-<a id="backlogops.wizard_helpers._read_exceptions"></a>
-
-#### \_read\_exceptions
-
-```python
-def _read_exceptions(
-    ui: WizardUiBridge,
-    question: str,
-    seed: Optional[Sequence[ExceptionWorkHours]] = None
-) -> list[ExceptionWorkHours]
-```
-
-Ask the work-hour exception periods as one variable-row table.
-
-The table starts from the seed periods, or empty when none are given,
-and may be left empty for no exceptions. Individual cells are checked
-as they are entered; an inconsistent whole table, such as a period
-whose end precedes its start, is re-asked with the user's own rows
-kept.
 
 <a id="backlogops.wizard_helpers._MAX_EXTRA_COLUMNS"></a>
 
