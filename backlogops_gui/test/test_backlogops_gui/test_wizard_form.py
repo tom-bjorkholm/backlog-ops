@@ -5,20 +5,22 @@
 # MIT License
 
 import tkinter as tk
+from tkinter import ttk
 from datetime import date
 from pathlib import Path
 from typing import Optional, Sequence
 import pytest
 from tableio_cfg_json import AnswerFields, AnswerField, AskField, \
     PartFormValidationResult, PartialFormValidator, PathAskOptions, \
-    WizardPathKind, AskTextField, AskIntField, AskPathField, AskYesNoField, \
-    AskChoiceField, AskMultiChoiceField, AskFloatField, AskDateField, \
-    AskDurationField, AnswerTextField, AnswerIntField, AnswerPathField, \
-    AnswerYesNoField, AnswerChoiceField, AnswerMultiChoiceField, \
-    AnswerFloatField, AnswerDateField
+    PrefillValues, WizardPathKind, AskTextField, AskIntField, AskPathField, \
+    AskYesNoField, AskChoiceField, AskMultiChoiceField, AskFloatField, \
+    AskDateField, AskDurationField, AnswerTextField, AnswerIntField, \
+    AnswerPathField, AnswerYesNoField, AnswerChoiceField, \
+    AnswerMultiChoiceField, AnswerFloatField, AnswerDateField
 from backlogops_gui.wizard_form import FormEditor, HelpTooltip, \
     handles_field, int_answer, int_text, multi_count_error, out_of_range, \
-    range_error, text_answer, _INT_ERROR
+    range_error, text_answer, _INT_ERROR, _set_combo, _set_entry_text, \
+    _set_multi
 from .gui_test_helpers import gui_root
 
 
@@ -476,3 +478,84 @@ def test_form_prefill_applied() -> None:
         row = editor._rows[1]
         assert row.typed is not None
         assert row.typed.text() == '2026-08-01'
+
+
+def _basic_fields() -> list[AskField]:
+    """Return one field of each non-typed kind, in a fixed order."""
+    return [
+        AskTextField('Name', None),
+        AskIntField('Age', None),
+        AskPathField('File', None, PathAskOptions()),
+        AskYesNoField('OK?', None, default=False),
+        AskChoiceField('Pick', None, choices=('a', 'b')),
+        AskMultiChoiceField('Cols', None, choices=('a', 'b', 'c'))]
+
+
+def test_write_value_kinds() -> None:
+    """Test a prefill writes the right value into every non-typed kind.
+
+    A value of each basic field type flows through _write_value and its
+    setters, and is then read back through the row's own answer.
+    """
+    with gui_root() as root:
+        fields = _basic_fields()
+        editor, _ = _build(root, fields)
+        prefills: PrefillValues = ((0, 'Bob'), (1, 42), (2, Path('/x/y')),
+                                   (3, True), (4, 'b'), (5, ['a', 'c']))
+        # pylint: disable-next=protected-access
+        editor._apply_prefills(prefills, -1)
+        answers = editor.answers()
+        assert isinstance(answers[0], AnswerTextField)
+        assert answers[0].value == 'Bob'
+        assert isinstance(answers[1], AnswerIntField)
+        assert answers[1].value == 42
+        assert isinstance(answers[2], AnswerPathField)
+        assert answers[2].value == Path('/x/y')
+        assert isinstance(answers[3], AnswerYesNoField)
+        assert answers[3].value is True
+        assert isinstance(answers[4], AnswerChoiceField)
+        assert answers[4].value == 'b'
+        assert isinstance(answers[5], AnswerMultiChoiceField)
+        assert answers[5].value == ['a', 'c']
+
+
+def test_set_entry_helper() -> None:
+    """Test the entry setter writes into a disabled entry and skips no-ops."""
+    with gui_root() as root:
+        entry = tk.Entry(root)
+        _set_entry_text(entry, 'a')
+        assert entry.get() == 'a'
+        entry.configure(state='disabled')
+        _set_entry_text(entry, 'b')
+        assert entry.get() == 'b'
+        assert str(entry.cget('state')) == 'disabled'
+        _set_entry_text(entry, 'b')
+        assert entry.get() == 'b'
+
+
+def test_set_combo_helper() -> None:
+    """Test the combo setter sets a value, keeps read-only, skips no-ops."""
+    with gui_root() as root:
+        box = ttk.Combobox(root, values=['x', 'y'], state='readonly')
+        _set_combo(box, 'x')
+        assert box.get() == 'x' and str(box.cget('state')) == 'readonly'
+        _set_combo(box, 'x')
+        assert box.get() == 'x'
+        _set_combo(box, 'y')
+        assert box.get() == 'y'
+
+
+def test_set_multi_helper() -> None:
+    """Test the multi setter selects the wanted members and clears the rest.
+
+    A stale selection is cleared, then the wanted members are selected and
+    the others are left unselected.
+    """
+    with gui_root() as root:
+        box = tk.Listbox(root, selectmode='multiple')
+        for choice in ('a', 'b', 'c'):
+            box.insert('end', choice)
+        box.selection_set(1)
+        _set_multi(box, ('a', 'b', 'c'), ['a', 'c'])
+        picks = box.curselection()  # type: ignore[no-untyped-call]
+        assert [int(index) for index in picks] == [0, 2]

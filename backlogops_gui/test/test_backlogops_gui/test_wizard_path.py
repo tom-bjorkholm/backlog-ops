@@ -141,6 +141,29 @@ def test_path_row_get() -> None:
         assert row.get() == '/seed'
 
 
+def test_path_row_set_text() -> None:
+    """Test set_text rewrites, clears on empty, and skips an equal value."""
+    with gui_root() as root:
+        row = PathRow(root, PathAskOptions(), '/seed')
+        row.set_text('/seed')
+        assert row.get() == '/seed'
+        row.set_text('/new')
+        assert row.get() == '/new'
+        row.set_text('')
+        assert row.get() == ''
+
+
+def test_set_text_disabled() -> None:
+    """Test set_text writes into a disabled entry and keeps it disabled."""
+    with gui_root() as root:
+        row = PathRow(root, PathAskOptions(), '')
+        row.set_enabled(False)
+        row.set_text('/x')
+        assert row.get() == '/x'
+        # pylint: disable-next=protected-access
+        assert str(row._entry.cget('state')) == 'disabled'
+
+
 def test_path_row_disable() -> None:
     """Test disabling a path row disables its entry and button."""
     with gui_root() as root:

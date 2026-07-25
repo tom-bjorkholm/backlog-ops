@@ -9,7 +9,8 @@ from typing import Optional
 import pytest
 from tableio_cfg_json import AskField, AskTextField, AskFloatField, \
     AskDateField, AskTimeField, AskDateTimeField, AskDurationField, \
-    AnswerFloatField, AnswerDateField, AnswerDurationField
+    AnswerFloatField, AnswerDateField, AnswerTimeField, \
+    AnswerDateTimeField, AnswerDurationField
 from backlogops_gui.wizard_typed import calendar_seed, combined_text, \
     date_of, default_text, field_hint, format_duration, format_value, \
     is_typed, ordered_range_error, parse_date, parse_datetime, \
@@ -59,6 +60,16 @@ def test_parse_duration(text: str, expected: Optional[timedelta]) -> None:
     assert parse_duration(text) == expected
 
 
+@pytest.mark.parametrize('text', ['1e308', '999999999999 d 00:00:00'])
+def test_duration_overflow(text: str) -> None:
+    """Test a duration too large for a timedelta reports None.
+
+    A lone seconds count and a day-and-clock form both overflow the
+    timedelta constructor, and each reports None rather than raising.
+    """
+    assert parse_duration(text) is None
+
+
 @pytest.mark.parametrize('value, expected', [
     (timedelta(hours=1), '0 d 01:00:00'),
     (timedelta(days=1, hours=2, minutes=30), '1 d 02:30:00'),
@@ -85,6 +96,8 @@ def test_duration_round_trip() -> None:
     (AskFloatField('n', None), 'a number'),
     (AskDateField('d', None), 'a date as YYYY-MM-DD'),
     (AskTimeField('t', None), 'a time as HH:MM or HH:MM:SS'),
+    (AskDateTimeField('e', None),
+     'a date and time as YYYY-MM-DD HH:MM:SS'),
     (AskDurationField('l', None), "a duration as '<days> d HH:MM:SS' "
      'or a number of seconds')])
 def test_field_hint(field: AskField, hint: str) -> None:
@@ -147,6 +160,30 @@ def test_typed_error(field: AskField, text: str, ok: bool) -> None:
     assert (typed_error(field, text) is None) is ok
 
 
+@pytest.mark.parametrize('field, text, value', [
+    (AskTimeField('t', None), '09:30', time(9, 30)),
+    (AskDateTimeField('e', None), '2026-07-24 09:00:00',
+     datetime(2026, 7, 24, 9)),
+    (AskDurationField('l', None), '90', timedelta(seconds=90))])
+def test_typed_value_kinds(field: AskField, text: str, value: object) -> None:
+    """Test typed_value resolves the time, date-time and duration kinds."""
+    assert typed_value(field, text) == value
+
+
+@pytest.mark.parametrize('field, text, needle', [
+    (AskDateField('d', None, min_value=date(2026, 1, 1)), '2025-12-31',
+     'at least 2026-01-01'),
+    (AskTimeField('t', None, max_value=time(12)), '13:00', 'at most 12:00:00'),
+    (AskDateTimeField('e', None, min_value=datetime(2026, 1, 1)),
+     '2025-12-31 09:00:00', 'at least 2026-01-01'),
+    (AskDurationField('l', None, max_value=timedelta(hours=1)), '02:00:00',
+     'at most 0 d 01:00:00')])
+def test_typed_range_kinds(field: AskField, text: str, needle: str) -> None:
+    """Test each typed kind reports an out-of-range value by its bound."""
+    message = typed_error(field, text)
+    assert message is not None and needle in message
+
+
 def test_typed_answer_kinds() -> None:
     """Test typed_answer wraps a value in the matching answer type."""
     float_field = AskFloatField('n', None)
@@ -158,6 +195,17 @@ def test_typed_answer_kinds() -> None:
     length = timedelta(hours=1)
     assert typed_answer(dur_field, length) == \
         AnswerDurationField(dur_field, length)
+
+
+@pytest.mark.parametrize('field, value, answer_type', [
+    (AskTimeField('t', None), time(9, 30), AnswerTimeField),
+    (AskDateTimeField('e', None), datetime(2026, 7, 24, 9),
+     AnswerDateTimeField)])
+def test_answer_temporal(field: AskField, value: object,
+                         answer_type: type) -> None:
+    """Test typed_answer wraps time and date-time values in their answers."""
+    answer = typed_answer(field, value)
+    assert isinstance(answer, answer_type) and answer.value == value
 
 
 def test_default_text() -> None:

@@ -74,6 +74,76 @@ def test_restore_grab_none() -> None:
     _restore_grab(None)
 
 
+def test_restore_grab_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test restoring the grab swallows a Tcl error from a gone window."""
+    with gui_root() as root:
+        def _boom() -> None:
+            """Fail the grab as Tk does when the window cannot hold it."""
+            raise tk.TclError('cannot grab')
+        monkeypatch.setattr(root, 'grab_set', _boom)
+        _restore_grab(tk.Frame(root))
+
+
+def test_grab_window_gone() -> None:
+    """Test grabbing does nothing once the calendar window is destroyed."""
+    with gui_root() as root:
+        picker, _ = _picker(root, date(2026, 7, 24))
+        # pylint: disable-next=protected-access
+        picker._win.destroy()
+        # pylint: disable-next=protected-access
+        picker._grab()
+
+
+def test_grab_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a not-yet-viewable window reschedules the grab on the loop.
+
+    The window rejects the grab while it is not viewable, so the picker
+    retries it after a short delay instead of raising.
+    """
+    with gui_root() as root:
+        picker, _ = _picker(root, date(2026, 7, 24))
+        scheduled: list[tuple[int, object]] = []
+
+        def _boom() -> None:
+            """Reject the grab as Tk does for a not-yet-viewable window."""
+            raise tk.TclError('window not viewable')
+
+        def _after(delay: int, callback: object) -> str:
+            """Record a rescheduled retry instead of running it."""
+            scheduled.append((delay, callback))
+            return ''
+        # pylint: disable-next=protected-access
+        monkeypatch.setattr(picker._win, 'grab_set', _boom)
+        # pylint: disable-next=protected-access
+        monkeypatch.setattr(picker._win, 'after', _after)
+        # pylint: disable-next=protected-access
+        picker._grab()
+        # pylint: disable-next=protected-access
+        assert scheduled == [(50, picker._grab)]
+
+
+@pytest.mark.focus_sensitive
+def test_grab_real() -> None:
+    """Test a shown calendar takes the modal grab and restores it on close.
+
+    This is the real-display counterpart to the deterministic grab tests:
+    the open calendar holds the grab and closing it hands the grab back to
+    the wizard window.
+    """
+    with gui_root() as root:
+        root.deiconify()
+        root.grab_set()
+        picker, _ = _picker(root, date(2026, 7, 24))
+        root.update()
+        current = root.grab_current()  # type: ignore[no-untyped-call]
+        # pylint: disable-next=protected-access
+        assert current is picker._win
+        # pylint: disable-next=protected-access
+        picker._cancel()
+        root.update()
+        assert root.grab_current() is root  # type: ignore[no-untyped-call]
+
+
 def test_picker_navigate() -> None:
     """Test navigating changes the month a picked day belongs to."""
     with gui_root() as root:

@@ -356,6 +356,13 @@ def test_seed_field_yes_no() -> None:
     assert ask.default is True
 
 
+def test_seed_field_date() -> None:
+    """Test a date field is reseeded with its stored date default."""
+    ask = _seed_field(wf.date_field('d', 'Day'), date(2026, 7, 24)).ask
+    assert isinstance(ask, AskDateField)
+    assert ask.default == date(2026, 7, 24)
+
+
 def test_int_seed_no_min() -> None:
     """Test a seeded integer over the max is clamped with no minimum set."""
     field = wf.int_field('i', 'Count', default=0, maximum=2)

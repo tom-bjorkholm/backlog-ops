@@ -57,6 +57,52 @@ def test_hint_focus() -> None:
         assert entry.entry.get() == 'a number'
 
 
+def test_hint_set_text_noop() -> None:
+    """Test set_text with the current text is a no-op early return."""
+    with gui_root() as root:
+        entry = HintEntry(root, 'a number', '5', _noop)
+        entry.set_text('5')
+        assert entry.text() == '5'
+
+
+def test_hint_focus_no_change() -> None:
+    """Test focus events do nothing to an entry already showing typed text.
+
+    With real text present the entry is not a placeholder, so focusing in
+    keeps the text, and it is not empty, so leaving it restores nothing.
+    """
+    with gui_root() as root:
+        entry = HintEntry(root, 'a number', '3.5', _noop)
+        # pylint: disable-next=protected-access
+        entry._focus_in()
+        assert entry.entry.get() == '3.5'
+        # pylint: disable-next=protected-access
+        entry._focus_out()
+        assert entry.text() == '3.5'
+
+
+@pytest.mark.focus_sensitive
+def test_hint_real_focus() -> None:
+    """Test real focus in and out clears and restores the greyed hint.
+
+    This drives the same behaviour as :func:`test_hint_focus` but through
+    genuine keyboard-focus transitions, so it needs a focused display.
+    """
+    with gui_root() as root:
+        root.deiconify()
+        entry = HintEntry(root, 'a number', '', _noop)
+        entry.entry.pack()
+        other = tk.Entry(root)
+        other.pack()
+        root.update()
+        entry.entry.focus_force()
+        root.update()
+        assert entry.entry.get() == ''
+        other.focus_force()
+        root.update()
+        assert entry.entry.get() == 'a number'
+
+
 def test_hint_set_disabled() -> None:
     """Test set_text writes into a disabled entry and keeps it disabled."""
     with gui_root() as root:
@@ -95,6 +141,17 @@ def test_pick_row_question(monkeypatch: pytest.MonkeyPatch) -> None:
         row._changed()
         assert len(opened) == 1
         assert row.text() == ''
+
+
+def test_pick_row_notifies(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test typing an ordinary value notifies a change without a calendar."""
+    with gui_root() as root:
+        opened = _fake_calendars(monkeypatch)
+        row, changes = _row(root)
+        row.set_text('2026-07-24')
+        # pylint: disable-next=protected-access
+        row._changed()
+        assert changes == [1] and not opened
 
 
 def test_pick_row_picked(monkeypatch: pytest.MonkeyPatch) -> None:

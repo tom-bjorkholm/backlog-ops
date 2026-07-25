@@ -6,6 +6,7 @@
 
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from typing import cast
 import pytest
 from tableio_cfg_json import AskField, PrefillValueType, PathAskOptions, \
     AskTextField, AskIntField, AskPathField, AskYesNoField, AskChoiceField, \
@@ -109,3 +110,32 @@ def test_temporal_kinds() -> None:
     assert _one(9, clock) == [(9, clock)]
     assert _one(10, moment) == [(10, moment)]
     assert _one(11, length) == [(11, length)]
+
+
+@pytest.mark.parametrize('index, value', [
+    (9, date(2026, 7, 24)), (10, date(2026, 7, 24)), (11, 90)])
+def test_temporal_bad_type(index: int, value: PrefillValueType) -> None:
+    """Test each temporal field rejects a value of the wrong type.
+
+    A plain date is not a time, a plain date is not a date-time (which is
+    a stricter subtype), and a number is not a duration.
+    """
+    with pytest.raises(TypeError):
+        _one(index, value)
+
+
+@pytest.mark.parametrize('value', ['abc', 5])
+def test_multi_scalar_bad(value: PrefillValueType) -> None:
+    """Test a multi-choice prefill rejects a string and a non-sequence."""
+    with pytest.raises(TypeError):
+        _one(7, value)
+
+
+def test_multi_member_bad() -> None:
+    """Test a multi-choice prefill with a non-string member is rejected.
+
+    The mixed list is cast because it deliberately violates the value type
+    to exercise the validator's own type check.
+    """
+    with pytest.raises(TypeError):
+        _one(7, cast(PrefillValueType, ['a', 5]))

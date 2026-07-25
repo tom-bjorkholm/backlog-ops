@@ -16,10 +16,10 @@ from datetime import date
 import pytest
 from tableio_cfg_json import WizardUiBridgeConsole
 from backlogops.backlog_ops_wizard import available_teams_wizard, \
-    _exc_seed, _fte_seed, _member_seed
+    _company_seed, _exc_seed, _fte_seed, _member_seed
 from backlogops.team import FteException, Membership
-from backlogops.work_hours import DEFAULT_WORK_WEEK, ExceptionWorkHours, \
-    WeekDay
+from backlogops.work_hours import CompanyWorkHours, DEFAULT_WORK_WEEK, \
+    ExceptionWorkHours, WeekDay
 from .wizard_test_helpers import COMPANY, SCHED, run_workforce
 
 
@@ -155,6 +155,25 @@ def test_company_two_holidays() -> None:
         (date(2026, 7, 1), date(2026, 7, 10))]
     assert periods[1].hours_per_day == 8.0
     assert periods[1].new_work_days is True
+
+
+def test_two_extra_periods() -> None:
+    """Test the first and two additional company periods are all captured.
+
+    Two additional periods are asked, so the second extra period is
+    appended after the first rather than replacing it.
+    """
+    answers = (SCHED
+               + ['y', '2026-01-01', '2026-01-05', '', 'n', '2']
+               + ['2026-07-01', '2026-07-10', '8', 'y']
+               + ['2026-09-01', '2026-09-10', '4', 'n']
+               + ['0', '0'])
+    teams = run_workforce(answers)
+    periods = teams.company_work_hours.exceptions
+    assert [(p.start_date, p.end_date) for p in periods] == [
+        (date(2026, 1, 1), date(2026, 1, 5)),
+        (date(2026, 7, 1), date(2026, 7, 10)),
+        (date(2026, 9, 1), date(2026, 9, 10))]
 
 
 def test_vacation() -> None:
@@ -306,3 +325,34 @@ def test_seed_none() -> None:
     assert _exc_seed(None) is None
     assert _member_seed(None) is None
     assert _fte_seed(None) is None
+    assert _company_seed(None) is None
+
+
+def test_company_seed_period() -> None:
+    """Test stored company periods pre-fill the combined company form.
+
+    The first period fills the in-form period fields and the remaining
+    count of extra periods is offered, so a re-run keeps them all.
+    """
+    first = ExceptionWorkHours(start_date=date(2026, 1, 1),
+                               end_date=date(2026, 1, 5), hours_per_day=0.0,
+                               new_work_days=False)
+    second = ExceptionWorkHours(start_date=date(2026, 7, 1),
+                                end_date=date(2026, 7, 10), hours_per_day=8.0,
+                                new_work_days=True)
+    result = _company_seed(CompanyWorkHours(exceptions=[first, second]))
+    assert result is not None
+    assert result.flag('has_periods') is True
+    assert result.whole('more') == 1
+    assert result.day('start') == date(2026, 1, 1)
+    assert result.day('end') == date(2026, 1, 5)
+    assert result.number('hours') == 0.0
+    assert result.flag('new_days') is False
+
+
+def test_company_seed_empty() -> None:
+    """Test a company with no periods seeds the box off and no extras."""
+    result = _company_seed(CompanyWorkHours())
+    assert result is not None
+    assert result.flag('has_periods') is False
+    assert result.whole('more') == 0

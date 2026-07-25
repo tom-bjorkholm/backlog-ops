@@ -24,8 +24,8 @@ from backlogops.jira_io_config import JiraConnectConfig, JiraIssueTypeMap, \
 from backlogops.jira_wizard import (
     _FilterPrefill, _PresetChoices, _build_connections,
     _build_issue_type_maps, _build_preset_list, _connection_disabled,
-    _connection_fields, _connection_rule, _preset_rule, _preset_seed,
-    _store_token)
+    _connection_fields, _connection_rule, _preset_filter, _preset_rule,
+    _preset_seed, _store_token)
 from backlogops.levels import DEFAULT_LEVELS
 from backlogops.wizard_forms import FormResult
 from backlogops.wizard_helpers import (
@@ -166,6 +166,22 @@ def test_preset_def_filter() -> None:
         lambda n, _d: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2']),
                                          None))
     assert presets['p1'].def_filter == default_jira_filter('PROJ')
+
+
+def test_preset_filter_blank() -> None:
+    """Test a blank preset filter falls back to the project rank filter.
+
+    The prefill normally fills the filter, so this checks the fallback
+    used when a bridge submits the form with the filter left blank.
+    """
+    values = FormResult({'def_filter': '', 'def_project': 'PROJ'})
+    assert _preset_filter(values) == default_jira_filter('PROJ')
+
+
+def test_preset_filter_kept() -> None:
+    """Test an entered preset filter is kept verbatim over the default."""
+    values = FormResult({'def_filter': 'my JQL', 'def_project': 'PROJ'})
+    assert _preset_filter(values) == 'my JQL'
 
 
 def _pf_values(project: Optional[str],

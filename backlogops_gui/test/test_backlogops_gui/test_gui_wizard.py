@@ -50,6 +50,12 @@ def test_close_without_window() -> None:
     TkWizardBridge(cast(tk.Misc, object())).close()
 
 
+def test_supports_form_field() -> None:
+    """Test the bridge reports it can show a handled field type on a form."""
+    bridge = TkWizardBridge(cast(tk.Misc, object()))
+    assert bridge.supports_form_field(AskTextField('t', None)) is True
+
+
 def test_real_text() -> None:
     """Test a real window returns the entered free text."""
     with gui_root() as root:
