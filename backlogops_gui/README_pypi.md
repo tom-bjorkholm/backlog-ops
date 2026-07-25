@@ -317,10 +317,10 @@ one with the list of releases. You will want to use the menus.
 
 ## Test summary
 
-- Test result: 2450 passed, 9 deselected in 65s (0:01:05)
+- Test result: 2450 passed, 9 deselected in 41s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
 - Built version(s): 0.5
-- Build and test using Python 3.13.14
+- Build and test using Python 3.14.6
