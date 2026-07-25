@@ -377,7 +377,10 @@ work-hour exception's dates and hours, a team membership, and each Jira
 connection and preset — so in the GUI or textual interface you see them
 together and can fill them in any order before moving on. Dates are entered
 through a calendar picker in the GUI, and every additional company holiday
-period is a form whose heading lists the periods entered so far.
+period is a form whose heading lists the periods entered so far. On the Jira
+preset form, once you set the project key the default filter (the whole
+project in rank order) is offered in the filter field, so you can accept it
+or type your own; once you type your own it is left untouched.
 
 - **CLI:** `python3 -m backlogops_cli.config_wizard` — add `-i old.cfg` to
   start from an existing file (see [Starting from an existing

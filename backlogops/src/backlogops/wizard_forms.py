@@ -15,6 +15,13 @@ the answers so far make irrelevant. :func:`run_form` shows the fields,
 disables the irrelevant ones, blocks an invalid form and returns the typed
 answers as a :class:`FormResult`.
 
+A form may also pass a ``prefill`` callback. It is called with the current
+:class:`FormResult` and the key of the field that just changed, and returns
+``(key, value)`` requests that offer a value to another field as its live
+default, exactly as if the user had typed it. This lets one field be derived
+from others, such as a Jira filter derived from the project key, while the
+user stays free to override the offered value.
+
 Dates use :class:`AskDateField` (a calendar picker in a graphical bridge) and
 decimals use :class:`AskFloatField`, so both come back as typed answers, with
 their format and range checked by the field rather than by validated text.
@@ -29,8 +36,8 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence
 from tableio_cfg_json import AnswerField, AskChoiceField, AskDateField, \
     AskField, AskFloatField, AskIntField, AskPathField, AskTextField, \
-    AskYesNoField, PartFormValidationResult, PathAskOptions, \
-    WizardPathKind, WizardUiBridge
+    AskYesNoField, PartFormValidationResult, PathAskOptions, PrefillValues, \
+    PrefillValueType, WizardPathKind, WizardUiBridge
 from backlogops.io_config import PRESET_NAME_RE
 
 _REQUIRED = 'Please enter a value.'
@@ -123,6 +130,12 @@ def _no_rule(_values: FormResult) -> tuple[Optional[str], set[str]]:
     return None, set()
 
 
+def _no_prefill(_values: FormResult,
+                _changed: str) -> list[tuple[str, PrefillValueType]]:
+    """Offer no field a derived default."""
+    return []
+
+
 def _seeded_fields(fields: Sequence[FormField],
                    seed: Optional[FormResult]) -> list[FormField]:
     """Return the fields with each ask pre-filled from a seed result."""
@@ -180,18 +193,25 @@ def _clamped_int(value: int, ask: AskIntField) -> int:
     return value
 
 
+# pylint: disable-next=too-many-arguments
 def run_form(bridge: WizardUiBridge, question: str,
              fields: Sequence[FormField],
              rule: Callable[[FormResult], tuple[Optional[str], set[str]]]
-             = _no_rule, seed: Optional[FormResult] = None) -> FormResult:
+             = _no_rule, *,
+             prefill: Callable[[FormResult, str],
+                               list[tuple[str, PrefillValueType]]]
+             = _no_prefill,
+             seed: Optional[FormResult] = None) -> FormResult:
     """Ask a whole form and return its validated, typed answers.
 
     The rule disables the fields that the current answers make irrelevant
-    and reports any cross-field problem. A bridge that validates on submit
-    returns only valid answers; a plain console bridge may return an
-    invalid form, which is re-asked with the blocking message shown. When a
-    ``seed`` result is given each field starts pre-filled with its seed
-    value, so a re-asked or default-driven form opens on the earlier
+    and reports any cross-field problem. The prefill callback offers a
+    derived value to another field after each change, ignored on submit so
+    the caller must still apply the same default itself. A bridge that
+    validates on submit returns only valid answers; a plain console bridge
+    may return an invalid form, which is re-asked with the blocking message
+    shown. When a ``seed`` result is given each field starts pre-filled with
+    its seed value, so a re-asked or default-driven form opens on the earlier
     answers; sensitive fields keep no default and are always asked afresh.
     """
     fields = _seeded_fields(fields, seed)
@@ -200,7 +220,7 @@ def run_form(bridge: WizardUiBridge, question: str,
     def validate(answers: Sequence[AnswerField],
                  changed: int) -> PartFormValidationResult:
         """Validate the current answers for the bridge's live feedback."""
-        return _validate(fields, rule, list(answers), changed)
+        return _validate(fields, rule, list(answers), changed, prefill)
     reason: Optional[str] = None
     while True:
         answers = list(bridge.ask_form(question, asks, re_ask_reason=reason,
@@ -220,16 +240,30 @@ def _values_of(fields: Sequence[FormField],
 
 def _validate(fields: Sequence[FormField],
               rule: Callable[[FormResult], tuple[Optional[str], set[str]]],
-              answers: list[AnswerField],
-              changed: int) -> PartFormValidationResult:
-    """Run the rule and the field checks into one validation result."""
-    message, disabled_keys = rule(FormResult(_values_of(fields, answers)))
+              answers: list[AnswerField], changed: int,
+              prefill: Callable[[FormResult, str],
+                                list[tuple[str, PrefillValueType]]]
+              = _no_prefill) -> PartFormValidationResult:
+    """Run the rule, the field checks and the prefill into one result."""
+    values = FormResult(_values_of(fields, answers))
+    message, disabled_keys = rule(values)
     errors = _field_errors(fields, answers, disabled_keys)
     disabled = tuple(index for index, field in enumerate(fields)
                      if field.key in disabled_keys)
     valid = message is None and not errors
+    prefills = _prefills(fields, values, changed, prefill)
     return PartFormValidationResult(valid, _message(errors, message, changed),
-                                    disabled)
+                                    disabled, prefills)
+
+
+def _prefills(fields: Sequence[FormField], values: FormResult, changed: int,
+              prefill: Callable[[FormResult, str],
+                                list[tuple[str, PrefillValueType]]]
+              ) -> PrefillValues:
+    """Translate the prefill callback's key requests into row indexes."""
+    index_of = {field.key: index for index, field in enumerate(fields)}
+    return tuple((index_of[key], value)
+                 for key, value in prefill(values, fields[changed].key))
 
 
 def _field_errors(fields: Sequence[FormField], answers: list[AnswerField],

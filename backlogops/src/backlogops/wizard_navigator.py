@@ -21,12 +21,13 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Callable, Optional, Sequence, TextIO, TypeVar
 from tableio import FileAccess
-from tableio_cfg_json import TioJsonConfig, WizardBack, WizardCancelLevel, \
-    WizardUiBridge
+from tableio_cfg_json import PrefillValueType, TioJsonConfig, WizardBack, \
+    WizardCancelLevel, WizardUiBridge
 from backlogops.backlog import Status
 from backlogops.jira_io_config import JiraColumnMap, JiraIssueTypeMap
 from backlogops.levels import Level, LevelDisplay, Levels
-from backlogops.wizard_forms import FormField, FormResult, run_form, _no_rule
+from backlogops.wizard_forms import FormField, FormResult, run_form, \
+    _no_prefill, _no_rule
 from backlogops.wizard_helpers import _RenameKind, _read_int, \
     _read_issue_type_map, _read_jira_map, _read_levels, _read_preset_name, \
     _read_renames, _read_status_map, _read_tableio, _read_text
@@ -232,11 +233,15 @@ class _Navigator:
     def ask_form(self, question: str, fields: Sequence[FormField],
                  rule: Callable[[FormResult], tuple[Optional[str], set[str]]]
                  = _no_rule, *,
+                 prefill: Callable[[FormResult, str],
+                                   list[tuple[str, PrefillValueType]]]
+                 = _no_prefill,
                  seed: Optional[FormResult] = None) -> FormResult:
         """Ask a whole form on one screen, pre-filled from a seed result."""
         def ask(sd: object, _bw: bool) -> object:
             pre = sd if isinstance(sd, FormResult) else None
-            return run_form(self._ui, question, fields, rule, pre)
+            return run_form(self._ui, question, fields, rule, prefill=prefill,
+                            seed=pre)
         result = self._ask(ask, seed)
         assert isinstance(result, FormResult)
         return result

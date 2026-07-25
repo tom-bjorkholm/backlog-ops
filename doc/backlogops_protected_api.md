@@ -625,6 +625,10 @@
   * [\_issue\_type\_field](#backlogops.jira_wizard._issue_type_field)
   * [\_preset\_fields](#backlogops.jira_wizard._preset_fields)
   * [\_preset\_rule](#backlogops.jira_wizard._preset_rule)
+  * [\_FilterPrefill](#backlogops.jira_wizard._FilterPrefill)
+    * [\_\_init\_\_](#backlogops.jira_wizard._FilterPrefill.__init__)
+    * [\_\_call\_\_](#backlogops.jira_wizard._FilterPrefill.__call__)
+    * [\_note\_user\_filter](#backlogops.jira_wizard._FilterPrefill._note_user_filter)
   * [\_preset\_seed](#backlogops.jira_wizard._preset_seed)
   * [\_ask\_preset](#backlogops.jira_wizard._ask_preset)
   * [\_preset\_from](#backlogops.jira_wizard._preset_from)
@@ -782,6 +786,7 @@
     * [path](#backlogops.wizard_forms.FormResult.path)
     * [raw](#backlogops.wizard_forms.FormResult.raw)
   * [\_no\_rule](#backlogops.wizard_forms._no_rule)
+  * [\_no\_prefill](#backlogops.wizard_forms._no_prefill)
   * [\_seeded\_fields](#backlogops.wizard_forms._seeded_fields)
   * [\_seed\_field](#backlogops.wizard_forms._seed_field)
   * [\_reseed\_ask](#backlogops.wizard_forms._reseed_ask)
@@ -790,6 +795,7 @@
   * [run\_form](#backlogops.wizard_forms.run_form)
   * [\_values\_of](#backlogops.wizard_forms._values_of)
   * [\_validate](#backlogops.wizard_forms._validate)
+  * [\_prefills](#backlogops.wizard_forms._prefills)
   * [\_field\_errors](#backlogops.wizard_forms._field_errors)
   * [\_message](#backlogops.wizard_forms._message)
   * [\_answer\_text](#backlogops.wizard_forms._answer_text)
@@ -3797,6 +3803,9 @@ def ask_form(question: str,
              rule: Callable[[FormResult], tuple[Optional[str],
                                                 set[str]]] = _no_rule,
              *,
+             prefill: Callable[[FormResult, str],
+                               list[tuple[str,
+                                          PrefillValueType]]] = _no_prefill,
              seed: Optional[FormResult] = None) -> FormResult
 ```
 
@@ -10729,6 +10738,54 @@ def _preset_rule(
 
 Return a rule that disables the write and issue-type rows when off.
 
+<a id="backlogops.jira_wizard._FilterPrefill"></a>
+
+## \_FilterPrefill Objects
+
+```python
+class _FilterPrefill()
+```
+
+Offer the default rank filter while the preset filter stays blank.
+
+While the user has not written their own issue filter, every change to
+the project key re-derives the default filter and offers it to the
+filter field, so the filter tracks the project as it is typed. The
+moment the filter holds text the user placed there, tracking stops and
+the filter is left alone. The last value offered is remembered so the
+bridge writing that value back does not look like the user typing it.
+
+<a id="backlogops.jira_wizard._FilterPrefill.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__() -> None
+```
+
+Start with nothing offered and the filter not yet user-owned.
+
+<a id="backlogops.jira_wizard._FilterPrefill.__call__"></a>
+
+#### \_\_call\_\_
+
+```python
+def __call__(values: FormResult,
+             changed: str) -> list[tuple[str, PrefillValueType]]
+```
+
+Return a filter prefill for a project change, or nothing.
+
+<a id="backlogops.jira_wizard._FilterPrefill._note_user_filter"></a>
+
+#### \_note\_user\_filter
+
+```python
+def _note_user_filter(values: FormResult) -> None
+```
+
+Mark the filter user-owned once it holds text we did not offer.
+
 <a id="backlogops.jira_wizard._preset_seed"></a>
 
 #### \_preset\_seed
@@ -13047,6 +13104,13 @@ the answers so far make irrelevant. :func:`run_form` shows the fields,
 disables the irrelevant ones, blocks an invalid form and returns the typed
 answers as a :class:`FormResult`.
 
+A form may also pass a ``prefill`` callback. It is called with the current
+:class:`FormResult` and the key of the field that just changed, and returns
+``(key, value)`` requests that offer a value to another field as its live
+default, exactly as if the user had typed it. This lets one field be derived
+from others, such as a Jira filter derived from the project key, while the
+user stays free to override the offered value.
+
 Dates use :class:`AskDateField` (a calendar picker in a graphical bridge) and
 decimals use :class:`AskFloatField`, so both come back as typed answers, with
 their format and range checked by the field rather than by validated text.
@@ -13189,6 +13253,17 @@ def _no_rule(_values: FormResult) -> tuple[Optional[str], set[str]]
 
 Enable every field and report no cross-field problem.
 
+<a id="backlogops.wizard_forms._no_prefill"></a>
+
+#### \_no\_prefill
+
+```python
+def _no_prefill(_values: FormResult,
+                _changed: str) -> list[tuple[str, PrefillValueType]]
+```
+
+Offer no field a derived default.
+
 <a id="backlogops.wizard_forms._seeded_fields"></a>
 
 #### \_seeded\_fields
@@ -13254,17 +13329,23 @@ def run_form(bridge: WizardUiBridge,
              fields: Sequence[FormField],
              rule: Callable[[FormResult], tuple[Optional[str],
                                                 set[str]]] = _no_rule,
+             *,
+             prefill: Callable[[FormResult, str],
+                               list[tuple[str,
+                                          PrefillValueType]]] = _no_prefill,
              seed: Optional[FormResult] = None) -> FormResult
 ```
 
 Ask a whole form and return its validated, typed answers.
 
 The rule disables the fields that the current answers make irrelevant
-and reports any cross-field problem. A bridge that validates on submit
-returns only valid answers; a plain console bridge may return an
-invalid form, which is re-asked with the blocking message shown. When a
-``seed`` result is given each field starts pre-filled with its seed
-value, so a re-asked or default-driven form opens on the earlier
+and reports any cross-field problem. The prefill callback offers a
+derived value to another field after each change, ignored on submit so
+the caller must still apply the same default itself. A bridge that
+validates on submit returns only valid answers; a plain console bridge
+may return an invalid form, which is re-asked with the blocking message
+shown. When a ``seed`` result is given each field starts pre-filled with
+its seed value, so a re-asked or default-driven form opens on the earlier
 answers; sensitive fields keep no default and are always asked afresh.
 
 <a id="backlogops.wizard_forms._values_of"></a>
@@ -13283,14 +13364,30 @@ Return the typed value of every field, keyed by field key.
 #### \_validate
 
 ```python
-def _validate(fields: Sequence[FormField], rule: Callable[[FormResult],
-                                                          tuple[Optional[str],
-                                                                set[str]]],
-              answers: list[AnswerField],
-              changed: int) -> PartFormValidationResult
+def _validate(
+    fields: Sequence[FormField],
+    rule: Callable[[FormResult], tuple[Optional[str], set[str]]],
+    answers: list[AnswerField],
+    changed: int,
+    prefill: Callable[[FormResult, str],
+                      list[tuple[str, PrefillValueType]]] = _no_prefill
+) -> PartFormValidationResult
 ```
 
-Run the rule and the field checks into one validation result.
+Run the rule, the field checks and the prefill into one result.
+
+<a id="backlogops.wizard_forms._prefills"></a>
+
+#### \_prefills
+
+```python
+def _prefills(
+    fields: Sequence[FormField], values: FormResult, changed: int,
+    prefill: Callable[[FormResult, str], list[tuple[str, PrefillValueType]]]
+) -> PrefillValues
+```
+
+Translate the prefill callback's key requests into row indexes.
 
 <a id="backlogops.wizard_forms._field_errors"></a>
 

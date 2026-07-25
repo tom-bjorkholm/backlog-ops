@@ -22,9 +22,10 @@ from backlogops.jira_io_config import (
 from backlogops.jira_io_config import JiraConnectConfig, JiraIssueTypeMap, \
     JiraPreset, TokenStorage
 from backlogops.jira_wizard import (
-    _PresetChoices, _build_connections, _build_issue_type_maps,
-    _build_preset_list, _connection_disabled, _connection_fields,
-    _connection_rule, _preset_rule, _preset_seed, _store_token)
+    _FilterPrefill, _PresetChoices, _build_connections,
+    _build_issue_type_maps, _build_preset_list, _connection_disabled,
+    _connection_fields, _connection_rule, _preset_rule, _preset_seed,
+    _store_token)
 from backlogops.levels import DEFAULT_LEVELS
 from backlogops.wizard_forms import FormResult
 from backlogops.wizard_helpers import (
@@ -165,6 +166,65 @@ def test_preset_def_filter() -> None:
         lambda n, _d: _build_preset_list(n, _choices(['c1'], ['m1'], ['m2']),
                                          None))
     assert presets['p1'].def_filter == default_jira_filter('PROJ')
+
+
+def _pf_values(project: Optional[str],
+               issue_filter: Optional[str]) -> FormResult:
+    """Return a preset FormResult holding just the project and filter."""
+    return FormResult({'def_project': project, 'def_filter': issue_filter})
+
+
+def test_prefill_offers() -> None:
+    """Test a project change offers the default filter when it is blank."""
+    prefill = _FilterPrefill()
+    result = prefill(_pf_values('SCRUM', None), 'def_project')
+    assert result == [('def_filter', default_jira_filter('SCRUM'))]
+
+
+def test_prefill_tracks() -> None:
+    """Test the offered filter follows the project while none is typed.
+
+    The bridge writes each offered value back into the filter and re-calls
+    the validator for that change, so the tracker must not mistake its own
+    write-back for the user typing and must keep offering the new default.
+    """
+    prefill = _FilterPrefill()
+    filled = prefill(_pf_values('S', None), 'def_project')[0][1]
+    assert isinstance(filled, str)
+    assert not prefill(_pf_values('S', filled), 'def_filter')
+    second = prefill(_pf_values('SC', filled), 'def_project')
+    assert second == [('def_filter', default_jira_filter('SC'))]
+
+
+def test_prefill_takeover() -> None:
+    """Test a user-typed filter stops the project from overwriting it."""
+    prefill = _FilterPrefill()
+    prefill(_pf_values('SCRUM', None), 'def_project')
+    assert not prefill(_pf_values('SCRUM', 'my own jql'), 'def_filter')
+    assert not prefill(_pf_values('OTHER', 'my own jql'), 'def_project')
+
+
+def test_prefill_seeded() -> None:
+    """Test an existing custom filter is kept when the project changes."""
+    prefill = _FilterPrefill()
+    assert not prefill(_pf_values('SCRUM', 'kept jql'), 'def_project')
+
+
+def test_prefill_cleared() -> None:
+    """Test clearing the filter lets the project offer a default again."""
+    prefill = _FilterPrefill()
+    prefill(_pf_values('SCRUM', None), 'def_project')
+    assert not prefill(_pf_values('SCRUM', ''), 'def_filter')
+    assert prefill(_pf_values('NEW', ''), 'def_project') == \
+        [('def_filter', default_jira_filter('NEW'))]
+
+
+@pytest.mark.parametrize('project, changed', [
+    ('SCRUM', 'connection'), (None, 'def_project'), ('', 'def_project')])
+def test_prefill_none(project: Optional[str], changed: str) -> None:
+    """Test no prefill for a non-project change or an empty project."""
+    prefill = _FilterPrefill()
+    assert not prefill(_pf_values(project, None), changed)
 
 
 @pytest.mark.parametrize('storage, disabled', [

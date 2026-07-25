@@ -7337,6 +7337,13 @@ the answers so far make irrelevant. :func:`run_form` shows the fields,
 disables the irrelevant ones, blocks an invalid form and returns the typed
 answers as a :class:`FormResult`.
 
+A form may also pass a ``prefill`` callback. It is called with the current
+:class:`FormResult` and the key of the field that just changed, and returns
+``(key, value)`` requests that offer a value to another field as its live
+default, exactly as if the user had typed it. This lets one field be derived
+from others, such as a Jira filter derived from the project key, while the
+user stays free to override the offered value.
+
 Dates use :class:`AskDateField` (a calendar picker in a graphical bridge) and
 decimals use :class:`AskFloatField`, so both come back as typed answers, with
 their format and range checked by the field rather than by validated text.
@@ -7479,17 +7486,23 @@ def run_form(bridge: WizardUiBridge,
              fields: Sequence[FormField],
              rule: Callable[[FormResult], tuple[Optional[str],
                                                 set[str]]] = _no_rule,
+             *,
+             prefill: Callable[[FormResult, str],
+                               list[tuple[str,
+                                          PrefillValueType]]] = _no_prefill,
              seed: Optional[FormResult] = None) -> FormResult
 ```
 
 Ask a whole form and return its validated, typed answers.
 
 The rule disables the fields that the current answers make irrelevant
-and reports any cross-field problem. A bridge that validates on submit
-returns only valid answers; a plain console bridge may return an
-invalid form, which is re-asked with the blocking message shown. When a
-``seed`` result is given each field starts pre-filled with its seed
-value, so a re-asked or default-driven form opens on the earlier
+and reports any cross-field problem. The prefill callback offers a
+derived value to another field after each change, ignored on submit so
+the caller must still apply the same default itself. A bridge that
+validates on submit returns only valid answers; a plain console bridge
+may return an invalid form, which is re-asked with the blocking message
+shown. When a ``seed`` result is given each field starts pre-filled with
+its seed value, so a re-asked or default-driven form opens on the earlier
 answers; sensitive fields keep no default and are always asked afresh.
 
 <a id="backlogops.wizard_forms.name_error"></a>

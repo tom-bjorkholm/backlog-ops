@@ -18,7 +18,8 @@ import pytest
 from tableio_cfg_json import AnswerDateField, AnswerField, \
     AnswerFloatField, AnswerIntField, AnswerPathField, AnswerTextField, \
     AskChoiceField, AskDateField, AskFloatField, AskIntField, AskPathField, \
-    AskTextField, AskYesNoField, WizardPathKind, WizardUiBridgeConsole
+    AskTextField, AskYesNoField, PrefillValueType, WizardPathKind, \
+    WizardUiBridgeConsole
 import backlogops.wizard_forms as wf
 from backlogops.wizard_forms import FormField, FormResult, _no_rule, \
     _seed_field, _validate
@@ -241,6 +242,34 @@ def test_validate_no_value() -> None:
     answers: list[AnswerField] = [AnswerFloatField(num_ask, None),
                                   AnswerIntField(int_ask, None)]
     assert _validate([number, whole], _no_rule, answers, 0).is_valid
+
+
+def _echo_prefill(values: FormResult,
+                  changed: str) -> list[tuple[str, PrefillValueType]]:
+    """Offer field b the value of field a whenever a changes."""
+    text = values.opt_text('a')
+    return [('b', f'seen-{text}')] if changed == 'a' and text else []
+
+
+def test_validate_prefill() -> None:
+    """Test the validator maps a prefill's field key to its row index."""
+    a, b = wf.text_field('a', 'A'), wf.opt_text_field('b', 'B')
+    answers: list[AnswerField] = [_text_answer(a, 'x'), _text_answer(b, None)]
+    result = _validate([a, b], _no_rule, answers, 0, _echo_prefill)
+    assert result.prefill_values == ((1, 'seen-x'),)
+
+
+def test_run_form_prefill() -> None:
+    """Test a prefill offers a later field's console default.
+
+    When field a changes the prefill offers a value for field b, which the
+    console shows as b's default, so a blank answer keeps the offered value.
+    """
+    a, b = wf.text_field('a', 'A'), wf.opt_text_field('b', 'B')
+    result = wf.run_form(_console(['hello', '']), 'Form', [a, b],
+                         prefill=_echo_prefill)
+    assert result.text('a') == 'hello'
+    assert result.opt_text('b') == 'seen-hello'
 
 
 def test_number_field_value() -> None:

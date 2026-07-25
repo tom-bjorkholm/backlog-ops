@@ -25,7 +25,7 @@ token is visible while typed; the pass phrases are masked.
 from dataclasses import dataclass
 from functools import partial
 from typing import Callable, Optional, TypeVar
-from tableio_cfg_json import WizardPathKind
+from tableio_cfg_json import PrefillValueType, WizardPathKind
 from backlogops.jira_io_config import DEF_BACKLOG_COLUMN_MAP, \
     DEF_RELEASE_COLUMN_MAP, JiraColumnMap, JiraConnectConfig, JiraIOConfig, \
     JiraIssueTypeMap, JiraPreset, JiraType, TokenStorage, _FILE_MODES, \
@@ -364,8 +364,9 @@ _ISSUE_MAP_Q = ('Use a level-to-issue-type map when writing (otherwise the '
 
 _FILTER_EG = default_jira_filter('<project key>')
 """Illustrative blank-filter default shown in the filter help text."""
-_FILTER_HELP = ('Leave blank to select the default project in rank '
-                f'order, i.e. {_FILTER_EG}.')
+_FILTER_HELP = ('Leave blank to select the whole project in rank order; '
+                f'the default {_FILTER_EG} is offered once the project key '
+                'is set.')
 """Help shown for the blank-defaulting issue filter field."""
 
 
@@ -417,6 +418,40 @@ def _preset_rule(has_issue_type: bool
     return rule
 
 
+# pylint: disable-next=too-few-public-methods
+class _FilterPrefill:
+    """Offer the default rank filter while the preset filter stays blank.
+
+    While the user has not written their own issue filter, every change to
+    the project key re-derives the default filter and offers it to the
+    filter field, so the filter tracks the project as it is typed. The
+    moment the filter holds text the user placed there, tracking stops and
+    the filter is left alone. The last value offered is remembered so the
+    bridge writing that value back does not look like the user typing it.
+    """
+
+    def __init__(self) -> None:
+        """Start with nothing offered and the filter not yet user-owned."""
+        self._taken_over = False
+        self._last_fill: Optional[str] = None
+
+    def __call__(self, values: FormResult,
+                 changed: str) -> list[tuple[str, PrefillValueType]]:
+        """Return a filter prefill for a project change, or nothing."""
+        self._note_user_filter(values)
+        project = values.opt_text('def_project')
+        if self._taken_over or changed != 'def_project' or not project:
+            return []
+        self._last_fill = default_jira_filter(project)
+        return [('def_filter', self._last_fill)]
+
+    def _note_user_filter(self, values: FormResult) -> None:
+        """Mark the filter user-owned once it holds text we did not offer."""
+        current = values.opt_text('def_filter')
+        if current and current != self._last_fill:
+            self._taken_over = True
+
+
 def _preset_seed(name: Optional[str], preset: Optional[JiraPreset],
                  choices: _PresetChoices) -> Optional[FormResult]:
     """Return the preset form values from a stored preset."""
@@ -444,6 +479,7 @@ def _ask_preset(nav: _Navigator, choices: _PresetChoices, used: set[str],
     values = nav.ask_form('Configure the Jira preset.',
                           _preset_fields(used, choices),
                           _preset_rule(bool(choices.issue_type_maps)),
+                          prefill=_FilterPrefill(),
                           seed=_preset_seed(seed_name, seed_preset, choices))
     return _preset_from(nav, values, choices)
 
