@@ -13398,7 +13398,10 @@ def _field_errors(fields: Sequence[FormField], answers: list[AnswerField],
                   disabled_keys: set[str]) -> dict[int, str]
 ```
 
-Return the own error of every enabled field, keyed by row index.
+Return the labelled own error of each enabled field, by row index.
+
+Each message is prefixed with the field's label so a form that shows
+every field at once makes clear which field the message refers to.
 
 <a id="backlogops.wizard_forms._message"></a>
 

@@ -480,6 +480,25 @@ def _basic_error(row: FormRow) -> Optional[str]:
     return None
 
 
+def _row_error(row: FormRow) -> Optional[str]:
+    """Return one row's own validation error, without its field label."""
+    if is_typed(row.field):
+        assert row.typed is not None
+        return typed_error(row.field, row.typed.text())
+    return _basic_error(row)
+
+
+def _with_label(field: AskField, error: Optional[str]) -> Optional[str]:
+    """Prefix a field's own error with its label, keeping None as None.
+
+    The whole form shares one status line, so naming the field makes clear
+    which row a message such as 'Please enter an integer.' refers to.
+    """
+    if error is None:
+        return None
+    return f'{field.short_question}: {error}'
+
+
 class FormEditor:
     """A two-column grid that asks a whole wizard form on one screen."""
 
@@ -646,9 +665,6 @@ class FormEditor:
         return _basic_answer(row)
 
     def _field_error(self, index: int) -> Optional[str]:
-        """Return one field's own validation error, or None when valid."""
+        """Return one field's own error, prefixed with its label."""
         row = self._rows[index]
-        if is_typed(row.field):
-            assert row.typed is not None
-            return typed_error(row.field, row.typed.text())
-        return _basic_error(row)
+        return _with_label(row.field, _row_error(row))

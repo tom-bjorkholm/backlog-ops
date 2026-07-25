@@ -518,6 +518,8 @@
   * [\_set\_multi](#backlogops_gui.wizard_form._set_multi)
   * [\_basic\_answer](#backlogops_gui.wizard_form._basic_answer)
   * [\_basic\_error](#backlogops_gui.wizard_form._basic_error)
+  * [\_row\_error](#backlogops_gui.wizard_form._row_error)
+  * [\_with\_label](#backlogops_gui.wizard_form._with_label)
   * [FormEditor](#backlogops_gui.wizard_form.FormEditor)
     * [\_\_init\_\_](#backlogops_gui.wizard_form.FormEditor.__init__)
     * [\_scroll\_area](#backlogops_gui.wizard_form.FormEditor._scroll_area)
@@ -6538,6 +6540,29 @@ def _basic_error(row: FormRow) -> Optional[str]
 
 Return the own error of a row of an original field kind, or None.
 
+<a id="backlogops_gui.wizard_form._row_error"></a>
+
+#### \_row\_error
+
+```python
+def _row_error(row: FormRow) -> Optional[str]
+```
+
+Return one row's own validation error, without its field label.
+
+<a id="backlogops_gui.wizard_form._with_label"></a>
+
+#### \_with\_label
+
+```python
+def _with_label(field: AskField, error: Optional[str]) -> Optional[str]
+```
+
+Prefix a field's own error with its label, keeping None as None.
+
+The whole form shares one status line, so naming the field makes clear
+which row a message such as 'Please enter an integer.' refers to.
+
 <a id="backlogops_gui.wizard_form.FormEditor"></a>
 
 ## FormEditor Objects
@@ -6723,7 +6748,7 @@ Return the current answer of one row read from its widget.
 def _field_error(index: int) -> Optional[str]
 ```
 
-Return one field's own validation error, or None when valid.
+Return one field's own error, prefixed with its label.
 
 <a id="backlogops_gui.modal_dialog"></a>
 

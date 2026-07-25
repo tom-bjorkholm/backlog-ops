@@ -134,6 +134,13 @@ def test_demo_default_amount() -> None:
     assert result.number('amount') == 1.0
 
 
+def test_field_error_labelled() -> None:
+    """Test a per-field error is prefixed with the field's label."""
+    field = wf.text_field('extra', 'Extra value')
+    result = _validate([field], _no_rule, [_text_answer(field, '')], 0)
+    assert result.message == 'Extra value: Please enter a value.'
+
+
 def test_form_result_getters() -> None:
     """Test every strict getter returns its stored typed value."""
     result = FormResult({'t': 'hi', 'n': 2.5, 'i': 3, 'b': True,

@@ -170,6 +170,20 @@ def test_form_int_oor_blocks() -> None:
         assert 'between 1 and 5' in editor._status.cget('text')
 
 
+def test_field_error_labelled() -> None:
+    """Test a field's own error is prefixed with its label."""
+    with gui_root() as root:
+        field = AskIntField('Age', None, min_value=1, max_value=5)
+        editor, _ = _build(root, [field])
+        # pylint: disable-next=protected-access
+        entry = editor._rows[0].widget
+        assert isinstance(entry, tk.Entry)
+        entry.insert(0, '9')
+        # pylint: disable-next=protected-access
+        message = editor._field_error(0)
+        assert message is not None and message.startswith('Age: ')
+
+
 def test_form_multi_min() -> None:
     """Test selecting fewer than the minimum blocks submit."""
     with gui_root() as root:
