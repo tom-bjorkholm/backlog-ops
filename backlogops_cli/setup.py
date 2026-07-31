@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
   name='backlogops-cli',
-  version='0.5.1',
+  version='0.6',
   description='Command line interface for backlog operations.',
   author='Tom Björkholm',
   author_email='klausuler_linnet0q@icloud.com',
@@ -15,7 +15,7 @@ setup(
   package_data={'backlogops_cli': ['src/py.typed']},
   install_requires=[
     'argcomplete >= 3.7.0',
-    'backlogops >= 0.5.1',
+    'backlogops >= 0.6',
     'wizard-ui-bridge[textual] >= 1.1',
     'versionreporter >= 0.4'
   ]
