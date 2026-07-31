@@ -14,7 +14,7 @@ same pre-filling and the ``default`` and ``backward`` parameters through
 import io
 from functools import partial
 from typing import Optional
-from tableio_cfg_json import WizardUiBridgeConsole
+from wizard_ui_bridge import WizardUiBridgeConsole
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog_ops_wizard import available_teams_wizard
 from backlogops.person import Person

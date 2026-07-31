@@ -18,7 +18,7 @@ session happens in a single pop-up that does not jump around the display.
 from typing import Optional, Sequence, TextIO
 from pathlib import Path
 import tkinter as tk
-from tableio_cfg_json import AnswerFields, AskField, AskFields, PartialCheck, \
+from wizard_ui_bridge import AnswerFields, AskField, AskFields, PartialCheck, \
     PartialFormValidator, PathAskOptions, TableCell, TableColumn, \
     WizardUiBridge
 from backlogops import NoTextIO

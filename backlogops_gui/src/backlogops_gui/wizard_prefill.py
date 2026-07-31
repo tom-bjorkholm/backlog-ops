@@ -23,7 +23,7 @@ from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Iterator, NoReturn, Optional
-from tableio_cfg_json import AskField, PrefillValues, PrefillValueType, \
+from wizard_ui_bridge import AskField, PrefillValues, PrefillValueType, \
     AskTextField, AskIntField, AskPathField, AskYesNoField, AskChoiceField, \
     AskMultiChoiceField, AskFloatField, AskDateField, AskTimeField, \
     AskDateTimeField, AskDurationField

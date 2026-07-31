@@ -14,7 +14,7 @@ full-time-equivalent sum and aliases.
 import io
 from datetime import date
 import pytest
-from tableio_cfg_json import WizardUiBridgeConsole
+from wizard_ui_bridge import WizardUiBridgeConsole
 from backlogops.backlog_ops_wizard import available_teams_wizard, \
     _company_seed, _exc_seed, _fte_seed, _member_seed
 from backlogops.team import FteException, Membership

@@ -7,7 +7,7 @@
 from datetime import date, datetime, time, timedelta
 from typing import Optional
 import pytest
-from tableio_cfg_json import AskField, AskTextField, AskFloatField, \
+from wizard_ui_bridge import AskField, AskTextField, AskFloatField, \
     AskDateField, AskTimeField, AskDateTimeField, AskDurationField, \
     AnswerFloatField, AnswerDateField, AnswerTimeField, \
     AnswerDateTimeField, AnswerDurationField

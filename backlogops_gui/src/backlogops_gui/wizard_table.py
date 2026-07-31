@@ -18,7 +18,7 @@ import tkinter as tk
 from dataclasses import dataclass
 from tkinter import ttk
 from typing import Optional, Sequence, TypeVar
-from tableio_cfg_json import PartialCheck, TableCell, TableColumn
+from wizard_ui_bridge import PartialCheck, TableCell, TableColumn
 from backlogops_gui.auto_scroll import auto_hide
 from backlogops_gui.gui_style import style_input
 

@@ -31,7 +31,7 @@ def _support_check(reporter: BloVersionReporter) -> str:
 def test_package_names() -> None:
     """Test the reported packages lead with the application packages."""
     expected = ['backlogops', 'tableio', 'tableio-cfg-json',
-                'config-as-json', 'mformat']
+                'wizard-ui-bridge', 'config-as-json', 'mformat']
     names = BloVersionReporter().package_names()
     assert names[:len(expected)] == expected
     for base in ('versionreporter', 'packaging', 'pypi-simple'):

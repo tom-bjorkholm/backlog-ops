@@ -13,7 +13,7 @@ parsing and the per-cell validation.
 import io
 from typing import Optional
 import pytest
-from tableio_cfg_json import AskPathField, AskTextField, \
+from wizard_ui_bridge import AskPathField, AskTextField, \
     WizardPathKind, WizardUiBridgeConsole
 from backlogops.backlog import Status
 from backlogops.backlog_ops_wizard import backlog_ops_wizard

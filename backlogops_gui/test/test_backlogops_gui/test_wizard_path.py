@@ -6,7 +6,7 @@
 
 from pathlib import Path
 import pytest
-from tableio_cfg_json import PathAskOptions, WizardPathKind
+from wizard_ui_bridge import PathAskOptions, WizardPathKind
 from backlogops_gui.wizard_path import PathRow, pick_path, validate_path, \
     _start_location
 from .gui_test_helpers import gui_root

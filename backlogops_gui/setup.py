@@ -21,6 +21,7 @@ setup(
   install_requires=[
     'backlogops >= 0.5.1',
     'argcomplete >= 3.7.0',
+    'wizard-ui-bridge >= 1.1',
     'versionreporter >= 0.4'
   ]
 )

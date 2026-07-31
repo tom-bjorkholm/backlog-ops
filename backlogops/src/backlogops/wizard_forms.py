@@ -34,7 +34,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 from typing import Callable, Optional, Sequence
-from tableio_cfg_json import AnswerField, AskChoiceField, AskDateField, \
+from wizard_ui_bridge import AnswerField, AskChoiceField, AskDateField, \
     AskField, AskFloatField, AskIntField, AskPathField, AskTextField, \
     AskYesNoField, PartFormValidationResult, PathAskOptions, PrefillValues, \
     PrefillValueType, WizardPathKind, WizardUiBridge

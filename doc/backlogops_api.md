@@ -7705,9 +7705,9 @@ The public helpers :func:`available_teams_wizard` and
 persons and their personal work-hour exceptions, the teams with their
 members, and, for the full configuration, the named TableIO presets, the
 backlog item levels, the status-name map, the GUI display and the Jira
-integration. They drive any ``WizardUiBridge``
-of ``tableio_cfg_json``, so the same wizard logic runs on a console text
-interface, a Textual full-screen interface or a graphical user interface.
+integration. They drive any ``WizardUiBridge`` of ``wizard_ui_bridge``,
+so the same wizard logic runs on a console text interface, a Textual
+full-screen interface or a graphical user interface.
 
 Each repeated part is asked by first requesting a count and then collecting
 exactly that many items, so there are no open-ended "add another?" prompts.

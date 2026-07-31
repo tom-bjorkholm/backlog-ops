@@ -14,7 +14,7 @@ queued raw tables so the whole-table re-ask paths can be exercised.
 
 import io
 from typing import Optional, Sequence, TextIO
-from tableio_cfg_json import TableCell, TableColumn, WizardUiBridge, \
+from wizard_ui_bridge import TableCell, TableColumn, WizardUiBridge, \
     WizardUiBridgeConsole
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog_ops_config import BacklogOpsConfig

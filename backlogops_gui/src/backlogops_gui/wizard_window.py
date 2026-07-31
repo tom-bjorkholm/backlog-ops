@@ -18,7 +18,7 @@ can step within the configuration or abandon it.
 import tkinter as tk
 from pathlib import Path
 from typing import Callable, Optional, Sequence
-from tableio_cfg_json import AnswerFields, AskFields, PartialCheck, \
+from wizard_ui_bridge import AnswerFields, AskFields, PartialCheck, \
     PartialFormValidator, PathAskOptions, TableCell, TableColumn, \
     WizardAbort, WizardBack, WizardCancelLevel, WizardNavigation
 from backlogops_gui.close_binding import bind_close

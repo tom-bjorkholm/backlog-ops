@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Optional, TypeVar
 from config_as_json import Config
 from config_as_json.file_extension import fix_file_extension
-from tableio_cfg_json import WizardUiBridge, WizardUiBridgeConsole, \
+from wizard_ui_bridge import WizardUiBridge, WizardUiBridgeConsole, \
     make_text_ui_bridge
 from backlogops import safe_write_config
 from backlogops_cli._command_io import add_force_arg, overwrite_callback

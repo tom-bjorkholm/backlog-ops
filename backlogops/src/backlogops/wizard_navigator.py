@@ -21,7 +21,8 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Callable, Optional, Sequence, TextIO, TypeVar
 from tableio import FileAccess
-from tableio_cfg_json import PrefillValueType, TioJsonConfig, WizardBack, \
+from tableio_cfg_json import TioJsonConfig
+from wizard_ui_bridge import PrefillValueType, WizardBack, \
     WizardCancelLevel, WizardUiBridge
 from backlogops.backlog import Status
 from backlogops.jira_io_config import JiraColumnMap, JiraIssueTypeMap

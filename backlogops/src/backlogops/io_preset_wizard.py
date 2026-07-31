@@ -19,7 +19,7 @@ wizard, where each preset additionally has a name.
 from functools import partial
 from typing import Optional
 from tableio import FileAccess
-from tableio_cfg_json import WizardAbort, WizardUiBridge
+from wizard_ui_bridge import WizardAbort, WizardUiBridge
 from backlogops.io_config import InputFormatConfig, OutputFormatConfig, \
     _FormatConfig, make_input_config, make_output_config
 from backlogops.table_rows import RELEASE_FIELDS

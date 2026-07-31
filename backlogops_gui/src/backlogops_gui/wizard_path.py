@@ -18,7 +18,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
 from typing import Callable, Optional
-from tableio_cfg_json import PathAskOptions, WizardPathKind
+from wizard_ui_bridge import PathAskOptions, WizardPathKind
 from backlogops_gui.gui_style import style_input
 
 _PATH_REQUIRED = 'Please enter a path.'

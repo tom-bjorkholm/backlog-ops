@@ -23,8 +23,8 @@ stored.
 from dataclasses import dataclass
 from typing import Optional, Sequence, TextIO
 from tableio import FileAccess, access_capabilities
-from tableio_cfg_json import TableCell, TableColumn, TioJsonConfig, \
-    WizardUiBridge, tio_json_config_wizard
+from tableio_cfg_json import TioJsonConfig, tio_json_config_wizard
+from wizard_ui_bridge import TableCell, TableColumn, WizardUiBridge
 from backlogops.backlog import Status
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
     JiraColumnMap, JiraIssueTypeMap

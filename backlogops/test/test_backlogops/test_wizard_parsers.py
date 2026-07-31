@@ -13,7 +13,7 @@ table then a valid one, so their whole-table re-ask paths run.
 import io
 from typing import Optional
 import pytest
-from tableio_cfg_json import TableCell, WizardBack, WizardUiBridgeConsole
+from wizard_ui_bridge import TableCell, WizardBack, WizardUiBridgeConsole
 from backlogops import Status
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType
 from backlogops.levels import DEFAULT_LEVELS

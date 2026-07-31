@@ -8,7 +8,7 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import cast
 import pytest
-from tableio_cfg_json import AskField, PrefillValueType, PathAskOptions, \
+from wizard_ui_bridge import AskField, PrefillValueType, PathAskOptions, \
     AskTextField, AskIntField, AskPathField, AskYesNoField, AskChoiceField, \
     AskMultiChoiceField, AskFloatField, AskDateField, AskTimeField, \
     AskDateTimeField, AskDurationField

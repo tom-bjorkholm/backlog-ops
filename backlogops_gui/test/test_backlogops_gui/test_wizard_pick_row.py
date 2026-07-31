@@ -8,7 +8,7 @@ import tkinter as tk
 from datetime import date
 from typing import Callable, Optional
 import pytest
-from tableio_cfg_json import AskDateField
+from wizard_ui_bridge import AskDateField
 import backlogops_gui.wizard_pick_row as pick_row
 from backlogops_gui.wizard_pick_row import HintEntry, PickRow
 from .gui_test_helpers import gui_root

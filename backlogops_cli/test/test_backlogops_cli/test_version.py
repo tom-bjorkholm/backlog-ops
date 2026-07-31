@@ -14,6 +14,7 @@ def test_version(capsys: pytest.CaptureFixture[str]) -> None:
     assert 'versionreporter .' in out
     assert 'tableio ..' in out
     assert 'tableio-cfg-json' in out
+    assert 'wizard-ui-bridge' in out
     assert 'config-as-json ..' in out
     assert 'mformat ..' in out
     assert 'backlogops ..' in out

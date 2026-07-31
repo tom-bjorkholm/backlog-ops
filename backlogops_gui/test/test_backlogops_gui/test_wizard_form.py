@@ -10,7 +10,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional, Sequence
 import pytest
-from tableio_cfg_json import AnswerFields, AnswerField, AskField, \
+from wizard_ui_bridge import AnswerFields, AnswerField, AskField, \
     PartFormValidationResult, PartialFormValidator, PathAskOptions, \
     PrefillValues, WizardPathKind, AskTextField, AskIntField, AskPathField, \
     AskYesNoField, AskChoiceField, AskMultiChoiceField, AskFloatField, \

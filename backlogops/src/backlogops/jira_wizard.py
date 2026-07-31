@@ -25,7 +25,7 @@ token is visible while typed; the pass phrases are masked.
 from dataclasses import dataclass
 from functools import partial
 from typing import Callable, Optional, TypeVar
-from tableio_cfg_json import PrefillValueType, WizardPathKind
+from wizard_ui_bridge import PrefillValueType, WizardPathKind
 from backlogops.jira_io_config import DEF_BACKLOG_COLUMN_MAP, \
     DEF_RELEASE_COLUMN_MAP, JiraColumnMap, JiraConnectConfig, JiraIOConfig, \
     JiraIssueTypeMap, JiraPreset, JiraType, TokenStorage, _FILE_MODES, \

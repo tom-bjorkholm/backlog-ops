@@ -23,7 +23,7 @@ from functools import partial
 from pathlib import Path
 from tkinter import ttk
 from typing import Callable, NamedTuple, Optional, Sequence
-from tableio_cfg_json import AskField, AnswerField, PartialFormValidator, \
+from wizard_ui_bridge import AskField, AnswerField, PartialFormValidator, \
     PrefillValues, PrefillValueType, AskTextField, AskIntField, AskPathField, \
     AskYesNoField, AskChoiceField, AskMultiChoiceField, AskFloatField, \
     AskDateField, AskTimeField, AskDateTimeField, AskDurationField, \

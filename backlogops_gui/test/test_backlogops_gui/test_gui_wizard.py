@@ -8,7 +8,7 @@ import tkinter as tk
 from pathlib import Path
 from typing import Sequence, cast
 import pytest
-from tableio_cfg_json import AnswerChoiceField, AnswerTextField, AskField, \
+from wizard_ui_bridge import AnswerChoiceField, AnswerTextField, AskField, \
     AskChoiceField, AskTextField, PathAskOptions, TableCell, TableColumn, \
     WizardAbort, WizardBack, WizardCancelLevel, WizardPathKind
 from backlogops import NoTextIO

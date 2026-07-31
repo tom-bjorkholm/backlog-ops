@@ -16,8 +16,8 @@ class BloVersionReporter(VersionReporter):
     @override
     def package_names(self) -> list[str]:
         """Return the package names that this package reports."""
-        ret = ['backlogops', 'tableio', 'tableio-cfg-json', 'config-as-json',
-               'mformat']
+        ret = ['backlogops', 'tableio', 'tableio-cfg-json', 'wizard-ui-bridge',
+               'config-as-json', 'mformat']
         ret += super().package_names()
         return ret
 

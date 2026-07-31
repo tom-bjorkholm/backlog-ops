@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Optional
 import pytest
-from tableio_cfg_json import TableCell, TableColumn
+from wizard_ui_bridge import TableCell, TableColumn
 from backlogops_gui.wizard_table import TableEditor, _new_row_template, \
     _uniform
 from .gui_test_helpers import gui_root

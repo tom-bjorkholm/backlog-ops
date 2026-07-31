@@ -15,7 +15,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 import pytest
-from tableio_cfg_json import AnswerDateField, AnswerField, \
+from wizard_ui_bridge import AnswerDateField, AnswerField, \
     AnswerFloatField, AnswerIntField, AnswerPathField, AnswerTextField, \
     AskChoiceField, AskDateField, AskFloatField, AskIntField, AskPathField, \
     AskTextField, AskYesNoField, PrefillValueType, WizardPathKind, \

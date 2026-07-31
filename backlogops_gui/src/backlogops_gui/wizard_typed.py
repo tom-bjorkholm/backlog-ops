@@ -21,7 +21,7 @@ import math
 import re
 from datetime import date, datetime, time, timedelta
 from typing import Optional, TypeVar
-from tableio_cfg_json import AskField, AnswerField, AskFloatField, \
+from wizard_ui_bridge import AskField, AnswerField, AskFloatField, \
     AskDateField, AskTimeField, AskDateTimeField, AskDurationField, \
     AnswerFloatField, AnswerDateField, AnswerTimeField, AnswerDateTimeField, \
     AnswerDurationField

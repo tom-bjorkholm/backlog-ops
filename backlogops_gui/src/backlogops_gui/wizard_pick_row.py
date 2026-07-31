@@ -18,7 +18,7 @@ interface the form editor uses to read, write, and enable a typed row.
 import tkinter as tk
 from datetime import date
 from typing import Callable, Optional, Protocol
-from tableio_cfg_json import AskField
+from wizard_ui_bridge import AskField
 from backlogops_gui.gui_style import style_input
 from backlogops_gui.wizard_calendar import CalendarPicker
 from backlogops_gui.wizard_typed import calendar_seed, combined_text
