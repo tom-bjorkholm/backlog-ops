@@ -277,10 +277,10 @@ For the full set of public names see the API documentation linked above.
 
 ## Test summary
 
-- Test result: 2450 passed, 9 deselected in 44s
+- Test result: 2453 passed, 9 deselected in 38s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
-- Built version(s): 0.6.1
+- Built version(s): 0.7
 - Build and test using Python 3.14.6

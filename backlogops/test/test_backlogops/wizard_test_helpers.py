@@ -124,3 +124,36 @@ class TableScript(WizardUiBridge):
     def show(self, message: str) -> None:
         """Ignore any message shown while a table is being re-asked."""
         _ = message
+
+    def ask_choice(self, question: str, *, choices: Sequence[str],
+                   default: Optional[str] = None,
+                   re_ask_reason: Optional[str] = None) -> str:
+        """Abstract in base class, but not used in these tests."""
+        _ = (question, choices, default, re_ask_reason)
+        assert False, "ask_choice not used in these tests"
+        return ''  # pylint: disable=unreachable
+
+    # pylint: disable-next=too-many-arguments
+    def ask_multi(self, question: str, *, choices: Sequence[str],
+                  default: Optional[Sequence[str]] = None, min_select: int = 0,
+                  max_select: Optional[int] = None,
+                  re_ask_reason: Optional[str] = None) -> list[str]:
+        """Abstract in base class, but not used in these tests."""
+        _ = (question, choices, default, min_select, max_select, re_ask_reason)
+        assert False, "ask_multi not used in these tests"
+        return []  # pylint: disable=unreachable
+
+    def ask_text(self, question: str, re_ask_reason: Optional[str] = None,
+                 nullable: bool = False, *, default: Optional[str] = None,
+                 sensitive: bool = False) -> Optional[str]:
+        """Abstract in base class, but not used in these tests."""
+        _ = (question, re_ask_reason, nullable, default, sensitive)
+        assert False, "ask_text not used in these tests"
+        return ''  # pylint: disable=unreachable
+
+    def ask_yes_no(self, question: str, default: bool,
+                   re_ask_reason: Optional[str] = None) -> bool:
+        """Abstract in base class, but not used in these tests."""
+        _ = (question, default, re_ask_reason)
+        assert False, "ask_yes_no not used in these tests"
+        return False  # pylint: disable=unreachable
