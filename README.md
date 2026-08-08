@@ -129,5 +129,5 @@ they are included as parts of README_pypi.md.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
-- Built version(s): 0.7.1
+- Built version(s): 0.8
 - Build and test using Python 3.14.6
