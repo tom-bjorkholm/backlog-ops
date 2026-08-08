@@ -27,7 +27,7 @@ from .gui_test_helpers import MsgRecorder
 class _FakeBridge:
     """Stand-in wizard bridge that records being closed."""
 
-    def __init__(self, root: object, log: object) -> None:
+    def __init__(self, root: object, *, log: object) -> None:
         """Accept the wizard arguments and start unclosed."""
         assert root is not None and log is not None
         self.closed = False
@@ -100,7 +100,7 @@ def _pick_path(target: Path) -> Callable[[object], str]:
 def test_run_wizard_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a successful wizard run returns the configuration."""
     config = cast(BacklogOpsConfig, FakeConfig())
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'WizardUiBridgeTk', _FakeBridge)
     monkeypatch.setattr(application, 'backlog_ops_wizard', _wizard_of(config))
     assert _app().run_wizard() is config
 
@@ -113,7 +113,7 @@ def test_run_wizard_default(monkeypatch: pytest.MonkeyPatch) -> None:
         seen.append(default)
         return default
     prefill = FakeConfig()
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'WizardUiBridgeTk', _FakeBridge)
     monkeypatch.setattr(application, 'backlog_ops_wizard', wizard)
     _app().run_wizard(cast(BacklogOpsConfig, prefill))
     assert seen == [prefill]
@@ -124,7 +124,7 @@ def test_run_wizard_eof(monkeypatch: pytest.MonkeyPatch) -> None:
     def cancel(_bridge: object, *, default: object = None) -> BacklogOpsConfig:
         _ = default
         raise EOFError()
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'WizardUiBridgeTk', _FakeBridge)
     monkeypatch.setattr(application, 'backlog_ops_wizard', cancel)
     assert _app().run_wizard() is None
 
@@ -134,7 +134,7 @@ def test_run_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(_bridge: object, *, default: object = None) -> BacklogOpsConfig:
         _ = default
         raise ValueError('bad')
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'WizardUiBridgeTk', _FakeBridge)
     monkeypatch.setattr(application, 'backlog_ops_wizard', boom)
     app = _app()
     errors: list[tuple[str, str]] = []
@@ -237,7 +237,7 @@ def test_preset_writes(monkeypatch: pytest.MonkeyPatch) -> None:
     written: list[str] = []
     monkeypatch.setattr(application, 'ask_source_choice',
                         _source(SourceChoice.SCRATCH))
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'WizardUiBridgeTk', _FakeBridge)
     monkeypatch.setattr(application, 'preset_wizard', _wizard_of(config))
     monkeypatch.setattr(application, 'choose_config_file', _pick_teams)
     monkeypatch.setattr(application, 'safe_write_config',
@@ -262,7 +262,7 @@ def test_preset_from_file(monkeypatch: pytest.MonkeyPatch) -> None:
                         _source(SourceChoice.FROM_FILE))
     monkeypatch.setattr(application, 'choose_existing_preset', _pick_teams)
     monkeypatch.setattr(application, 'read_io_preset', _preset_of(prefill))
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'WizardUiBridgeTk', _FakeBridge)
     monkeypatch.setattr(application, 'preset_wizard', wizard)
     monkeypatch.setattr(application, 'choose_config_file', _pick_none)
     _app().create_preset_file()
@@ -278,7 +278,7 @@ def test_preset_src_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
         return default
     monkeypatch.setattr(application, 'ask_source_choice',
                         _source(SourceChoice.CANCEL))
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'WizardUiBridgeTk', _FakeBridge)
     monkeypatch.setattr(application, 'preset_wizard', wizard)
     _app().create_preset_file()
     assert not ran
@@ -330,7 +330,7 @@ def test_preset_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
         raise EOFError()
     monkeypatch.setattr(application, 'ask_source_choice',
                         _source(SourceChoice.SCRATCH))
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'WizardUiBridgeTk', _FakeBridge)
     monkeypatch.setattr(application, 'preset_wizard', cancel)
     picked: list[object] = []
     monkeypatch.setattr(application, 'choose_config_file', picked.append)
@@ -344,7 +344,7 @@ def test_preset_save_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     written: list[str] = []
     monkeypatch.setattr(application, 'ask_source_choice',
                         _source(SourceChoice.SCRATCH))
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'WizardUiBridgeTk', _FakeBridge)
     monkeypatch.setattr(application, 'preset_wizard', _wizard_of(config))
     monkeypatch.setattr(application, 'choose_config_file', _pick_none)
     monkeypatch.setattr(application, 'safe_write_config',
@@ -359,7 +359,7 @@ def test_preset_write_error(monkeypatch: pytest.MonkeyPatch) -> None:
         raise OSError('disk full')
     monkeypatch.setattr(application, 'ask_source_choice',
                         _source(SourceChoice.SCRATCH))
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'WizardUiBridgeTk', _FakeBridge)
     monkeypatch.setattr(application, 'preset_wizard', _wizard_of(FakeConfig()))
     monkeypatch.setattr(application, 'choose_config_file', _pick_teams)
     monkeypatch.setattr(application, 'safe_write_config', boom)
@@ -377,7 +377,7 @@ def test_preset_wizard_error(monkeypatch: pytest.MonkeyPatch) -> None:
         raise ValueError('bad')
     monkeypatch.setattr(application, 'ask_source_choice',
                         _source(SourceChoice.SCRATCH))
-    monkeypatch.setattr(application, 'TkWizardBridge', _FakeBridge)
+    monkeypatch.setattr(application, 'WizardUiBridgeTk', _FakeBridge)
     monkeypatch.setattr(application, 'preset_wizard', boom)
     app = _app()
     errors: list[tuple[str, str]] = []

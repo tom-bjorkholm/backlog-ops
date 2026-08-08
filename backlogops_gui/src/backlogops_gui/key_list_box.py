@@ -13,8 +13,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from collections.abc import Callable
 from typing import TextIO
+from wizard_tk_bridge.gui_style import style_input
 from backlogops import read_key_list
-from backlogops_gui.gui_style import style_input
 
 KEY_READ_ERRORS = (ValueError, TypeError, KeyError, OSError)
 

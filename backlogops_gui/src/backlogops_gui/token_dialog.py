@@ -19,7 +19,7 @@ from tkinter import filedialog, messagebox
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
-from backlogops_gui.gui_style import style_input
+from wizard_tk_bridge.gui_style import style_input
 from backlogops_gui.modal_dialog import ModalDialog
 
 

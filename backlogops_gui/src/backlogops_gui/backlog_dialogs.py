@@ -17,8 +17,8 @@ from tkinter import messagebox, ttk
 from dataclasses import dataclass
 from datetime import date
 from typing import Optional, TextIO
+from wizard_tk_bridge.gui_style import style_input
 from backlogops import DependencyMode, DEFAULT_LEVELS
-from backlogops_gui.gui_style import style_input
 from backlogops_gui.key_list_box import build_key_box, load_keys_into
 from backlogops_gui.modal_dialog import ModalDialog
 

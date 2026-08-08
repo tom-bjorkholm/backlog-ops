@@ -22,18 +22,18 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Callable, Literal, Optional, TextIO
 from tableio import ValueFmt
+from wizard_tk_bridge.auto_scroll import auto_hide
+from wizard_tk_bridge.close_binding import CLOSE_ACCELERATOR, bind_close
 from backlogops import (
     AddedReleasesToJira, AddedToJira, AvailableTeams, BacklogReleases,
     GuiDisplayConfig, Levels, OrderedReleasesInJira, OutputFormatConfig,
     RankedInJira, RenamedReleasesInJira, UpdatedBacklogInJira,
     UpdatedReleasesInJira, format_order_result, format_rank_result,
     format_release_result, format_release_updates, format_rename_result)
-from backlogops_gui.auto_scroll import auto_hide
 from backlogops_gui.backlog_actions import (
     adjust_content, apply_add_result, apply_update_result, estimate_date,
     extract_keys, order_by_deps, order_by_keys, order_by_release, order_dates,
     plan_dates, save_backlog, set_plan)
-from backlogops_gui.close_binding import CLOSE_ACCELERATOR, bind_close
 from backlogops_gui.report_windows import show_text_report
 from backlogops_gui.table_view import (
     backlog_table, make_table, release_table)

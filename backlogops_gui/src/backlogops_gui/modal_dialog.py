@@ -12,8 +12,8 @@ store the entered values before the window closes.
 # MIT License
 
 import tkinter as tk
-from backlogops_gui.close_binding import bind_close
-from backlogops_gui.gui_style import focus_first_input
+from wizard_tk_bridge.close_binding import bind_close
+from wizard_tk_bridge.gui_style import focus_first_input
 
 
 # pylint: disable-next=too-few-public-methods

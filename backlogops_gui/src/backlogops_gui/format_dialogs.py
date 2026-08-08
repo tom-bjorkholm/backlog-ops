@@ -16,7 +16,7 @@ import tkinter as tk
 from tkinter import filedialog, ttk
 from dataclasses import dataclass
 from typing import Optional, Sequence
-from backlogops_gui.gui_style import style_input
+from wizard_tk_bridge.gui_style import style_input
 from backlogops_gui.modal_dialog import ModalDialog
 
 MODE_INFER = 0

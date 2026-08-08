@@ -12,7 +12,7 @@ created window so a caller or a test can drive or close it.
 
 import tkinter as tk
 from typing import Callable
-from backlogops_gui.close_binding import bind_close
+from wizard_tk_bridge.close_binding import bind_close
 
 
 def show_change_list(parent: tk.Misc, title: str, text: str,

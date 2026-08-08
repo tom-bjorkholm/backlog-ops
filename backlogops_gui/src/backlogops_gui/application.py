@@ -39,6 +39,7 @@ from typing import Callable, Optional, TextIO, TypeVar
 import argcomplete
 from config_as_json import Config, migrate_cfg
 from config_as_json.file_extension import fix_file_extension
+from wizard_tk_bridge import WizardUiBridgeTk
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, BacklogReleases, GuiDisplayConfig,
     InputFormatConfig, Levels, OutputFormatConfig, Status, get_demo_backlog,
@@ -49,7 +50,6 @@ from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import (
     BacklogWindow, BacklogSource, JiraHandlers, current_time)
 from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
-from backlogops_gui.gui_wizard import TkWizardBridge
 from backlogops_gui.choice_dialogs import (
     ConfigChoice, PresetKind, SourceChoice, ask_no_config_choice,
     ask_preset_kind, ask_source_choice)
@@ -273,7 +273,7 @@ class BacklogApp:
         wizard failure is reported under ``error_title`` and also yields
         None. The bridge window is always closed afterwards.
         """
-        bridge = TkWizardBridge(self.root, self.log)
+        bridge = WizardUiBridgeTk(self.root, log=self.log)
         try:
             return wizard(bridge, default=default)
         except EOFError:

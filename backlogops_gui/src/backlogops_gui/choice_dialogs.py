@@ -16,7 +16,7 @@ three are built from the same :class:`ButtonChoiceDialog`.
 import tkinter as tk
 from enum import Enum
 from typing import Generic, Optional, Sequence, TypeVar
-from backlogops_gui.close_binding import bind_close
+from wizard_tk_bridge.close_binding import bind_close
 
 CHOICE_WRAP = 360
 NO_CONFIG_TEXT = (
