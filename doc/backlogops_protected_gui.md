@@ -76,6 +76,7 @@
   * [ConfigChoice](#backlogops_gui.choice_dialogs.ConfigChoice)
   * [PresetKind](#backlogops_gui.choice_dialogs.PresetKind)
   * [SourceChoice](#backlogops_gui.choice_dialogs.SourceChoice)
+  * [EditTargetChoice](#backlogops_gui.choice_dialogs.EditTargetChoice)
   * [ButtonChoiceDialog](#backlogops_gui.choice_dialogs.ButtonChoiceDialog)
     * [\_\_init\_\_](#backlogops_gui.choice_dialogs.ButtonChoiceDialog.__init__)
     * [\_build](#backlogops_gui.choice_dialogs.ButtonChoiceDialog._build)
@@ -85,6 +86,7 @@
   * [ask\_no\_config\_choice](#backlogops_gui.choice_dialogs.ask_no_config_choice)
   * [ask\_preset\_kind](#backlogops_gui.choice_dialogs.ask_preset_kind)
   * [ask\_source\_choice](#backlogops_gui.choice_dialogs.ask_source_choice)
+  * [ask\_edit\_target](#backlogops_gui.choice_dialogs.ask_edit_target)
 * [backlogops\_gui.format\_dialogs](#backlogops_gui.format_dialogs)
   * [format\_value](#backlogops_gui.format_dialogs.format_value)
   * [ReadOptions](#backlogops_gui.format_dialogs.ReadOptions)
@@ -207,6 +209,7 @@
   * [\_config\_failure](#backlogops_gui.application._config_failure)
   * [BacklogApp](#backlogops_gui.application.BacklogApp)
     * [\_\_init\_\_](#backlogops_gui.application.BacklogApp.__init__)
+    * [adopt\_config](#backlogops_gui.application.BacklogApp.adopt_config)
     * [in\_presets](#backlogops_gui.application.BacklogApp.in_presets)
     * [out\_presets](#backlogops_gui.application.BacklogApp.out_presets)
     * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
@@ -226,6 +229,8 @@
     * [\_prefill\_failed](#backlogops_gui.application.BacklogApp._prefill_failed)
     * [\_load\_config\_file](#backlogops_gui.application.BacklogApp._load_config_file)
     * [run\_config\_wizard](#backlogops_gui.application.BacklogApp.run_config_wizard)
+    * [run\_config\_editor](#backlogops_gui.application.BacklogApp.run_config_editor)
+    * [run\_preset\_editor](#backlogops_gui.application.BacklogApp.run_preset_editor)
     * [create\_preset\_file](#backlogops_gui.application.BacklogApp.create_preset_file)
     * [migrate\_preset\_file](#backlogops_gui.application.BacklogApp.migrate_preset_file)
     * [\_migrate\_preset](#backlogops_gui.application.BacklogApp._migrate_preset)
@@ -412,12 +417,28 @@
 * [backlogops\_gui.jira\_actions](#backlogops_gui.jira_actions)
   * [JiraActions](#backlogops_gui.jira_actions.JiraActions)
     * [\_\_init\_\_](#backlogops_gui.jira_actions.JiraActions.__init__)
+* [backlogops\_gui.config\_edit](#backlogops_gui.config_edit)
+  * [EDIT\_ERRORS](#backlogops_gui.config_edit.EDIT_ERRORS)
+  * [EditorWindow](#backlogops_gui.config_edit.EditorWindow)
+  * [editor\_window](#backlogops_gui.config_edit.editor_window)
+  * [open\_editor\_window](#backlogops_gui.config_edit.open_editor_window)
+  * [edit\_config](#backlogops_gui.config_edit.edit_config)
+  * [\_config\_title](#backlogops_gui.config_edit._config_title)
+  * [edit\_preset\_file](#backlogops_gui.config_edit.edit_preset_file)
+  * [\_in\_use\_model](#backlogops_gui.config_edit._in_use_model)
+  * [\_config\_file\_model](#backlogops_gui.config_edit._config_file_model)
+  * [\_loaded\_file](#backlogops_gui.config_edit._loaded_file)
+  * [\_built](#backlogops_gui.config_edit._built)
+  * [\_adopt\_saved](#backlogops_gui.config_edit._adopt_saved)
+  * [\_report\_saved](#backlogops_gui.config_edit._report_saved)
 * [backlogops\_gui.file\_choosers](#backlogops_gui.file_choosers)
   * [choose\_input\_file](#backlogops_gui.file_choosers.choose_input_file)
   * [choose\_output\_file](#backlogops_gui.file_choosers.choose_output_file)
   * [choose\_config\_file](#backlogops_gui.file_choosers.choose_config_file)
   * [choose\_existing\_config](#backlogops_gui.file_choosers.choose_existing_config)
   * [choose\_existing\_preset](#backlogops_gui.file_choosers.choose_existing_preset)
+  * [choose\_config\_to\_edit](#backlogops_gui.file_choosers.choose_config_to_edit)
+  * [choose\_preset\_to\_edit](#backlogops_gui.file_choosers.choose_preset_to_edit)
   * [choose\_preset\_to\_migrate](#backlogops_gui.file_choosers.choose_preset_to_migrate)
   * [choose\_migrated\_preset](#backlogops_gui.file_choosers.choose_migrated_preset)
   * [choose\_key\_list\_output](#backlogops_gui.file_choosers.choose_key_list_output)
@@ -1195,8 +1216,10 @@ selecting one enumerated value, with no OK or Cancel. The no-configuration
 dialog offers to run the wizard, load a file, or exit at startup. The
 preset-kind dialog asks whether a stand-alone preset file is an input or
 an output preset before it is migrated. The source dialog asks whether to
-start a wizard from scratch, base it on an existing file, or cancel. All
-three are built from the same :class:`ButtonChoiceDialog`.
+start a wizard from scratch, base it on an existing file, or cancel. The
+edit-target dialog asks whether the configuration editor opens the
+configuration the application is using or one in a file. All four are built
+from the same :class:`ButtonChoiceDialog`.
 
 <a id="backlogops_gui.choice_dialogs.ConfigChoice"></a>
 
@@ -1227,6 +1250,16 @@ class SourceChoice(Enum)
 ```
 
 Whether a wizard starts empty, from a file, or is cancelled.
+
+<a id="backlogops_gui.choice_dialogs.EditTargetChoice"></a>
+
+## EditTargetChoice Objects
+
+```python
+class EditTargetChoice(Enum)
+```
+
+Whether the editor opens the configuration in use or one in a file.
 
 <a id="backlogops_gui.choice_dialogs.ButtonChoiceDialog"></a>
 
@@ -1325,6 +1358,16 @@ def ask_source_choice(parent: tk.Misc, title: str, text: str) -> SourceChoice
 ```
 
 Ask whether to start from scratch, base on a file, or cancel.
+
+<a id="backlogops_gui.choice_dialogs.ask_edit_target"></a>
+
+#### ask\_edit\_target
+
+```python
+def ask_edit_target(parent: tk.Misc) -> EditTargetChoice
+```
+
+Ask whether to edit the configuration in use or one in a file.
 
 <a id="backlogops_gui.format_dialogs"></a>
 
@@ -2559,7 +2602,9 @@ Tkinter application for backlog operations.
 
 The application opens a main window whose menu reads a backlog from a file
 or from Jira, loads or replaces the active configuration from a file, runs
-the teams configuration wizard, creates a stand-alone input or output
+the teams configuration wizard, edits a configuration or a stand-alone
+preset file in the folding editor of
+:mod:`backlogops_gui.config_edit`, creates a stand-alone input or output
 preset file, migrates a stand-alone preset file to the current format,
 writes the running configuration to a file, and creates a demonstration
 backlog. The configuration wizard and the preset wizard first ask whether
@@ -2660,7 +2705,26 @@ The backlog operations application and its menu actions.
 def __init__(root: tk.Tk, config: Optional[BacklogOpsConfig] = None) -> None
 ```
 
-Store the window, config, log and Jira collaborators.
+Store the window, config, log and the action collaborators.
+
+<a id="backlogops_gui.application.BacklogApp.adopt_config"></a>
+
+#### adopt\_config
+
+```python
+def adopt_config(config: BacklogOpsConfig, source: str) -> None
+```
+
+Make one configuration the active one and say where it came from.
+
+Every way a configuration becomes the active one goes through here —
+loading a file, the wizard, and the editor — so the status line
+cannot end up saying one thing while another is in use.
+
+**Arguments**:
+
+- `config` - The configuration to use from now on.
+- `source` - Where it came from, as a file name or a short phrase.
 
 <a id="backlogops_gui.application.BacklogApp.in_presets"></a>
 
@@ -2904,6 +2968,26 @@ The wizard may start from scratch or be pre-filled from an
 existing configuration file the user chooses. Its result becomes
 the active configuration; writing it to a file stays with the
 ``Write configuration…`` action.
+
+<a id="backlogops_gui.application.BacklogApp.run_config_editor"></a>
+
+#### run\_config\_editor
+
+```python
+def run_config_editor() -> None
+```
+
+Edit the configuration in use, or one in a file, in the editor.
+
+<a id="backlogops_gui.application.BacklogApp.run_preset_editor"></a>
+
+#### run\_preset\_editor
+
+```python
+def run_preset_editor() -> None
+```
+
+Edit a stand-alone input or output preset file in the editor.
 
 <a id="backlogops_gui.application.BacklogApp.create_preset_file"></a>
 
@@ -5156,6 +5240,213 @@ def __init__(app: 'BacklogApp') -> None
 
 Create the Jira collaborators for the app.
 
+<a id="backlogops_gui.config_edit"></a>
+
+# backlogops\_gui.config\_edit
+
+Edit a configuration in a window of the application.
+
+The two edit actions of the configuration menu live here.
+:func:`edit_config` opens the configuration the application is using, or one
+in a file the user picks; :func:`edit_preset_file` opens a stand-alone input
+or output preset file, whose direction is detected from the file itself.
+What can be edited, what a save writes, and what each member is for all
+belong to :mod:`backlogops.config_editing`, so the editor of the terminal
+interface shows exactly the same configuration.
+
+These are functions taking the application rather than a collaborator
+object, because an editing session keeps nothing between two of them: the
+model belongs to the session and everything else is the application's.
+
+The editor is mounted in a :class:`tkinter.Toplevel` this module creates,
+rather than started through ``edit_cfg_json_tk.edit``. That entry point
+creates a ``tkinter.Tk`` and an event loop of its own, which is for an
+application that runs neither yet: a second Tcl interpreter shares nothing
+with the first, and a nested loop would not end when the editor window
+closed, because Tcl runs its loop while any window of the process lives.
+``EditorWidgets`` is what the library offers for a window an application
+owns, and it takes the close action as an argument so that the editor never
+destroys a window it did not create.
+
+The window is not made modal. The editor opens dialogs of its own — a file
+chooser for Save as…, a question before it overwrites a file, and one asking
+for the key of a new entry — and a grab held by the editor window would keep
+their clicks and keys from reaching them.
+
+<a id="backlogops_gui.config_edit.EDIT_ERRORS"></a>
+
+#### EDIT\_ERRORS
+
+Errors raised when a configuration cannot be opened for editing.
+
+<a id="backlogops_gui.config_edit.EditorWindow"></a>
+
+## EditorWindow Objects
+
+```python
+class EditorWindow(NamedTuple)
+```
+
+One editor window and the widgets that have to be kept with it.
+
+The widgets are carried beside the window because a ``StringVar`` unsets
+its Tcl variable when it is collected, and the field it belongs to would
+then lose both its text and the callback that writes into the model.
+
+<a id="backlogops_gui.config_edit.editor_window"></a>
+
+#### editor\_window
+
+```python
+def editor_window(parent: tk.Misc, model: EditModel,
+                  title: str) -> EditorWindow
+```
+
+Create a window of the application with the editor mounted in it.
+
+Every way out of the editor — its Close button, its key, the close
+button of the window and the platform close key — goes through the
+editor's own close action, so none of them can drop an unsaved change
+without asking. Closing destroys this window and nothing else.
+
+**Arguments**:
+
+- `parent` - Widget the window belongs to, which is the main window.
+- `model` - Model of the editing session to show.
+- `title` - Title of the window, saying what is being edited.
+  
+
+**Returns**:
+
+  The window and the widgets mounted in it.
+
+<a id="backlogops_gui.config_edit.open_editor_window"></a>
+
+#### open\_editor\_window
+
+```python
+def open_editor_window(parent: tk.Misc, model: EditModel, title: str) -> None
+```
+
+Show one edit model in a window of its own until it is closed.
+
+The window and its widgets are held by the local name for as long as
+this call waits for the window, which is as long as they are needed.
+
+**Arguments**:
+
+- `parent` - Widget the window belongs to, which is the main window.
+- `model` - Model of the editing session to show.
+- `title` - Title of the window, saying what is being edited.
+
+<a id="backlogops_gui.config_edit.edit_config"></a>
+
+#### edit\_config
+
+```python
+def edit_config(app: 'BacklogApp') -> None
+```
+
+Edit the configuration in use, or one in a file the user picks.
+
+A configuration the editor saved becomes the active configuration,
+whichever of the two was edited, because the user has just said that
+those are the values they want. Cancelling any step, and closing the
+editor without saving, leaves everything as it was.
+
+<a id="backlogops_gui.config_edit._config_title"></a>
+
+#### \_config\_title
+
+```python
+def _config_title(model: EditModel) -> str
+```
+
+Return the window title, naming the file when a save has one.
+
+<a id="backlogops_gui.config_edit.edit_preset_file"></a>
+
+#### edit\_preset\_file
+
+```python
+def edit_preset_file(app: 'BacklogApp') -> None
+```
+
+Edit a stand-alone input or output preset file.
+
+The direction of the file is detected from its own contents, so the user
+picks a preset file and nothing else. What the editor writes is a file
+and not a configuration of the application, so nothing is adopted.
+
+<a id="backlogops_gui.config_edit._in_use_model"></a>
+
+#### \_in\_use\_model
+
+```python
+def _in_use_model(app: 'BacklogApp') -> Optional[EditModel]
+```
+
+Return the model editing the configuration the application uses.
+
+A save writes the file the configuration was loaded from, when it came
+from one; a configuration that came from the wizard has no file yet and
+the editor asks for one before it can save.
+
+<a id="backlogops_gui.config_edit._config_file_model"></a>
+
+#### \_config\_file\_model
+
+```python
+def _config_file_model(app: 'BacklogApp') -> Optional[EditModel]
+```
+
+Return the model editing a configuration file the user picks.
+
+<a id="backlogops_gui.config_edit._loaded_file"></a>
+
+#### \_loaded\_file
+
+```python
+def _loaded_file(app: 'BacklogApp') -> Optional[str]
+```
+
+Return the file the active configuration was loaded from, if any.
+
+The source of a configuration is either a file name or a phrase saying
+where else it came from, so only a name that is a file now is a
+destination that a save may write.
+
+<a id="backlogops_gui.config_edit._built"></a>
+
+#### \_built
+
+```python
+def _built(app: 'BacklogApp',
+           build: Callable[[], EditModel]) -> Optional[EditModel]
+```
+
+Return the model that ``build`` makes, reporting a refusal.
+
+<a id="backlogops_gui.config_edit._adopt_saved"></a>
+
+#### \_adopt\_saved
+
+```python
+def _adopt_saved(app: 'BacklogApp', model: EditModel) -> None
+```
+
+Make what the editor saved the configuration the application uses.
+
+<a id="backlogops_gui.config_edit._report_saved"></a>
+
+#### \_report\_saved
+
+```python
+def _report_saved(app: 'BacklogApp', model: EditModel, title: str) -> None
+```
+
+Report what the editor wrote, or that it wrote nothing.
+
 <a id="backlogops_gui.file_choosers"></a>
 
 # backlogops\_gui.file\_choosers
@@ -5216,6 +5507,26 @@ def choose_existing_preset(parent: tk.Misc) -> Optional[str]
 ```
 
 Ask for an existing preset file to base on, or None when cancelled.
+
+<a id="backlogops_gui.file_choosers.choose_config_to_edit"></a>
+
+#### choose\_config\_to\_edit
+
+```python
+def choose_config_to_edit(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for an existing configuration file to edit, or None to cancel.
+
+<a id="backlogops_gui.file_choosers.choose_preset_to_edit"></a>
+
+#### choose\_preset\_to\_edit
+
+```python
+def choose_preset_to_edit(parent: tk.Misc) -> Optional[str]
+```
+
+Ask for an existing preset file to edit, or None when cancelled.
 
 <a id="backlogops_gui.file_choosers.choose_preset_to_migrate"></a>
 

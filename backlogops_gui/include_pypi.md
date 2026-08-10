@@ -57,8 +57,19 @@ is in the menus.
       closed for vacation, and preset configuration for the inputs or
       outputs you want to use.
 
+    - Edit configuration...: Show the whole configuration in a folding
+      editor, so you can change one value without stepping through the
+      wizard. It asks whether to edit the configuration the application is
+      using or one in a file you pick. Saving validates the configuration
+      first, keeps what it writes over as a `.bak` file, and makes what it
+      wrote the configuration in use.
+
     - Create IO preset file...: Create a stand-alone input or output preset
       configuration file via a wizard.
+
+    - Edit IO preset file...: Show a stand-alone input or output preset file
+      in the same folding editor. Whether the file is an input or an output
+      preset is detected from the file itself.
 
     - Migrate IO preset file...: Migrate an older input or output preset
       file to the current file format.

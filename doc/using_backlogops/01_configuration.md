@@ -365,7 +365,9 @@ and
 
 ## Creating and maintaining configuration
 
-You rarely write these files by hand. Three tools build and maintain them.
+You rarely write these files by hand. Four tools build and maintain them: two
+wizards that ask one question at a time, an editor that shows the whole
+configuration at once, and a migration for an older file.
 
 ### The configuration wizard
 
@@ -423,8 +425,10 @@ and level display for an output preset). Use its file name wherever an input
 ### Starting from an existing file
 
 Both wizards can start from a file you already have, so you edit its values
-instead of answering every question from an empty start. Pass the existing
-file with `-i`:
+instead of answering every question from an empty start. (For a small change
+to a configuration you already have, [the configuration
+editor](#the-configuration-editor) is usually the quicker way.) Pass the
+existing file with `-i`:
 
 - `python3 -m backlogops_cli.config_wizard -i current.cfg -o current.cfg`
 - `python3 -m backlogops_cli.preset_wizard -i in.cfg -o in.cfg`
@@ -466,6 +470,61 @@ configuration through *Write configuration…* — it first asks you to confirm
 the overwrite, and then writes crash-safely through the same
 `.in_progress` sibling and atomic move, so an interrupted write never loses
 either the old file or the new one.
+
+### The configuration editor
+
+A wizard walks you through the questions in order, which is what building a
+configuration from nothing wants. Changing one value in a configuration you
+already have wants the other shape, and that is the editor: the whole
+configuration on one screen, folded where it is deep, with each member's own
+line saying what it is for. You change the one value and save.
+
+- **CLI:** `python3 -m backlogops_cli.config_edit -i current.cfg` — add
+  `-o other.cfg` to write somewhere else and leave the edited file alone, and
+  `-k input` or `-k output` for a stand-alone preset file (`-k config` is the
+  default). This is the full-screen terminal editor, so it needs a terminal;
+  use the wizard where the input is redirected.
+- **GUI:** *Configuration → Edit configuration…* asks whether to edit the
+  configuration the application is using or one in a file you pick, and
+  *Configuration → Edit IO preset file…* opens a stand-alone preset file,
+  whose direction is detected from the file itself. What the editor saves
+  becomes the configuration in use.
+- **Library:**
+  [`edit_model_for`](../backlogops_api.md#backlogops.config_editing.edit_model_for)
+  and
+  [`CONFIG_DESCRIPTIONS`](../backlogops_api.md#backlogops.config_descriptions.CONFIG_DESCRIPTIONS).
+
+The editor validates before it writes, exactly as the wizard does, and
+refuses to write values the library would not read back: what is wrong is
+then shown below the member it is about, and the file on disk is untouched.
+Saving writes the file that was read, unless you asked for another one. That
+overwrites a configuration somebody wrote, so the editor asks you to confirm
+it and then keeps what was there beside it, under the same name plus `.bak`.
+Both happen once per destination per session: from the second save onwards it
+is your own first save that is being overwritten, and asking about that, or
+keeping it, would only push your original configuration further away.
+
+How many of something the configuration holds is editable too: a named
+input, output or Jira preset, a Jira connection, a person, a team, a
+membership, a work-hour exception and a level can each be added beside the
+ones that are there, removed, and — in a list — moved.
+
+Editing is not a replacement for the wizard, and three things are worth
+knowing before you reach for it:
+
+- **A map does not gain or lose entries here.** The status map, the column
+  maps of a preset and of the GUI display, and the Jira column and issue-type
+  maps all have keys that this library validates for itself, so the editor
+  lets you change what an entry maps to but not add or remove one. It says so
+  below the map. Adding a column mapping is the wizard's job.
+- **The levels have to be there already.** A configuration that leaves the
+  levels out of the file uses the built-in ones, and a member that is not in
+  the file has no line to edit. Set the levels once with the wizard, and the
+  editor can change them afterwards.
+- **Renaming a person takes two steps.** A person is stored under their own
+  name in lower case, and that key is not editable. Changing only the name
+  leaves a configuration the library refuses, and it says so. Add the person
+  again under the new name and remove the old entry, or use the wizard.
 
 ### Migrating an older file
 

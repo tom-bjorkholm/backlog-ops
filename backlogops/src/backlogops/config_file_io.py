@@ -1,14 +1,17 @@
 #! /usr/local/bin/python3
 """Read a stand-alone preset file and write a configuration crash-safely.
 
-Two helpers shared by the command line and the graphical interface. Both
+Helpers shared by the command line and the graphical interface. Both
 interfaces let the user build a configuration or a stand-alone preset file
 through a wizard, optionally pre-filled from an existing file, and then
 write the result. :func:`read_io_preset` reads a stand-alone preset file
 and detects whether it is an input or an output preset from its own
-contents. :func:`safe_write_config` writes any configuration so that a
-crash or a kill at any moment leaves the whole configuration in either the
-old file or a sibling ``.in_progress`` file, never lost between the two.
+contents; :func:`io_preset_class` answers that question alone, for a caller
+that hands the file to something else that reads it, such as the
+configuration editor of :mod:`backlogops.config_editing`.
+:func:`safe_write_config` writes any configuration so that a crash or a
+kill at any moment leaves the whole configuration in either the old file or
+a sibling ``.in_progress`` file, never lost between the two.
 
 The direction is chosen from the top-level keys of the file. A common
 mistake is to pick a complete backlog-ops configuration file where a
@@ -32,6 +35,9 @@ from backlogops.io_config import InputFormatConfig, OutputFormatConfig
 
 IN_PROGRESS_SUFFIX = '.in_progress'
 """Extra extension of the sibling file written before the atomic move."""
+
+CONFIG_EXTENSION = '.cfg'
+"""File name extension of a backlog-ops configuration or preset file."""
 
 _INPUT_KEYS = ('backlog_to_internal', 'release_to_internal',
                'status_input_map', 'to_internal')
@@ -87,17 +93,40 @@ def _preset_direction(data: dict[str, object], filename: str) -> str:
                      'preset, or backlog-ops configuration file.')
 
 
+def io_preset_class(filename: str
+                    ) -> type[InputFormatConfig] | type[OutputFormatConfig]:
+    """Return the preset class a stand-alone preset file is written in.
+
+    The direction is chosen by inspecting the top-level keys of the file:
+    the file-column-to-internal maps or a status map mark an input preset,
+    while the internal-to-file maps or a level display mark an output
+    preset. Only the JSON of the file is read, so a caller that wants the
+    class before it reads the preset itself, such as one handing the file
+    to a configuration editor, needs nothing more than this.
+
+    Args:
+        filename: The stand-alone preset file to look at.
+
+    Returns:
+        :class:`InputFormatConfig` or :class:`OutputFormatConfig`.
+
+    Raises:
+        ValueError: The file is missing, is not valid JSON, is a complete
+            backlog-ops configuration, or matches neither direction.
+    """
+    direction = _preset_direction(_load_preset_json(filename), filename)
+    return InputFormatConfig if direction == 'input' else OutputFormatConfig
+
+
 def read_io_preset(filename: str, auto_ch_hook: ConfigAutoChangeHook,
                    stderr_file: TextIO = sys.stderr
                    ) -> InputFormatConfig | OutputFormatConfig:
     """Read a stand-alone preset file, auto-detecting its direction.
 
-    The direction is chosen by inspecting the top-level keys of the file:
-    the file-column-to-internal maps or a status map mark an input preset,
-    while the internal-to-file maps or a level display mark an output
-    preset. A complete backlog-ops configuration file carries its own
-    identifying keys and is rejected, as is a file that matches no
-    direction, so the caller can report the mistake.
+    The direction is detected by :func:`io_preset_class`. A complete
+    backlog-ops configuration file carries its own identifying keys and is
+    rejected, as is a file that matches no direction, so the caller can
+    report the mistake.
 
     Args:
         filename: The stand-alone preset file to read.
@@ -112,11 +141,9 @@ def read_io_preset(filename: str, auto_ch_hook: ConfigAutoChangeHook,
         ValueError: The file is missing, is not valid JSON, is a complete
             backlog-ops configuration, or matches neither direction.
     """
-    direction = _preset_direction(_load_preset_json(filename), filename)
-    config_class = (InputFormatConfig if direction == 'input'
-                    else OutputFormatConfig)
-    return config_class(from_json_filename=filename, auto_ch_hook=auto_ch_hook,
-                        stderr_file=stderr_file)
+    return io_preset_class(filename)(from_json_filename=filename,
+                                     auto_ch_hook=auto_ch_hook,
+                                     stderr_file=stderr_file)
 
 
 def safe_write_config(config: Config, output: str,

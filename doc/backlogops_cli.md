@@ -19,7 +19,6 @@
   * [build\_parser](#backlogops_cli.demo_backlog.build_parser)
   * [main](#backlogops_cli.demo_backlog.main)
 * [backlogops\_cli.migrate\_cfg](#backlogops_cli.migrate_cfg)
-  * [KIND\_CLASSES](#backlogops_cli.migrate_cfg.KIND_CLASSES)
   * [MIGRATE\_ERRORS](#backlogops_cli.migrate_cfg.MIGRATE_ERRORS)
   * [build\_parser](#backlogops_cli.migrate_cfg.build_parser)
   * [main](#backlogops_cli.migrate_cfg.main)
@@ -72,6 +71,10 @@
 * [backlogops\_cli.update\_releases\_in\_jira](#backlogops_cli.update_releases_in_jira)
   * [build\_parser](#backlogops_cli.update_releases_in_jira.build_parser)
   * [main](#backlogops_cli.update_releases_in_jira.main)
+* [backlogops\_cli.config\_edit](#backlogops_cli.config_edit)
+  * [EDIT\_ERRORS](#backlogops_cli.config_edit.EDIT_ERRORS)
+  * [build\_parser](#backlogops_cli.config_edit.build_parser)
+  * [main](#backlogops_cli.config_edit.main)
 * [backlogops\_cli.encrypt\_token\_file](#backlogops_cli.encrypt_token_file)
   * [build\_parser](#backlogops_cli.encrypt_token_file.build_parser)
   * [main](#backlogops_cli.encrypt_token_file.main)
@@ -336,12 +339,6 @@ The ``--kind`` option selects what the input file is: the backlog-ops
 configuration file, a stand-alone input format preset file, or a
 stand-alone output format preset file. The library refuses to overwrite an
 existing output file, so the destination must not exist.
-
-<a id="backlogops_cli.migrate_cfg.KIND_CLASSES"></a>
-
-#### KIND\_CLASSES
-
-Map a ``--kind`` value to the configuration class used to migrate it.
 
 <a id="backlogops_cli.migrate_cfg.MIGRATE_ERRORS"></a>
 
@@ -1117,6 +1114,61 @@ Update releases in Jira and report the outcome per release.
 
   ``0`` on success, ``1`` when the releases cannot be updated or a
   name is not present in Jira with the raise policy.
+
+<a id="backlogops_cli.config_edit"></a>
+
+# backlogops\_cli.config\_edit
+
+Edit a configuration file in a full-screen terminal editor.
+
+The whole configuration is shown at once, folded where it is deep, so a
+single value can be changed without walking through every question the
+wizard asks. The editor is the one of ``edit-cfg-json-textual``, so it needs
+a terminal; where the input is redirected, the wizard command is the way in.
+
+``-i`` says which file to edit and ``-k``/``--kind`` what kind of file it
+is: the backlog-ops configuration, or a stand-alone input or output preset.
+Without ``-o`` the file that was read is the file that Save writes, which is
+what an editor is normally asked to do; with ``-o`` the input file is left
+alone. Saving validates the whole configuration through its own class first
+and refuses to write values the library would not read back, and what it
+writes over is kept as that name plus ``.bak``.
+
+<a id="backlogops_cli.config_edit.EDIT_ERRORS"></a>
+
+#### EDIT\_ERRORS
+
+Errors raised when the file to edit cannot be opened.
+
+<a id="backlogops_cli.config_edit.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the config edit command.
+
+<a id="backlogops_cli.config_edit.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Open the configuration file in the editor and report what was saved.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` when the session ran, whether or not anything was saved,
+  ``1`` when the file cannot be opened for editing.
 
 <a id="backlogops_cli.encrypt_token_file"></a>
 

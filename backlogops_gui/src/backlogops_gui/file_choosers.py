@@ -48,6 +48,19 @@ def choose_existing_preset(parent: tk.Misc) -> Optional[str]:
     return name or None
 
 
+def choose_config_to_edit(parent: tk.Misc) -> Optional[str]:
+    """Ask for an existing configuration file to edit, or None to cancel."""
+    name = filedialog.askopenfilename(parent=parent,
+                                      title='Edit configuration file')
+    return name or None
+
+
+def choose_preset_to_edit(parent: tk.Misc) -> Optional[str]:
+    """Ask for an existing preset file to edit, or None when cancelled."""
+    name = filedialog.askopenfilename(parent=parent, title='Edit preset file')
+    return name or None
+
+
 def choose_preset_to_migrate(parent: tk.Misc) -> Optional[str]:
     """Ask for an existing preset file to migrate, or None when cancelled."""
     name = filedialog.askopenfilename(parent=parent,

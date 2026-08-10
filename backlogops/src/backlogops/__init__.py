@@ -29,7 +29,13 @@ from backlogops.backlog_ops_wizard import (
 from backlogops.backlog_releases import BacklogReleases
 from backlogops.backlog_releases_io import (
     read_backlog_releases, write_backlog_releases)
-from backlogops.config_file_io import read_io_preset, safe_write_config
+from backlogops.config_descriptions import (
+    CONFIG_DESCRIPTIONS, GUI_DESCRIPTIONS, INPUT_DESCRIPTIONS,
+    JIRA_DESCRIPTIONS, OUTPUT_DESCRIPTIONS, WORKFORCE_DESCRIPTIONS)
+from backlogops.config_editing import (
+    EDIT_SETTINGS, default_edit_config, descriptions_for, edit_model_for)
+from backlogops.config_file_io import (
+    CONFIG_EXTENSION, io_preset_class, read_io_preset, safe_write_config)
 from backlogops.date_ranges import check_date_range, check_no_overlap
 from backlogops.demo_backlog import get_demo_backlog
 from backlogops.estimate_ready_date import (
@@ -108,30 +114,37 @@ __all__ = [
     'AddedReleasesToJira', 'AddedToJira', 'AvailableTeams',
     'AvailableTeamsConfig', 'Backlog', 'BacklogItem', 'BacklogOpsConfig',
     'BacklogReleaseChange', 'BacklogReleases', 'BadJiraRankFilter',
-    'CLEAR_TOKEN_WARNING', 'CompanyWorkHours', 'DEFAULT_LEVELS',
+    'CLEAR_TOKEN_WARNING', 'CONFIG_DESCRIPTIONS', 'CONFIG_EXTENSION',
+    'CompanyWorkHours', 'DEFAULT_LEVELS',
     'DEFAULT_WORK_WEEK', 'DEF_BACKLOG_COLUMN_MAP', 'DEF_RELEASE_COLUMN_MAP',
-    'DEF_STATUS_INPUT_MAP', 'DependencyMode', 'ExceptionWorkHours',
+    'DEF_STATUS_INPUT_MAP', 'DependencyMode', 'EDIT_SETTINGS',
+    'ExceptionWorkHours',
     'ExistsInJiraError', 'FailedItem', 'FailedLink', 'FailedRelease',
     'FailedRename', 'FileExistsCb', 'FormatRules', 'FteException',
-    'GuiDisplayConfig', 'InputFormatConfig', 'ItemNotInJiraError',
+    'GUI_DESCRIPTIONS', 'GuiDisplayConfig', 'INPUT_DESCRIPTIONS',
+    'InputFormatConfig', 'ItemNotInJiraError', 'JIRA_DESCRIPTIONS',
     'JiraAttrPath', 'JiraAttrType', 'JiraColumnMap', 'JiraConnectConfig',
     'JiraConnections', 'JiraIOConfig', 'JiraIssueTypeMap', 'JiraKeyError',
     'JiraPreset', 'JiraRankAnchor', 'JiraTooManyLoops', 'JiraType',
     'LEVEL_COLUMN', 'LEVEL_NAME_COLUMN', 'Level', 'LevelDisplay', 'Levels',
-    'LinkUpdate', 'Membership', 'NoTextIO', 'OnExistingKey', 'OnMissingKey',
+    'LinkUpdate', 'Membership', 'NoTextIO', 'OUTPUT_DESCRIPTIONS',
+    'OnExistingKey', 'OnMissingKey',
     'OrderedReleasesInJira', 'OutputFormatConfig', 'Person', 'RankedInJira',
     'Release', 'ReleaseChange', 'ReleaseChanges', 'ReleaseDateChange',
     'ReleaseDateChanges', 'ReleaseExistsError', 'ReleaseRename', 'Releases',
     'ReleasesAndDateChanges', 'RenamedReleasesInJira', 'ScheduleWorkHours',
     'Status', 'StatusMismatch', 'Team', 'TokenStorage',
     'UnknownIssueTypeError', 'UpdatedBacklogInJira', 'UpdatedReleasesInJira',
+    'WORKFORCE_DESCRIPTIONS',
     'WeekDay', 'add_backlog_to_jira', 'add_releases_to_jira',
     'adjust_release_content', 'allow_overwrite', 'apply_column_map',
     'apply_jira_keys', 'available_teams_wizard', 'backlog_in_release_order',
     'backlog_ops_wizard', 'build_backlog_releases', 'build_dependency_graph',
     'check_backlog_consistency', 'check_date_range',
-    'check_levels_consistency', 'check_no_overlap', 'default_jira_filter',
-    'display_level_order', 'display_level_rows', 'encrypt_token_file',
+    'check_levels_consistency', 'check_no_overlap', 'default_edit_config',
+    'default_jira_filter', 'descriptions_for',
+    'display_level_order', 'display_level_rows', 'edit_model_for',
+    'encrypt_token_file',
     'encrypt_token_to_file', 'estimate_ready_date', 'estimate_release_dates',
     'event_finish', 'event_start', 'find_cycle', 'fold_level_name',
     'format_add_result', 'format_backlog', 'format_backlog_updates',
@@ -140,7 +153,8 @@ __all__ = [
     'format_releases', 'format_rename_result', 'get_backlog',
     'get_backlog_item', 'get_backlog_ops_config', 'get_demo_backlog',
     'get_keys_in_order', 'get_release', 'get_releases',
-    'item_dependency_edges', 'item_to_row', 'jira_custom_fields',
+    'io_preset_class', 'item_dependency_edges', 'item_to_row',
+    'jira_custom_fields',
     'jira_editable_fields', 'jira_rank_backlog', 'jira_rank_by_keys_raw',
     'jira_rank_move_keys', 'level_name', 'level_number_from_name',
     'levels_from_list', 'make_input_config', 'make_output_config',

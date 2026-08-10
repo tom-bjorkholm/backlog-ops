@@ -6,8 +6,10 @@ selecting one enumerated value, with no OK or Cancel. The no-configuration
 dialog offers to run the wizard, load a file, or exit at startup. The
 preset-kind dialog asks whether a stand-alone preset file is an input or
 an output preset before it is migrated. The source dialog asks whether to
-start a wizard from scratch, base it on an existing file, or cancel. All
-three are built from the same :class:`ButtonChoiceDialog`.
+start a wizard from scratch, base it on an existing file, or cancel. The
+edit-target dialog asks whether the configuration editor opens the
+configuration the application is using or one in a file. All four are built
+from the same :class:`ButtonChoiceDialog`.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -26,6 +28,11 @@ NO_CONFIG_TEXT = (
 PRESET_KIND_TEXT = (
     'Is the preset file an input format preset or an output format '
     'preset? The kind decides how the file is migrated.')
+EDIT_TARGET_TITLE = 'Edit configuration'
+EDIT_TARGET_TEXT = (
+    'Edit the configuration the application is using, or one in a file '
+    'you pick? Saving the configuration in use writes the file it was '
+    'loaded from, and Save as… in the editor writes any other file.')
 _Choice = TypeVar('_Choice')
 
 
@@ -48,6 +55,14 @@ class SourceChoice(Enum):
     """Whether a wizard starts empty, from a file, or is cancelled."""
 
     SCRATCH = 'scratch'
+    FROM_FILE = 'from_file'
+    CANCEL = 'cancel'
+
+
+class EditTargetChoice(Enum):
+    """Whether the editor opens the configuration in use or one in a file."""
+
+    IN_USE = 'in_use'
     FROM_FILE = 'from_file'
     CANCEL = 'cancel'
 
@@ -130,3 +145,12 @@ def ask_source_choice(parent: tk.Misc, title: str, text: str) -> SourceChoice:
                ('Cancel', SourceChoice.CANCEL)]
     return ButtonChoiceDialog(parent, title, text, options,
                               SourceChoice.CANCEL).choice
+
+
+def ask_edit_target(parent: tk.Misc) -> EditTargetChoice:
+    """Ask whether to edit the configuration in use or one in a file."""
+    options = [('The configuration in use', EditTargetChoice.IN_USE),
+               ('A configuration file…', EditTargetChoice.FROM_FILE),
+               ('Cancel', EditTargetChoice.CANCEL)]
+    return ButtonChoiceDialog(parent, EDIT_TARGET_TITLE, EDIT_TARGET_TEXT,
+                              options, EditTargetChoice.CANCEL).choice

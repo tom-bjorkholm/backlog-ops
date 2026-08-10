@@ -17,17 +17,10 @@ existing output file, so the destination must not exist.
 import argparse
 import sys
 from typing import Optional
-from config_as_json import Config, migrate_cfg
-from backlogops import (
-    BacklogOpsConfig, InputFormatConfig, OutputFormatConfig)
-from backlogops_cli._command_io import parsed_args
+from config_as_json import migrate_cfg
+from backlogops_cli._command_io import add_kind_arg, kind_class, parsed_args
 
 DESCRIPTION = 'Migrate a configuration file to the current file format'
-
-KIND_CLASSES: dict[str, type[Config]] = {
-    'config': BacklogOpsConfig, 'input': InputFormatConfig,
-    'output': OutputFormatConfig}
-"""Map a ``--kind`` value to the configuration class used to migrate it."""
 
 MIGRATE_ERRORS = (ValueError, TypeError, KeyError, OSError)
 """Errors raised when an input file cannot be read or written."""
@@ -41,12 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('-o', '--output', dest='output', required=True,
                         help='New configuration file to create. It must '
                         'not already exist.')
-    parser.add_argument('-k', '--kind', dest='kind', default='config',
-                        choices=sorted(KIND_CLASSES),
-                        help="What the input file is: 'config' (default, a "
-                        "backlog-ops configuration file), 'input' (an input "
-                        "format preset file), or 'output' (an output format "
-                        'preset file).')
+    add_kind_arg(parser)
     return parser
 
 
@@ -66,9 +54,8 @@ def main(args: Optional[list[str]] = None) -> int:
         already exists, or the data cannot be written.
     """
     parsed = parsed_args(build_parser(), args)
-    config_class = KIND_CLASSES[parsed.kind]
     try:
-        migrate_cfg(parsed.input, parsed.output, config_class)
+        migrate_cfg(parsed.input, parsed.output, kind_class(parsed))
     except SystemExit as error:
         return _exit_code(error)
     except MIGRATE_ERRORS as error:

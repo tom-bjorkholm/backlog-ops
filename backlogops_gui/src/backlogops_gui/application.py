@@ -3,7 +3,9 @@
 
 The application opens a main window whose menu reads a backlog from a file
 or from Jira, loads or replaces the active configuration from a file, runs
-the teams configuration wizard, creates a stand-alone input or output
+the teams configuration wizard, edits a configuration or a stand-alone
+preset file in the folding editor of
+:mod:`backlogops_gui.config_edit`, creates a stand-alone input or output
 preset file, migrates a stand-alone preset file to the current format,
 writes the running configuration to a file, and creates a demonstration
 backlog. The configuration wizard and the preset wizard first ask whether
@@ -41,10 +43,10 @@ from config_as_json import Config, migrate_cfg
 from config_as_json.file_extension import fix_file_extension
 from wizard_tk_bridge import WizardUiBridgeTk
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, BacklogReleases, GuiDisplayConfig,
-    InputFormatConfig, Levels, OutputFormatConfig, Status, get_demo_backlog,
-    get_backlog_ops_config, backlog_ops_wizard, preset_wizard,
-    read_backlog_ops_config, read_io_preset, safe_write_config,
+    AvailableTeams, BacklogOpsConfig, BacklogReleases, CONFIG_EXTENSION,
+    GuiDisplayConfig, InputFormatConfig, Levels, OutputFormatConfig, Status,
+    get_demo_backlog, get_backlog_ops_config, backlog_ops_wizard,
+    preset_wizard, read_backlog_ops_config, read_io_preset, safe_write_config,
     encrypt_token_file, encrypt_token_to_file)
 from backlogops_gui.backlog_io import read_backlog
 from backlogops_gui.backlog_window import (
@@ -53,6 +55,7 @@ from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 from backlogops_gui.choice_dialogs import (
     ConfigChoice, PresetKind, SourceChoice, ask_no_config_choice,
     ask_preset_kind, ask_source_choice)
+from backlogops_gui.config_edit import edit_config, edit_preset_file
 from backlogops_gui.file_choosers import (
     choose_config_file, choose_existing_config, choose_existing_preset,
     choose_input_file, choose_migrated_preset, choose_preset_to_migrate)
@@ -66,17 +69,17 @@ from backlogops_gui.python_version import check_python_version
 from backlogops_gui.tcltk_version import check_tcltk_version
 
 APP_TITLE = 'Backlog operations GUI'
-CONFIG_EXTENSION = '.cfg'
 WRAP_LENGTH = 520
 LOG_REFRESH_MS = 800
 HEADING_FONT = ('TkDefaultFont', 14, 'bold')
 INSTRUCTIONS = (
     'Use the menus to read a backlog from a file or from Jira, load a '
-    'configuration file, run the teams wizard, create a stand-alone input '
-    'or output preset file, migrate a preset file to the current format, '
-    'write the current configuration to a file, or create a demonstration '
-    'backlog. Each backlog opens in its own window. On macOS the menu bar '
-    'is at the top of the display.')
+    'configuration file, run the teams wizard, edit a configuration or a '
+    'preset file, create a stand-alone input or output preset file, '
+    'migrate a preset file to the current format, write the current '
+    'configuration to a file, or create a demonstration backlog. Each '
+    'backlog opens in its own window. On macOS the menu bar is at the top '
+    'of the display.')
 DESCRIPTION = 'Graphical user interface for backlog operations'
 CONFIG_ERRORS = (FileNotFoundError, NotADirectoryError, RuntimeError,
                  ValueError, TypeError, KeyError, OSError)
@@ -155,7 +158,7 @@ class BacklogApp:
 
     def __init__(self, root: tk.Tk,
                  config: Optional[BacklogOpsConfig] = None) -> None:
-        """Store the window, config, log and Jira collaborators."""
+        """Store the window, config, log and the action collaborators."""
         self.root = root
         self.config = config
         self.log = LogBuffer()
@@ -163,6 +166,21 @@ class BacklogApp:
         self.log_view: Optional[tk.Text] = None
         self._status: Optional[tk.StringVar] = None
         self.jira = JiraActions(self)
+
+    def adopt_config(self, config: BacklogOpsConfig, source: str) -> None:
+        """Make one configuration the active one and say where it came from.
+
+        Every way a configuration becomes the active one goes through here —
+        loading a file, the wizard, and the editor — so the status line
+        cannot end up saying one thing while another is in use.
+
+        Args:
+            config: The configuration to use from now on.
+            source: Where it came from, as a file name or a short phrase.
+        """
+        self.config = config
+        self.config_source = source
+        self._update_status()
 
     def in_presets(self) -> Optional[dict[str, InputFormatConfig]]:
         """Return the input presets of the current configuration."""
@@ -214,9 +232,8 @@ class BacklogApp:
         """
         config, error = initial_config(config_arg, self.log)
         if config is not None:
-            self.config = config
-            self.config_source = (config_arg if config_arg is not None
-                                  else 'the default location')
+            self.adopt_config(config, config_arg if config_arg is not None
+                              else 'the default location')
             return True
         if config_arg is not None and error is not None:
             self.show_error('Configuration error', error)
@@ -244,8 +261,7 @@ class BacklogApp:
         config = self.run_wizard()
         if config is None:
             return False
-        self.config = config
-        self.config_source = 'the wizard'
+        self.adopt_config(config, 'the wizard')
         return True
 
     def _adopt_loaded_config(self) -> bool:
@@ -258,8 +274,7 @@ class BacklogApp:
             self.show_error('Configuration error',
                             error or 'Could not load the configuration.')
             return False
-        self.config = config
-        self.config_source = path
+        self.adopt_config(config, path)
         return True
 
     def _run_bridge_wizard(self, wizard: Callable[..., _WizardConfig],
@@ -352,9 +367,7 @@ class BacklogApp:
             self.show_error('Configuration error',
                             error or 'Could not load the configuration.')
             return
-        self.config = config
-        self.config_source = path
-        self._update_status()
+        self.adopt_config(config, path)
         self.show_info('Configuration loaded',
                        f'Loaded configuration from {path}.')
 
@@ -374,10 +387,16 @@ class BacklogApp:
             return
         config = self.run_wizard(default)
         if config is not None:
-            self.config = config
-            self.config_source = 'the wizard'
-            self._update_status()
+            self.adopt_config(config, 'the wizard')
             self.show_info('Wizard', 'The new configuration is now active.')
+
+    def run_config_editor(self) -> None:
+        """Edit the configuration in use, or one in a file, in the editor."""
+        edit_config(self)
+
+    def run_preset_editor(self) -> None:
+        """Edit a stand-alone input or output preset file in the editor."""
+        edit_preset_file(self)
 
     def create_preset_file(self) -> None:
         """Ask the source, run the IO preset wizard, and write the preset.
@@ -651,8 +670,12 @@ class BacklogApp:
         menu.add_separator()
         menu.add_command(label='Run configuration wizard…',
                          command=self.run_config_wizard)
+        menu.add_command(label='Edit configuration…',
+                         command=self.run_config_editor)
         menu.add_command(label='Create IO preset file…',
                          command=self.create_preset_file)
+        menu.add_command(label='Edit IO preset file…',
+                         command=self.run_preset_editor)
         menu.add_command(label='Migrate IO preset file…',
                          command=self.migrate_preset_file)
         menu.add_command(label='Write configuration…',

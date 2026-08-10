@@ -30,7 +30,6 @@
   * [build\_parser](#backlogops_cli.demo_backlog.build_parser)
   * [main](#backlogops_cli.demo_backlog.main)
 * [backlogops\_cli.migrate\_cfg](#backlogops_cli.migrate_cfg)
-  * [KIND\_CLASSES](#backlogops_cli.migrate_cfg.KIND_CLASSES)
   * [MIGRATE\_ERRORS](#backlogops_cli.migrate_cfg.MIGRATE_ERRORS)
   * [build\_parser](#backlogops_cli.migrate_cfg.build_parser)
   * [\_exit\_code](#backlogops_cli.migrate_cfg._exit_code)
@@ -42,6 +41,9 @@
 * [backlogops\_cli.\_command\_io](#backlogops_cli._command_io)
   * [ResultT](#backlogops_cli._command_io.ResultT)
   * [RANK\_ANCHOR\_CHOICES](#backlogops_cli._command_io.RANK_ANCHOR_CHOICES)
+  * [KIND\_CLASSES](#backlogops_cli._command_io.KIND_CLASSES)
+  * [add\_kind\_arg](#backlogops_cli._command_io.add_kind_arg)
+  * [kind\_class](#backlogops_cli._command_io.kind_class)
   * [rank\_anchor](#backlogops_cli._command_io.rank_anchor)
   * [add\_rank\_arg](#backlogops_cli._command_io.add_rank_arg)
   * [overwrite\_callback](#backlogops_cli._command_io.overwrite_callback)
@@ -156,6 +158,13 @@
   * [\_update](#backlogops_cli.update_releases_in_jira._update)
   * [\_run](#backlogops_cli.update_releases_in_jira._run)
   * [main](#backlogops_cli.update_releases_in_jira.main)
+* [backlogops\_cli.config\_edit](#backlogops_cli.config_edit)
+  * [EDIT\_ERRORS](#backlogops_cli.config_edit.EDIT_ERRORS)
+  * [build\_parser](#backlogops_cli.config_edit.build_parser)
+  * [\_input\_file](#backlogops_cli.config_edit._input_file)
+  * [\_model\_to\_edit](#backlogops_cli.config_edit._model_to_edit)
+  * [\_report](#backlogops_cli.config_edit._report)
+  * [main](#backlogops_cli.config_edit.main)
 * [backlogops\_cli.encrypt\_token\_file](#backlogops_cli.encrypt_token_file)
   * [\_ok\_to\_overwrite](#backlogops_cli.encrypt_token_file._ok_to_overwrite)
   * [build\_parser](#backlogops_cli.encrypt_token_file.build_parser)
@@ -546,12 +555,6 @@ configuration file, a stand-alone input format preset file, or a
 stand-alone output format preset file. The library refuses to overwrite an
 existing output file, so the destination must not exist.
 
-<a id="backlogops_cli.migrate_cfg.KIND_CLASSES"></a>
-
-#### KIND\_CLASSES
-
-Map a ``--kind`` value to the configuration class used to migrate it.
-
 <a id="backlogops_cli.migrate_cfg.MIGRATE_ERRORS"></a>
 
 #### MIGRATE\_ERRORS
@@ -671,6 +674,36 @@ Result type of a Jira write, carried from the operation to the report.
 #### RANK\_ANCHOR\_CHOICES
 
 Command-line anchor names mapped to :class:`JiraRankAnchor` members.
+
+<a id="backlogops_cli._command_io.KIND_CLASSES"></a>
+
+#### KIND\_CLASSES
+
+Map a ``--kind`` value to the configuration class it names.
+
+Shared by every command that is told which kind of configuration file it is
+given, so that the migrate and the edit command cannot come to mean
+different things by one kind name.
+
+<a id="backlogops_cli._command_io.add_kind_arg"></a>
+
+#### add\_kind\_arg
+
+```python
+def add_kind_arg(parser: argparse.ArgumentParser) -> None
+```
+
+Add the ``-k``/``--kind`` option saying what the input file is.
+
+<a id="backlogops_cli._command_io.kind_class"></a>
+
+#### kind\_class
+
+```python
+def kind_class(parsed: argparse.Namespace) -> type[Config]
+```
+
+Return the configuration class the ``--kind`` value names.
 
 <a id="backlogops_cli._command_io.rank_anchor"></a>
 
@@ -2324,6 +2357,105 @@ Update releases in Jira and report the outcome per release.
 
   ``0`` on success, ``1`` when the releases cannot be updated or a
   name is not present in Jira with the raise policy.
+
+<a id="backlogops_cli.config_edit"></a>
+
+# backlogops\_cli.config\_edit
+
+Edit a configuration file in a full-screen terminal editor.
+
+The whole configuration is shown at once, folded where it is deep, so a
+single value can be changed without walking through every question the
+wizard asks. The editor is the one of ``edit-cfg-json-textual``, so it needs
+a terminal; where the input is redirected, the wizard command is the way in.
+
+``-i`` says which file to edit and ``-k``/``--kind`` what kind of file it
+is: the backlog-ops configuration, or a stand-alone input or output preset.
+Without ``-o`` the file that was read is the file that Save writes, which is
+what an editor is normally asked to do; with ``-o`` the input file is left
+alone. Saving validates the whole configuration through its own class first
+and refuses to write values the library would not read back, and what it
+writes over is kept as that name plus ``.bak``.
+
+<a id="backlogops_cli.config_edit.EDIT_ERRORS"></a>
+
+#### EDIT\_ERRORS
+
+Errors raised when the file to edit cannot be opened.
+
+<a id="backlogops_cli.config_edit.build_parser"></a>
+
+#### build\_parser
+
+```python
+def build_parser() -> argparse.ArgumentParser
+```
+
+Build the command line parser for the config edit command.
+
+<a id="backlogops_cli.config_edit._input_file"></a>
+
+#### \_input\_file
+
+```python
+def _input_file(parsed: argparse.Namespace) -> str
+```
+
+Return the file to edit, assuming the extension when needed.
+
+**Raises**:
+
+- `ValueError` - Neither the given name nor the completed one is a file.
+
+<a id="backlogops_cli.config_edit._model_to_edit"></a>
+
+#### \_model\_to\_edit
+
+```python
+def _model_to_edit(parsed: argparse.Namespace) -> EditModel
+```
+
+Return the edit model for the file and kind that were asked for.
+
+**Raises**:
+
+- `ValueError` - The file cannot be found or cannot be opened for
+  editing, or the class cannot be constructed.
+
+<a id="backlogops_cli.config_edit._report"></a>
+
+#### \_report
+
+```python
+def _report(model: EditModel) -> int
+```
+
+Print what the session wrote, and answer with the exit code.
+
+Closing an editor is not a failure, so a session that saved nothing
+still succeeds; it says so, because a user who meant to save would
+otherwise be told nothing at all. What a save did is the editor's own
+message, which names the file it wrote and where what it wrote over is.
+
+<a id="backlogops_cli.config_edit.main"></a>
+
+#### main
+
+```python
+def main(args: Optional[list[str]] = None) -> int
+```
+
+Open the configuration file in the editor and report what was saved.
+
+**Arguments**:
+
+- `args` - Optional replacement for ``sys.argv[1:]``, mainly for tests.
+  
+
+**Returns**:
+
+  ``0`` when the session ran, whether or not anything was saved,
+  ``1`` when the file cannot be opened for editing.
 
 <a id="backlogops_cli.encrypt_token_file"></a>
 

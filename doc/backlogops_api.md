@@ -8,6 +8,8 @@
     * [check\_consistency](#backlogops.available_teams.AvailableTeams.check_consistency)
 * [backlogops.config\_file\_io](#backlogops.config_file_io)
   * [IN\_PROGRESS\_SUFFIX](#backlogops.config_file_io.IN_PROGRESS_SUFFIX)
+  * [CONFIG\_EXTENSION](#backlogops.config_file_io.CONFIG_EXTENSION)
+  * [io\_preset\_class](#backlogops.config_file_io.io_preset_class)
   * [read\_io\_preset](#backlogops.config_file_io.read_io_preset)
   * [safe\_write\_config](#backlogops.config_file_io.safe_write_config)
 * [backlogops.apply\_format\_rules](#backlogops.apply_format_rules)
@@ -144,6 +146,15 @@
   * [order\_releases\_in\_jira](#backlogops.jira_order_releases.order_releases_in_jira)
   * [order\_jira\_rel\_by\_date](#backlogops.jira_order_releases.order_jira_rel_by_date)
   * [format\_order\_result](#backlogops.jira_order_releases.format_order_result)
+* [backlogops.config\_descriptions](#backlogops.config_descriptions)
+  * [EVERY](#backlogops.config_descriptions.EVERY)
+  * [prefixed](#backlogops.config_descriptions.prefixed)
+  * [WORKFORCE\_DESCRIPTIONS](#backlogops.config_descriptions.WORKFORCE_DESCRIPTIONS)
+  * [INPUT\_DESCRIPTIONS](#backlogops.config_descriptions.INPUT_DESCRIPTIONS)
+  * [OUTPUT\_DESCRIPTIONS](#backlogops.config_descriptions.OUTPUT_DESCRIPTIONS)
+  * [GUI\_DESCRIPTIONS](#backlogops.config_descriptions.GUI_DESCRIPTIONS)
+  * [JIRA\_DESCRIPTIONS](#backlogops.config_descriptions.JIRA_DESCRIPTIONS)
+  * [CONFIG\_DESCRIPTIONS](#backlogops.config_descriptions.CONFIG_DESCRIPTIONS)
 * [backlogops.team](#backlogops.team)
   * [FteException](#backlogops.team.FteException)
     * [check\_consistency](#backlogops.team.FteException.check_consistency)
@@ -372,6 +383,12 @@
   * [DependencyMode](#backlogops.order_by_dependencies.DependencyMode)
   * [precedence\_relations](#backlogops.order_by_dependencies.precedence_relations)
   * [order\_by\_dependencies](#backlogops.order_by_dependencies.order_by_dependencies)
+* [backlogops.config\_editing](#backlogops.config_editing)
+  * [EDIT\_SETTINGS](#backlogops.config_editing.EDIT_SETTINGS)
+  * [CLASS\_DESCRIPTIONS](#backlogops.config_editing.CLASS_DESCRIPTIONS)
+  * [descriptions\_for](#backlogops.config_editing.descriptions_for)
+  * [default\_edit\_config](#backlogops.config_editing.default_edit_config)
+  * [edit\_model\_for](#backlogops.config_editing.edit_model_for)
 * [backlogops.backlog\_in\_release\_order](#backlogops.backlog_in_release_order)
   * [backlog\_in\_release\_order](#backlogops.backlog_in_release_order.backlog_in_release_order)
 * [backlogops.move\_keys\_first](#backlogops.move_keys_first)
@@ -552,14 +569,17 @@ more than full time on any day.
 
 Read a stand-alone preset file and write a configuration crash-safely.
 
-Two helpers shared by the command line and the graphical interface. Both
+Helpers shared by the command line and the graphical interface. Both
 interfaces let the user build a configuration or a stand-alone preset file
 through a wizard, optionally pre-filled from an existing file, and then
 write the result. :func:`read_io_preset` reads a stand-alone preset file
 and detects whether it is an input or an output preset from its own
-contents. :func:`safe_write_config` writes any configuration so that a
-crash or a kill at any moment leaves the whole configuration in either the
-old file or a sibling ``.in_progress`` file, never lost between the two.
+contents; :func:`io_preset_class` answers that question alone, for a caller
+that hands the file to something else that reads it, such as the
+configuration editor of :mod:`backlogops.config_editing`.
+:func:`safe_write_config` writes any configuration so that a crash or a
+kill at any moment leaves the whole configuration in either the old file or
+a sibling ``.in_progress`` file, never lost between the two.
 
 The direction is chosen from the top-level keys of the file. A common
 mistake is to pick a complete backlog-ops configuration file where a
@@ -575,6 +595,45 @@ rejected the same way, so both interfaces can report the mistake.
 
 Extra extension of the sibling file written before the atomic move.
 
+<a id="backlogops.config_file_io.CONFIG_EXTENSION"></a>
+
+#### CONFIG\_EXTENSION
+
+File name extension of a backlog-ops configuration or preset file.
+
+<a id="backlogops.config_file_io.io_preset_class"></a>
+
+#### io\_preset\_class
+
+```python
+def io_preset_class(
+        filename: str) -> type[InputFormatConfig] | type[OutputFormatConfig]
+```
+
+Return the preset class a stand-alone preset file is written in.
+
+The direction is chosen by inspecting the top-level keys of the file:
+the file-column-to-internal maps or a status map mark an input preset,
+while the internal-to-file maps or a level display mark an output
+preset. Only the JSON of the file is read, so a caller that wants the
+class before it reads the preset itself, such as one handing the file
+to a configuration editor, needs nothing more than this.
+
+**Arguments**:
+
+- `filename` - The stand-alone preset file to look at.
+  
+
+**Returns**:
+
+  :class:`InputFormatConfig` or :class:`OutputFormatConfig`.
+  
+
+**Raises**:
+
+- `ValueError` - The file is missing, is not valid JSON, is a complete
+  backlog-ops configuration, or matches neither direction.
+
 <a id="backlogops.config_file_io.read_io_preset"></a>
 
 #### read\_io\_preset
@@ -589,12 +648,10 @@ def read_io_preset(
 
 Read a stand-alone preset file, auto-detecting its direction.
 
-The direction is chosen by inspecting the top-level keys of the file:
-the file-column-to-internal maps or a status map mark an input preset,
-while the internal-to-file maps or a level display mark an output
-preset. A complete backlog-ops configuration file carries its own
-identifying keys and is rejected, as is a file that matches no
-direction, so the caller can report the mistake.
+The direction is detected by :func:`io_preset_class`. A complete
+backlog-ops configuration file carries its own identifying keys and is
+rejected, as is a file that matches no direction, so the caller can
+report the mistake.
 
 **Arguments**:
 
@@ -3397,6 +3454,117 @@ Return a listing of the ordered names and the names not in Jira.
 Each section has a heading with its count, then one indented name per
 line, or a ``(none)`` line when it is empty. The CLI prints this text and
 the GUI shows it in a copy-pasteable pop-up.
+
+<a id="backlogops.config_descriptions"></a>
+
+# backlogops.config\_descriptions
+
+What each configuration member is for, for the configuration editor.
+
+A configuration class carries its own docstring, so the editor of
+``edit_cfg_json`` can label a configuration object without being told
+anything. A *member* carries nothing at runtime: a string literal written
+after an assignment is discarded and an annotation on an instance attribute
+is recorded nowhere. This module is therefore where backlog-ops says what
+its members are for, as the ``edit_cfg_json.Descriptions`` mappings the
+editor takes.
+
+A member is named by the absolute ``config_as_json.ConfigPath`` that
+addresses it, and the :data:`EVERY` step stands for every element of a list
+and every value of a dict at that point. A selector may cross the boundary
+into a nested configuration object, so one mapping describes a whole tree.
+
+The same classes appear in more than one place: an ``InputFormatConfig`` is
+both a value of ``input_configs`` and the whole of a stand-alone input
+preset file, and a work-hours exception belongs both to a person and to the
+company. Each class is therefore described once, relative to itself, and
+:func:`prefixed` puts one of those mappings under the path where the class
+is used. So every mapping here says the same thing about one member
+wherever that member appears, and
+:data:`CONFIG_DESCRIPTIONS` is built from the others rather than beside
+them.
+
+Three things are deliberately left out. The nested TableIO endpoint is
+described by ``tableio_cfg_json``, which owns those members and documents
+them itself, so only the member holding it is described here. A limit that
+lives inside a validator is not read by the editor and is stated in words
+where it matters. And a member whose type already says what it holds is
+described only where its name does not already say the rest.
+
+<a id="backlogops.config_descriptions.EVERY"></a>
+
+#### EVERY
+
+The path step meaning every element of a list or every value of a dict.
+
+It is the ``config_as_json`` selector step, spelled once here so that a
+description path reads as the tree it walks.
+
+<a id="backlogops.config_descriptions.prefixed"></a>
+
+#### prefixed
+
+```python
+def prefixed(prefix: ConfigPath, members: Descriptions) -> Descriptions
+```
+
+Return the descriptions of one class, put where the class is used.
+
+**Arguments**:
+
+- `prefix` - The path of the member holding that configuration, ending
+  with :data:`EVERY` where it holds several of them.
+- `members` - The descriptions of that class, relative to itself.
+  
+
+**Returns**:
+
+  The same descriptions, each under the absolute path of its member.
+
+<a id="backlogops.config_descriptions.WORKFORCE_DESCRIPTIONS"></a>
+
+#### WORKFORCE\_DESCRIPTIONS
+
+What every member of an ``AvailableTeamsConfig`` is for.
+
+<a id="backlogops.config_descriptions.INPUT_DESCRIPTIONS"></a>
+
+#### INPUT\_DESCRIPTIONS
+
+What every member of an ``InputFormatConfig`` is for.
+
+<a id="backlogops.config_descriptions.OUTPUT_DESCRIPTIONS"></a>
+
+#### OUTPUT\_DESCRIPTIONS
+
+What every member of an ``OutputFormatConfig`` is for.
+
+<a id="backlogops.config_descriptions.GUI_DESCRIPTIONS"></a>
+
+#### GUI\_DESCRIPTIONS
+
+What every member of a ``GuiDisplayConfig`` is for.
+
+The same members as an output preset, without the TableIO endpoint, and
+said of showing a column rather than of writing one, because the graphical
+interface shows the tables rather than writing them.
+
+<a id="backlogops.config_descriptions.JIRA_DESCRIPTIONS"></a>
+
+#### JIRA\_DESCRIPTIONS
+
+What every member of a ``JiraIOConfig`` is for.
+
+<a id="backlogops.config_descriptions.CONFIG_DESCRIPTIONS"></a>
+
+#### CONFIG\_DESCRIPTIONS
+
+What every member of a ``BacklogOpsConfig`` is for.
+
+One mapping for the whole tree, because a description selector crosses the
+boundary into a nested configuration object. It is built from the mapping
+of each class, so a member says the same thing here as it does in the
+stand-alone preset file that holds the same class.
 
 <a id="backlogops.team"></a>
 
@@ -7929,6 +8097,159 @@ not move an item by itself.
 - `RuntimeError` - If space_around names more keys than allowed: more
   than five, or more than ten percent of a backlog of fewer
   than fifty items.
+
+<a id="backlogops.config_editing"></a>
+
+# backlogops.config\_editing
+
+Build the edit model that a configuration editor of a UI shows.
+
+The wizard asks one question after another, which is what building a
+configuration from nothing wants. Editing an existing one wants the other
+shape: the whole configuration on the screen at once, folded where it is
+deep, so a single value can be changed without walking past everything
+else. ``edit_cfg_json`` is that editor, and this module is everything of it
+that is not a widget, so that the command line and the graphical interface
+show one configuration the same way.
+
+:func:`edit_model_for` reads the input file and returns the model to show.
+Which class is edited is the class of the configuration object it is given,
+so the caller decides whether a complete backlog-ops configuration or a
+stand-alone preset is being edited, and the descriptions of that class
+follow from it. A caller that has a class rather than an object, such as a
+command line naming the kind of file it edits, gets the object from
+:func:`default_edit_config`.
+
+What the editor may do to a file is :data:`EDIT_SETTINGS`. Saving is the
+editor's own: it validates the whole configuration through the
+configuration class and only then writes, keeping what it wrote over as a
+``.bak`` file, because an editor overwrites the file it read.
+
+Three things the editor cannot do are worth knowing before it is offered
+instead of the wizard, and all three are of ``edit_cfg_json`` itself rather
+than of this configuration:
+
+* A dict whose keys the application validates for itself cannot gain or
+  lose a key. That is the status map, the column-name maps of a preset and
+  of the display, and the Jira column and issue-type maps: their values are
+  editable, and a new entry is the wizard's to create.
+* A member left out of the file has no row, so the levels can be edited
+  only in a configuration that already states them.
+* A person is keyed by their own name in lower case, so renaming one means
+  adding an entry under the new key and removing the old one; editing the
+  name alone leaves a configuration the class refuses.
+
+<a id="backlogops.config_editing.EDIT_SETTINGS"></a>
+
+#### EDIT\_SETTINGS
+
+What the editor may do to a configuration file of this application.
+
+The extension is added to a destination that has none, and a name with
+another extension is accepted, which is how the wizard commands complete a
+file name too. Overwriting a file this session has not written is confirmed
+first and the previous content is then kept as that name plus ``.bak``,
+because the editor writes over the file it read and that file may hold a
+configuration somebody else wrote.
+
+The default key combinations apply: none of them is taken by the
+application around the editor.
+
+<a id="backlogops.config_editing.CLASS_DESCRIPTIONS"></a>
+
+#### CLASS\_DESCRIPTIONS
+
+What each editable configuration class says about its own members.
+
+<a id="backlogops.config_editing.descriptions_for"></a>
+
+#### descriptions\_for
+
+```python
+def descriptions_for(config: Config) -> Optional[Descriptions]
+```
+
+Return what the class of one configuration says about its members.
+
+**Arguments**:
+
+- `config` - The configuration object that is to be edited.
+  
+
+**Returns**:
+
+  The descriptions of that class, or None for a class this library
+  says nothing about, which the editor shows without descriptions.
+
+<a id="backlogops.config_editing.default_edit_config"></a>
+
+#### default\_edit\_config
+
+```python
+def default_edit_config(config_type: type[Config]) -> Config
+```
+
+Return a configuration holding the declared defaults of one class.
+
+It is the door for a caller that has a class rather than an object,
+which is what a command line naming the kind of file it edits has.
+
+**Arguments**:
+
+- `config_type` - The configuration class to be edited.
+  
+
+**Returns**:
+
+  A configuration object holding only what that class declares.
+  
+
+**Raises**:
+
+- `ValueError` - The editor cannot construct that class on its own.
+
+<a id="backlogops.config_editing.edit_model_for"></a>
+
+#### edit\_model\_for
+
+```python
+def edit_model_for(config: Config,
+                   *,
+                   in_file: Optional[PathOrStr] = None,
+                   out_file: Optional[PathOrStr] = None,
+                   stderr_file: TextIO = sys.stderr) -> EditModel
+```
+
+Read the configuration to edit and return the model of a session.
+
+The class of ``config`` decides which class is edited and supplies the
+values a member the input file leaves out falls back to. The object
+itself is never modified: what a save wrote is
+``EditModel.saved_config``.
+
+**Arguments**:
+
+- `config` - Configuration object of the class to edit, holding the
+  values to start from when there is no input file.
+- `in_file` - Configuration file to read, or None to edit the values
+  that ``config`` holds.
+- `out_file` - Configuration file a save writes, or None to write the
+  input file. With neither, the editor asks the user for one
+  before it can save. A destination named here is one this
+  session chose, so it is given the configuration extension when
+  it has none; the input file is inherited and taken as it is.
+- `stderr_file` - Stream used for user-facing diagnostics.
+  
+
+**Returns**:
+
+  The model of one editing session, for a UI backend to show.
+  
+
+**Raises**:
+
+- `ValueError` - The input file cannot be opened for editing. The
+  message holds what the configuration class said about it.
 
 <a id="backlogops.backlog_in_release_order"></a>
 

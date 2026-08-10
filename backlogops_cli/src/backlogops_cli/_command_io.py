@@ -17,12 +17,14 @@ from pathlib import Path
 from collections.abc import Callable
 from typing import Optional, TextIO, TypeVar
 import argcomplete
+from config_as_json import Config
 from backlogops_cli._migrate_warn import (
     CliMigrateWarnHook, CliPresetMigrateWarnHook)
 from backlogops_cli.bloc_version_reporter import BloCliVersionReporter
 from backlogops import (
     BacklogOpsConfig, BacklogReleases, FileExistsCb, FormatRules,
-    JiraRankAnchor, Levels, ReleaseChanges, ReleaseDateChanges,
+    InputFormatConfig, JiraRankAnchor, Levels, OutputFormatConfig,
+    ReleaseChanges, ReleaseDateChanges,
     allow_overwrite, format_content_changes, format_date_changes,
     get_backlog_ops_config, read_backlog_releases, resolve_input_config,
     resolve_output_config, write_backlog_releases, write_content_changes,
@@ -37,6 +39,31 @@ RANK_ANCHOR_CHOICES = {
     'first-key': JiraRankAnchor.FIRST_KEY,
     'last-key': JiraRankAnchor.LAST_KEY}
 """Command-line anchor names mapped to :class:`JiraRankAnchor` members."""
+
+KIND_CLASSES: dict[str, type[Config]] = {
+    'config': BacklogOpsConfig, 'input': InputFormatConfig,
+    'output': OutputFormatConfig}
+"""Map a ``--kind`` value to the configuration class it names.
+
+Shared by every command that is told which kind of configuration file it is
+given, so that the migrate and the edit command cannot come to mean
+different things by one kind name.
+"""
+
+
+def add_kind_arg(parser: argparse.ArgumentParser) -> None:
+    """Add the ``-k``/``--kind`` option saying what the input file is."""
+    parser.add_argument('-k', '--kind', dest='kind', default='config',
+                        choices=sorted(KIND_CLASSES),
+                        help="What the input file is: 'config' (default, a "
+                        "backlog-ops configuration file), 'input' (an input "
+                        "format preset file), or 'output' (an output format "
+                        'preset file).')
+
+
+def kind_class(parsed: argparse.Namespace) -> type[Config]:
+    """Return the configuration class the ``--kind`` value names."""
+    return KIND_CLASSES[parsed.kind]
 
 
 def rank_anchor(value: Optional[str]) -> Optional[JiraRankAnchor]:

@@ -214,6 +214,9 @@ backlogops_cli serves 2 purposes:
   python3 -m backlogops_cli.adjust_release_content
      Adjust release content to fit the planned release dates
 
+  python3 -m backlogops_cli.config_edit
+     Edit a configuration file in a full-screen editor
+
   python3 -m backlogops_cli.config_wizard
      Create a backlog-ops configuration file via a wizard
 
@@ -284,7 +287,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 2173 passed, 1 deselected in 36s
+- Test result: 2232 passed, 1 deselected in 45s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.

@@ -38,6 +38,21 @@ from backlogops import (
 
 - `get_demo_backlog`: create a demonstration backlog and releases.
 
+### Editing a configuration
+
+- `edit_model_for`, `default_edit_config`: build the `edit-cfg-json` model
+  of an editing session over a `BacklogOpsConfig` or a stand-alone input
+  or output preset, for the Tkinter editor of the graphical interface and
+  the Textual editor of the command line.
+
+- `CONFIG_DESCRIPTIONS`, `INPUT_DESCRIPTIONS`, `OUTPUT_DESCRIPTIONS`:
+  what each configuration member is for, shown below it in the editor.
+  A member has no docstring at runtime, so this is what the editor is
+  told; `descriptions_for` picks the mapping of one configuration class.
+
+- `EDIT_SETTINGS`: what the editor may do to a configuration file of this
+  application, including keeping what it writes over as a `.bak` file.
+
 ### Operations
 
 - `order_by_dependencies`: reorder the backlog so that dependencies are
