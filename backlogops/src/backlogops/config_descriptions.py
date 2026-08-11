@@ -24,12 +24,27 @@ wherever that member appears, and
 :data:`CONFIG_DESCRIPTIONS` is built from the others rather than beside
 them.
 
-Three things are deliberately left out. The nested TableIO endpoint is
+Nothing the editor works out for itself is repeated here. It reads the
+class of a nested configuration object and shows its docstring, the enum
+class of a member and shows its summary line and the names it accepts, the
+kind of value a member holds, and whether its class may leave it out of the
+file. So a text here neither lists the names of an enum, nor spells out
+``true`` and ``false``, nor calls a number a number, nor says that a member
+may be left out.
+
+What a name means is another matter, and it is the one thing a list of
+names does not say. It is written where it is read once for every member
+that holds it: in the summary line of the enum class, which is the line the
+editor shows and the only line of that docstring it shows. A choice with
+more names than fit in one such line has the meaning of them said about the
+member instead, which is why ``token_storage`` explains its modes here and
+``level_display`` does not.
+
+Two more things are deliberately left out. The nested TableIO endpoint is
 described by ``tableio_cfg_json``, which owns those members and documents
-them itself, so only the member holding it is described here. A limit that
-lives inside a validator is not read by the editor and is stated in words
-where it matters. And a member whose type already says what it holds is
-described only where its name does not already say the rest.
+them itself, so only the member holding it is described here. And a limit
+that lives inside a validator is not read by the editor and is stated in
+words where it matters.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -66,11 +81,11 @@ _HOURS_EXCEPTION: Descriptions = {
                    'the first day.',
     ('hours_per_day',): 'Work hours per day during the exception. Zero for '
                         'a holiday or a closed period. Not negative.',
-    ('new_work_days',): 'true when these hours also apply to days the '
+    ('new_work_days',): 'Whether these hours also apply to days the '
                         'schedule gives no work hours, which is what an '
-                        'exception for work on a closed day needs. false '
-                        'when the exception only changes the days that '
-                        'already have work hours.'}
+                        'exception for work on a closed day needs. '
+                        'Otherwise the exception only changes the days '
+                        'that already have work hours.'}
 """Every member of one work-hours exception, of a person or the company."""
 
 _FTE_EXCEPTION: Descriptions = {
@@ -211,9 +226,8 @@ def _display_members(action: str) -> Descriptions:
         ('backlog_to_external', EVERY): column,
         ('release_to_external',): 'The same for the releases table.',
         ('release_to_external', EVERY): column,
-        ('level_display',): 'How the level of a backlog item is '
-                            f'{action}: NUMERIC for its number, NAME for its '
-                            'name, or BOTH for a column of each.'}
+        ('level_display',): 'Which columns the level of a backlog item is '
+                            f'{action} in.'}
 
 
 OUTPUT_DESCRIPTIONS: Descriptions = {**_display_members('written'),
@@ -229,15 +243,15 @@ interface shows the tables rather than writing them.
 """
 
 _CONNECTION: Descriptions = {
-    ('jira_type',): 'Which kind of Jira this is: CLOUD or SERVER.',
     ('base_url',): 'Address of the Jira server, such as '
                    'https://example.atlassian.net',
     ('login_email',): 'Email address the API token belongs to.',
-    ('token_storage',): 'Where the API token is kept and whether it is '
-                        'encrypted: ENCRYPTED_FILE, CLEAR_FILE, '
-                        'ENCRYPTED_INTERNAL or CLEAR_INTERNAL. A clear mode '
-                        'keeps the token unprotected and is meant for '
-                        'demonstration data only.',
+    ('token_storage',): 'A clear mode keeps the token unprotected and is '
+                        'meant for demonstration data only, while an '
+                        'encrypted mode asks for a pass phrase whenever the '
+                        'token is stored and whenever it is used. A file '
+                        'mode keeps the token in the file named below, an '
+                        'internal mode in this configuration itself.',
     ('token_file_path',): 'File holding the token, for a file storage mode. '
                           'Empty for an internal storage mode.',
     ('stored_token',): 'The token itself, for an internal storage mode: '
@@ -294,16 +308,16 @@ JIRA_DESCRIPTIONS: Descriptions = {
                                 'under its own name.',
     ('issue_type_maps', EVERY, EVERY): 'Jira issue type created for that '
                                        'level, such as Deluppgift.',
-    ('presets',): 'The named presets, each tying a connection, the column '
-                  'maps, a project and a filter together. A preset name is '
-                  'what a command asks for with -p.',
+    ('presets',): 'The named presets, each tying the sections above '
+                  'together. A preset name is what a command asks for '
+                  'with -p.',
     **prefixed(('connections', EVERY), _CONNECTION),
     **prefixed(('presets', EVERY), _JIRA_PRESET)}
 """What every member of a ``JiraIOConfig`` is for."""
 
 _LEVEL: Descriptions = {
-    ('level',): 'The level number. A higher number is a bigger item, so a '
-                'story is above a sub-task. Used once across the levels.',
+    ('level',): 'A higher number is a bigger item, so a story is above a '
+                'sub-task. Used once across the levels.',
     ('name',): 'Name of the level, such as Story. Unique across the levels '
                'and their aliases, and not empty.',
     ('aliases',): 'Other names for this level, as another tool may call it. '
@@ -320,19 +334,19 @@ _TOP_LEVEL: Descriptions = {
     ('output_configs',): 'Named output presets, each saying how to write a '
                          'backlog file. A preset name is what a command '
                          'asks for with -O.',
-    ('gui_display',): 'How the graphical interface shows a backlog: the '
-                      'column names to show and how a level is shown.',
+    ('gui_display',): 'What the graphical interface shows. A written file '
+                      'follows its output preset above instead.',
     ('status_input_map',): 'Status names as files and Jira use them, keyed '
                            'by that name and matched without regard to '
                            'case. An input preset may override an entry for '
                            'itself.',
     ('status_input_map', EVERY): 'Internal status this name is read as: one '
                                  'of TODO, IN_PROGRESS, DONE or REJECTED.',
-    ('jira',): 'Everything about Jira: the servers, where each field is '
-               'found on an issue, and the presets that tie them together.',
+    ('jira',): 'Everything about Jira. A backlog kept in files alone needs '
+               'none of it.',
     ('levels',): 'The levels of a backlog item, from the smallest upwards. '
-                 'Leave it out of the file to use the built-in levels: '
-                 'Sub-Task, Story, Epic and Initiative.'}
+                 'Without them the built-in levels are used: Sub-Task, '
+                 'Story, Epic and Initiative.'}
 """What every member of the top-level configuration is for."""
 
 CONFIG_DESCRIPTIONS: Descriptions = {

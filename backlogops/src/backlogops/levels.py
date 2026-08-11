@@ -13,10 +13,13 @@ from backlogops.backlog_helpers import report_wrong_type
 
 
 class LevelDisplay(Enum):
-    """How a backlog item level is represented in a table or display.
+    """NUMERIC is the level number, NAME its name, BOTH a column of each.
 
-    NUMERIC writes only the level number, NAME writes only the level
-    name, and BOTH writes the number and the name in separate columns.
+    That is how a backlog item level is represented in a table or a
+    display. What each member means is said in the summary line above
+    rather than here, because the summary is the line the configuration
+    editor shows under every member holding one of these, and the names
+    on their own are what it can find without being told.
     """
 
     NUMERIC = auto()

@@ -4903,7 +4903,7 @@ config-as-json does not serialize.
 class JiraType(Enum)
 ```
 
-Jira deployment type, cloud or server.
+Jira deployment type: CLOUD is hosted by Atlassian, SERVER is not.
 
 <a id="backlogops.jira_io_config.TokenStorage"></a>
 
@@ -4913,14 +4913,19 @@ Jira deployment type, cloud or server.
 class TokenStorage(Enum)
 ```
 
-How the Jira API token is stored.
+CLEAR or ENCRYPTED is the protection, FILE or INTERNAL the place.
 
-A ``CLEAR`` mode stores the token unprotected and is meant for demo
-data only. An ``ENCRYPTED`` mode stores the token encrypted with a
-pass phrase the user supplies when the token is stored and when it is
-used. A ``FILE`` mode keeps the token in a separate file named by
-``token_file_path``; an ``INTERNAL`` mode keeps it in the
-configuration itself.
+Each member names both, which is what the summary line above says,
+because that line is the one the configuration editor shows under
+every member holding one of these. What each half of a name then
+means is said about the member itself in
+:mod:`backlogops.config_descriptions`, since four modes do not fit in
+a summary line. A ``CLEAR`` mode stores the token unprotected and is
+meant for demo data only. An ``ENCRYPTED`` mode stores the token
+encrypted with a pass phrase the user supplies when the token is
+stored and when it is used. A ``FILE`` mode keeps the token in a
+separate file named by ``token_file_path``; an ``INTERNAL`` mode
+keeps it in the configuration itself.
 
 <a id="backlogops.jira_io_config._CLEAR_MODES"></a>
 
@@ -5946,12 +5951,27 @@ wherever that member appears, and
 :data:`CONFIG_DESCRIPTIONS` is built from the others rather than beside
 them.
 
-Three things are deliberately left out. The nested TableIO endpoint is
+Nothing the editor works out for itself is repeated here. It reads the
+class of a nested configuration object and shows its docstring, the enum
+class of a member and shows its summary line and the names it accepts, the
+kind of value a member holds, and whether its class may leave it out of the
+file. So a text here neither lists the names of an enum, nor spells out
+``true`` and ``false``, nor calls a number a number, nor says that a member
+may be left out.
+
+What a name means is another matter, and it is the one thing a list of
+names does not say. It is written where it is read once for every member
+that holds it: in the summary line of the enum class, which is the line the
+editor shows and the only line of that docstring it shows. A choice with
+more names than fit in one such line has the meaning of them said about the
+member instead, which is why ``token_storage`` explains its modes here and
+``level_display`` does not.
+
+Two more things are deliberately left out. The nested TableIO endpoint is
 described by ``tableio_cfg_json``, which owns those members and documents
-them itself, so only the member holding it is described here. A limit that
-lives inside a validator is not read by the editor and is stated in words
-where it matters. And a member whose type already says what it holds is
-described only where its name does not already say the rest.
+them itself, so only the member holding it is described here. And a limit
+that lives inside a validator is not read by the editor and is stated in
+words where it matters.
 
 <a id="backlogops.config_descriptions.EVERY"></a>
 
@@ -11717,10 +11737,13 @@ Levels of a backlog item.
 class LevelDisplay(Enum)
 ```
 
-How a backlog item level is represented in a table or display.
+NUMERIC is the level number, NAME its name, BOTH a column of each.
 
-NUMERIC writes only the level number, NAME writes only the level
-name, and BOTH writes the number and the name in separate columns.
+That is how a backlog item level is represented in a table or a
+display. What each member means is said in the summary line above
+rather than here, because the summary is the line the configuration
+editor shows under every member holding one of these, and the names
+on their own are what it can find without being told.
 
 <a id="backlogops.levels.Level"></a>
 

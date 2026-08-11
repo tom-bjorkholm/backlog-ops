@@ -50,21 +50,26 @@ from backlogops.jira_token import decrypt_token, encrypt_token
 
 
 class JiraType(Enum):
-    """Jira deployment type, cloud or server."""
+    """Jira deployment type: CLOUD is hosted by Atlassian, SERVER is not."""
 
     CLOUD = auto()
     SERVER = auto()
 
 
 class TokenStorage(Enum):
-    """How the Jira API token is stored.
+    """CLEAR or ENCRYPTED is the protection, FILE or INTERNAL the place.
 
-    A ``CLEAR`` mode stores the token unprotected and is meant for demo
-    data only. An ``ENCRYPTED`` mode stores the token encrypted with a
-    pass phrase the user supplies when the token is stored and when it is
-    used. A ``FILE`` mode keeps the token in a separate file named by
-    ``token_file_path``; an ``INTERNAL`` mode keeps it in the
-    configuration itself.
+    Each member names both, which is what the summary line above says,
+    because that line is the one the configuration editor shows under
+    every member holding one of these. What each half of a name then
+    means is said about the member itself in
+    :mod:`backlogops.config_descriptions`, since four modes do not fit in
+    a summary line. A ``CLEAR`` mode stores the token unprotected and is
+    meant for demo data only. An ``ENCRYPTED`` mode stores the token
+    encrypted with a pass phrase the user supplies when the token is
+    stored and when it is used. A ``FILE`` mode keeps the token in a
+    separate file named by ``token_file_path``; an ``INTERNAL`` mode
+    keeps it in the configuration itself.
     """
 
     CLEAR_FILE = auto()
