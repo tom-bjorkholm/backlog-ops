@@ -287,10 +287,10 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 2232 passed, 1 deselected in 44s
+- Test result: 2232 passed, 1 deselected in 45s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
-- Built version(s): 0.8.1
+- Built version(s): 0.9
 - Build and test using Python 3.14.7
