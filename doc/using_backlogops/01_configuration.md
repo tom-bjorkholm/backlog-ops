@@ -489,10 +489,11 @@ line saying what it is for. You change the one value and save.
   *Configuration → Edit IO preset file…* opens a stand-alone preset file,
   whose direction is detected from the file itself. What the editor saves
   becomes the configuration in use.
-- **Library:**
-  [`edit_model_for`](../backlogops_api.md#backlogops.config_editing.edit_model_for)
+- **Library:** open the editor of your own user interface with
+  [`descriptions_for`](../backlogops_api.md#backlogops.config_editing.descriptions_for)
   and
-  [`CONFIG_DESCRIPTIONS`](../backlogops_api.md#backlogops.config_descriptions.CONFIG_DESCRIPTIONS).
+  [`EDIT_SETTINGS`](../backlogops_api.md#backlogops.config_editing.EDIT_SETTINGS),
+  which are the two things `edit-cfg-json` asks the application for.
 
 The editor validates before it writes, exactly as the wizard does, and
 refuses to write values the library would not read back: what is wrong is

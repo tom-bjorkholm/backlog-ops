@@ -421,14 +421,15 @@
   * [EDIT\_ERRORS](#backlogops_gui.config_edit.EDIT_ERRORS)
   * [EditorWindow](#backlogops_gui.config_edit.EditorWindow)
   * [editor\_window](#backlogops_gui.config_edit.editor_window)
+  * [edit\_in\_window](#backlogops_gui.config_edit.edit_in_window)
   * [open\_editor\_window](#backlogops_gui.config_edit.open_editor_window)
   * [edit\_config](#backlogops_gui.config_edit.edit_config)
-  * [\_config\_title](#backlogops_gui.config_edit._config_title)
   * [edit\_preset\_file](#backlogops_gui.config_edit.edit_preset_file)
-  * [\_in\_use\_model](#backlogops_gui.config_edit._in_use_model)
-  * [\_config\_file\_model](#backlogops_gui.config_edit._config_file_model)
+  * [\_edit\_in\_use](#backlogops_gui.config_edit._edit_in_use)
+  * [\_edit\_config\_file](#backlogops_gui.config_edit._edit_config_file)
+  * [\_config\_title](#backlogops_gui.config_edit._config_title)
   * [\_loaded\_file](#backlogops_gui.config_edit._loaded_file)
-  * [\_built](#backlogops_gui.config_edit._built)
+  * [\_report\_failure](#backlogops_gui.config_edit._report_failure)
   * [\_adopt\_saved](#backlogops_gui.config_edit._adopt_saved)
   * [\_report\_saved](#backlogops_gui.config_edit._report_saved)
 * [backlogops\_gui.file\_choosers](#backlogops_gui.file_choosers)
@@ -5256,7 +5257,7 @@ interface shows exactly the same configuration.
 
 These are functions taking the application rather than a collaborator
 object, because an editing session keeps nothing between two of them: the
-model belongs to the session and everything else is the application's.
+session belongs to the window and everything else is the application's.
 
 The editor is mounted in a :class:`tkinter.Toplevel` this module creates,
 rather than started through ``edit_cfg_json_tk.edit``. That entry point
@@ -5264,9 +5265,10 @@ creates a ``tkinter.Tk`` and an event loop of its own, which is for an
 application that runs neither yet: a second Tcl interpreter shares nothing
 with the first, and a nested loop would not end when the editor window
 closed, because Tcl runs its loop while any window of the process lives.
-``EditorWidgets`` is what the library offers for a window an application
-owns, and it takes the close action as an argument so that the editor never
-destroys a window it did not create.
+``TkEditorPanel`` is what the library offers for an application that already
+runs Tk. It is given the window as its ``area``, so that the window stays
+this module's — its title names the file being edited, and the editor
+destroys only what it built itself.
 
 The window is not made modal. The editor opens dialogs of its own — a file
 chooser for Save as…, a question before it overwrites a file, and one asking
@@ -5287,19 +5289,19 @@ Errors raised when a configuration cannot be opened for editing.
 class EditorWindow(NamedTuple)
 ```
 
-One editor window and the widgets that have to be kept with it.
-
-The widgets are carried beside the window because a ``StringVar`` unsets
-its Tcl variable when it is collected, and the field it belongs to would
-then lose both its text and the callback that writes into the model.
+One editor window and the panel running the session inside it.
 
 <a id="backlogops_gui.config_edit.editor_window"></a>
 
 #### editor\_window
 
 ```python
-def editor_window(parent: tk.Misc, model: EditModel,
-                  title: str) -> EditorWindow
+def editor_window(app: 'BacklogApp',
+                  config: Config,
+                  title: str,
+                  *,
+                  in_file: Optional[PathOrStr] = None,
+                  out_file: Optional[PathOrStr] = None) -> EditorWindow
 ```
 
 Create a window of the application with the editor mounted in it.
@@ -5307,37 +5309,86 @@ Create a window of the application with the editor mounted in it.
 Every way out of the editor — its Close button, its key, the close
 button of the window and the platform close key — goes through the
 editor's own close action, so none of them can drop an unsaved change
-without asking. Closing destroys this window and nothing else.
+without asking. Closing takes the editor off this window, and the
+window then goes with it.
 
 **Arguments**:
 
-- `parent` - Widget the window belongs to, which is the main window.
-- `model` - Model of the editing session to show.
+- `app` - The application, whose window this one belongs to.
+- `config` - Configuration object of the class to edit, holding the
+  values to start from when there is no input file.
 - `title` - Title of the window, saying what is being edited.
+- `in_file` - Configuration file to read, or None to edit the values
+  that ``config`` holds.
+- `out_file` - Configuration file a save writes, or None to write the
+  input file. With neither, the editor asks the user for one.
   
 
 **Returns**:
 
-  The window and the widgets mounted in it.
+  The window and the panel that the editor runs in.
+  
+
+**Raises**:
+
+- `ConfigLoadError` - The input file cannot be opened for editing. The
+  window is taken away again before this is raised.
+
+<a id="backlogops_gui.config_edit.edit_in_window"></a>
+
+#### edit\_in\_window
+
+```python
+def edit_in_window(app: 'BacklogApp',
+                   config: Config,
+                   title: str,
+                   *,
+                   in_file: Optional[PathOrStr] = None,
+                   out_file: Optional[PathOrStr] = None) -> EditModel
+```
+
+Show one configuration in a window of its own until it is closed.
+
+**Arguments**:
+
+  app, config, title, in_file, out_file: As of :func:`editor_window`.
+  
+
+**Returns**:
+
+  The model of the session that has just ended, which says what it
+  saved.
+  
+
+**Raises**:
+
+- `ConfigLoadError` - The input file cannot be opened for editing.
 
 <a id="backlogops_gui.config_edit.open_editor_window"></a>
 
 #### open\_editor\_window
 
 ```python
-def open_editor_window(parent: tk.Misc, model: EditModel, title: str) -> None
+def open_editor_window(
+        app: 'BacklogApp',
+        config: Config,
+        title: str,
+        *,
+        in_file: Optional[PathOrStr] = None,
+        out_file: Optional[PathOrStr] = None) -> Optional[EditModel]
 ```
 
-Show one edit model in a window of its own until it is closed.
-
-The window and its widgets are held by the local name for as long as
-this call waits for the window, which is as long as they are needed.
+Run one editing session in a window, or report why it cannot run.
 
 **Arguments**:
 
-- `parent` - Widget the window belongs to, which is the main window.
-- `model` - Model of the editing session to show.
-- `title` - Title of the window, saying what is being edited.
+  app, config, title, in_file, out_file: As of :func:`editor_window`.
+  
+
+**Returns**:
+
+  The model of the session that ran, or None when the configuration
+  could not be opened for editing, which is then reported.
 
 <a id="backlogops_gui.config_edit.edit_config"></a>
 
@@ -5354,16 +5405,6 @@ whichever of the two was edited, because the user has just said that
 those are the values they want. Cancelling any step, and closing the
 editor without saving, leaves everything as it was.
 
-<a id="backlogops_gui.config_edit._config_title"></a>
-
-#### \_config\_title
-
-```python
-def _config_title(model: EditModel) -> str
-```
-
-Return the window title, naming the file when a save has one.
-
 <a id="backlogops_gui.config_edit.edit_preset_file"></a>
 
 #### edit\_preset\_file
@@ -5378,29 +5419,39 @@ The direction of the file is detected from its own contents, so the user
 picks a preset file and nothing else. What the editor writes is a file
 and not a configuration of the application, so nothing is adopted.
 
-<a id="backlogops_gui.config_edit._in_use_model"></a>
+<a id="backlogops_gui.config_edit._edit_in_use"></a>
 
-#### \_in\_use\_model
+#### \_edit\_in\_use
 
 ```python
-def _in_use_model(app: 'BacklogApp') -> Optional[EditModel]
+def _edit_in_use(app: 'BacklogApp') -> Optional[EditModel]
 ```
 
-Return the model editing the configuration the application uses.
+Edit the configuration the application uses, in a window.
 
 A save writes the file the configuration was loaded from, when it came
 from one; a configuration that came from the wizard has no file yet and
 the editor asks for one before it can save.
 
-<a id="backlogops_gui.config_edit._config_file_model"></a>
+<a id="backlogops_gui.config_edit._edit_config_file"></a>
 
-#### \_config\_file\_model
+#### \_edit\_config\_file
 
 ```python
-def _config_file_model(app: 'BacklogApp') -> Optional[EditModel]
+def _edit_config_file(app: 'BacklogApp') -> Optional[EditModel]
 ```
 
-Return the model editing a configuration file the user picks.
+Edit a configuration file the user picks, in a window.
+
+<a id="backlogops_gui.config_edit._config_title"></a>
+
+#### \_config\_title
+
+```python
+def _config_title(name: Optional[str]) -> str
+```
+
+Return the window title, naming the file when the session has one.
 
 <a id="backlogops_gui.config_edit._loaded_file"></a>
 
@@ -5416,16 +5467,15 @@ The source of a configuration is either a file name or a phrase saying
 where else it came from, so only a name that is a file now is a
 destination that a save may write.
 
-<a id="backlogops_gui.config_edit._built"></a>
+<a id="backlogops_gui.config_edit._report_failure"></a>
 
-#### \_built
+#### \_report\_failure
 
 ```python
-def _built(app: 'BacklogApp',
-           build: Callable[[], EditModel]) -> Optional[EditModel]
+def _report_failure(app: 'BacklogApp', error: Exception) -> None
 ```
 
-Return the model that ``build`` makes, reporting a refusal.
+Log and show why a configuration cannot be opened for editing.
 
 <a id="backlogops_gui.config_edit._adopt_saved"></a>
 

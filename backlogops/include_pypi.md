@@ -40,15 +40,12 @@ from backlogops import (
 
 ### Editing a configuration
 
-- `edit_model_for`, `default_edit_config`: build the `edit-cfg-json` model
-  of an editing session over a `BacklogOpsConfig` or a stand-alone input
-  or output preset, for the Tkinter editor of the graphical interface and
-  the Textual editor of the command line.
-
 - `CONFIG_DESCRIPTIONS`, `INPUT_DESCRIPTIONS`, `OUTPUT_DESCRIPTIONS`:
   what each configuration member is for, shown below it in the editor.
   A member has no docstring at runtime, so this is what the editor is
   told; `descriptions_for` picks the mapping of one configuration class.
+  The nested TableIO endpoint is described by `tableio-cfg-json`, which
+  is asked for that text rather than having it repeated here.
 
 - `EDIT_SETTINGS`: what the editor may do to a configuration file of this
   application, including keeping what it writes over as a `.bak` file.

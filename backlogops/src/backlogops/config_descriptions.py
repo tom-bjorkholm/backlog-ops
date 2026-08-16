@@ -40,11 +40,15 @@ more names than fit in one such line has the meaning of them said about the
 member instead, which is why ``token_storage`` explains its modes here and
 ``level_display`` does not.
 
-Two more things are deliberately left out. The nested TableIO endpoint is
-described by ``tableio_cfg_json``, which owns those members and documents
-them itself, so only the member holding it is described here. And a limit
-that lives inside a validator is not read by the editor and is stated in
-words where it matters.
+The nested TableIO endpoint is described by ``tableio_cfg_json``, which
+owns those members: :func:`tio_json_descriptions` is asked for their text
+under the path of the member holding the endpoint, so the TableIO
+documentation is neither repeated here nor able to drift from it. What is
+written here about that endpoint is the one line about the member itself.
+
+One more thing is deliberately left out: a limit that lives inside a
+validator is not read by the editor and is stated in words where it
+matters.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -52,6 +56,7 @@ words where it matters.
 
 from config_as_json import ConfigPath
 from edit_cfg_json import Descriptions
+from tableio_cfg_json import tio_json_descriptions
 
 EVERY = '['
 """The path step meaning every element of a list or every value of a dict.
@@ -169,12 +174,17 @@ WORKFORCE_DESCRIPTIONS: Descriptions = {
                _FTE_EXCEPTION)}
 """What every member of an ``AvailableTeamsConfig`` is for."""
 
-_TABLEIO_MEMBER = ('How the file itself is read or written: its format, and '
-                   'the settings of that format. These are the members of '
-                   'tableio-cfg-json, which documents them; a setting that '
-                   'is not in the file keeps its default and has no line '
-                   'here.')
-"""What the nested TableIO endpoint of one preset is for."""
+_TABLEIO: Descriptions = {
+    ('tableio',): 'How the file itself is read or written: its format, and '
+                  'the settings of that format. A setting that is not in '
+                  'the file keeps its default and has no line here.',
+    **tio_json_descriptions(('tableio',))}
+"""What the nested TableIO endpoint of one preset and its settings are for.
+
+Only the line about the member itself is written here. Everything below it
+belongs to ``tableio_cfg_json``, which is asked for it, so the formats,
+implementations and values named are the ones registered now.
+"""
 
 _MAPPED_COLUMN = ('Empty drops the column altogether. A column that is not '
                   'named here keeps its own name.')
@@ -198,7 +208,7 @@ INPUT_DESCRIPTIONS: Descriptions = {
                            'alone.',
     ('status_input_map', EVERY): 'Internal status this name is read as: one '
                                  'of TODO, IN_PROGRESS, DONE or REJECTED.',
-    ('tableio',): _TABLEIO_MEMBER}
+    **_TABLEIO}
 """What every member of an ``InputFormatConfig`` is for."""
 
 
@@ -231,7 +241,7 @@ def _display_members(action: str) -> Descriptions:
 
 
 OUTPUT_DESCRIPTIONS: Descriptions = {**_display_members('written'),
-                                     ('tableio',): _TABLEIO_MEMBER}
+                                     **_TABLEIO}
 """What every member of an ``OutputFormatConfig`` is for."""
 
 GUI_DESCRIPTIONS: Descriptions = _display_members('shown')

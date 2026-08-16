@@ -15,13 +15,15 @@ from pathlib import Path
 from typing import Optional, TextIO, override
 import pytest
 from config_as_json import Config, ValidationPlan
-from edit_cfg_json import EditModel, row_description
+from edit_cfg_json import ConfigLoadError, EditModel, default_config, \
+    editor_model, row_description
+from tableio import FileAccess, access_capabilities
+from tableio_cfg_json import tio_json_config_default
 from backlogops import (
     BacklogOpsConfig, CONFIG_DESCRIPTIONS, EDIT_SETTINGS, GUI_DESCRIPTIONS,
     INPUT_DESCRIPTIONS, JIRA_DESCRIPTIONS, InputFormatConfig, NoTextIO,
     OUTPUT_DESCRIPTIONS, OutputFormatConfig, Team, WORKFORCE_DESCRIPTIONS,
-    default_edit_config, descriptions_for, edit_model_for,
-    read_backlog_ops_config)
+    descriptions_for, read_backlog_ops_config)
 from backlogops.config_descriptions import EVERY, prefixed
 from .shared_test_data import write_full_config, write_input_preset, \
     full_config
@@ -45,15 +47,41 @@ class UndescribedConfig(Config):
 
 def _model(config: Config, in_file: Optional[str] = None,
            out_file: Optional[str] = None) -> EditModel:
-    """Return the edit model of one configuration, discarding diagnostics."""
-    return edit_model_for(config, in_file=in_file, out_file=out_file,
-                          stderr_file=NoTextIO())
+    """Return the edit model of one configuration, discarding diagnostics.
+
+    This is what each user interface hands to the editor: the two answers
+    this library gives about a session, and the files of that session.
+    """
+    return editor_model(config, descriptions=descriptions_for(config),
+                        in_file=in_file, out_file=out_file,
+                        settings=EDIT_SETTINGS, stderr_file=NoTextIO())
 
 
 def _from_file(path: Path, out_file: Optional[str] = None) -> EditModel:
     """Return the model editing one backlog-ops configuration file."""
-    return _model(default_edit_config(BacklogOpsConfig), in_file=str(path),
+    return _model(default_config(BacklogOpsConfig), in_file=str(path),
                   out_file=out_file)
+
+
+def _all_options_preset() -> InputFormatConfig:
+    """Return an input preset whose endpoint holds every TableIO option."""
+    access = FileAccess.READ
+    preset = InputFormatConfig(stderr_file=NoTextIO())
+    preset.tableio = tio_json_config_default(
+        access_capabilities(access, error_file=NoTextIO()), access,
+        include_all_options=True, stderr_file=NoTextIO())
+    return preset
+
+
+def _own_text(path: tuple[str, ...]) -> bool:
+    """Whether this library writes the description of that member itself.
+
+    A path that goes on below a ``tableio`` member names a member of the
+    TableIO endpoint, whose text ``tableio_cfg_json`` supplies. Those are
+    checked against an endpoint holding every option, because a preset
+    file holds only the settings that were chosen.
+    """
+    return 'tableio' not in path[:-1]
 
 
 def _explained(model: EditModel) -> str:
@@ -75,7 +103,19 @@ def test_descriptions_used() -> None:
     """
     shown = _explained(_model(full_config()))
     unused = [path for path, text in CONFIG_DESCRIPTIONS.items()
-              if text not in shown]
+              if _own_text(path) and text not in shown]
+    assert not unused
+
+
+def test_tableio_described() -> None:
+    """Test the TableIO endpoint is described by the library owning it.
+
+    The text is asked of ``tableio_cfg_json`` rather than written here, so
+    what is checked is that every member of an endpoint is reached by it.
+    """
+    shown = _explained(_model(_all_options_preset()))
+    unused = [path for path, text in INPUT_DESCRIPTIONS.items()
+              if not _own_text(path) and text not in shown]
     assert not unused
 
 
@@ -132,7 +172,7 @@ def test_prefixed_paths() -> None:
 def test_descriptions_for(config_type: type[Config],
                           expected: dict[tuple[str, ...], str]) -> None:
     """Test each editable class is given the descriptions of its members."""
-    assert descriptions_for(default_edit_config(config_type)) == expected
+    assert descriptions_for(default_config(config_type)) == expected
 
 
 def test_no_descriptions() -> None:
@@ -149,9 +189,14 @@ def test_edit_settings() -> None:
     assert EDIT_SETTINGS.confirm_overwrite is True
 
 
-def test_default_edit_config() -> None:
-    """Test the declared defaults of a class are what the editor starts on."""
-    config = default_edit_config(BacklogOpsConfig)
+def test_editor_builds_config() -> None:
+    """Test the editor constructs the top-level class on its own.
+
+    It needs no loader for it, because the class takes only the arguments
+    ``config_as_json`` documents, and what it builds is the declared
+    defaults that a session with no input file starts from.
+    """
+    config = default_config(BacklogOpsConfig)
     assert isinstance(config, BacklogOpsConfig)
     assert not config.available_teams.teams
 
@@ -181,7 +226,7 @@ def test_out_file_completed(tmp_path: Path) -> None:
 
 def test_missing_input_file(tmp_path: Path) -> None:
     """Test a file that cannot be opened is refused with its diagnostics."""
-    with pytest.raises(ValueError, match='nope.cfg'):
+    with pytest.raises(ConfigLoadError, match='nope.cfg'):
         _from_file(tmp_path / 'nope.cfg')
 
 
@@ -231,7 +276,7 @@ def test_edits_input_preset(tmp_path: Path) -> None:
     """Test a stand-alone preset file is edited with its own descriptions."""
     source = tmp_path / 'in.cfg'
     write_input_preset(source)
-    model = _model(default_edit_config(InputFormatConfig), in_file=str(source))
+    model = _model(default_config(InputFormatConfig), in_file=str(source))
     assert INPUT_DESCRIPTIONS[('backlog_to_internal',)] in _explained(model)
     model.set_text(('backlog_to_internal', 'Type'), 'title')
     assert model.save().saved

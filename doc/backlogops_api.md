@@ -387,8 +387,6 @@
   * [EDIT\_SETTINGS](#backlogops.config_editing.EDIT_SETTINGS)
   * [CLASS\_DESCRIPTIONS](#backlogops.config_editing.CLASS_DESCRIPTIONS)
   * [descriptions\_for](#backlogops.config_editing.descriptions_for)
-  * [default\_edit\_config](#backlogops.config_editing.default_edit_config)
-  * [edit\_model\_for](#backlogops.config_editing.edit_model_for)
 * [backlogops.backlog\_in\_release\_order](#backlogops.backlog_in_release_order)
   * [backlog\_in\_release\_order](#backlogops.backlog_in_release_order.backlog_in_release_order)
 * [backlogops.move\_keys\_first](#backlogops.move_keys_first)
@@ -3505,11 +3503,15 @@ more names than fit in one such line has the meaning of them said about the
 member instead, which is why ``token_storage`` explains its modes here and
 ``level_display`` does not.
 
-Two more things are deliberately left out. The nested TableIO endpoint is
-described by ``tableio_cfg_json``, which owns those members and documents
-them itself, so only the member holding it is described here. And a limit
-that lives inside a validator is not read by the editor and is stated in
-words where it matters.
+The nested TableIO endpoint is described by ``tableio_cfg_json``, which
+owns those members: :func:`tio_json_descriptions` is asked for their text
+under the path of the member holding the endpoint, so the TableIO
+documentation is neither repeated here nor able to drift from it. What is
+written here about that endpoint is the one line about the member itself.
+
+One more thing is deliberately left out: a limit that lives inside a
+validator is not read by the editor and is stated in words where it
+matters.
 
 <a id="backlogops.config_descriptions.EVERY"></a>
 
@@ -8125,28 +8127,33 @@ not move an item by itself.
 
 # backlogops.config\_editing
 
-Build the edit model that a configuration editor of a UI shows.
+What a configuration editor of a UI is told about this application.
 
 The wizard asks one question after another, which is what building a
 configuration from nothing wants. Editing an existing one wants the other
 shape: the whole configuration on the screen at once, folded where it is
 deep, so a single value can be changed without walking past everything
-else. ``edit_cfg_json`` is that editor, and this module is everything of it
-that is not a widget, so that the command line and the graphical interface
-show one configuration the same way.
+else. ``edit_cfg_json`` is that editor, and this module is the two answers
+it asks the application for, so that the command line and the graphical
+interface show one configuration the same way.
 
-:func:`edit_model_for` reads the input file and returns the model to show.
-Which class is edited is the class of the configuration object it is given,
-so the caller decides whether a complete backlog-ops configuration or a
-stand-alone preset is being edited, and the descriptions of that class
-follow from it. A caller that has a class rather than an object, such as a
-command line naming the kind of file it edits, gets the object from
-:func:`default_edit_config`.
+The first answer is :func:`descriptions_for`, which is what each editable
+class says about its own members. Which class is edited is the class of the
+configuration object the editor is given, so the caller decides whether a
+complete backlog-ops configuration or a stand-alone preset is being edited,
+and the descriptions of that class follow from it. A caller that has a
+class rather than an object, such as a command line naming the kind of file
+it edits, gets the object from ``edit_cfg_json.default_config``.
 
-What the editor may do to a file is :data:`EDIT_SETTINGS`. Saving is the
-editor's own: it validates the whole configuration through the
-configuration class and only then writes, keeping what it wrote over as a
-``.bak`` file, because an editor overwrites the file it read.
+The second answer is :data:`EDIT_SETTINGS`, which is what the editor may do
+to a file. Saving is the editor's own: it validates the whole configuration
+through the configuration class and only then writes, keeping what it wrote
+over as a ``.bak`` file, because an editor overwrites the file it read.
+
+Nothing here opens an editor. A user interface that already runs its own
+toolkit mounts the editor itself — ``edit_cfg_json_tk.TkEditorPanel`` in a
+window of the application, ``edit_cfg_json_textual.edit`` in a terminal of
+its own — and hands those two answers to it.
 
 Three things the editor cannot do are worth knowing before it is offered
 instead of the wizard, and all three are of ``edit_cfg_json`` itself rather
@@ -8203,76 +8210,6 @@ Return what the class of one configuration says about its members.
 
   The descriptions of that class, or None for a class this library
   says nothing about, which the editor shows without descriptions.
-
-<a id="backlogops.config_editing.default_edit_config"></a>
-
-#### default\_edit\_config
-
-```python
-def default_edit_config(config_type: type[Config]) -> Config
-```
-
-Return a configuration holding the declared defaults of one class.
-
-It is the door for a caller that has a class rather than an object,
-which is what a command line naming the kind of file it edits has.
-
-**Arguments**:
-
-- `config_type` - The configuration class to be edited.
-  
-
-**Returns**:
-
-  A configuration object holding only what that class declares.
-  
-
-**Raises**:
-
-- `ValueError` - The editor cannot construct that class on its own.
-
-<a id="backlogops.config_editing.edit_model_for"></a>
-
-#### edit\_model\_for
-
-```python
-def edit_model_for(config: Config,
-                   *,
-                   in_file: Optional[PathOrStr] = None,
-                   out_file: Optional[PathOrStr] = None,
-                   stderr_file: TextIO = sys.stderr) -> EditModel
-```
-
-Read the configuration to edit and return the model of a session.
-
-The class of ``config`` decides which class is edited and supplies the
-values a member the input file leaves out falls back to. The object
-itself is never modified: what a save wrote is
-``EditModel.saved_config``.
-
-**Arguments**:
-
-- `config` - Configuration object of the class to edit, holding the
-  values to start from when there is no input file.
-- `in_file` - Configuration file to read, or None to edit the values
-  that ``config`` holds.
-- `out_file` - Configuration file a save writes, or None to write the
-  input file. With neither, the editor asks the user for one
-  before it can save. A destination named here is one this
-  session chose, so it is given the configuration extension when
-  it has none; the input file is inherited and taken as it is.
-- `stderr_file` - Stream used for user-facing diagnostics.
-  
-
-**Returns**:
-
-  The model of one editing session, for a UI backend to show.
-  
-
-**Raises**:
-
-- `ValueError` - The input file cannot be opened for editing. The
-  message holds what the configuration class said about it.
 
 <a id="backlogops.backlog_in_release_order"></a>
 

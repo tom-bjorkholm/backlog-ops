@@ -5,6 +5,8 @@ The whole configuration is shown at once, folded where it is deep, so a
 single value can be changed without walking through every question the
 wizard asks. The editor is the one of ``edit-cfg-json-textual``, so it needs
 a terminal; where the input is redirected, the wizard command is the way in.
+One call runs the whole session: ``edit`` reads the file, shows it until the
+user is done, and answers with the configuration that was saved.
 
 ``-i`` says which file to edit and ``-k``/``--kind`` what kind of file it
 is: the backlog-ops configuration, or a stand-alone input or output preset.
@@ -23,16 +25,16 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Optional
+from config_as_json import Config
 from config_as_json.file_extension import fix_file_extension
-from edit_cfg_json import EditModel
-from edit_cfg_json_textual import TextualEditor
-from backlogops import (
-    CONFIG_EXTENSION, default_edit_config, edit_model_for)
+from edit_cfg_json import ConfigLoadError, default_config
+from edit_cfg_json_textual import edit
+from backlogops import CONFIG_EXTENSION, EDIT_SETTINGS, descriptions_for
 from backlogops_cli._command_io import add_kind_arg, kind_class, parsed_args
 
 DESCRIPTION = 'Edit a configuration file in a full-screen editor'
 
-EDIT_ERRORS = (ValueError, TypeError, KeyError, OSError)
+EDIT_ERRORS = (ConfigLoadError, ValueError, TypeError, KeyError, OSError)
 """Errors raised when the file to edit cannot be opened."""
 
 
@@ -64,35 +66,53 @@ def _input_file(parsed: argparse.Namespace) -> str:
     return path
 
 
-def _model_to_edit(parsed: argparse.Namespace) -> EditModel:
-    """Return the edit model for the file and kind that were asked for.
+def _out_file(output: Optional[str], in_file: str) -> str:
+    """Return the file a save writes, naming it as the editor will.
+
+    Without ``-o`` that is the file that was read. A destination named on
+    the command line is one this run chose, so it is given the
+    configuration extension when it has none, which is what the editor
+    would do with it; naming it here as well is what lets this command say
+    afterwards which file was written.
+
+    Args:
+        output: The ``-o`` value, or None when there is none.
+        in_file: The file that is being edited.
+
+    Returns:
+        The file that a save of this session writes.
+    """
+    if output is None:
+        return in_file
+    return output if Path(output).suffix else output + CONFIG_EXTENSION
+
+
+def _edited(parsed: argparse.Namespace, in_file: str,
+            out_file: str) -> Optional[Config]:
+    """Run one editing session and return the configuration it saved.
+
+    Args:
+        parsed: The parsed command line, naming the kind of file to edit.
+        in_file: The configuration file the editor reads.
+        out_file: The configuration file a save writes.
+
+    Returns:
+        What the session saved, or None when it saved nothing.
 
     Raises:
-        ValueError: The file cannot be found or cannot be opened for
-            editing, or the class cannot be constructed.
+        ConfigLoadError: The input file cannot be opened for editing.
     """
-    return edit_model_for(default_edit_config(kind_class(parsed)),
-                          in_file=_input_file(parsed), out_file=parsed.output,
-                          stderr_file=sys.stderr)
-
-
-def _report(model: EditModel) -> int:
-    """Print what the session wrote, and answer with the exit code.
-
-    Closing an editor is not a failure, so a session that saved nothing
-    still succeeds; it says so, because a user who meant to save would
-    otherwise be told nothing at all. What a save did is the editor's own
-    message, which names the file it wrote and where what it wrote over is.
-    """
-    if model.saved_config is None:
-        print('Closed without saving.')
-        return 0
-    print(model.save_message)
-    return 0
+    config = default_config(kind_class(parsed))
+    return edit(config, descriptions=descriptions_for(config), in_file=in_file,
+                out_file=out_file, settings=EDIT_SETTINGS)
 
 
 def main(args: Optional[list[str]] = None) -> int:
     """Open the configuration file in the editor and report what was saved.
+
+    Closing an editor is not a failure, so a session that saved nothing
+    still succeeds; it says so, because a user who meant to save would
+    otherwise be told nothing at all.
 
     Args:
         args: Optional replacement for ``sys.argv[1:]``, mainly for tests.
@@ -103,12 +123,15 @@ def main(args: Optional[list[str]] = None) -> int:
     """
     parsed = parsed_args(build_parser(), args)
     try:
-        model = _model_to_edit(parsed)
+        in_file = _input_file(parsed)
+        out_file = _out_file(parsed.output, in_file)
+        saved = _edited(parsed, in_file, out_file)
     except EDIT_ERRORS as error:
         print(f'Could not open the configuration: {error}', file=sys.stderr)
         return 1
-    TextualEditor().run_editor(model)
-    return _report(model)
+    print('Closed without saving.' if saved is None
+          else f'Saved to {out_file}')
+    return 0
 
 
 if __name__ == '__main__':  # pragma: no cover

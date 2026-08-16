@@ -11,7 +11,7 @@ interface shows exactly the same configuration.
 
 These are functions taking the application rather than a collaborator
 object, because an editing session keeps nothing between two of them: the
-model belongs to the session and everything else is the application's.
+session belongs to the window and everything else is the application's.
 
 The editor is mounted in a :class:`tkinter.Toplevel` this module creates,
 rather than started through ``edit_cfg_json_tk.edit``. That entry point
@@ -19,9 +19,10 @@ creates a ``tkinter.Tk`` and an event loop of its own, which is for an
 application that runs neither yet: a second Tcl interpreter shares nothing
 with the first, and a nested loop would not end when the editor window
 closed, because Tcl runs its loop while any window of the process lives.
-``EditorWidgets`` is what the library offers for a window an application
-owns, and it takes the close action as an argument so that the editor never
-destroys a window it did not create.
+``TkEditorPanel`` is what the library offers for an application that already
+runs Tk. It is given the window as its ``area``, so that the window stays
+this module's — its title names the file being edited, and the editor
+destroys only what it built itself.
 
 The window is not made modal. The editor opens dialogs of its own — a file
 chooser for Save as…, a question before it overwrites a file, and one asking
@@ -34,12 +35,13 @@ their clicks and keys from reaching them.
 
 import tkinter as tk
 from pathlib import Path
-from typing import Callable, NamedTuple, Optional, TYPE_CHECKING
-from edit_cfg_json import EditModel
-from edit_cfg_json_tk.tk_editor import EditorWidgets
+from typing import NamedTuple, Optional, TYPE_CHECKING
+from config_as_json import Config, PathOrStr
+from edit_cfg_json import ConfigLoadError, EditModel, default_config
+from edit_cfg_json_tk import TkEditorPanel
 from wizard_tk_bridge.close_binding import bind_close
 from backlogops import (
-    BacklogOpsConfig, default_edit_config, edit_model_for, io_preset_class)
+    BacklogOpsConfig, EDIT_SETTINGS, descriptions_for, io_preset_class)
 from backlogops_gui.choice_dialogs import EditTargetChoice, ask_edit_target
 from backlogops_gui.file_choosers import (
     choose_config_to_edit, choose_preset_to_edit)
@@ -47,7 +49,7 @@ from backlogops_gui.file_choosers import (
 if TYPE_CHECKING:
     from backlogops_gui.application import BacklogApp
 
-EDIT_ERRORS = (ValueError, TypeError, KeyError, OSError)
+EDIT_ERRORS = (ConfigLoadError, ValueError, TypeError, KeyError, OSError)
 """Errors raised when a configuration cannot be opened for editing."""
 
 OPEN_FAIL_TITLE = 'Could not open the configuration'
@@ -58,58 +60,97 @@ ADOPTED = 'The saved configuration is now the one in use.'
 
 
 class EditorWindow(NamedTuple):
-    """One editor window and the widgets that have to be kept with it.
-
-    The widgets are carried beside the window because a ``StringVar`` unsets
-    its Tcl variable when it is collected, and the field it belongs to would
-    then lose both its text and the callback that writes into the model.
-    """
+    """One editor window and the panel running the session inside it."""
 
     window: tk.Toplevel
-    widgets: EditorWidgets
+    panel: TkEditorPanel
 
 
-def editor_window(parent: tk.Misc, model: EditModel,
-                  title: str) -> EditorWindow:
+def editor_window(app: 'BacklogApp', config: Config, title: str, *,
+                  in_file: Optional[PathOrStr] = None,
+                  out_file: Optional[PathOrStr] = None) -> EditorWindow:
     """Create a window of the application with the editor mounted in it.
 
     Every way out of the editor — its Close button, its key, the close
     button of the window and the platform close key — goes through the
     editor's own close action, so none of them can drop an unsaved change
-    without asking. Closing destroys this window and nothing else.
+    without asking. Closing takes the editor off this window, and the
+    window then goes with it.
 
     Args:
-        parent: Widget the window belongs to, which is the main window.
-        model: Model of the editing session to show.
+        app: The application, whose window this one belongs to.
+        config: Configuration object of the class to edit, holding the
+            values to start from when there is no input file.
         title: Title of the window, saying what is being edited.
+        in_file: Configuration file to read, or None to edit the values
+            that ``config`` holds.
+        out_file: Configuration file a save writes, or None to write the
+            input file. With neither, the editor asks the user for one.
 
     Returns:
-        The window and the widgets mounted in it.
+        The window and the panel that the editor runs in.
+
+    Raises:
+        ConfigLoadError: The input file cannot be opened for editing. The
+            window is taken away again before this is raised.
     """
-    window = tk.Toplevel(parent)
+    window = tk.Toplevel(app.root)
     window.title(title)
-    if isinstance(parent, tk.Wm):
-        window.transient(parent)
-    widgets = EditorWidgets(parent=window, model=model,
-                            on_close=window.destroy)
-    window.protocol('WM_DELETE_WINDOW', widgets.close_editor)
-    bind_close(window, widgets.close_editor)
-    return EditorWindow(window=window, widgets=widgets)
+    window.transient(app.root)
+    try:
+        panel = TkEditorPanel(config, area=window, modal=False,
+                              on_close=window.destroy,
+                              descriptions=descriptions_for(config),
+                              in_file=in_file, out_file=out_file,
+                              settings=EDIT_SETTINGS, stderr_file=app.log)
+    except EDIT_ERRORS:
+        window.destroy()
+        raise
+    window.protocol('WM_DELETE_WINDOW', panel.close)
+    bind_close(window, panel.close)
+    return EditorWindow(window=window, panel=panel)
 
 
-def open_editor_window(parent: tk.Misc, model: EditModel, title: str) -> None:
-    """Show one edit model in a window of its own until it is closed.
-
-    The window and its widgets are held by the local name for as long as
-    this call waits for the window, which is as long as they are needed.
+def edit_in_window(app: 'BacklogApp', config: Config, title: str, *,
+                   in_file: Optional[PathOrStr] = None,
+                   out_file: Optional[PathOrStr] = None) -> EditModel:
+    """Show one configuration in a window of its own until it is closed.
 
     Args:
-        parent: Widget the window belongs to, which is the main window.
-        model: Model of the editing session to show.
-        title: Title of the window, saying what is being edited.
+        app, config, title, in_file, out_file: As of :func:`editor_window`.
+
+    Returns:
+        The model of the session that has just ended, which says what it
+        saved.
+
+    Raises:
+        ConfigLoadError: The input file cannot be opened for editing.
     """
-    mounted = editor_window(parent, model, title)
+    mounted = editor_window(app, config, title, in_file=in_file,
+                            out_file=out_file)
     mounted.window.wait_window()
+    return mounted.panel.model
+
+
+def open_editor_window(app: 'BacklogApp', config: Config, title: str, *,
+                       in_file: Optional[PathOrStr] = None,
+                       out_file: Optional[PathOrStr] = None
+                       ) -> Optional[EditModel]:
+    """Run one editing session in a window, or report why it cannot run.
+
+    Args:
+        app, config, title, in_file, out_file: As of :func:`editor_window`.
+
+    Returns:
+        The model of the session that ran, or None when the configuration
+        could not be opened for editing, which is then reported.
+    """
+    try:
+        return edit_in_window(app, config, title, in_file=in_file,
+                              out_file=out_file)
+    except EDIT_ERRORS as error:
+        _report_failure(app, error)
+        return None
 
 
 def edit_config(app: 'BacklogApp') -> None:
@@ -123,19 +164,10 @@ def edit_config(app: 'BacklogApp') -> None:
     choice = ask_edit_target(app.root)
     if choice is EditTargetChoice.CANCEL:
         return
-    model = (_in_use_model(app) if choice is EditTargetChoice.IN_USE
-             else _config_file_model(app))
-    if model is None:
-        return
-    open_editor_window(app.root, model, _config_title(model))
-    _adopt_saved(app, model)
-
-
-def _config_title(model: EditModel) -> str:
-    """Return the window title, naming the file when a save has one."""
-    if model.out_file is None:
-        return 'Edit configuration'
-    return f'Edit configuration {Path(model.out_file).name}'
+    model = (_edit_in_use(app) if choice is EditTargetChoice.IN_USE
+             else _edit_config_file(app))
+    if model is not None:
+        _adopt_saved(app, model)
 
 
 def edit_preset_file(app: 'BacklogApp') -> None:
@@ -148,17 +180,19 @@ def edit_preset_file(app: 'BacklogApp') -> None:
     path = choose_preset_to_edit(app.root)
     if path is None:
         return
-    model = _built(app, lambda: edit_model_for(
-        default_edit_config(io_preset_class(path)), in_file=path,
-        stderr_file=app.log))
-    if model is None:
+    try:
+        config = default_config(io_preset_class(path))
+    except EDIT_ERRORS as error:
+        _report_failure(app, error)
         return
-    open_editor_window(app.root, model, f'Edit preset {Path(path).name}')
-    _report_saved(app, model, 'Preset saved')
+    model = open_editor_window(app, config, f'Edit preset {Path(path).name}',
+                               in_file=path)
+    if model is not None:
+        _report_saved(app, model, 'Preset saved')
 
 
-def _in_use_model(app: 'BacklogApp') -> Optional[EditModel]:
-    """Return the model editing the configuration the application uses.
+def _edit_in_use(app: 'BacklogApp') -> Optional[EditModel]:
+    """Edit the configuration the application uses, in a window.
 
     A save writes the file the configuration was loaded from, when it came
     from one; a configuration that came from the wizard has no file yet and
@@ -168,19 +202,25 @@ def _in_use_model(app: 'BacklogApp') -> Optional[EditModel]:
     if config is None:
         app.show_error('No configuration', NO_CONFIG_TEXT)
         return None
-    return _built(app, lambda: edit_model_for(config,
-                                              out_file=_loaded_file(app),
-                                              stderr_file=app.log))
+    out_file = _loaded_file(app)
+    return open_editor_window(app, config, _config_title(out_file),
+                              out_file=out_file)
 
 
-def _config_file_model(app: 'BacklogApp') -> Optional[EditModel]:
-    """Return the model editing a configuration file the user picks."""
+def _edit_config_file(app: 'BacklogApp') -> Optional[EditModel]:
+    """Edit a configuration file the user picks, in a window."""
     path = choose_config_to_edit(app.root)
     if path is None:
         return None
-    return _built(app, lambda: edit_model_for(
-        default_edit_config(BacklogOpsConfig), in_file=path,
-        stderr_file=app.log))
+    return open_editor_window(app, default_config(BacklogOpsConfig),
+                              _config_title(path), in_file=path)
+
+
+def _config_title(name: Optional[str]) -> str:
+    """Return the window title, naming the file when the session has one."""
+    if name is None:
+        return 'Edit configuration'
+    return f'Edit configuration {Path(name).name}'
 
 
 def _loaded_file(app: 'BacklogApp') -> Optional[str]:
@@ -196,15 +236,10 @@ def _loaded_file(app: 'BacklogApp') -> Optional[str]:
     return source
 
 
-def _built(app: 'BacklogApp',
-           build: Callable[[], EditModel]) -> Optional[EditModel]:
-    """Return the model that ``build`` makes, reporting a refusal."""
-    try:
-        return build()
-    except EDIT_ERRORS as error:
-        app.log.write(f'{OPEN_FAIL_TITLE}: {error}\n')
-        app.show_error(OPEN_FAIL_TITLE, str(error))
-        return None
+def _report_failure(app: 'BacklogApp', error: Exception) -> None:
+    """Log and show why a configuration cannot be opened for editing."""
+    app.log.write(f'{OPEN_FAIL_TITLE}: {error}\n')
+    app.show_error(OPEN_FAIL_TITLE, str(error))
 
 
 def _adopt_saved(app: 'BacklogApp', model: EditModel) -> None:

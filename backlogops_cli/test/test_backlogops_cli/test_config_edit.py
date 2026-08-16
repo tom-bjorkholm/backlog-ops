@@ -2,9 +2,10 @@
 """Tests for the backlogops_cli config_edit command.
 
 The editor itself needs a terminal and runs until the user closes it, so
-these tests put a stand-in backend in its place. Each stand-in does what a
-user could do in one session — save, or close without saving — so the
-command is tested around a real edit model.
+these tests put a stand-in backend in its place. The session around that
+backend is the real one, so the command is tested against an edit model
+that read the file and writes it; each stand-in does what a user could do
+in one session — save, or close without saving.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -15,7 +16,8 @@ from typing import Callable, Optional
 import pytest
 from test_backlogops.shared_test_data import write_full_config, \
     write_input_preset
-from edit_cfg_json import EditModel
+from config_as_json import Config, PathOrStr
+from edit_cfg_json import Descriptions, EditModel, Settings, edit
 from backlogops import (
     CONFIG_DESCRIPTIONS, InputFormatConfig, NoTextIO, read_backlog_ops_config)
 from backlogops.config_descriptions import EVERY
@@ -29,8 +31,14 @@ SAID = CONFIG_DESCRIPTIONS[('available_teams', 'teams', EVERY, 'velocity')]
 """What the library says about the velocity of a team."""
 
 
-def _backend(act: Callable[[EditModel], None]) -> Callable[[], object]:
-    """Return a stand-in editor class whose session runs ``act``."""
+def _session(act: Callable[[EditModel], None]
+             ) -> Callable[..., Optional[Config]]:
+    """Return a stand-in for the editing session the command runs.
+
+    It is the real session of the library with a backend that scripts what
+    the user does, so everything the command relies on — reading the file,
+    the descriptions, the settings and the save — is the real thing.
+    """
     # pylint: disable-next=too-few-public-methods
     class StandIn:
         """Stand-in for the Textual editor, running one scripted session."""
@@ -38,7 +46,14 @@ def _backend(act: Callable[[EditModel], None]) -> Callable[[], object]:
         def run_editor(self, model: EditModel) -> None:
             """Do to the model what the scripted session does."""
             act(model)
-    return StandIn
+
+    def scripted(config: Config, *, descriptions: Optional[Descriptions],
+                 in_file: PathOrStr, out_file: PathOrStr,
+                 settings: Settings) -> Optional[Config]:
+        """Edit the configuration with the scripted backend."""
+        return edit(config, StandIn(), descriptions=descriptions,
+                    in_file=in_file, out_file=out_file, settings=settings)
+    return scripted
 
 
 def _saving(text: str) -> Callable[[EditModel], None]:
@@ -58,7 +73,7 @@ def _closing(model: EditModel) -> None:
 def _run(monkeypatch: pytest.MonkeyPatch, args: list[str],
          act: Callable[[EditModel], None]) -> int:
     """Run the command with a stand-in editor running ``act``."""
-    monkeypatch.setattr(config_edit, 'TextualEditor', _backend(act))
+    monkeypatch.setattr(config_edit, 'edit', _session(act))
     return config_edit.main(args)
 
 
@@ -114,9 +129,8 @@ def test_edits_in_place(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     write_full_config(target)
     assert _run(monkeypatch, ['-i', str(target)], _saving('42.0')) == 0
     assert _velocity(target) == 42.0
-    printed = capsys.readouterr().out
-    assert f'Saved to {target}' in printed
-    assert f'{target}.bak' in printed
+    assert f'Saved to {target}' in capsys.readouterr().out
+    assert (tmp_path / 'full.cfg.bak').is_file()
 
 
 def test_extension_assumed(tmp_path: Path,
@@ -128,8 +142,8 @@ def test_extension_assumed(tmp_path: Path,
     assert _velocity(tmp_path / 'full.cfg') == 7.0
 
 
-def test_writes_output_file(tmp_path: Path,
-                            monkeypatch: pytest.MonkeyPatch) -> None:
+def test_writes_output_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                            capsys: pytest.CaptureFixture[str]) -> None:
     """Test -o is written, completed with the extension, and -i is left."""
     source = tmp_path / 'full.cfg'
     write_full_config(source)
@@ -138,6 +152,18 @@ def test_writes_output_file(tmp_path: Path,
                 _saving('3.0')) == 0
     assert _velocity(tmp_path / 'copy.cfg') == 3.0
     assert source.read_text(encoding='utf-8') == before
+    assert f'Saved to {tmp_path / "copy.cfg"}' in capsys.readouterr().out
+
+
+def test_output_ext_kept(tmp_path: Path,
+                         monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a destination that has an extension keeps the one it has."""
+    source = tmp_path / 'full.cfg'
+    write_full_config(source)
+    other = str(tmp_path / 'c.txt')
+    assert _run(monkeypatch, ['-i', str(source), '-o', other],
+                _saving('4.0')) == 0
+    assert _velocity(tmp_path / 'c.txt') == 4.0
 
 
 def test_closed_unsaved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,

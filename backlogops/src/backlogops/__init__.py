@@ -32,8 +32,7 @@ from backlogops.backlog_releases_io import (
 from backlogops.config_descriptions import (
     CONFIG_DESCRIPTIONS, GUI_DESCRIPTIONS, INPUT_DESCRIPTIONS,
     JIRA_DESCRIPTIONS, OUTPUT_DESCRIPTIONS, WORKFORCE_DESCRIPTIONS)
-from backlogops.config_editing import (
-    EDIT_SETTINGS, default_edit_config, descriptions_for, edit_model_for)
+from backlogops.config_editing import EDIT_SETTINGS, descriptions_for
 from backlogops.config_file_io import (
     CONFIG_EXTENSION, io_preset_class, read_io_preset, safe_write_config)
 from backlogops.date_ranges import check_date_range, check_no_overlap
@@ -141,9 +140,9 @@ __all__ = [
     'apply_jira_keys', 'available_teams_wizard', 'backlog_in_release_order',
     'backlog_ops_wizard', 'build_backlog_releases', 'build_dependency_graph',
     'check_backlog_consistency', 'check_date_range',
-    'check_levels_consistency', 'check_no_overlap', 'default_edit_config',
+    'check_levels_consistency', 'check_no_overlap',
     'default_jira_filter', 'descriptions_for',
-    'display_level_order', 'display_level_rows', 'edit_model_for',
+    'display_level_order', 'display_level_rows',
     'encrypt_token_file',
     'encrypt_token_to_file', 'estimate_ready_date', 'estimate_release_dates',
     'event_finish', 'event_start', 'find_cycle', 'fold_level_name',

@@ -162,8 +162,8 @@
   * [EDIT\_ERRORS](#backlogops_cli.config_edit.EDIT_ERRORS)
   * [build\_parser](#backlogops_cli.config_edit.build_parser)
   * [\_input\_file](#backlogops_cli.config_edit._input_file)
-  * [\_model\_to\_edit](#backlogops_cli.config_edit._model_to_edit)
-  * [\_report](#backlogops_cli.config_edit._report)
+  * [\_out\_file](#backlogops_cli.config_edit._out_file)
+  * [\_edited](#backlogops_cli.config_edit._edited)
   * [main](#backlogops_cli.config_edit.main)
 * [backlogops\_cli.encrypt\_token\_file](#backlogops_cli.encrypt_token_file)
   * [\_ok\_to\_overwrite](#backlogops_cli.encrypt_token_file._ok_to_overwrite)
@@ -2368,6 +2368,8 @@ The whole configuration is shown at once, folded where it is deep, so a
 single value can be changed without walking through every question the
 wizard asks. The editor is the one of ``edit-cfg-json-textual``, so it needs
 a terminal; where the input is redirected, the wizard command is the way in.
+One call runs the whole session: ``edit`` reads the file, shows it until the
+user is done, and answers with the configuration that was saved.
 
 ``-i`` says which file to edit and ``-k``/``--kind`` what kind of file it
 is: the backlog-ops configuration, or a stand-alone input or output preset.
@@ -2407,35 +2409,58 @@ Return the file to edit, assuming the extension when needed.
 
 - `ValueError` - Neither the given name nor the completed one is a file.
 
-<a id="backlogops_cli.config_edit._model_to_edit"></a>
+<a id="backlogops_cli.config_edit._out_file"></a>
 
-#### \_model\_to\_edit
+#### \_out\_file
 
 ```python
-def _model_to_edit(parsed: argparse.Namespace) -> EditModel
+def _out_file(output: Optional[str], in_file: str) -> str
 ```
 
-Return the edit model for the file and kind that were asked for.
+Return the file a save writes, naming it as the editor will.
+
+Without ``-o`` that is the file that was read. A destination named on
+the command line is one this run chose, so it is given the
+configuration extension when it has none, which is what the editor
+would do with it; naming it here as well is what lets this command say
+afterwards which file was written.
+
+**Arguments**:
+
+- `output` - The ``-o`` value, or None when there is none.
+- `in_file` - The file that is being edited.
+  
+
+**Returns**:
+
+  The file that a save of this session writes.
+
+<a id="backlogops_cli.config_edit._edited"></a>
+
+#### \_edited
+
+```python
+def _edited(parsed: argparse.Namespace, in_file: str,
+            out_file: str) -> Optional[Config]
+```
+
+Run one editing session and return the configuration it saved.
+
+**Arguments**:
+
+- `parsed` - The parsed command line, naming the kind of file to edit.
+- `in_file` - The configuration file the editor reads.
+- `out_file` - The configuration file a save writes.
+  
+
+**Returns**:
+
+  What the session saved, or None when it saved nothing.
+  
 
 **Raises**:
 
-- `ValueError` - The file cannot be found or cannot be opened for
-  editing, or the class cannot be constructed.
-
-<a id="backlogops_cli.config_edit._report"></a>
-
-#### \_report
-
-```python
-def _report(model: EditModel) -> int
-```
-
-Print what the session wrote, and answer with the exit code.
-
-Closing an editor is not a failure, so a session that saved nothing
-still succeeds; it says so, because a user who meant to save would
-otherwise be told nothing at all. What a save did is the editor's own
-message, which names the file it wrote and where what it wrote over is.
+- `ConfigLoadError` - The input file cannot be opened for editing.
 
 <a id="backlogops_cli.config_edit.main"></a>
 
@@ -2446,6 +2471,10 @@ def main(args: Optional[list[str]] = None) -> int
 ```
 
 Open the configuration file in the editor and report what was saved.
+
+Closing an editor is not a failure, so a session that saved nothing
+still succeeds; it says so, because a user who meant to save would
+otherwise be told nothing at all.
 
 **Arguments**:
 

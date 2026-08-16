@@ -1,10 +1,12 @@
 #! /usr/local/bin/python3
 """Tests for the configuration and preset edit menu actions.
 
-These cover choosing what to edit, building the model for it, what becomes
+These cover choosing what to edit, what the session is given, what becomes
 of the configuration the application uses, and how a file that cannot be
 opened is reported. The editor window itself runs until the user closes it,
-so the logic tests put a scripted session in its place; one test with a
+so the logic tests put a scripted session in its place; that stand-in
+builds the model the window would have shown, so a file that cannot be
+opened is refused there exactly as it is in a window. One test with a
 display mounts the real editor in a window and checks what it wired up.
 """
 
@@ -16,10 +18,11 @@ import tkinter as tk
 from pathlib import Path
 from typing import Callable, Optional, cast
 import pytest
-from edit_cfg_json import EditModel
+from config_as_json import Config
+from edit_cfg_json import EditModel, editor_model
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, InputFormatConfig, NoTextIO, Team,
-    write_backlog_ops_config)
+    AvailableTeams, BacklogOpsConfig, EDIT_SETTINGS, InputFormatConfig,
+    NoTextIO, Team, descriptions_for, write_backlog_ops_config)
 from backlogops_gui import config_edit
 from backlogops_gui.application import BacklogApp
 from backlogops_gui.choice_dialogs import EditTargetChoice
@@ -58,21 +61,36 @@ def _app(config: Optional[BacklogOpsConfig] = None,
     return app
 
 
-def _session(act: Callable[[EditModel], None]) -> Callable[..., None]:
+def _shown(config: Config, in_file: Optional[str],
+           out_file: Optional[str]) -> EditModel:
+    """Return the model that the real editor window would have shown."""
+    return editor_model(config, descriptions=descriptions_for(config),
+                        in_file=in_file, out_file=out_file,
+                        settings=EDIT_SETTINGS, stderr_file=NoTextIO())
+
+
+def _session(act: Callable[[EditModel], None]) -> Callable[..., EditModel]:
     """Return a stand-in editor window running one scripted session."""
-    def opened(_parent: object, model: EditModel, _title: str) -> None:
-        """Do to the model what the scripted session does."""
+    def opened(_app: object, config: Config, _title: str, *,
+               in_file: Optional[str] = None,
+               out_file: Optional[str] = None) -> EditModel:
+        """Do to the model of the session what the script does."""
+        model = _shown(config, in_file, out_file)
         act(model)
+        return model
     return opened
 
 
-def _recording() -> tuple[list[str], Callable[..., None]]:
+def _recording() -> tuple[list[str], Callable[..., EditModel]]:
     """Return the recorded titles and the stand-in window recording them."""
     titles: list[str] = []
 
-    def opened(_parent: object, _model: EditModel, title: str) -> None:
+    def opened(_app: object, config: Config, title: str, *,
+               in_file: Optional[str] = None,
+               out_file: Optional[str] = None) -> EditModel:
         """Record the title the editor window was opened with."""
         titles.append(title)
+        return _shown(config, in_file, out_file)
     return titles, opened
 
 
@@ -90,18 +108,18 @@ def _closing(model: EditModel) -> None:
     _ = model
 
 
-def _seen_models(store: list[EditModel]) -> Callable[..., None]:
+def _seen_models(store: list[EditModel]) -> Callable[..., EditModel]:
     """Return a stand-in editor window that only records its model."""
     return _session(store.append)
 
 
 def _patch(monkeypatch: pytest.MonkeyPatch, app: BacklogApp, *,
-           opened: Callable[..., None],
+           opened: Callable[..., EditModel],
            target: EditTargetChoice = EditTargetChoice.IN_USE,
            chosen: Optional[str] = None) -> list[tuple[str, str]]:
     """Patch the dialogs and the editor window, recording the messages."""
     messages: list[tuple[str, str]] = []
-    monkeypatch.setattr(config_edit, 'open_editor_window', opened)
+    monkeypatch.setattr(config_edit, 'edit_in_window', opened)
     monkeypatch.setattr(config_edit, 'ask_edit_target', lambda _parent: target)
     monkeypatch.setattr(config_edit, 'choose_config_to_edit',
                         lambda _parent: chosen)
@@ -300,13 +318,15 @@ def test_editor_window(monkeypatch: pytest.MonkeyPatch) -> None:
     spy = CloseSpy()
     monkeypatch.setattr(config_edit, 'bind_close', spy)
     with gui_root() as root:
-        model = EditModel(BacklogOpsConfig(stderr_file=NoTextIO()))
-        mounted = config_edit.editor_window(root, model, 'Edit configuration')
+        app = BacklogApp(root)
+        mounted = config_edit.editor_window(
+            app, BacklogOpsConfig(stderr_file=NoTextIO()),
+            'Edit configuration')
         assert mounted.window.title() == 'Edit configuration'
         assert mounted.window.winfo_children()
-        assert spy.calls == [(mounted.window, mounted.widgets.close_editor)]
+        assert spy.calls == [(mounted.window, mounted.panel.close)]
         assert mounted.window.protocol('WM_DELETE_WINDOW')
-        mounted.widgets.close_editor()
+        mounted.panel.close()
         assert not mounted.window.winfo_exists()
         # Every field of the editor owns a Tcl variable that unsets itself
         # when the Python object holding it is collected. One collected

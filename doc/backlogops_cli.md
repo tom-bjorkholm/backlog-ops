@@ -1125,6 +1125,8 @@ The whole configuration is shown at once, folded where it is deep, so a
 single value can be changed without walking through every question the
 wizard asks. The editor is the one of ``edit-cfg-json-textual``, so it needs
 a terminal; where the input is redirected, the wizard command is the way in.
+One call runs the whole session: ``edit`` reads the file, shows it until the
+user is done, and answers with the configuration that was saved.
 
 ``-i`` says which file to edit and ``-k``/``--kind`` what kind of file it
 is: the backlog-ops configuration, or a stand-alone input or output preset.
@@ -1159,6 +1161,10 @@ def main(args: Optional[list[str]] = None) -> int
 ```
 
 Open the configuration file in the editor and report what was saved.
+
+Closing an editor is not a failure, so a session that saved nothing
+still succeeds; it says so, because a user who meant to save would
+otherwise be told nothing at all.
 
 **Arguments**:
 
