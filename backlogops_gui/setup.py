@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
   name='backlogops-gui',
-  version='0.9.1',
+  version='1.0',
   description='Graphical user interface for backlog operations.',
   author='Tom Björkholm',
   author_email='klausuler_linnet0q@icloud.com',
@@ -19,7 +19,7 @@ setup(
     ]
   },
   install_requires=[
-    'backlogops >= 0.9.1',
+    'backlogops >= 1.0',
     'argcomplete >= 3.7.2',
     'wizard-ui-bridge >= 1.3',
     'wizard-tk-bridge >= 1.3',
