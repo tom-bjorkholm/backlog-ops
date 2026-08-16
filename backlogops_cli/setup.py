@@ -17,7 +17,7 @@ setup(
     'argcomplete >= 3.7.2',
     'backlogops >= 0.9.1',
     'wizard-ui-bridge[textual] >= 1.3',
-    'edit-cfg-json-textual == 0.0.2',
+    'edit-cfg-json-textual == 0.0.4',
     'versionreporter >= 0.4'
   ]
 )
