@@ -15,12 +15,12 @@ setup(
   package_data={'backlogops': ['src/py.typed']},
   install_requires=[
     'config-as-json >= 1.5',
-    'cryptography >= 50.0.0',
+    'cryptography >= 50.0.1',
     'jira[cli,opt] >= 3.10.5',
     'tableio >= 1.1',
     'tableio-cfg-json >= 1.3',
     'wizard-ui-bridge[textual] >= 1.3',
     'versionreporter >= 0.4',
-    'edit-cfg-json == 0.0.4'
+    'edit-cfg-json >= 0.1.0',
   ]
 )

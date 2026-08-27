@@ -289,7 +289,7 @@ For the full set of public names see the API documentation linked above.
 
 ## Test summary
 
-- Test result: 2234 passed, 1 deselected in 46s
+- Test result: 2234 passed, 1 deselected in 47s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
