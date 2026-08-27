@@ -17,7 +17,10 @@ item levels:
   :class:`backlogops.jira_io_config.JiraIOConfig`;
 * ``levels`` is the optional list of backlog item levels. It is omitted
   from the file while it is ``None``; :meth:`BacklogOpsConfig.get_levels`
-  then falls back to :data:`backlogops.levels.DEFAULT_LEVELS`.
+  then falls back to :data:`backlogops.levels.DEFAULT_LEVELS`. An empty
+  list is refused, because it would mean no levels at all where the
+  omitted member means the built-in ones, and the configuration editor
+  offers giving that member an empty list.
 
 Earlier file versions stored the workforce members (``persons``,
 ``teams`` and ``company_work_hours``) at the top level next to the
@@ -96,6 +99,12 @@ def _level_from_obj(name: str, value: object, stderr_file: TextIO) -> Level:
     return _level_from_dict(value, stderr_file)
 
 
+_NO_LEVELS = ('no levels at all; a configuration that leaves the levels out '
+              'uses the built-in ones, so take the member away rather than '
+              'emptying it')
+"""Why an empty list of levels is not a configuration with no levels."""
+
+
 # pylint: disable-next=too-few-public-methods
 class _LevelsMember(MemberValidator):
     """Convert the optional ``levels`` member into a list of ``Level``."""
@@ -104,13 +113,23 @@ class _LevelsMember(MemberValidator):
     def validate_member(self, config: Config, member_name: str,
                         member_value: object,
                         stderr_file: TextIO = sys.stderr) -> Optional[object]:
-        """Return the levels as a list of ``Level``, or ``None``."""
+        """Return the levels as a list of ``Level``, or ``None``.
+
+        Raises:
+            TypeError: The member holds something that is no list of
+                levels.
+            ValueError: The member holds an empty list, which is not a
+                configuration of the levels; leaving the member out is.
+        """
         _ = config
         if member_value is None:
             return None
         if not isinstance(member_value, list):
             report_wrong_type(member_name, member_value, list, stderr_file,
                               'BacklogOps config')
+        if not member_value:
+            report_bad_value(member_name, member_value, _NO_LEVELS,
+                             stderr_file, 'BacklogOps config')
         return [_level_from_obj(f'{member_name}[{index}]', element,
                                 stderr_file)
                 for index, element in enumerate(member_value)]

@@ -193,6 +193,7 @@
   * [\_as\_str\_list](#backlogops.backlog_ops_config._as_str_list)
   * [\_level\_from\_dict](#backlogops.backlog_ops_config._level_from_dict)
   * [\_level\_from\_obj](#backlogops.backlog_ops_config._level_from_obj)
+  * [\_NO\_LEVELS](#backlogops.backlog_ops_config._NO_LEVELS)
   * [\_LevelsMember](#backlogops.backlog_ops_config._LevelsMember)
     * [validate\_member](#backlogops.backlog_ops_config._LevelsMember.validate_member)
   * [\_levels\_to\_json](#backlogops.backlog_ops_config._levels_to_json)
@@ -4230,7 +4231,10 @@ item levels:
   :class:`backlogops.jira_io_config.JiraIOConfig`;
 * ``levels`` is the optional list of backlog item levels. It is omitted
   from the file while it is ``None``; :meth:`BacklogOpsConfig.get_levels`
-  then falls back to :data:`backlogops.levels.DEFAULT_LEVELS`.
+  then falls back to :data:`backlogops.levels.DEFAULT_LEVELS`. An empty
+  list is refused, because it would mean no levels at all where the
+  omitted member means the built-in ones, and the configuration editor
+  offers giving that member an empty list.
 
 Earlier file versions stored the workforce members (``persons``,
 ``teams`` and ``company_work_hours``) at the top level next to the
@@ -4287,6 +4291,12 @@ def _level_from_obj(name: str, value: object, stderr_file: TextIO) -> Level
 
 Return one Level from a JSON object or pass a Level through.
 
+<a id="backlogops.backlog_ops_config._NO_LEVELS"></a>
+
+#### \_NO\_LEVELS
+
+Why an empty list of levels is not a configuration with no levels.
+
 <a id="backlogops.backlog_ops_config._LevelsMember"></a>
 
 ## \_LevelsMember Objects
@@ -4310,6 +4320,13 @@ def validate_member(config: Config,
 ```
 
 Return the levels as a list of ``Level``, or ``None``.
+
+**Raises**:
+
+- `TypeError` - The member holds something that is no list of
+  levels.
+- `ValueError` - The member holds an empty list, which is not a
+  configuration of the levels; leaving the member out is.
 
 <a id="backlogops.backlog_ops_config._levels_to_json"></a>
 
@@ -14969,19 +14986,39 @@ toolkit mounts the editor itself — ``edit_cfg_json_tk.TkEditorPanel`` in a
 window of the application, ``edit_cfg_json_textual.edit`` in a terminal of
 its own — and hands those two answers to it.
 
-Three things the editor cannot do are worth knowing before it is offered
-instead of the wizard, and all three are of ``edit_cfg_json`` itself rather
-than of this configuration:
+How many things a member holds is the editor's to change as well, so a
+named preset, a Jira connection, a person, a team, a membership, an
+exception, a level and an entry of any of the maps can each be added beside
+the ones that are there, taken out again, and moved within a list. A new
+element is never invented: it is an object of the class the declaration
+names, a copy of what the container holds now, or the empty value that the
+declared type of the member says an element is. That is what the first of
+the notes below follows from.
 
-* A dict whose keys the application validates for itself cannot gain or
-  lose a key. That is the status map, the column-name maps of a preset and
-  of the display, and the Jira column and issue-type maps: their values are
-  editable, and a new entry is the wizard's to create.
-* A member left out of the file has no row, so the levels can be edited
-  only in a configuration that already states them.
+Four things are worth knowing before the editor is offered instead of the
+wizard:
+
+* One entry of the Jira column maps and of the issue-type maps is a map of
+  its own, which the class does not name a type for, so there is no pattern
+  for one until the file holds one to copy: an empty map of those offers
+  nothing and says why below itself. Every other container can be given its
+  first element, because the class names the type of one or its declared
+  type says what an element is.
+* The levels keep a row in a configuration that leaves them out, because a
+  member the class omits is still a member. What that row offers is an
+  empty list, which is not what leaving the levels out means and is
+  refused as such: the row's other control puts the member back to holding
+  nothing, which is the built-in levels. Writing the levels the first time
+  is the wizard's.
 * A person is keyed by their own name in lower case, so renaming one means
   adding an entry under the new key and removing the old one; editing the
   name alone leaves a configuration the class refuses.
+* The editor reads the declarations of a class and not the insides of its
+  validators, so it offers a change that this library then refuses where
+  only a validator knows better: a week day taken out of the company
+  schedule, or a level that loses its name, because a level is a plain
+  object in the file rather than a nested configuration class. What the
+  class said is shown at the member it is about.
 
 <a id="backlogops.config_editing.EDIT_SETTINGS"></a>
 

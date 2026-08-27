@@ -107,9 +107,10 @@ each item will be ready.
 ### Levels
 
 Backlog items live at integer **levels** (higher number = broader). If you
-omit `levels`, the built-in defaults apply. Configure them to give levels
-your own names and aliases (an alias lets an input file say `Bug` where you
-mean level 1):
+omit `levels`, the built-in defaults apply; an empty list is refused, because
+no levels at all is not what omitting the member means. Configure them to
+give levels your own names and aliases (an alias lets an input file say `Bug`
+where you mean level 1):
 
 ```json
 "levels": [
@@ -494,6 +495,13 @@ line saying what it is for. You change the one value and save.
   and
   [`EDIT_SETTINGS`](../backlogops_api.md#backlogops.config_editing.EDIT_SETTINGS),
   which are the two things `edit-cfg-json` asks the application for.
+- **Script or build job:** `python3 -m edit_cfg_json.dump --module backlogops
+  --class BacklogOpsConfig --descriptions CONFIG_DESCRIPTIONS -i current.cfg`
+  prints what backlog-ops makes of a configuration file, with no editor and
+  with neither a display nor a terminal, and exits non-zero for a file
+  backlog-ops would refuse. Name `InputFormatConfig` with
+  `INPUT_DESCRIPTIONS`, or `OutputFormatConfig` with `OUTPUT_DESCRIPTIONS`,
+  for a stand-alone preset file.
 
 The editor validates before it writes, exactly as the wizard does, and
 refuses to write values the library would not read back: what is wrong is
@@ -505,27 +513,94 @@ Both happen once per destination per session: from the second save onwards it
 is your own first save that is being overwritten, and asking about that, or
 keeping it, would only push your original configuration further away.
 
-How many of something the configuration holds is editable too: a named
-input, output or Jira preset, a Jira connection, a person, a team, a
-membership, a work-hour exception and a level can each be added beside the
-ones that are there, removed, and — in a list — moved.
+How many of something the configuration holds is editable too. A named input,
+output or Jira preset, a Jira connection, a person, a team, a membership, a
+work-hour exception, a level, and an entry of any of the maps — the status
+map, the column maps of a preset and of the GUI display, the Jira column maps
+and the issue-type maps — can each be added beside the ones that are there,
+taken out again, and, in a list, moved up or down. A new one is never
+invented: it is a new one of the kind that belongs there, or a copy of one
+the container already holds — so a new status name starts out reading as a
+status this library knows, and you edit it from there. Adding an entry to a
+map asks you what to call it first.
 
-Editing is not a replacement for the wizard, and three things are worth
-knowing before you reach for it:
+A member that is allowed to hold nothing — a Jira token file path, a stored
+token, the levels — is not a field you empty by typing. Its line offers
+taking the value away, and a line that holds nothing offers giving it one.
+`no value` and empty text are different things, and the editor keeps them
+apart because the file does.
 
-- **A map does not gain or lose entries here.** The status map, the column
-  maps of a preset and of the GUI display, and the Jira column and issue-type
-  maps all have keys that this library validates for itself, so the editor
-  lets you change what an entry maps to but not add or remove one. It says so
-  below the map. Adding a column mapping is the wizard's job.
-- **The levels have to be there already.** A configuration that leaves the
-  levels out of the file uses the built-in ones, and a member that is not in
-  the file has no line to edit. Set the levels once with the wizard, and the
-  editor can change them afterwards.
+Finding one member in a long configuration is `Ctrl+F`, then `F3` for the
+next match: the search looks in the member paths and in the values, and opens
+whatever was folded to show you what it found. `F2` folds everything away and
+opens it again, and `F1` shows or hides the line under each member saying
+what it is for. Folding an object also asks that object whether it is valid
+on its own, which is the quick local check; **Validate** (`Ctrl+R`) checks
+the whole configuration.
+
+Under the name of the configuration the editor sometimes says what reading
+the file did. For a backlog-ops file that means one thing: the file was
+written by an earlier version, so what you see is the migrated
+configuration and each member the load moved or supplied is marked. Read it,
+because what is on the screen is what a save writes — saving such a file
+writes it in the current format. A file that is wrong in any other way — a
+member missing, a key this configuration does not have, a value the library
+refuses — is not opened at all. The editor never shows you defaults in place
+of the file you asked for: the command or the GUI says why the file could not
+be opened, and you correct it in a text editor first.
+
+Editing is not a complete replacement for the wizard, and four things are
+worth knowing before you reach for it:
+
+- **The Jira column maps and issue-type maps need their first entry from the
+  wizard.** One entry of those is a whole map of its own, and the editor has
+  no pattern for one until the file holds one to copy: an empty
+  `backlog_column_maps` or `issue_type_maps` therefore offers nothing and
+  says why below itself (`F1` shows it). Every other container, the status
+  map and the other column maps included, can be given its first entry here,
+  because the configuration class says what one looks like.
+- **The levels want their first level from the wizard.** A configuration that
+  leaves `levels` out uses the built-in ones, and that member still has a
+  line. What the line offers is an empty list, which is not the same as
+  leaving the levels out and is refused as such. Take the value away again to
+  go back to the built-in levels, and write the levels the first time with
+  the wizard; the editor changes them freely afterwards.
 - **Renaming a person takes two steps.** A person is stored under their own
   name in lower case, and that key is not editable. Changing only the name
   leaves a configuration the library refuses, and it says so. Add the person
-  again under the new name and remove the old entry, or use the wizard.
+  under the new name and remove the old entry.
+- **A few changes the editor offers are refused when you validate.** The
+  editor reads what the configuration classes declare and not what is inside
+  their validators, so it lets you take a week day out of the company work
+  hours, or the name off a level. Validate then says what is wrong and where,
+  and nothing invalid is ever written.
+
+**The editor has an end user's guide of its own.** It is `edit-cfg-json`, and
+that guide describes every control and every message in detail:
+[end_users_guide.md](https://github.com/tom-bjorkholm/edit-cfg-json/blob/master/doc/end_users_guide.md).
+Read the part that matches the way you opened it:
+
+| Part of that guide | What it is for you |
+| --- | --- |
+| Part 1 — the editor in a window | The GUI: *Edit configuration…* and *Edit IO preset file…* |
+| Part 2 — the editor in the terminal | `python3 -m backlogops_cli.config_edit` |
+| Part 3 — the settings of the editor itself | Nothing. Skip it. |
+
+Part 1 and Part 2 each tell the whole story for one of the two editors, so
+read the one you have and skip the other. Part 3 is about an application that
+lets you decide how the editor behaves; backlog-ops decides all of that
+itself and hands none of it on, so no settings file of the editor is read and
+nothing that part describes can be changed here.
+
+That guide asks you to check two things with the application that opened the
+editor, and here they are:
+
+- **The key combinations are the editor's own defaults.** backlog-ops takes
+  none of them for itself, so every key table in that guide is right as
+  printed.
+- **The file it speaks of in general terms** is a backlog-ops configuration
+  file, `.cfg`. A save that writes over a file keeps what was there as that
+  name plus `.bak`, one such file at a time, and asks you first.
 
 ### Migrating an older file
 
@@ -541,6 +616,12 @@ When the GUI has read an old configuration file format, its internal
 representation of the configuration has already been migrated to the new
 format. Thus, when you save it using *Configuration → Write configuration…*
 it will be saved as migrated.
+
+[The editor](#the-configuration-editor) migrates as well, and says so: an old
+file opened there is shown in the current format, with a line under the name
+of the configuration saying that reading it changed it, and a save writes what
+is shown. This command is what you use when you want the migration and nothing
+else, and when you want the old file left where it is.
 
 ---
 

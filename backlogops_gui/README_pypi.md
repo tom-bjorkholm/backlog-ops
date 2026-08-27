@@ -252,12 +252,15 @@ is in the menus.
       closed for vacation, and preset configuration for the inputs or
       outputs you want to use.
 
-    - Edit configuration...: Show the whole configuration in a folding
-      editor, so you can change one value without stepping through the
-      wizard. It asks whether to edit the configuration the application is
-      using or one in a file you pick. Saving validates the configuration
-      first, keeps what it writes over as a `.bak` file, and makes what it
-      wrote the configuration in use.
+    - Edit configuration...: Show the whole configuration in a folding,
+      searchable editor, so you can change one value without stepping
+      through the wizard. It asks whether to edit the configuration the
+      application is using or one in a file you pick. A preset, a Jira
+      connection, a person, a team, a level and an entry of any of the maps
+      can be added beside the ones that are there, taken out again, and
+      moved within a list. Saving validates the configuration first, keeps
+      what it writes over as a `.bak` file, and makes what it wrote the
+      configuration in use.
 
     - Create IO preset file...: Create a stand-alone input or output preset
       configuration file via a wizard.
@@ -328,7 +331,7 @@ one with the list of releases. You will want to use the menus.
 
 ## Test summary
 
-- Test result: 2234 passed, 1 deselected in 47s
+- Test result: 2267 passed, 1 deselected in 55s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.

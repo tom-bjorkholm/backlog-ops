@@ -2673,12 +2673,16 @@ closed, because Tcl runs its loop while any window of the process lives.
 ``TkEditorPanel`` is what the library offers for an application that already
 runs Tk. It is given the window as its ``area``, so that the window stays
 this module's — its title names the file being edited, and the editor
-destroys only what it built itself.
+destroys only what it built itself. Its ``parent`` is the other way of
+saying this, and it is not used here: the library would then own the window
+and name it after the configuration class, and the file being edited is
+what a user of this application needs to read there.
 
 The window is not made modal. The editor opens dialogs of its own — a file
-chooser for Save as…, a question before it overwrites a file, and one asking
-for the key of a new entry — and a grab held by the editor window would keep
-their clicks and keys from reaching them.
+chooser for Save as…, one asking for the key of a new entry, a question
+before it overwrites a file and a question before it drops unsaved changes
+— and a grab held by the editor window would keep their clicks and keys
+from reaching them.
 
 <a id="backlogops_gui.config_edit.EDIT_ERRORS"></a>
 

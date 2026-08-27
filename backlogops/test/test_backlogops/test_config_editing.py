@@ -6,6 +6,12 @@ a selector that names no member is found here rather than showing up as a
 member without a description in a window. The editing support is checked by
 reading, changing and saving a configuration through the model, without any
 user interface.
+
+What the editor offers to do about how many things a member holds is
+checked here as well, because it is what the user guide of this library
+tells its readers they can do: a named preset, connection, person, team,
+level or map entry that can be added beside the ones that are there is one
+this test asks the model about rather than one somebody tried by hand.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -15,8 +21,8 @@ from pathlib import Path
 from typing import Optional, TextIO, override
 import pytest
 from config_as_json import Config, ValidationPlan
-from edit_cfg_json import ConfigLoadError, EditModel, default_config, \
-    editor_model, row_description
+from edit_cfg_json import ConfigLoadError, EditModel, MemberRow, \
+    default_config, editor_model, row_description, row_diagnostic
 from tableio import FileAccess, access_capabilities
 from tableio_cfg_json import tio_json_config_default
 from backlogops import (
@@ -283,3 +289,142 @@ def test_edits_input_preset(tmp_path: Path) -> None:
     written = InputFormatConfig(from_json_filename=source,
                                 stderr_file=NoTextIO())
     assert written.backlog_to_internal == {'Type': 'title'}
+
+
+def _row(model: EditModel, path: tuple[str, ...]) -> MemberRow:
+    """Return the row of one node of the tree the editor built."""
+    return next(row for row in model.rows if row.path == path)
+
+
+GROWING_CONTAINERS = [
+    ('available_teams', 'persons'),
+    ('available_teams', 'teams'),
+    ('available_teams', 'teams', '0', 'members'),
+    ('available_teams', 'company_work_hours', 'exceptions'),
+    ('input_configs',),
+    ('input_configs', 'excel', 'backlog_to_internal'),
+    ('input_configs', 'excel', 'status_input_map'),
+    ('output_configs',),
+    ('output_configs', 'excel', 'backlog_to_external'),
+    ('gui_display', 'backlog_to_external'),
+    ('status_input_map',),
+    ('jira', 'connections'),
+    ('jira', 'presets'),
+    ('jira', 'backlog_column_maps'),
+    ('jira', 'backlog_column_maps', 'std'),
+    ('jira', 'issue_type_maps', 'swedish'),
+    ('levels',)]
+"""Every container the user guide says the editor can add to.
+
+The maps are here beside the lists, because an entry of a map is copied
+from one the map holds and each of these holds one in a configuration that
+uses it. What a container holding none of them does instead is
+:data:`FIRST_ENTRY_CONTAINERS` and :data:`NO_FIRST_ENTRY_MAPS`.
+"""
+
+FIRST_ENTRY_CONTAINERS = [
+    ('available_teams', 'persons'),
+    ('available_teams', 'teams'),
+    ('input_configs',),
+    ('output_configs',),
+    ('gui_display', 'backlog_to_external'),
+    ('jira', 'connections'),
+    ('jira', 'presets')]
+"""Containers a fresh configuration holds none of, that can still grow.
+
+The class names the type of what belongs in each of these, or its declared
+type says what an element is, so the editor makes the first one without
+having one to copy.
+"""
+
+NO_FIRST_ENTRY_MAPS = [
+    ('jira', 'backlog_column_maps'),
+    ('jira', 'release_column_maps'),
+    ('jira', 'issue_type_maps')]
+"""The maps whose entry is a map of its own, so nothing says what one is."""
+
+
+@pytest.mark.parametrize('path', GROWING_CONTAINERS)
+def test_offers_adding(path: tuple[str, ...]) -> None:
+    """Test each container the user guide names offers being added to."""
+    assert _row(_model(full_config()), path).offer.extend
+
+
+@pytest.mark.parametrize('path', FIRST_ENTRY_CONTAINERS)
+def test_first_entry_offered(path: tuple[str, ...]) -> None:
+    """Test a fresh configuration can be given the first of each of these."""
+    model = _model(default_config(BacklogOpsConfig))
+    assert _row(model, path).offer.extend
+
+
+@pytest.mark.parametrize('path', NO_FIRST_ENTRY_MAPS)
+def test_first_entry_refused(path: tuple[str, ...]) -> None:
+    """Test a map of maps says why it cannot be given a first entry.
+
+    A container that can be given nothing explains itself below its own
+    row rather than offering a control that would refuse every press, and
+    the user guide says the wizard writes that first entry.
+    """
+    row = _row(_model(default_config(BacklogOpsConfig)), path)
+    assert not row.offer.extend
+    assert row.offer.refusal
+
+
+def test_empty_status_map() -> None:
+    """Test the status map can be given an entry while it holds none.
+
+    Its declared type says that a value of it is a status, which is what
+    the editor makes the first entry out of.
+    """
+    config = default_config(BacklogOpsConfig)
+    assert isinstance(config, BacklogOpsConfig)
+    config.status_input_map = {}
+    assert _row(_model(config), ('status_input_map',)).offer.extend
+
+
+def test_added_entry_valid() -> None:
+    """Test a new map entry arrives valid, because it is a copy.
+
+    The editor copies an entry the map holds rather than inventing one, so
+    a new status name is read as a status this library knows and the
+    configuration stays one it would accept.
+    """
+    model = _model(full_config())
+    model.add_element(('status_input_map',), 'Avslutad')
+    assert model.validate().valid
+    assert _row(model, ('status_input_map', 'Avslutad')).offer.remove
+
+
+def test_entry_removed() -> None:
+    """Test a status name can be taken out of the map it is in."""
+    model = _model(full_config())
+    model.remove_element(('status_input_map', 'Closed'))
+    assert model.validate().valid
+    assert ('status_input_map', 'Closed') not in \
+        [row.path for row in model.rows]
+
+
+def test_levels_add_refused() -> None:
+    """Test the levels member is refused while it holds an empty list.
+
+    A configuration that leaves the levels out keeps a row for them, and
+    what that row offers is an empty list, which is no configuration of
+    the levels at all. The refusal is said at that member, so a user who
+    meant to add a level is told where to look.
+    """
+    model = _model(default_config(BacklogOpsConfig))
+    model.add_element(('levels',))
+    assert not model.validate().valid
+    assert 'levels' in row_diagnostic(model, _row(model, ('levels',)))
+
+
+def test_missing_day_refused() -> None:
+    """Test taking a week day out of the company schedule is refused.
+
+    Every day of the week has an entry, and the editor cannot know it, so
+    the schedule offers removing one and this library refuses the result.
+    """
+    model = _model(full_config())
+    model.remove_element(('available_teams', 'company_work_hours',
+                          'work_hours', 'MONDAY'))
+    assert not model.validate().valid

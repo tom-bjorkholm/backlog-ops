@@ -275,6 +275,18 @@ def test_levels_not_a_list() -> None:
                          stderr_file=NO_OUTPUT)
 
 
+def test_no_levels_at_all() -> None:
+    """Test an empty levels list is rejected rather than read as no levels.
+
+    A file that leaves the member out uses the built-in levels, so an
+    empty list is the one way of asking for a backlog with no levels at
+    all, which every level lookup of this library would then fail.
+    """
+    with pytest.raises(ValueError):
+        BacklogOpsConfig(from_json_data_text=_ops_text([]),
+                         stderr_file=NO_OUTPUT)
+
+
 def test_level_name_not_str() -> None:
     """Test a non-string level name is rejected as a TypeError."""
     text = _levels_text([{'level': 0, 'name': 123}])
@@ -326,7 +338,7 @@ def test_status_map_old_file() -> None:
     del data['status_input_map']
     config = BacklogOpsConfig(from_json_data_text=json.dumps(data),
                               stderr_file=NO_OUTPUT)
-    assert config.get_status_input_map() == {}
+    assert not config.get_status_input_map()
 
 
 def test_status_map_bad_value() -> None:

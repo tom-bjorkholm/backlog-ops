@@ -1123,8 +1123,11 @@ Edit a configuration file in a full-screen terminal editor.
 
 The whole configuration is shown at once, folded where it is deep, so a
 single value can be changed without walking through every question the
-wizard asks. The editor is the one of ``edit-cfg-json-textual``, so it needs
-a terminal; where the input is redirected, the wizard command is the way in.
+wizard asks, and how many things a member holds is editable as well: a
+preset, a person, a team, a level and an entry of a map can each be added
+beside the ones that are there and taken out again. The editor is the one of
+``edit-cfg-json-textual``, so it needs a terminal; where the input is
+redirected, the wizard command is the way in.
 One call runs the whole session: ``edit`` reads the file, shows it until the
 user is done, and answers with the configuration that was saved.
 

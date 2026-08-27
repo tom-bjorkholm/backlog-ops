@@ -124,7 +124,7 @@ they are included as parts of README_pypi.md.
 
 ## Test summary
 
-- Test result: 2234 passed, 1 deselected in 47s
+- Test result: 2267 passed, 1 deselected in 55s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
