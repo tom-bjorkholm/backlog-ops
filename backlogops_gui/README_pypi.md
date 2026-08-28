@@ -336,5 +336,5 @@ one with the list of releases. You will want to use the menus.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
-- Built version(s): 1.0.1
+- Built version(s): 1.1
 - Build and test using Python 3.14.7

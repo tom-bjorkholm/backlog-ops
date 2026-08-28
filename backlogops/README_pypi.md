@@ -294,5 +294,5 @@ For the full set of public names see the API documentation linked above.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
-- Built version(s): 1.0.1
+- Built version(s): 1.1
 - Build and test using Python 3.14.7
