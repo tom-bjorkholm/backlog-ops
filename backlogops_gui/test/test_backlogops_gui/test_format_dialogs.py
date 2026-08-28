@@ -119,11 +119,13 @@ def test_ask_read_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
         assert ask_read_options(root, None) is None
 
 
-def test_ask_write_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize('presets', [None, ['p']])
+def test_ask_write_ok(monkeypatch: pytest.MonkeyPatch,
+                      presets: Optional[list[str]]) -> None:
     """Test a confirmed write dialog returns write options."""
     monkeypatch.setattr(ModalDialog, '_show', no_wait)
     with gui_root() as root:
-        assert isinstance(ask_write_options(root, None), WriteOptions)
+        assert isinstance(ask_write_options(root, presets), WriteOptions)
 
 
 def test_ask_write_cancel(monkeypatch: pytest.MonkeyPatch) -> None:

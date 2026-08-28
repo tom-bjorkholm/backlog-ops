@@ -45,39 +45,43 @@ def _none() -> None:
     return None
 
 
-def _backlog_menu(window: BacklogWindow) -> tk.Menu:
-    """Return the backlog menu of a backlog window."""
+def _menu_at(window: BacklogWindow, index: int) -> tk.Menu:
+    """Return one menu of the menu bar of a backlog window."""
     # pylint: disable-next=protected-access
     menubar = window._win.nametowidget(window._win.cget('menu'))
     assert isinstance(menubar, tk.Menu)
-    menu = menubar.nametowidget(menubar.entrycget(0, 'menu'))
+    menu = menubar.nametowidget(menubar.entrycget(index, 'menu'))
     assert isinstance(menu, tk.Menu)
     return menu
 
 
-def _menu_labels(window: BacklogWindow) -> list[str]:
-    """Return the labels in the backlog menu of a backlog window."""
-    menu = _backlog_menu(window)
+def _states_of(menu: tk.Menu) -> dict[str, str]:
+    """Return the state of each command of a menu, keyed by its label."""
     last = menu.index('end')
     assert last is not None
-    labels: list[str] = []
-    for index in range(last + 1):
-        if menu.type(index) != 'separator':
-            labels.append(menu.entrycget(index, 'label'))
-    return labels
+    return {str(menu.entrycget(index, 'label')):
+            str(menu.entrycget(index, 'state'))
+            for index in range(last + 1) if menu.type(index) != 'separator'}
+
+
+def _backlog_menu(window: BacklogWindow) -> tk.Menu:
+    """Return the backlog menu of a backlog window."""
+    return _menu_at(window, 0)
+
+
+def _menu_labels(window: BacklogWindow) -> list[str]:
+    """Return the labels in the backlog menu of a backlog window."""
+    return list(_states_of(_backlog_menu(window)))
+
+
+def _jira_states(window: BacklogWindow) -> dict[str, str]:
+    """Return the state of each item in the Jira menu of a window."""
+    return _states_of(_menu_at(window, 1))
 
 
 def _jira_menu_labels(window: BacklogWindow) -> list[str]:
     """Return the labels in the Jira menu of a backlog window."""
-    # pylint: disable-next=protected-access
-    menubar = window._win.nametowidget(window._win.cget('menu'))
-    assert isinstance(menubar, tk.Menu)
-    menu = menubar.nametowidget(menubar.entrycget(1, 'menu'))
-    assert isinstance(menu, tk.Menu)
-    last = menu.index('end')
-    assert last is not None
-    return [menu.entrycget(index, 'label') for index in range(last + 1)
-            if menu.type(index) != 'separator']
+    return list(_jira_states(window))
 
 
 def _bl_update_recorder(store: list[object]) -> Callable[..., None]:
@@ -148,13 +152,7 @@ def test_warning_disables_ops() -> None:
     with gui_root() as root:
         window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
                                warning='Broken Jira data')
-        menu = _backlog_menu(window)
-        last = menu.index('end')
-        assert last is not None
-        states = {menu.entrycget(index, 'label'):
-                  menu.entrycget(index, 'state')
-                  for index in range(last + 1)
-                  if menu.type(index) != 'separator'}
+        states = _states_of(_backlog_menu(window))
         assert states['Order by keys…'] == 'disabled'
         assert states['Estimate ready date…'] == 'disabled'
         assert states['Extract keys…'] == 'disabled'
@@ -237,16 +235,7 @@ def test_rank_absent() -> None:
     """Test the rank-items item is disabled without a handler."""
     with gui_root() as root:
         window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK)
-        # pylint: disable-next=protected-access
-        menubar = window._win.nametowidget(window._win.cget('menu'))
-        menu = menubar.nametowidget(menubar.entrycget(1, 'menu'))
-        last = menu.index('end')
-        assert last is not None
-        states = {menu.entrycget(index, 'label'):
-                  menu.entrycget(index, 'state')
-                  for index in range(last + 1)
-                  if menu.type(index) != 'separator'}
-        assert states['Rank items in Jira…'] == 'disabled'
+        assert _jira_states(window)['Rank items in Jira…'] == 'disabled'
 
 
 @pytest.mark.focus_sensitive
@@ -336,6 +325,37 @@ _JIRA_CALLBACKS = ['_on_jira_added', '_on_releases_added',
                    '_on_ranked', '_on_releases_ordered',
                    '_on_releases_renamed']
 """The Jira result callbacks, each reporting through a text pop-up."""
+
+
+def _all_handlers(store: list[object]) -> JiraHandlers:
+    """Return a handler for every Jira operation, all recording as one."""
+    recorder = _bl_update_recorder(store)
+    return JiraHandlers(add_backlog=recorder, add_releases=recorder,
+                        update_releases=recorder, update_backlog=recorder,
+                        rank=_rank_recorder(store), order_releases=recorder,
+                        rename_releases=recorder)
+
+
+def test_warning_stops_jira() -> None:
+    """Test a warning disables the Jira items of a window that has them.
+
+    Restricted data is data the operations cannot be trusted with, so
+    having the handler is not enough: every Jira item stays disabled for
+    as long as the warning is shown.
+    """
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
+                               jira=_all_handlers([]),
+                               warning='Broken Jira data')
+        assert set(_jira_states(window).values()) == {'disabled'}
+
+
+def test_handlers_enable_jira() -> None:
+    """Test each Jira item with a handler is enabled without a warning."""
+    with gui_root() as root:
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
+                               jira=_all_handlers([]))
+        assert set(_jira_states(window).values()) == {'normal'}
 
 
 def test_jira_no_handlers() -> None:
@@ -632,6 +652,15 @@ def test_rerender_warning(monkeypatch: pytest.MonkeyPatch) -> None:
         assert 'Second warning' in texts and 'First warning' not in texts
 
 
+def test_jira_no_filter() -> None:
+    """Test a Jira window read without a filter says so in the detail."""
+    with gui_root() as root:
+        source = BacklogSource(kind='jira', read_time=T0, preset_name='scrum')
+        window = BacklogWindow(root, DATA, 'T', _none, _none, SINK,
+                               source=source)
+        assert 'Filter: (none)' in _label_texts(_win_of(window))
+
+
 def test_file_detail_preset() -> None:
     """Test a file read from a preset names the preset in the detail line."""
     with gui_root() as root:
@@ -675,6 +704,22 @@ def test_save_no_source(monkeypatch: pytest.MonkeyPatch) -> None:
         window._save()
         # pylint: disable-next=protected-access
         assert window._mark_var is None
+
+
+def test_save_jira_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test saving a Jira-read window to a file keeps the modified mark.
+
+    A Jira source names no file, so no save path can be the file the data
+    was read from and the window stays marked as modified.
+    """
+    monkeypatch.setattr(backlog_window, 'save_backlog', _saver('/tmp/b.csv'))
+    with gui_root() as root:
+        window = _make_win(root, _jira_source())
+        # pylint: disable-next=protected-access
+        window._changed_refresh()
+        # pylint: disable-next=protected-access
+        window._save()
+        assert _mark_of(window) == MODIFIED_MARK
 
 
 def test_save_path_oserror(monkeypatch: pytest.MonkeyPatch) -> None:

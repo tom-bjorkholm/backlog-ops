@@ -6,8 +6,10 @@ of the configuration the application uses, and how a file that cannot be
 opened is reported. The editor window itself runs until the user closes it,
 so the logic tests put a scripted session in its place; that stand-in
 builds the model the window would have shown, so a file that cannot be
-opened is refused there exactly as it is in a window. One test with a
-display mounts the real editor in a window and checks what it wired up.
+opened is refused there exactly as it is in a window. The window itself is
+covered twice over: with a display the real editor is mounted in it, and
+without one a stand-in window and panel take their place, so what the
+window does is checked wherever the tests run.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -19,10 +21,11 @@ from pathlib import Path
 from typing import Callable, Optional, cast
 import pytest
 from config_as_json import Config
-from edit_cfg_json import EditModel, editor_model
+from edit_cfg_json import ConfigLoadError, EditModel, editor_model
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, EDIT_SETTINGS, InputFormatConfig,
-    NoTextIO, Team, descriptions_for, write_backlog_ops_config)
+    NoTextIO, OutputFormatConfig, Team, descriptions_for,
+    write_backlog_ops_config)
 from backlogops_gui import config_edit
 from backlogops_gui.application import BacklogApp
 from backlogops_gui.choice_dialogs import EditTargetChoice
@@ -53,6 +56,13 @@ def _write_preset(path: Path) -> None:
     preset.write(to_json_filename=path, stderr_file=NoTextIO())
 
 
+def _write_out_preset(path: Path) -> None:
+    """Write a stand-alone output preset whose one mapping can be edited."""
+    preset = OutputFormatConfig(stderr_file=NoTextIO())
+    preset.backlog_to_external = {'level': 'Nivå'}
+    preset.write(to_json_filename=path, stderr_file=NoTextIO())
+
+
 def _app(config: Optional[BacklogOpsConfig] = None,
          source: Optional[str] = None) -> BacklogApp:
     """Return an application over a dummy root with the given config."""
@@ -67,6 +77,109 @@ def _shown(config: Config, in_file: Optional[str],
     return editor_model(config, descriptions=descriptions_for(config),
                         in_file=in_file, out_file=out_file,
                         settings=EDIT_SETTINGS, stderr_file=NoTextIO())
+
+
+class _FakeWindow:
+    """Stand-in for the editor's window, for a test without a display."""
+
+    def __init__(self, parent: object) -> None:
+        """Start an untitled window over the given parent."""
+        assert parent is not None
+        self.name: Optional[str] = None
+        self.destroyed = False
+        self.protocols: dict[str, Callable[[], None]] = {}
+
+    def title(self, text: str) -> None:
+        """Record the title the window was given."""
+        self.name = text
+
+    def transient(self, parent: object) -> None:
+        """Accept the window this one belongs to."""
+        assert parent is not None
+
+    def protocol(self, name: str, action: Callable[[], None]) -> None:
+        """Record the handler of one window manager protocol."""
+        self.protocols[name] = action
+
+    def destroy(self) -> None:
+        """Record that the window was taken away."""
+        self.destroyed = True
+
+    def wait_window(self) -> None:
+        """Close the window as its close button would, and return."""
+        self.protocols['WM_DELETE_WINDOW']()
+
+
+# pylint: disable-next=too-few-public-methods
+class _FakePanel:
+    """Stand-in for the editor panel, for a test without a display."""
+
+    def __init__(self, config: Config, **kwargs: object) -> None:
+        """Build the model of the session the editor would have shown."""
+        in_file, out_file = kwargs.get('in_file'), kwargs.get('out_file')
+        assert in_file is None or isinstance(in_file, str)
+        assert out_file is None or isinstance(out_file, str)
+        self.model = _shown(config, in_file, out_file)
+        action = kwargs['on_close']
+        assert callable(action)
+        self._on_close = action
+        self.closed = False
+
+    def close(self) -> None:
+        """End the session and run the close action of the application."""
+        self.closed = True
+        self._on_close()
+
+
+def _stub_editor(monkeypatch: pytest.MonkeyPatch, *, refuse: bool = False
+                 ) -> list[_FakeWindow]:
+    """Put a display-free window and panel in the editor's place.
+
+    Returns the list the created stand-in windows are recorded into, so a
+    window taken away again after a refused file can still be looked at.
+    """
+    made: list[_FakeWindow] = []
+
+    def make_window(parent: object) -> _FakeWindow:
+        """Create a stand-in window and remember it."""
+        window = _FakeWindow(parent)
+        made.append(window)
+        return window
+
+    def make_panel(config: Config, **kwargs: object) -> _FakePanel:
+        """Create a stand-in panel, or refuse the file as the editor does."""
+        if refuse:
+            raise ConfigLoadError('cannot open')
+        return _FakePanel(config, **kwargs)
+    monkeypatch.setattr(tk, 'Toplevel', make_window)
+    monkeypatch.setattr(config_edit, 'TkEditorPanel', make_panel)
+    return made
+
+
+def _watch_windows(monkeypatch: pytest.MonkeyPatch) -> list[tk.Toplevel]:
+    """Return the list the real editor windows are recorded into."""
+    made: list[tk.Toplevel] = []
+    original = tk.Toplevel
+
+    def make(parent: tk.Misc) -> tk.Toplevel:
+        """Create a real window and remember it."""
+        window = original(parent)
+        made.append(window)
+        return window
+    monkeypatch.setattr(tk, 'Toplevel', make)
+    return made
+
+
+def _auto_close(original: Callable[..., config_edit.EditorWindow]
+                ) -> Callable[..., config_edit.EditorWindow]:
+    """Return a window opener that lets the editor close itself at once."""
+    def opened(app: BacklogApp, config: Config, title: str,
+               **kwargs: Optional[str]) -> config_edit.EditorWindow:
+        """Open the real window and schedule the close of its session."""
+        mounted = original(app, config, title, **kwargs)
+        mounted.window.after(0, mounted.panel.close)
+        return mounted
+    return opened
 
 
 def _session(act: Callable[[EditModel], None]) -> Callable[..., EditModel]:
@@ -261,6 +374,35 @@ def test_closed_unsaved(tmp_path: Path,
                          config_edit.NOT_SAVED_TEXT)]
 
 
+def test_file_closed_unsaved(tmp_path: Path,
+                             monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test closing a chosen file unsaved adopts nothing and says so."""
+    source = tmp_path / 'team.cfg'
+    _write_config(source)
+    app = _app()
+    messages = _patch(monkeypatch, app, opened=_session(_closing),
+                      target=EditTargetChoice.FROM_FILE, chosen=str(source))
+    config_edit.edit_config(app)
+    assert app.config is None
+    assert app.config_source is None
+    assert messages == [(config_edit.EDITOR_TITLE,
+                         config_edit.NOT_SAVED_TEXT)]
+
+
+def test_in_use_no_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a configuration in use that came from nowhere has no file.
+
+    The source of the configuration is unset, which is neither a file name
+    nor a phrase, so the editor is given no destination either.
+    """
+    app = _app(_config())
+    seen: list[EditModel] = []
+    _patch(monkeypatch, app, opened=_seen_models(seen))
+    config_edit.edit_config(app)
+    assert app.config_source is None
+    assert seen[0].out_file is None
+
+
 def test_edits_preset_file(tmp_path: Path,
                            monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a preset file is edited as the kind the file itself says."""
@@ -291,6 +433,57 @@ def test_preset_not_adopted(tmp_path: Path,
     _patch(monkeypatch, app, opened=_session(_closing), chosen=str(source))
     config_edit.edit_preset_file(app)
     assert app.config is kept
+
+
+def test_edits_output_preset(tmp_path: Path,
+                             monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an output preset file is edited as an output preset."""
+    source = tmp_path / 'out.cfg'
+    _write_out_preset(source)
+    app = _app(_config())
+
+    def act(model: EditModel) -> None:
+        """Rename the mapped column and save the preset."""
+        model.set_text(('backlog_to_external', 'level'), 'Level')
+        model.save()
+    messages = _patch(monkeypatch, app, opened=_session(act),
+                      chosen=str(source))
+    config_edit.edit_preset_file(app)
+    written = OutputFormatConfig(from_json_filename=source,
+                                 stderr_file=NoTextIO())
+    assert written.backlog_to_external == {'level': 'Level'}
+    assert _titles(messages) == ['Preset saved']
+
+
+def test_preset_cancelled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test cancelling the preset chooser opens no editor and says nothing."""
+    app = _app(_config())
+    seen: list[EditModel] = []
+    messages = _patch(monkeypatch, app, opened=_seen_models(seen))
+    config_edit.edit_preset_file(app)
+    assert not seen
+    assert not messages
+
+
+def test_preset_open_fails(tmp_path: Path,
+                           monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a preset whose window cannot open is reported and not saved.
+
+    The direction of the file is read before the editor reads the file
+    itself, so a file that becomes unreadable in between is refused by the
+    window rather than by the direction detection.
+    """
+    source = tmp_path / 'in.cfg'
+    _write_preset(source)
+    app = _app(_config())
+
+    def refuse(*_args: object, **_kwargs: object) -> EditModel:
+        """Refuse to open the file, as the editor does for a bad one."""
+        raise ConfigLoadError('cannot open')
+    messages = _patch(monkeypatch, app, opened=refuse, chosen=str(source))
+    config_edit.edit_preset_file(app)
+    assert _titles(messages) == [config_edit.OPEN_FAIL_TITLE]
+    assert config_edit.OPEN_FAIL_TITLE in app.log.text()
 
 
 def test_config_as_preset(tmp_path: Path,
@@ -336,4 +529,75 @@ def test_editor_window(monkeypatch: pytest.MonkeyPatch) -> None:
         # go here, and the collection is made to happen here.
         spy.calls.clear()
         del mounted
+        gc.collect()
+
+
+def test_window_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the window is titled and wired to the editor, with no display.
+
+    The window and the editor are stand-ins here, so this runs where
+    :func:`test_editor_window` is skipped for want of a display.
+    """
+    spy = CloseSpy()
+    monkeypatch.setattr(config_edit, 'bind_close', spy)
+    made = _stub_editor(monkeypatch)
+    mounted = config_edit.editor_window(_app(_config()), _config(),
+                                        'Edit configuration')
+    window = mounted.window
+    assert isinstance(window, _FakeWindow)
+    assert window is made[0] and window.name == 'Edit configuration'
+    assert not window.destroyed
+    assert window.protocols['WM_DELETE_WINDOW'] == mounted.panel.close
+    assert spy.calls == [(window, mounted.panel.close)]
+
+
+def test_window_stub_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a refused file takes the window away again, with no display."""
+    made = _stub_editor(monkeypatch, refuse=True)
+    with pytest.raises(ConfigLoadError):
+        config_edit.editor_window(_app(_config()), _config(),
+                                  'Edit configuration')
+    assert len(made) == 1 and made[0].destroyed
+
+
+def test_session_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the session waits for its window and returns the model shown."""
+    monkeypatch.setattr(config_edit, 'bind_close', CloseSpy())
+    made = _stub_editor(monkeypatch)
+    model = config_edit.edit_in_window(_app(_config()), _config(),
+                                       'Edit configuration')
+    assert model.saved_config is None
+    assert made[0].destroyed
+
+
+def test_window_refuses_file(tmp_path: Path,
+                             monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a file the real editor refuses takes its window away again."""
+    bad = tmp_path / 'bad.cfg'
+    bad.write_text('not json at all', encoding='utf-8')
+    made = _watch_windows(monkeypatch)
+    with gui_root() as root:
+        app = BacklogApp(root)
+        with pytest.raises(config_edit.EDIT_ERRORS):
+            config_edit.editor_window(app, _config(), 'Edit configuration',
+                                      in_file=str(bad))
+        assert len(made) == 1 and not made[0].winfo_exists()
+        made.clear()
+        gc.collect()
+
+
+def test_edit_in_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the real session waits for its window and returns the model.
+
+    The editor is closed from an idle callback, and the wait of the
+    session is what runs it, so both the window and the wait are real.
+    """
+    monkeypatch.setattr(config_edit, 'editor_window',
+                        _auto_close(config_edit.editor_window))
+    with gui_root() as root:
+        app = BacklogApp(root)
+        model = config_edit.edit_in_window(app, _config(),
+                                           'Edit configuration')
+        assert model.saved_config is None
+        assert model.out_file is None
         gc.collect()

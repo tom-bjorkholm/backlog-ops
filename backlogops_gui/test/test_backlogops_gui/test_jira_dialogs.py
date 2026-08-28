@@ -399,6 +399,20 @@ def test_rename_needs_a_name(monkeypatch: pytest.MonkeyPatch) -> None:
         assert dialog.options is None and rec.calls
 
 
+def test_rename_same_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test entering the name a release already has is not a rename."""
+    rec = MsgRecorder()
+    monkeypatch.setattr(ModalDialog, '_show', no_wait)
+    monkeypatch.setattr(MESSAGEBOX, rec)
+    with gui_root() as root:
+        dialog = JiraRenameDialog(root, ['scrum'], ['R1', 'R2'])
+        # pylint: disable-next=protected-access
+        dialog._new['R1'].set('R1')
+        # pylint: disable-next=protected-access
+        dialog._confirm()
+        assert dialog.options is None and rec.calls
+
+
 def test_rename_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test cancelling the rename dialog returns nothing."""
     monkeypatch.setattr(ModalDialog, '_show', cancel_show)

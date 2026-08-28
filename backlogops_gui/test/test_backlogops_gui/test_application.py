@@ -123,6 +123,32 @@ def _read_fail(_path: object, _value: object, _presets: object, _sink: object,
     raise ValueError('bad file')
 
 
+def _raise_silent(_arg: object, _sink: object,
+                  **_kwargs: object) -> BacklogOpsConfig:
+    """Fail without a message, as an error carrying no text does."""
+    raise ValueError('')
+
+
+def _load_nothing(_path: object, _log: object) -> tuple[None, None]:
+    """Return neither a configuration nor an error text."""
+    return (None, None)
+
+
+def _opts(value: Optional[str]) -> Callable[..., ReadOptions]:
+    """Return an ask_read_options stub yielding a fixed format value."""
+    def ask(_parent: object, _presets: object) -> ReadOptions:
+        return ReadOptions(value)
+    return ask
+
+
+def _note(store: list[str], label: str) -> Callable[[object], None]:
+    """Return an editor action stub recording that it was called."""
+    def called(app: object) -> None:
+        assert app is not None
+        store.append(label)
+    return called
+
+
 def _load_ok(config: object) -> Callable[..., object]:
     """Return an initial_config stub yielding the config and no error."""
     def load(_path: object, _log: object) -> object:
@@ -195,6 +221,14 @@ def test_initial_config_exit(monkeypatch: pytest.MonkeyPatch) -> None:
     result, error = application.initial_config('aha')
     assert result is None
     assert error == 'File aha does not exist. Cannot proceed.'
+
+
+def test_init_cfg_silent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a failure carrying no text at all yields an empty error."""
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_silent)
+    result, error = application.initial_config(None)
+    assert result is None
+    assert error == ''
 
 
 def test_start_with_config(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -279,6 +313,37 @@ def test_start_load_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app, 'show_error', _record(errors))
     assert app.start(None) is False
     assert errors == [('Configuration error', 'none')]
+
+
+def test_start_load_silent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a load failure with no text is reported with the fallback."""
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_silent)
+    monkeypatch.setattr(application, 'ask_no_config_choice',
+                        _choices(ConfigChoice.LOAD, ConfigChoice.EXIT))
+    monkeypatch.setattr(application, 'choose_existing_config',
+                        lambda parent: 'bad.cfg')
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    assert app.start(None) is False
+    assert errors == [('Configuration error',
+                       'Could not load the configuration.')]
+
+
+def test_start_error_less(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a named file failing without an error text reports nothing.
+
+    A failure of ``initial_config`` always carries a text, so this is the
+    guard that keeps a textless one out of the error dialog.
+    """
+    monkeypatch.setattr(application, 'initial_config', _load_nothing)
+    monkeypatch.setattr(application, 'ask_no_config_choice',
+                        _choices(ConfigChoice.EXIT))
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    assert app.start('bad.cfg') is False
+    assert not errors
 
 
 def test_exit_config_dialog(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -377,6 +442,27 @@ def test_read_file_source(monkeypatch: pytest.MonkeyPatch) -> None:
     assert source.file_name == 'file.csv'
     assert source.preset_name is None
     assert opened[0][4] is not None
+
+
+@pytest.mark.parametrize('value, configured, expected', [
+    (None, True, None),
+    ('in', True, 'in'),
+    ('other.cfg', True, None),
+    ('in', False, None)])
+def test_read_preset_source(monkeypatch: pytest.MonkeyPatch,
+                            value: Optional[str], configured: bool,
+                            expected: Optional[str]) -> None:
+    """Test the source names the format value only when it is a preset."""
+    monkeypatch.setattr(application, 'choose_input_file', _pick_csv)
+    monkeypatch.setattr(application, 'ask_read_options', _opts(value))
+    monkeypatch.setattr(application, 'read_backlog', _read_data)
+    app = _app(FakeConfig() if configured else None)
+    opened: list[tuple[object, ...]] = []
+    monkeypatch.setattr(app, 'open_backlog', _cap_opener(opened))
+    app.read_backlog_file()
+    source = opened[0][3]
+    assert isinstance(source, BacklogSource)
+    assert source.preset_name == expected
 
 
 def test_file_reload_rereads(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -630,6 +716,8 @@ def test_menu_has_preset_item(monkeypatch: pytest.MonkeyPatch) -> None:
         assert 'Create IO preset file…' in labels
         assert 'Migrate IO preset file…' in labels
         assert 'Encrypt Jira API token file…' in labels
+        assert 'Edit configuration…' in labels
+        assert 'Edit IO preset file…' in labels
 
 
 def test_body_config_warn(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -695,6 +783,21 @@ def test_load_file_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     assert app.config is None
 
 
+def test_load_file_silent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a load failure with no text shows the fallback message."""
+    monkeypatch.setattr(application, 'choose_existing_config',
+                        lambda parent: 'bad.cfg')
+    monkeypatch.setattr(application, 'get_backlog_ops_config', _raise_silent)
+    app = _app()
+    errors: list[tuple[str, str]] = []
+    monkeypatch.setattr(app, 'show_error', _record(errors))
+    # pylint: disable-next=protected-access
+    app._load_config_file()
+    assert app.config is None
+    assert errors == [('Configuration error',
+                       'Could not load the configuration.')]
+
+
 def test_load_file_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a load failure is reported and the config is unchanged."""
     monkeypatch.setattr(application, 'choose_existing_config',
@@ -707,6 +810,18 @@ def test_load_file_error(monkeypatch: pytest.MonkeyPatch) -> None:
     app._load_config_file()
     assert app.config is None
     assert errors == [('Configuration error', 'boom')]
+
+
+def test_editor_menu_actions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the two editor menu actions delegate to the editor module."""
+    calls: list[str] = []
+    monkeypatch.setattr(application, 'edit_config', _note(calls, 'config'))
+    monkeypatch.setattr(application, 'edit_preset_file',
+                        _note(calls, 'preset'))
+    app = _app()
+    app.run_config_editor()
+    app.run_preset_editor()
+    assert calls == ['config', 'preset']
 
 
 def test_copy_log_no_view() -> None:

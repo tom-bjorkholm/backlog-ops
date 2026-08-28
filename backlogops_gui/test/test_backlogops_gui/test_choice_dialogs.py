@@ -2,7 +2,7 @@
 """Tests for the shared button-choice dialog and its ask wrappers.
 
 The generic :class:`ButtonChoiceDialog` records the value of the pressed
-button and keeps the default when the window is dismissed. The three
+button and keeps the default when the window is dismissed. The four
 wrappers build it with their own options and defaults.
 """
 
@@ -10,11 +10,13 @@ wrappers build it with their own options and defaults.
 # MIT License
 
 import tkinter as tk
+from typing import Callable
 import pytest
 from backlogops_gui import choice_dialogs
 from backlogops_gui.choice_dialogs import (
-    ButtonChoiceDialog, ConfigChoice, SourceChoice, ask_no_config_choice,
-    ask_preset_kind, ask_source_choice)
+    ButtonChoiceDialog, ConfigChoice, EditTargetChoice, SourceChoice,
+    ask_edit_target, ask_no_config_choice, ask_preset_kind,
+    ask_source_choice)
 from .gui_test_helpers import CloseSpy, gui_root
 
 _OPTIONS = [('First', ConfigChoice.WIZARD), ('Second', ConfigChoice.LOAD)]
@@ -23,6 +25,19 @@ _OPTIONS = [('First', ConfigChoice.WIZARD), ('Second', ConfigChoice.LOAD)]
 def _no_wait(self: ButtonChoiceDialog[ConfigChoice]) -> None:
     """Stand in for the modal show without grabbing or waiting."""
     assert self is not None
+
+
+def _press(label: str) -> Callable[[ButtonChoiceDialog[object]], None]:
+    """Return a show that presses the button with the given label."""
+    def show(dialog: ButtonChoiceDialog[object]) -> None:
+        """Invoke the one button whose text is the wanted label."""
+        # pylint: disable-next=protected-access
+        buttons = [child for child in dialog._win.winfo_children()
+                   if isinstance(child, tk.Button)
+                   and child.cget('text') == label]
+        assert len(buttons) == 1
+        buttons[0].invoke()
+    return show
 
 
 def _dialog(parent: tk.Misc) -> ButtonChoiceDialog[ConfigChoice]:
@@ -107,3 +122,22 @@ def test_ask_source(monkeypatch: pytest.MonkeyPatch) -> None:
     with gui_root() as root:
         assert ask_source_choice(root, 'Wiz', 'Explain') \
             is SourceChoice.CANCEL
+
+
+def test_ask_edit_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the edit-target wrapper returns cancel when dismissed."""
+    monkeypatch.setattr(ButtonChoiceDialog, '_show', _no_wait)
+    with gui_root() as root:
+        assert ask_edit_target(root) is EditTargetChoice.CANCEL
+
+
+@pytest.mark.parametrize('label, value', [
+    ('The configuration in use', EditTargetChoice.IN_USE),
+    ('A configuration file…', EditTargetChoice.FROM_FILE),
+    ('Cancel', EditTargetChoice.CANCEL)])
+def test_edit_target_button(monkeypatch: pytest.MonkeyPatch, label: str,
+                            value: EditTargetChoice) -> None:
+    """Test each edit-target button is offered and yields its value."""
+    monkeypatch.setattr(ButtonChoiceDialog, '_show', _press(label))
+    with gui_root() as root:
+        assert ask_edit_target(root) is value
