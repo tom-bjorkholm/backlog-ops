@@ -39,7 +39,8 @@ from config_as_json import CallingWholeConfigValidator, Config, \
     ConfigAutoChangeHook, ConfigNesting, ConfigNestingKind, ConfigPath, \
     JsonType, MemberValidationStep, MemberValidator, NestedConfigs, \
     PathOrStr, ReadOldConfiguration, RocfKeyMove, SerializeConverter, \
-    SerializeConverters, ValidationPlan, WholeConfigValidationStep
+    SerializeConverters, ValidationPlan, WholeConfigValidationStep, \
+    member_path
 from backlogops.available_teams import AvailableTeams
 from backlogops.available_teams_config import AvailableTeamsConfig
 from backlogops.backlog import Status
@@ -75,19 +76,32 @@ def _as_str_list(name: str, value: object, stderr_file: TextIO) -> list[str]:
     return result
 
 
-def _level_from_dict(data: dict[str, object], stderr_file: TextIO) -> Level:
-    """Return one Level from its JSON object, checking the field shape."""
+def _level_from_dict(name: str, data: dict[str, object],
+                     stderr_file: TextIO) -> Level:
+    """Return one Level from its JSON object, checking the field shape.
+
+    Args:
+        name: Reported path of the level itself, such as ``levels[2]``,
+            which each field name is appended to.
+        data: The JSON object holding the fields of one level.
+        stderr_file: The file to report errors to.
+
+    Returns:
+        The level the JSON object describes.
+    """
     unknown = sorted(set(data) - {'level', 'name', 'aliases'})
     if unknown:
-        report_bad_value('level', data, f'unknown level fields {unknown}',
+        report_bad_value(name, data, f'unknown level fields {unknown}',
                          stderr_file, 'Level')
     if 'level' not in data or 'name' not in data:
-        report_bad_value('level', data, 'requires "level" and "name"',
+        report_bad_value(name, data, 'requires "level" and "name"',
                          stderr_file, 'Level')
-    return Level(level=_as_int('level', data['level'], stderr_file),
-                 name=_as_str('name', data['name'], stderr_file),
-                 aliases=_as_str_list('aliases', data.get('aliases', []),
-                                      stderr_file))
+    return Level(level=_as_int(member_path(name, 'level'), data['level'],
+                               stderr_file),
+                 name=_as_str(member_path(name, 'name'), data['name'],
+                              stderr_file),
+                 aliases=_as_str_list(member_path(name, 'aliases'),
+                                      data.get('aliases', []), stderr_file))
 
 
 def _level_from_obj(name: str, value: object, stderr_file: TextIO) -> Level:
@@ -96,7 +110,7 @@ def _level_from_obj(name: str, value: object, stderr_file: TextIO) -> Level:
         return value
     if not isinstance(value, dict):
         report_wrong_type(name, value, dict, stderr_file, 'Level')
-    return _level_from_dict(value, stderr_file)
+    return _level_from_dict(name, value, stderr_file)
 
 
 _NO_LEVELS = ('no levels at all; a configuration that leaves the levels out '
@@ -192,11 +206,15 @@ DEF_STATUS_INPUT_MAP: dict[str, Status] = {
 class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
     """Top-level backlog-ops configuration stored as config-as-json."""
 
+    # The library contract fixes five of these; the workforce is the one
+    # argument of this application, and every one of them is keyword only.
+    # pylint: disable-next=too-many-arguments
     def __init__(self, *, available_teams: Optional[AvailableTeams] = None,
                  from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-                 stderr_file: TextIO = sys.stderr) -> None:
+                 stderr_file: TextIO = sys.stderr,
+                 member_name: Optional[str] = None) -> None:
         """Create defaults, or read the configuration from JSON.
 
         The supplied workforce establishes the schema of the nested
@@ -204,7 +222,11 @@ class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
         into an :class:`AvailableTeamsConfig`. The presets default to
         empty maps and the levels default to ``None`` (use the defaults).
         The ``auto_ch_hook`` is notified when an old file needed
-        backward-compatible normalization while reading.
+        backward-compatible normalization while reading. The default
+        nested sections are created under the path of the member holding
+        each of them, so that a diagnostic names the whole path even
+        before any file is read; ``member_name`` is None for a whole
+        configuration file, which is a member of nothing.
         """
         self.available_teams: AvailableTeams = (
             AvailableTeams(persons={}, teams=[]) if available_teams is None
@@ -212,14 +234,18 @@ class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
         self.input_configs: dict[str, InputFormatConfig] = {}
         self.output_configs: dict[str, OutputFormatConfig] = {}
         self.gui_display: GuiDisplayConfig = GuiDisplayConfig(
-            stderr_file=stderr_file)
+            stderr_file=stderr_file,
+            member_name=member_path(member_name, 'gui_display'))
         self.status_input_map: dict[str, Status] = DEF_STATUS_INPUT_MAP
-        self.jira: JiraIOConfig = JiraIOConfig(stderr_file=stderr_file)
+        self.jira: JiraIOConfig = JiraIOConfig(
+            stderr_file=stderr_file,
+            member_name=member_path(member_name, 'jira'))
         self.levels: Optional[list[Level]] = None
         self._unchecked_dicts = ['status_input_map']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
-                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
+                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
+                        member_name=member_name)
 
     @override
     def _get_read_old_config(self) -> ReadOldConfiguration:

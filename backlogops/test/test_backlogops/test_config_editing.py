@@ -38,11 +38,13 @@ from .shared_test_data import write_full_config, write_input_preset, \
 class UndescribedConfig(Config):
     """A configuration class the editing support says nothing about."""
 
-    def __init__(self, stderr_file: TextIO) -> None:
+    def __init__(self, stderr_file: TextIO, *,
+                 member_name: Optional[str] = None) -> None:
         """Declare one member and read no JSON."""
         self.value = 1
         Config.__init__(self, from_json_data_text=None,
-                        from_json_filename=None, stderr_file=stderr_file)
+                        from_json_filename=None, stderr_file=stderr_file,
+                        member_name=member_name)
 
     @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:

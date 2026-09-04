@@ -2485,7 +2485,8 @@ def __init__(*,
              from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create defaults, or read the configuration from JSON.
@@ -2495,7 +2496,11 @@ The supplied workforce establishes the schema of the nested
 into an :class:`AvailableTeamsConfig`. The presets default to
 empty maps and the levels default to ``None`` (use the defaults).
 The ``auto_ch_hook`` is notified when an old file needed
-backward-compatible normalization while reading.
+backward-compatible normalization while reading. The default
+nested sections are created under the path of the member holding
+each of them, so that a diagnostic names the whole path even
+before any file is read; ``member_name`` is None for a whole
+configuration file, which is a member of nothing.
 
 <a id="backlogops.backlog_ops_config.BacklogOpsConfig.nested_configs"></a>
 
@@ -3033,7 +3038,9 @@ attribute that is never serialized.
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create connection defaults, then read them from JSON.
@@ -3180,7 +3187,9 @@ caller overrides the issue filter.
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create preset defaults, then read them from JSON.
@@ -3241,7 +3250,9 @@ dropped, and old ``from_jira_presets`` are moved to the unified
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create empty defaults, then read the jira configuration.
@@ -4398,7 +4409,9 @@ JSON bridge for one full-time-equivalent exception.
 ```python
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create placeholder defaults, then read one FTE exception.
@@ -4442,7 +4455,9 @@ JSON bridge for one work-hours exception (holiday or special).
 ```python
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create placeholder defaults, then read one work-hours exception.
@@ -4486,7 +4501,9 @@ JSON bridge for one team membership.
 ```python
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create placeholder defaults, then read one membership.
@@ -4541,7 +4558,9 @@ JSON bridge for one team.
 ```python
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create placeholder defaults, then read one team.
@@ -4585,7 +4604,9 @@ JSON bridge for one person.
 ```python
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create placeholder defaults, then read one person.
@@ -4629,7 +4650,9 @@ JSON bridge for the company work hours.
 ```python
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create defaults, then read the company work hours.
@@ -4686,7 +4709,8 @@ def __init__(*,
              neutral: Optional[AvailableTeams] = None,
              from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create the bridge from a neutral workforce or from JSON.
@@ -5999,7 +6023,9 @@ to empty and is absent from an older file.
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create the input map defaults, then run the shared constructor.
@@ -6042,7 +6068,9 @@ be absent from an older file, in which case the default applies.
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create the output defaults, then run the shared constructor.
@@ -6112,7 +6140,9 @@ an older file, in which case the default applies.
 ```python
 def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
-             stderr_file: TextIO = sys.stderr) -> None
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
 ```
 
 Create the display defaults, then read them from JSON.

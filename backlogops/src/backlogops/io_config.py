@@ -48,7 +48,7 @@ from config_as_json import Config, ConfigAutoChangeHook, ConfigNesting, \
     ConfigNestingKind, ConfigPath, InvalidConfiguration, \
     MemberValidationStep, MemberValidator, NestedConfigs, ParseConverter, \
     PathOrStr, ReadOldConfiguration, RocfKeyMove, RocfValueMigration, \
-    RocfValueWrite, ValidationPlan
+    RocfValueWrite, ValidationPlan, member_path
 from tableio import Capabilities, FileAccess, access_capabilities
 from tableio_cfg_json import TioJsonConfig, tio_json_config_default
 from backlogops.backlog import Status
@@ -195,23 +195,25 @@ def _capabilities(file_access: FileAccess, stderr_file: TextIO
 
 
 def _tio_default(file_access: FileAccess, format_name: Optional[str] = None,
-                 stderr_file: TextIO = sys.stderr) -> TioJsonConfig:
+                 stderr_file: TextIO = sys.stderr, *,
+                 member_name: Optional[str] = None) -> TioJsonConfig:
     """Return a default TableIO config for a format and file access."""
     return tio_json_config_default(
         capabilities=_capabilities(file_access, stderr_file),
         file_access=file_access, format_name=format_name,
-        stderr_file=stderr_file)
+        stderr_file=stderr_file, member_name=member_name)
 
 
 def _tio_from_json(file_access: FileAccess, from_json_data_text: Optional[str],
                    from_json_filename: Optional[PathOrStr],
-                   stderr_file: TextIO) -> TioJsonConfig:
+                   stderr_file: TextIO,
+                   member_name: Optional[str]) -> TioJsonConfig:
     """Return a TableIO config read from JSON for a file access mode."""
     return TioJsonConfig(capabilities=_capabilities(file_access, stderr_file),
                          file_access=file_access,
                          from_json_data_text=from_json_data_text,
                          from_json_filename=from_json_filename,
-                         stderr_file=stderr_file)
+                         stderr_file=stderr_file, member_name=member_name)
 
 
 class _FormatConfig(Config):
@@ -230,22 +232,31 @@ class _FormatConfig(Config):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-                 stderr_file: TextIO = sys.stderr) -> None:
-        """Create default settings or read them from a JSON source."""
-        self.tableio: TioJsonConfig = _tio_default(self._FILE_ACCESS,
-                                                   stderr_file=stderr_file)
+                 stderr_file: TextIO = sys.stderr, *,
+                 member_name: Optional[str] = None) -> None:
+        """Create default settings or read them from a JSON source.
+
+        The default TableIO endpoint is created under the path of the
+        ``tableio`` member of this endpoint, so that a TableIO diagnostic
+        names which preset it is about even before any file is read.
+        """
+        self.tableio: TioJsonConfig = _tio_default(
+            self._FILE_ACCESS, stderr_file=stderr_file,
+            member_name=member_path(member_name, 'tableio'))
         self._unchecked_dicts = list(self._MAP_NAMES) + \
             list(self._UNCHECKED_EXTRA)
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
-                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
+                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
+                        member_name=member_name)
 
     def _tio_factory(self, *, from_json_data_text: Optional[str] = None,
                      from_json_filename: Optional[PathOrStr] = None,
-                     stderr_file: TextIO = sys.stderr) -> TioJsonConfig:
+                     stderr_file: TextIO = sys.stderr,
+                     member_name: Optional[str] = None) -> TioJsonConfig:
         """Construct the nested TableIO config from JSON when reading."""
         return _tio_from_json(self._FILE_ACCESS, from_json_data_text,
-                              from_json_filename, stderr_file)
+                              from_json_filename, stderr_file, member_name)
 
     def _map_validator(self) -> MemberValidator:
         """Return the validator applied to each column-name map member."""
@@ -334,7 +345,8 @@ class InputFormatConfig(_FormatConfig):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-                 stderr_file: TextIO = sys.stderr) -> None:
+                 stderr_file: TextIO = sys.stderr, *,
+                 member_name: Optional[str] = None) -> None:
         """Create the input map defaults, then run the shared constructor."""
         self.backlog_to_internal = {}
         self.release_to_internal = {}
@@ -342,7 +354,8 @@ class InputFormatConfig(_FormatConfig):
         _FormatConfig.__init__(self, from_json_data_text=from_json_data_text,
                                from_json_filename=from_json_filename,
                                auto_ch_hook=auto_ch_hook,
-                               stderr_file=stderr_file)
+                               stderr_file=stderr_file,
+                               member_name=member_name)
 
     @override
     def _get_read_old_config(self) -> ReadOldConfiguration:
@@ -381,7 +394,8 @@ class OutputFormatConfig(_FormatConfig):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-                 stderr_file: TextIO = sys.stderr) -> None:
+                 stderr_file: TextIO = sys.stderr, *,
+                 member_name: Optional[str] = None) -> None:
         """Create the output defaults, then run the shared constructor."""
         self.backlog_to_external = {}
         self.release_to_external = {}
@@ -389,7 +403,8 @@ class OutputFormatConfig(_FormatConfig):
         _FormatConfig.__init__(self, from_json_data_text=from_json_data_text,
                                from_json_filename=from_json_filename,
                                auto_ch_hook=auto_ch_hook,
-                               stderr_file=stderr_file)
+                               stderr_file=stderr_file,
+                               member_name=member_name)
 
     @override
     def parse_converters(self) -> dict[str, ParseConverter]:
@@ -450,7 +465,8 @@ class GuiDisplayConfig(Config):
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
-                 stderr_file: TextIO = sys.stderr) -> None:
+                 stderr_file: TextIO = sys.stderr, *,
+                 member_name: Optional[str] = None) -> None:
         """Create the display defaults, then read them from JSON."""
         self.backlog_to_external = {}
         self.release_to_external = {}
@@ -458,7 +474,7 @@ class GuiDisplayConfig(Config):
         self._unchecked_dicts = ['backlog_to_external', 'release_to_external']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
-                        stderr_file=stderr_file)
+                        stderr_file=stderr_file, member_name=member_name)
 
     @override
     def parse_converters(self) -> dict[str, ParseConverter]:

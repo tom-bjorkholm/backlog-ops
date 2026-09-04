@@ -420,7 +420,8 @@ class JiraConnectConfig(Config):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-                 stderr_file: TextIO = sys.stderr) -> None:
+                 stderr_file: TextIO = sys.stderr, *,
+                 member_name: Optional[str] = None) -> None:
         """Create connection defaults, then read them from JSON."""
         self.jira_type = JiraType.CLOUD
         self.base_url = ''
@@ -431,7 +432,8 @@ class JiraConnectConfig(Config):
         self._cached_token: Optional[str] = None
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
-                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
+                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
+                        member_name=member_name)
 
     @override
     def _omit_none_from_json(self) -> list[str]:
@@ -600,7 +602,8 @@ class JiraPreset(Config):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-                 stderr_file: TextIO = sys.stderr) -> None:
+                 stderr_file: TextIO = sys.stderr, *,
+                 member_name: Optional[str] = None) -> None:
         """Create preset defaults, then read them from JSON."""
         self.connection_name = ''
         self.backlog_column_map_name = ''
@@ -611,7 +614,8 @@ class JiraPreset(Config):
         self.def_filter = ''
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
-                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
+                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
+                        member_name=member_name)
 
     @override
     def _get_read_old_config(self) -> ReadOldConfiguration:
@@ -695,7 +699,8 @@ class JiraIOConfig(Config):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
-                 stderr_file: TextIO = sys.stderr) -> None:
+                 stderr_file: TextIO = sys.stderr, *,
+                 member_name: Optional[str] = None) -> None:
         """Create empty defaults, then read the jira configuration."""
         self.connections: dict[str, JiraConnectConfig] = {}
         self.backlog_column_maps: dict[str, JiraColumnMap] = {}
@@ -706,7 +711,8 @@ class JiraIOConfig(Config):
                                  'issue_type_maps']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
-                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
+                        auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
+                        member_name=member_name)
 
     @override
     def _get_read_old_config(self) -> ReadOldConfiguration:
