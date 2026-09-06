@@ -155,8 +155,9 @@ selected fields are updated the same way under either value. With ``--rank``
 the items are also ranked in Jira to match the backlog order, at the chosen
 anchor.
 
-The updated, already-correct, ignored, added and failed items are printed
-to stdout as labelled lists, unless ``-q``/``--quiet`` is given. An
+The updated, already-correct, ignored and added items, and what Jira
+refused to add, to set or to link, are printed to stdout as labelled
+lists, unless ``-q``/``--quiet`` is given. An
 encrypted Jira token is unlocked by a pass phrase asked on the terminal
 only when it is needed.
 

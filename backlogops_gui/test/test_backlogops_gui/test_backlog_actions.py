@@ -712,8 +712,9 @@ def test_apply_update_result() -> None:
                           key_map={'NEW': 'PROJ-9'}, status_mismatch=[],
                           failed_fields=[], failed_links=[])
     result = UpdatedBacklogInJira(updated=['A'], already_correct=[],
-                                  ignored=[], failed=[], status_mismatch=[],
-                                  failed_links=[], added=add_res)
+                                  ignored=[], failed_fields=[],
+                                  status_mismatch=[], failed_links=[],
+                                  added=add_res)
     calls: list[str] = []
     reports: list[str] = []
     apply_update_result(data, result, lambda: calls.append('refresh'),

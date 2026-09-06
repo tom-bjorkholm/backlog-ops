@@ -29,9 +29,16 @@ before anything is changed, ``IGNORE`` leaves the missing item alone, and
 all of its mapped fields. When items are added their assigned Jira keys are
 used to remap the parent and dependency keys of the updated items, so an
 updated item that referred to a newly added item links to its Jira key. An
-item whose update Jira refuses is collected in the result's ``failed`` list
-with a concise reason, and the remaining items are still processed. The
-argument backlog is never modified.
+A field value Jira refuses is collected in the result's ``failed_fields``
+list with a concise reason and does not stop the rest of that item's
+update: Jira applies an update as a whole, so a refused update is retried
+one field at a time and only the values Jira really refuses are lost. An
+edit screen that cannot be read leaves that item's fields refused and the
+remaining items are still processed. Because a release the project has no
+version of is such a refused value, the releases of the items to update
+are checked against the project's versions and the unknown ones are
+reported before anything is changed. The argument backlog is never
+modified.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -51,18 +58,19 @@ from backlogops.jira_rank_backlog import (
     JiraRankAnchor, RankEnv, rank_backlog_or_warn)
 from backlogops.jira_read import _coerce_all, _filtered_values, _row, _walk
 from backlogops.jira_write import (
-    AddedToJira, FailedItem, ItemNotInJiraError, OnExistingKey, OnMissingKey,
-    _WriteContext, _build_ctx, _editable_field_ids, _internal_value,
-    _jira_reason, _skipped_names, _try_link, add_backlog_to_jira)
+    AddedToJira, ItemNotInJiraError, OnExistingKey, OnMissingKey,
+    _WriteContext, _build_ctx, _internal_value, _record_refused_fields,
+    _set_edit_fields, _skipped_names, _try_link, _warn_unknown_releases,
+    add_backlog_to_jira)
 from backlogops.jira_write_status import (
     StatusMismatch, _jira_status_name, _maps_to, _report_status_mismatch,
     _try_transitions)
 from backlogops.jira_write_fields import (
-    FailedLink, _LinkSpec, _clear_parent_fields, _clear_value,
+    FailedField, FailedLink, _LinkSpec, _clear_parent_fields, _clear_value,
     _dep_link_attrs, _parent_fields, _place_value)
 from backlogops.jira_write_format import (
-    _failed_section, _link_section, _outcome_prefix, _result_section,
-    _status_section)
+    _failed_section, _field_section, _link_section, _outcome_prefix,
+    _result_section, _status_section)
 from backlogops.levels import Levels
 
 _IDENTITY_FIELDS = frozenset({'key', 'level'})
@@ -113,8 +121,9 @@ class UpdatedBacklogInJira(NamedTuple):
             fields already matched, so no change was made.
         ignored: Keys of the items not present in Jira and left untouched
             under the ``IGNORE`` policy.
-        failed: Items whose update Jira refused, each with a concise
-            reason; the argument backlog is not changed by a failure.
+        failed_fields: The field values Jira refused to set on an
+            existing issue, each with a concise reason; the rest of that
+            item's update was still applied.
         status_mismatch: Updated items whose status could not be
             transitioned to a Jira status matching the item's status.
         failed_links: The parent and dependency links Jira refused to write
@@ -127,7 +136,7 @@ class UpdatedBacklogInJira(NamedTuple):
     updated: list[str]
     already_correct: list[str]
     ignored: list[str]
-    failed: list[FailedItem]
+    failed_fields: list[FailedField]
     status_mismatch: list[StatusMismatch]
     failed_links: list[FailedLink]
     added: AddedToJira
@@ -158,7 +167,7 @@ class _Updated:
     updated: list[str]
     already_correct: list[str]
     ignored: list[str]
-    failed: list[FailedItem]
+    failed_fields: list[FailedField]
     status_mismatch: list[StatusMismatch]
     links: list[FailedLink]
 
@@ -230,32 +239,28 @@ def _field_diff(work: _Work) -> dict[str, object]:
     return fields
 
 
-def _write_fields(work: _Work, payload: dict[str, object]) -> Optional[bool]:
-    """Write the differing settable fields, or record a refusal.
+def _write_fields(work: _Work, payload: dict[str, object]) -> bool:
+    """Write the differing settable fields, reporting what Jira refused.
 
-    Returns whether anything was written, or None when Jira refused the
-    update, in which case the item is recorded as failed and the rest of
-    its update is skipped. Fields the edit screen does not offer are
-    reported, exactly as when adding an issue.
+    Returns whether the item counts as changed. A value Jira refuses no
+    longer stops the item's update: the refused update is retried one
+    field at a time, so the values Jira accepts are still written, and
+    each refused value is collected and reported the way a refused link
+    is. Fields the edit screen does not offer are reported, exactly as
+    when adding an issue.
     """
     if not payload:
         return False
     base = work.ctx.base
-    editable = _editable_field_ids(base.client, work.item.key)
-    allowed = {name: value for name, value in payload.items()
-               if name in editable}
-    skipped = sorted(set(payload) - editable)
-    try:
-        if allowed:
-            work.issue.update(fields=allowed)
-    except JIRAError as error:
-        work.acc.failed.append(FailedItem(copy.deepcopy(work.item),
-                                          _jira_reason(error)))
-        return None
-    if skipped:
-        _report_skipped(work.item.key, skipped, base.custom_names,
+    written = _set_edit_fields(base.client, work.issue, work.item.key, payload)
+    if written.skipped:
+        _report_skipped(work.item.key, written.skipped, base.custom_names,
                         work.ctx.stderr_file)
-    return bool(allowed)
+    if written.refused:
+        _record_refused_fields(work.acc.failed_fields,
+                               copy.deepcopy(work.item), written.refused,
+                               base.custom_names, work.ctx.stderr_file)
+    return written.needed
 
 
 def _apply_status(work: _Work) -> bool:
@@ -416,16 +421,15 @@ def _update_one(ctx: _UpdateCtx, item: BacklogItem, issue: Issue,
 
     The current values are read once, the differing settable fields are
     written, and the status, parent and dependency links are reconciled.
-    The item is recorded as updated when anything changed, as already
-    correct when nothing needed changing, or as failed when the field
-    update was refused.
+    The item is recorded as updated when anything needed changing and as
+    already correct when nothing did. A field value, status or link Jira
+    refuses is collected in its own list and still leaves the item
+    recorded as updated, because the change was needed.
     """
     current = _row(issue, getattr(issue, 'fields', None), ctx.base.column_map,
                    ctx.base.custom_ids, ctx.stderr_file)
     work = _Work(ctx, item, issue, current, acc)
     data_changed = _write_fields(work, _field_diff(work))
-    if data_changed is None:
-        return
     status_changed = _apply_status(work)
     parent_changed = _apply_parent(work)
     deps_changed = _apply_deps(work)
@@ -475,6 +479,21 @@ def _add_or_raise(connections: JiraConnections, preset_name: str,
     return _empty_added()
 
 
+def _warn_updated_releases(ctx: _UpdateCtx, backlog: Backlog,
+                           existing: dict[str, Issue],
+                           stderr_file: TextIO) -> None:
+    """Warn for releases of the updated items the project has no version of.
+
+    Only reported when the release is a selected field, because otherwise
+    it is not written and could not be refused. The items added in the
+    same run are reported by the add itself.
+    """
+    if 'release' not in ctx.selected:
+        return
+    _warn_unknown_releases(ctx.base, [item for item in backlog
+                                      if item.key in existing], stderr_file)
+
+
 def _run_updates(ctx: _UpdateCtx, backlog: Backlog, existing: dict[str, Issue],
                  mode: OnMissingKey,
                  added: AddedToJira) -> UpdatedBacklogInJira:
@@ -487,8 +506,8 @@ def _run_updates(ctx: _UpdateCtx, backlog: Backlog, existing: dict[str, Issue],
         if issue is not None:
             _update_one(ctx, item, issue, acc)
     return UpdatedBacklogInJira(acc.updated, acc.already_correct, acc.ignored,
-                                acc.failed, acc.status_mismatch, acc.links,
-                                added)
+                                acc.failed_fields, acc.status_mismatch,
+                                acc.links, added)
 
 
 def _present_after_update(backlog: Backlog, existing: dict[str, Issue],
@@ -525,9 +544,10 @@ def update_backlog_in_jira(connections: JiraConnections, preset_name: str,
     unset, except for the story points, which an item nobody has
     estimated yet clears in Jira. The status is set by a transition,
     the parent by the mapped parent field, and the dependencies by Jira
-    issue links reconciled per ``link_update``. An item whose update Jira
-    refuses is collected in ``failed`` with a concise reason, and the other
-    items are still processed. The argument backlog is never modified.
+    issue links reconciled per ``link_update``. A field value Jira refuses
+    is collected in ``failed_fields`` with a concise reason, the rest of
+    that item's update is still applied, and the other items are still
+    processed. The argument backlog is never modified.
 
     Args:
         connections: The pool of live Jira clients and the configuration
@@ -554,7 +574,7 @@ def update_backlog_in_jira(connections: JiraConnections, preset_name: str,
 
     Returns:
         The keys of the updated, already-correct and ignored items, the
-        items whose update failed, the status mismatches and failed links
+        field values Jira refused, the status mismatches and failed links
         of the updated items, and the add result for any added items.
 
     Raises:
@@ -571,6 +591,7 @@ def update_backlog_in_jira(connections: JiraConnections, preset_name: str,
                           on_missing_key, levels, status_map, stderr_file)
     update_ctx = _make_ctx(ctx, fields_to_update, added.key_map, link_update,
                            stderr_file)
+    _warn_updated_releases(update_ctx, backlog, existing, stderr_file)
     result = _run_updates(update_ctx, backlog, existing, on_missing_key, added)
     if rank_anchor is not None:
         env = RankEnv(connections, preset_name, rank_anchor, levels,
@@ -611,24 +632,28 @@ def format_backlog_updates(result: UpdatedBacklogInJira) -> str:
     """Return a listing of the update outcome per backlog item.
 
     The sections are the updated, already-correct and ignored keys, the
-    added items, and the failed items, status mismatches and failed links,
-    which combine the updated items with any added items. Each section has
-    a heading with its count, then one line per entry, or a ``(none)`` line
-    when empty. The CLI prints this text and the GUI shows it in a
-    copy-pasteable pop-up.
+    added items, the items Jira refused to add, and the status mismatches,
+    refused field values and failed links, which combine the updated items
+    with any added items. Each section has a heading with its count, then
+    one line per entry, or a ``(none)`` line when empty. An item whose
+    field value or link Jira refused is still among the updated keys, and
+    again in the section naming what was refused. The CLI prints this text
+    and the GUI shows it in a copy-pasteable pop-up.
     """
     added = result.added
-    failed = result.failed + added.failed
     mismatch = result.status_mismatch + added.status_mismatch
+    fields = result.failed_fields + added.failed_fields
     links = result.failed_links + added.failed_links
     lines = _outcome_prefix(result.updated, result.already_correct,
                             result.ignored)
     lines.append('')
     lines.extend(_result_section('Added to Jira', added.stored))
     lines.append('')
-    lines.extend(_failed_section('Failed to update', failed))
+    lines.extend(_failed_section('Failed to add', added.failed))
     lines.append('')
     lines.extend(_status_section('Status not set in Jira', mismatch))
+    lines.append('')
+    lines.extend(_field_section('Fields not set', fields))
     lines.append('')
     lines.extend(_link_section('Links not written', links))
     return '\n'.join(lines)

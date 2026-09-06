@@ -7,8 +7,9 @@
 from typing import Callable
 import pytest
 from backlogops import (
-    AddedToJira, BacklogOpsConfig, BacklogReleases, ItemNotInJiraError,
-    LinkUpdate, OnMissingKey, UpdatedBacklogInJira, UpdatedReleasesInJira)
+    AddedToJira, BacklogItem, BacklogOpsConfig, BacklogReleases, FailedField,
+    FailedItem, FailedLink, ItemNotInJiraError, LinkUpdate, OnMissingKey,
+    Status, UpdatedBacklogInJira, UpdatedReleasesInJira)
 from backlogops_gui.jira_dialogs import (
     JiraBacklogUpdateOptions, JiraReleaseUpdateOptions)
 from .jira_test_helpers import config, make_app, make_immediate, record_calls
@@ -116,8 +117,8 @@ def _no_bl_upd_opts(_parent: object, _fields: object) -> None:
 def _bl_update_result() -> UpdatedBacklogInJira:
     """Return a result with an updated and an already-correct item."""
     return UpdatedBacklogInJira(updated=['A'], already_correct=['B'],
-                                ignored=[], failed=[], status_mismatch=[],
-                                failed_links=[],
+                                ignored=[], failed_fields=[],
+                                status_mismatch=[], failed_links=[],
                                 added=AddedToJira([], [], [], {}, [], [], []))
 
 
@@ -166,6 +167,33 @@ def test_bl_upd_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured['fields'] == ['title', 'status']
     assert captured['link'] is LinkUpdate.RECONCILE
     assert 'already correct' in app.log.text()
+
+
+def test_bl_upd_logs_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the logged summary counts what the update could not write.
+
+    A refused field value and a refused link of an updated item, and of
+    an item added in the same run, are all counted, so a partly written
+    backlog does not look like a clean one in the log.
+    """
+    bad = BacklogItem(key='A', level=1, title='Bad', story_points=1,
+                      status=Status.TODO)
+    added = AddedToJira([], [], [FailedItem(bad, 'nope')], {}, [],
+                        [FailedField(bad, 'team', 'no team')], [])
+    result = _bl_update_result()._replace(
+        failed_fields=[FailedField(bad, 'fixVersions', 'no version')],
+        failed_links=[FailedLink(bad, 'X', 'Blocks', 'gone')], added=added)
+    monkeypatch.setattr(FIELDS, _fields_stub)
+    monkeypatch.setattr(ASK_BL, _bl_upd_opts)
+    monkeypatch.setattr(UPD_BL, _fake_bl_update({}, result))
+    monkeypatch.setattr(THREAD, make_immediate)
+    app = make_app(config())
+    # pylint: disable-next=protected-access
+    app.jira.updater._update_backlog(DATA, lambda _result: None)
+    text = app.log.text()
+    assert '1 not added' in text
+    assert '2 fields not set' in text
+    assert '1 links not written' in text
 
 
 def test_bl_upd_cancel(monkeypatch: pytest.MonkeyPatch) -> None:

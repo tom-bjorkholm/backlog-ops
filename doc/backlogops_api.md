@@ -6005,9 +6005,16 @@ before anything is changed, ``IGNORE`` leaves the missing item alone, and
 all of its mapped fields. When items are added their assigned Jira keys are
 used to remap the parent and dependency keys of the updated items, so an
 updated item that referred to a newly added item links to its Jira key. An
-item whose update Jira refuses is collected in the result's ``failed`` list
-with a concise reason, and the remaining items are still processed. The
-argument backlog is never modified.
+A field value Jira refuses is collected in the result's ``failed_fields``
+list with a concise reason and does not stop the rest of that item's
+update: Jira applies an update as a whole, so a refused update is retried
+one field at a time and only the values Jira really refuses are lost. An
+edit screen that cannot be read leaves that item's fields refused and the
+remaining items are still processed. Because a release the project has no
+version of is such a refused value, the releases of the items to update
+are checked against the project's versions and the unknown ones are
+reported before anything is changed. The argument backlog is never
+modified.
 
 <a id="backlogops.jira_update_backlog.LinkUpdate"></a>
 
@@ -6041,8 +6048,9 @@ Fields:
         fields already matched, so no change was made.
     ignored: Keys of the items not present in Jira and left untouched
         under the ``IGNORE`` policy.
-    failed: Items whose update Jira refused, each with a concise
-        reason; the argument backlog is not changed by a failure.
+    failed_fields: The field values Jira refused to set on an
+        existing issue, each with a concise reason; the rest of that
+        item's update was still applied.
     status_mismatch: Updated items whose status could not be
         transitioned to a Jira status matching the item's status.
     failed_links: The parent and dependency links Jira refused to write
@@ -6083,9 +6091,10 @@ Jira value differs from the item. An empty internal value is left
 unset, except for the story points, which an item nobody has
 estimated yet clears in Jira. The status is set by a transition,
 the parent by the mapped parent field, and the dependencies by Jira
-issue links reconciled per ``link_update``. An item whose update Jira
-refuses is collected in ``failed`` with a concise reason, and the other
-items are still processed. The argument backlog is never modified.
+issue links reconciled per ``link_update``. A field value Jira refuses
+is collected in ``failed_fields`` with a concise reason, the rest of
+that item's update is still applied, and the other items are still
+processed. The argument backlog is never modified.
 
 **Arguments**:
 
@@ -6115,7 +6124,7 @@ items are still processed. The argument backlog is never modified.
 **Returns**:
 
   The keys of the updated, already-correct and ignored items, the
-  items whose update failed, the status mismatches and failed links
+  field values Jira refused, the status mismatches and failed links
   of the updated items, and the add result for any added items.
   
 
@@ -6171,11 +6180,13 @@ def format_backlog_updates(result: UpdatedBacklogInJira) -> str
 Return a listing of the update outcome per backlog item.
 
 The sections are the updated, already-correct and ignored keys, the
-added items, and the failed items, status mismatches and failed links,
-which combine the updated items with any added items. Each section has
-a heading with its count, then one line per entry, or a ``(none)`` line
-when empty. The CLI prints this text and the GUI shows it in a
-copy-pasteable pop-up.
+added items, the items Jira refused to add, and the status mismatches,
+refused field values and failed links, which combine the updated items
+with any added items. Each section has a heading with its count, then
+one line per entry, or a ``(none)`` line when empty. An item whose
+field value or link Jira refused is still among the updated keys, and
+again in the section naming what was refused. The CLI prints this text
+and the GUI shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.jira_rank_move_keys"></a>
 

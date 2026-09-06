@@ -378,26 +378,40 @@ def _set_fields(issue: Issue,
     return _set_one_by_one(issue, fields)
 
 
-def _set_extra_fields(ctx: _WriteContext, issue: Issue, key: str,
-                      update: dict[str, object]) -> _Created:
-    """Set the mapped fields the create screen did not accept.
+class _FieldWrite(NamedTuple):
+    """The outcome of setting the fields an issue's edit screen offers.
 
-    Nothing here raises: Jira has already assigned the key, so a refusal
-    is reported rather than allowed to cost the item its created issue.
-    The update is limited to the fields the issue's edit screen offers,
-    and an edit screen that cannot be read leaves every field refused.
+    ``skipped`` are the field ids the edit screen does not offer and
+    ``refused`` pairs each field id Jira refused to set with its reason.
+    ``needed`` says whether the item counts as changed; it is False only
+    when the edit screen offers none of the fields, so nothing was ever
+    going to be written.
     """
-    if not update:
-        return _Created(key, issue, [], [])
+
+    skipped: list[str]
+    refused: list[tuple[str, str]]
+    needed: bool
+
+
+def _set_edit_fields(client: JIRA, issue: Issue, key: str,
+                     payload: dict[str, object]) -> _FieldWrite:
+    """Set the payload fields the issue's edit screen offers.
+
+    Nothing here raises: the issue exists in Jira, so a refusal is
+    reported rather than allowed to cost the caller the issue or the rest
+    of the run. An edit screen that cannot be read leaves every field
+    refused, and a refused update is retried one field at a time by
+    :func:`_set_fields`. It is shared by the create and the update paths.
+    """
     try:
-        editable = _editable_field_ids(ctx.client, key)
+        editable = _editable_field_ids(client, key)
     except JIRAError as error:
-        return _Created(key, issue, [],
-                        _all_refused(update, _jira_reason(error)))
-    allowed = {name: value for name, value in update.items()
+        return _FieldWrite([], _all_refused(payload, _jira_reason(error)),
+                           True)
+    allowed = {name: value for name, value in payload.items()
                if name in editable}
-    return _Created(key, issue, sorted(set(update) - editable),
-                    _set_fields(issue, allowed))
+    return _FieldWrite(sorted(set(payload) - editable),
+                       _set_fields(issue, allowed), bool(allowed))
 
 
 def _create_issue(ctx: _WriteContext, item: BacklogItem,
@@ -423,7 +437,11 @@ def _create_issue(ctx: _WriteContext, item: BacklogItem,
     update = {name: value for name, value in fields.items()
               if name not in _CREATE_FIELD_NAMES}
     issue = ctx.client.create_issue(fields=create)
-    return _set_extra_fields(ctx, issue, _issue_key(issue), update)
+    key = _issue_key(issue)
+    if not update:
+        return _Created(key, issue, [], [])
+    written = _set_edit_fields(ctx.client, issue, key, update)
+    return _Created(key, issue, written.skipped, written.refused)
 
 
 def _skipped_names(skipped: list[str], custom_names: dict[str, str]) -> str:
@@ -596,21 +614,22 @@ def _write_item_links(ctx: _WriteContext, item: BacklogItem,
         _write_dep_links(ctx, item, spec, acc, stderr_file)
 
 
-def _record_refused_fields(acc: _Added, stored: BacklogItem,
+def _record_refused_fields(collected: list[FailedField], item: BacklogItem,
                            refused: list[tuple[str, str]],
                            custom_names: dict[str, str],
                            stderr_file: TextIO) -> None:
-    """Collect and report the field values Jira refused on a new issue.
+    """Collect and report the field values Jira refused on one issue.
 
-    The created issue keeps the key Jira assigned, so only these values
-    are lost. Each is collected in the result and warned about, naming a
-    custom field by its display name as a skipped field is named.
+    The issue keeps its key and the rest of its write still runs, so only
+    these values are lost. Each is collected in ``collected`` and warned
+    about, naming a custom field by its display name as a skipped field is
+    named. It is shared by the add-backlog and update-backlog paths.
     """
     for field_id, reason in refused:
-        failed = FailedField(stored, _skipped_names([field_id], custom_names),
+        failed = FailedField(item, _skipped_names([field_id], custom_names),
                              reason)
-        acc.refused.fields.append(failed)
-        print(f'WARNING: {stored.key} field {failed.field} was not set: '
+        collected.append(failed)
+        print(f'WARNING: {item.key} field {failed.field} was not set: '
               f'{reason}.', file=stderr_file)
 
 
@@ -642,8 +661,8 @@ def _add_item(ctx: _WriteContext, item: BacklogItem, existing: set[str],
     acc.stored.append(stored_item)
     acc.key_map[item.key] = created.key
     acc.issues[created.key] = created.issue
-    _record_refused_fields(acc, stored_item, created.refused, ctx.custom_names,
-                           stderr_file)
+    _record_refused_fields(acc.refused.fields, stored_item, created.refused,
+                           ctx.custom_names, stderr_file)
     bad = _reconcile_status(ctx, stored_item, created.issue, stderr_file)
     if bad is not None:
         acc.refused.status.append(bad)

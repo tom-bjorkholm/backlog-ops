@@ -574,6 +574,7 @@
   * [\_make\_ctx](#backlogops.jira_update_backlog._make_ctx)
   * [\_empty\_added](#backlogops.jira_update_backlog._empty_added)
   * [\_add\_or\_raise](#backlogops.jira_update_backlog._add_or_raise)
+  * [\_warn\_updated\_releases](#backlogops.jira_update_backlog._warn_updated_releases)
   * [\_run\_updates](#backlogops.jira_update_backlog._run_updates)
   * [\_present\_after\_update](#backlogops.jira_update_backlog._present_after_update)
   * [update\_backlog\_in\_jira](#backlogops.jira_update_backlog.update_backlog_in_jira)
@@ -793,7 +794,8 @@
   * [\_all\_refused](#backlogops.jira_write._all_refused)
   * [\_set\_one\_by\_one](#backlogops.jira_write._set_one_by_one)
   * [\_set\_fields](#backlogops.jira_write._set_fields)
-  * [\_set\_extra\_fields](#backlogops.jira_write._set_extra_fields)
+  * [\_FieldWrite](#backlogops.jira_write._FieldWrite)
+  * [\_set\_edit\_fields](#backlogops.jira_write._set_edit_fields)
   * [\_create\_issue](#backlogops.jira_write._create_issue)
   * [\_skipped\_names](#backlogops.jira_write._skipped_names)
   * [\_report\_skipped](#backlogops.jira_write._report_skipped)
@@ -9827,9 +9829,16 @@ before anything is changed, ``IGNORE`` leaves the missing item alone, and
 all of its mapped fields. When items are added their assigned Jira keys are
 used to remap the parent and dependency keys of the updated items, so an
 updated item that referred to a newly added item links to its Jira key. An
-item whose update Jira refuses is collected in the result's ``failed`` list
-with a concise reason, and the remaining items are still processed. The
-argument backlog is never modified.
+A field value Jira refuses is collected in the result's ``failed_fields``
+list with a concise reason and does not stop the rest of that item's
+update: Jira applies an update as a whole, so a refused update is retried
+one field at a time and only the values Jira really refuses are lost. An
+edit screen that cannot be read leaves that item's fields refused and the
+remaining items are still processed. Because a release the project has no
+version of is such a refused value, the releases of the items to update
+are checked against the project's versions and the unknown ones are
+reported before anything is changed. The argument backlog is never
+modified.
 
 <a id="backlogops.jira_update_backlog._IDENTITY_FIELDS"></a>
 
@@ -9896,8 +9905,9 @@ Fields:
         fields already matched, so no change was made.
     ignored: Keys of the items not present in Jira and left untouched
         under the ``IGNORE`` policy.
-    failed: Items whose update Jira refused, each with a concise
-        reason; the argument backlog is not changed by a failure.
+    failed_fields: The field values Jira refused to set on an
+        existing issue, each with a concise reason; the rest of that
+        item's update was still applied.
     status_mismatch: Updated items whose status could not be
         transitioned to a Jira status matching the item's status.
     failed_links: The parent and dependency links Jira refused to write
@@ -10000,15 +10010,17 @@ Jira field they are mapped to.
 #### \_write\_fields
 
 ```python
-def _write_fields(work: _Work, payload: dict[str, object]) -> Optional[bool]
+def _write_fields(work: _Work, payload: dict[str, object]) -> bool
 ```
 
-Write the differing settable fields, or record a refusal.
+Write the differing settable fields, reporting what Jira refused.
 
-Returns whether anything was written, or None when Jira refused the
-update, in which case the item is recorded as failed and the rest of
-its update is skipped. Fields the edit screen does not offer are
-reported, exactly as when adding an issue.
+Returns whether the item counts as changed. A value Jira refuses no
+longer stops the item's update: the refused update is retried one
+field at a time, so the values Jira accepts are still written, and
+each refused value is collected and reported the way a refused link
+is. Fields the edit screen does not offer are reported, exactly as
+when adding an issue.
 
 <a id="backlogops.jira_update_backlog._apply_status"></a>
 
@@ -10141,9 +10153,10 @@ Update one existing issue's selected fields, links and status.
 
 The current values are read once, the differing settable fields are
 written, and the status, parent and dependency links are reconciled.
-The item is recorded as updated when anything changed, as already
-correct when nothing needed changing, or as failed when the field
-update was refused.
+The item is recorded as updated when anything needed changing and as
+already correct when nothing did. A field value, status or link Jira
+refuses is collected in its own list and still leaves the item
+recorded as updated, because the change was needed.
 
 <a id="backlogops.jira_update_backlog._make_ctx"></a>
 
@@ -10185,6 +10198,22 @@ Handle the items not present in Jira per the missing-key policy.
 ``RAISE`` raises before anything is changed, ``ADD`` creates the
 missing items with all of their fields as :func:`add_backlog_to_jira`
 does, and any other policy leaves them alone with an empty add result.
+
+<a id="backlogops.jira_update_backlog._warn_updated_releases"></a>
+
+#### \_warn\_updated\_releases
+
+```python
+def _warn_updated_releases(ctx: _UpdateCtx, backlog: Backlog,
+                           existing: dict[str,
+                                          Issue], stderr_file: TextIO) -> None
+```
+
+Warn for releases of the updated items the project has no version of.
+
+Only reported when the release is a selected field, because otherwise
+it is not written and could not be refused. The items added in the
+same run are reported by the add itself.
 
 <a id="backlogops.jira_update_backlog._run_updates"></a>
 
@@ -10244,9 +10273,10 @@ Jira value differs from the item. An empty internal value is left
 unset, except for the story points, which an item nobody has
 estimated yet clears in Jira. The status is set by a transition,
 the parent by the mapped parent field, and the dependencies by Jira
-issue links reconciled per ``link_update``. An item whose update Jira
-refuses is collected in ``failed`` with a concise reason, and the other
-items are still processed. The argument backlog is never modified.
+issue links reconciled per ``link_update``. A field value Jira refuses
+is collected in ``failed_fields`` with a concise reason, the rest of
+that item's update is still applied, and the other items are still
+processed. The argument backlog is never modified.
 
 **Arguments**:
 
@@ -10276,7 +10306,7 @@ items are still processed. The argument backlog is never modified.
 **Returns**:
 
   The keys of the updated, already-correct and ignored items, the
-  items whose update failed, the status mismatches and failed links
+  field values Jira refused, the status mismatches and failed links
   of the updated items, and the add result for any added items.
   
 
@@ -10332,11 +10362,13 @@ def format_backlog_updates(result: UpdatedBacklogInJira) -> str
 Return a listing of the update outcome per backlog item.
 
 The sections are the updated, already-correct and ignored keys, the
-added items, and the failed items, status mismatches and failed links,
-which combine the updated items with any added items. Each section has
-a heading with its count, then one line per entry, or a ``(none)`` line
-when empty. The CLI prints this text and the GUI shows it in a
-copy-pasteable pop-up.
+added items, the items Jira refused to add, and the status mismatches,
+refused field values and failed links, which combine the updated items
+with any added items. Each section has a heading with its count, then
+one line per entry, or a ``(none)`` line when empty. An item whose
+field value or link Jira refused is still among the updated keys, and
+again in the section naming what was refused. The CLI prints this text
+and the GUI shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.jira_rank_move_keys"></a>
 
@@ -13465,21 +13497,38 @@ story points. A refused update of more than one field is therefore
 retried one field at a time, so only the values Jira really refuses
 are lost. A single field has nothing to salvage and is not retried.
 
-<a id="backlogops.jira_write._set_extra_fields"></a>
+<a id="backlogops.jira_write._FieldWrite"></a>
 
-#### \_set\_extra\_fields
+## \_FieldWrite Objects
 
 ```python
-def _set_extra_fields(ctx: _WriteContext, issue: Issue, key: str,
-                      update: dict[str, object]) -> _Created
+class _FieldWrite(NamedTuple)
 ```
 
-Set the mapped fields the create screen did not accept.
+The outcome of setting the fields an issue's edit screen offers.
 
-Nothing here raises: Jira has already assigned the key, so a refusal
-is reported rather than allowed to cost the item its created issue.
-The update is limited to the fields the issue's edit screen offers,
-and an edit screen that cannot be read leaves every field refused.
+``skipped`` are the field ids the edit screen does not offer and
+``refused`` pairs each field id Jira refused to set with its reason.
+``needed`` says whether the item counts as changed; it is False only
+when the edit screen offers none of the fields, so nothing was ever
+going to be written.
+
+<a id="backlogops.jira_write._set_edit_fields"></a>
+
+#### \_set\_edit\_fields
+
+```python
+def _set_edit_fields(client: JIRA, issue: Issue, key: str,
+                     payload: dict[str, object]) -> _FieldWrite
+```
+
+Set the payload fields the issue's edit screen offers.
+
+Nothing here raises: the issue exists in Jira, so a refusal is
+reported rather than allowed to cost the caller the issue or the rest
+of the run. An edit screen that cannot be read leaves every field
+refused, and a refused update is retried one field at a time by
+:func:`_set_fields`. It is shared by the create and the update paths.
 
 <a id="backlogops.jira_write._create_issue"></a>
 
@@ -13683,18 +13732,19 @@ already carries its assigned Jira keys from the earlier remap.
 #### \_record\_refused\_fields
 
 ```python
-def _record_refused_fields(acc: _Added, stored: BacklogItem,
+def _record_refused_fields(collected: list[FailedField], item: BacklogItem,
                            refused: list[tuple[str,
                                                str]], custom_names: dict[str,
                                                                          str],
                            stderr_file: TextIO) -> None
 ```
 
-Collect and report the field values Jira refused on a new issue.
+Collect and report the field values Jira refused on one issue.
 
-The created issue keeps the key Jira assigned, so only these values
-are lost. Each is collected in the result and warned about, naming a
-custom field by its display name as a skipped field is named.
+The issue keeps its key and the rest of its write still runs, so only
+these values are lost. Each is collected in ``collected`` and warned
+about, naming a custom field by its display name as a skipped field is
+named. It is shared by the add-backlog and update-backlog paths.
 
 <a id="backlogops.jira_write._add_item"></a>
 

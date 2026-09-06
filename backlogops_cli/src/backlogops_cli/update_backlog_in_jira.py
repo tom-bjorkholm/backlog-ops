@@ -20,8 +20,9 @@ selected fields are updated the same way under either value. With ``--rank``
 the items are also ranked in Jira to match the backlog order, at the chosen
 anchor.
 
-The updated, already-correct, ignored, added and failed items are printed
-to stdout as labelled lists, unless ``-q``/``--quiet`` is given. An
+The updated, already-correct, ignored and added items, and what Jira
+refused to add, to set or to link, are printed to stdout as labelled
+lists, unless ``-q``/``--quiet`` is given. An
 encrypted Jira token is unlocked by a pass phrase asked on the terminal
 only when it is needed.
 """
@@ -128,7 +129,11 @@ def _report_summary(result: UpdatedBacklogInJira) -> None:
     print(f'Updated {len(result.updated)} items in Jira; '
           f'{len(result.already_correct)} already correct; '
           f'{len(result.ignored)} ignored; {len(result.added.stored)} added; '
-          f'{len(result.failed)} failed.', file=sys.stderr)
+          f'{len(result.added.failed)} not added; '
+          f'{len(result.failed_fields) + len(result.added.failed_fields)} '
+          'fields not set; '
+          f'{len(result.failed_links) + len(result.added.failed_links)} '
+          'links not written.', file=sys.stderr)
 
 
 def _run(parsed: argparse.Namespace) -> int:

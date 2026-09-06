@@ -28,7 +28,7 @@ from backlogops.jira_write import (
     AddedToJira, FailedItem, ItemNotInJiraError, OnExistingKey, OnMissingKey)
 from backlogops.jira_write_status import StatusMismatch
 from backlogops.jira_write_fields import (
-    FailedLink, _LinkSpec, _clear_parent_fields)
+    FailedField, FailedLink, _LinkSpec, _clear_parent_fields)
 from backlogops import jira_update_backlog
 from backlogops.jira_update_backlog import (
     LinkUpdate, UpdatedBacklogInJira, format_backlog_updates,
@@ -77,18 +77,27 @@ def _issue(key: str, *, summary: str = 'T', description: str = 'D',
 
 # pylint: disable-next=too-few-public-methods
 class _Issue:
-    """A fake Jira issue that records or refuses its field updates."""
+    """A fake Jira issue that records or refuses its field updates.
+
+    ``fail`` refuses every update, while ``fail_fields`` refuses only an
+    update carrying one of the named fields, as Jira does for a value it
+    cannot accept. A refused update is recorded in ``refused`` and none of
+    its fields is merged, so a retry one field at a time is observable.
+    """
 
     def __init__(self, key: str, fields: SimpleNamespace, fail: bool) -> None:
         """Start with the key, the current fields and the failing flag."""
         self.key = key
         self.fields = fields
         self.fail = fail
+        self.fail_fields: set[str] = set()
         self.updates: list[dict[str, object]] = []
+        self.refused: list[dict[str, object]] = []
 
     def update(self, fields: dict[str, object]) -> None:
         """Record the update and merge it, or raise when set to fail."""
-        if self.fail:
+        if self.fail or self.fail_fields & set(fields):
+            self.refused.append(dict(fields))
             raise JIRAError(status_code=400, text='update rejected')
         self.updates.append(dict(fields))
         for name, value in fields.items():
@@ -109,6 +118,8 @@ class _Client:
         self.fail_link = set() if fail_link is None else set(fail_link)
         self.fail_transition = fail_transition
         self.editable = set(_EDITABLE)
+        self.fail_editmeta = False
+        self.versions = {'R1', 'R2'}
         self.created_links: list[tuple[str, str, str]] = []
         self.deleted_links: list[str] = []
         self.transitioned: list[tuple[str, str]] = []
@@ -138,9 +149,16 @@ class _Client:
         return {'projects': [{'issuetypes': [{'name': 'Story'}]}]}
 
     def editmeta(self, key: str) -> dict[str, object]:
-        """Return the edit-screen field metadata for the issue."""
+        """Return the edit-screen field metadata, or raise when set to."""
         _ = key
+        if self.fail_editmeta:
+            raise JIRAError(status_code=500, text='no edit screen')
         return {'fields': {fid: {'name': fid} for fid in self.editable}}
+
+    def project_versions(self, project: str) -> list[SimpleNamespace]:
+        """Return the project's versions, each carrying its name."""
+        _ = project
+        return [SimpleNamespace(name=name) for name in sorted(self.versions)]
 
     def transitions(self, issue: _Issue) -> list[dict[str, object]]:
         """Return the configured available workflow transitions."""
@@ -499,15 +517,103 @@ def test_remove_link_no_id(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_update_failed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a refused field update is reported and the others still run."""
+    """Test a refused field value is reported and the others still run.
+
+    The item is still counted as updated, the way an item whose link Jira
+    refused is, because the change was needed.
+    """
     client = _Client({'A': _issue('A', summary='Old', fail=True),
                       'B': _issue('B', summary='Old')})
     connections = _connections(monkeypatch, client)
     backlog = [_item('A', title='New'), _item('B', title='New')]
     result = _upd(connections, backlog, ['title'])
-    assert result.updated == ['B']
-    assert [entry.item.key for entry in result.failed] == ['A']
-    assert 'HTTP 400' in result.failed[0].reason
+    assert result.updated == ['A', 'B']
+    assert [bad.item.key for bad in result.failed_fields] == ['A']
+    assert result.failed_fields[0].field == 'summary'
+    assert 'HTTP 400' in result.failed_fields[0].reason
+
+
+def test_update_field_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the fields Jira accepts are still written after a refusal.
+
+    Jira applies an update as a whole, so the refused update is retried
+    one field at a time and only the refused value is lost.
+    """
+    issue = _issue('A', summary='Old', release=None)
+    issue.fail_fields = {'fixVersions'}
+    connections = _connections(monkeypatch, _Client({'A': issue}))
+    item = _item('A', title='New')
+    item.release = 'R1'
+    result = _upd(connections, [item], ['title', 'release'])
+    assert issue.fields.summary == 'New'
+    assert len(issue.refused) == 2
+    assert result.updated == ['A']
+    assert [bad.field for bad in result.failed_fields] == ['fixVersions']
+
+
+def test_rest_still_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a refused field leaves the status and links still updated."""
+    issue = _issue('A', summary='Old', status='To Do', fail=True)
+    trans: list[dict[str, object]] = [{'id': '11', 'to': {'name': 'Done'}}]
+    client = _Client({'A': issue}, transitions=trans)
+    connections = _connections(monkeypatch, client)
+    item = _item('A', title='New', status=Status.DONE, depends_on_f2s=['B'])
+    result = _upd(connections, [item], ['title', 'status', 'depends_on_f2s'],
+                  status_map=SMAP)
+    assert client.transitioned == [('A', '11')]
+    assert client.created_links == [('Blocks', 'B', 'A')]
+    assert result.updated == ['A']
+    assert [bad.field for bad in result.failed_fields] == ['summary']
+
+
+def test_no_edit_screen(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an unreadable edit screen refuses fields and continues.
+
+    The run no longer stops part-way: the item's fields are all reported
+    refused and the remaining items are still updated.
+    """
+    client = _Client({'A': _issue('A', summary='Old'),
+                      'B': _issue('B', summary='Old')})
+    client.fail_editmeta = True
+    connections = _connections(monkeypatch, client)
+    backlog = [_item('A', title='New'), _item('B', title='New')]
+    result = _upd(connections, backlog, ['title'])
+    assert result.updated == ['A', 'B']
+    assert [bad.item.key for bad in result.failed_fields] == ['A', 'B']
+    assert 'HTTP 500' in result.failed_fields[0].reason
+
+
+def test_refused_warned(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a refused field value is warned about, naming the field."""
+    client = _Client({'A': _issue('A', summary='Old', fail=True)})
+    connections = _connections(monkeypatch, client)
+    errors = io.StringIO()
+    _upd(connections, [_item('A', title='New')], ['title'], stderr=errors)
+    text = errors.getvalue()
+    assert 'A field summary was not set' in text
+    assert 'HTTP 400' in text
+
+
+def test_unknown_release(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a release the project has no version of is reported."""
+    client = _Client({'A': _issue('A')})
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.release = 'Next'
+    errors = io.StringIO()
+    _upd(connections, [item], ['release'], stderr=errors)
+    assert 'not a version of Jira project PROJ: Next' in errors.getvalue()
+
+
+def test_release_unpicked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an unknown release is quiet when the release is not selected."""
+    client = _Client({'A': _issue('A')})
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.release = 'Next'
+    errors = io.StringIO()
+    _upd(connections, [item], ['title'], stderr=errors)
+    assert 'not a version' not in errors.getvalue()
 
 
 def test_link_failed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -623,12 +729,19 @@ def test_ignores_bad_field(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_format_updates() -> None:
-    """Test the listing shows the sections with their entries."""
+    """Test the listing shows the sections with their entries.
+
+    The refused field values of the updated items and of the added items
+    are shown together, as the status mismatches and links are.
+    """
     failed = FailedItem(_item('E-1'), 'HTTP 400: nope')
     added_item = _item('P-1')
-    added = AddedToJira([added_item], [], [], {}, [], [], [])
+    added = AddedToJira([added_item], [], [failed], {}, [],
+                        [FailedField(added_item, 'team', 'HTTP 400: team')],
+                        [])
     result = UpdatedBacklogInJira(
-        updated=['A'], already_correct=['B'], ignored=['C'], failed=[failed],
+        updated=['A'], already_correct=['B'], ignored=['C'],
+        failed_fields=[FailedField(_item('F-1'), 'fixVersions', 'no such')],
         status_mismatch=[StatusMismatch(_item('M'), Status.DONE, 'To Do')],
         failed_links=[FailedLink(_item('L'), 'X', 'Blocks', 'nope')],
         added=added)
@@ -637,8 +750,11 @@ def test_format_updates() -> None:
     assert 'Already correct in Jira (1):' in text and '  B' in text
     assert 'Not in Jira (ignored) (1):' in text and '  C' in text
     assert 'Added to Jira (1):' in text and 'P-1' in text
-    assert 'Failed to update (1):' in text and 'E-1' in text
+    assert 'Failed to add (1):' in text and 'E-1' in text
     assert 'Status not set in Jira (1):' in text
+    assert 'Fields not set (2):' in text
+    assert 'F-1  fixVersions  - no such' in text
+    assert 'P-1  team  - HTTP 400: team' in text
     assert 'Links not written (1):' in text
 
 
@@ -649,6 +765,7 @@ def test_format_empty() -> None:
         UpdatedBacklogInJira([], [], [], [], [], [], empty))
     assert 'Updated in Jira (0):' in text
     assert 'Added to Jira (0):' in text
+    assert 'Fields not set (0):' in text
     assert '(none)' in text
 
 

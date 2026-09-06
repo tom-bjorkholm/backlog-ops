@@ -110,11 +110,16 @@ class JiraUpdater(JiraAction):
 
         def done(result: UpdatedBacklogInJira) -> None:
             """Hand the result to the window and log the completed update."""
+            added = result.added
             summary = (
                 f"Updated {len(result.updated)} backlog items in Jira; "
                 f"{len(result.already_correct)} already correct; "
                 f"{len(result.ignored)} ignored; "
-                f"{len(result.added.stored)} added "
-                f"(preset '{name}').\n")
+                f"{len(added.stored)} added; "
+                f"{len(added.failed)} not added; "
+                f"{len(result.failed_fields) + len(added.failed_fields)} "
+                "fields not set; "
+                f"{len(result.failed_links) + len(added.failed_links)} "
+                f"links not written (preset '{name}').\n")
             self._finish(on_done, result, summary)
         self._dispatch('Could not update backlog in Jira', name, call, done)
