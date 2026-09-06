@@ -91,15 +91,24 @@ def test_zero_level_kept() -> None:
     assert points.get_default_story_points(0) == 0.0
 
 
-def test_zero_level_no_factor() -> None:
-    """A zero level takes no part in the growth of the other levels.
+@pytest.mark.parametrize('given', [0.0, 0.04])
+def test_small_no_factor(given: float) -> None:
+    """A level of nearly nothing takes no part in the growth.
 
     Levels 2 and 3 grow by a factor of two, and level 1 is worked out
-    from them as if nothing had been said about the zero at level 0.
+    from them as if nothing had been said about level 0, which is under
+    the story points a factor may be taken from.
     """
-    points = read([(0, 0.0), (2, 4.0), (3, 8.0)], interpolate=True,
+    points = read([(0, given), (2, 4.0), (3, 8.0)], interpolate=True,
                   extrapolate=True)
+    assert points.get_default_story_points(0) == given
     assert points.get_default_story_points(1) == 2.0
+
+
+def test_small_level_usable() -> None:
+    """A level at the smallest usable story points is a full anchor."""
+    points = read([(1, 0.05), (2, 0.1)], interpolate=True, extrapolate=True)
+    assert points.get_default_story_points(3) == pytest.approx(0.2)
 
 
 def test_levels_sorted() -> None:
@@ -150,6 +159,31 @@ def test_old_file_empty(tmp_path: Path) -> None:
     assert loaded.extrapolate is False
 
 
+def test_worked_out_kept() -> None:
+    """A level worked out from the given ones is kept for the next ask."""
+    points = read([(1, 2.0), (3, 8.0)], interpolate=True)
+    assert points.get_default_story_points(2) == 4.0
+    # pylint: disable-next=protected-access
+    assert points._points_for_level[2] == 4.0
+
+
+def test_kept_level_forgotten() -> None:
+    """A level worked out earlier is forgotten when the levels change."""
+    points = read([(1, 2.0), (3, 8.0)], interpolate=True)
+    assert points.get_default_story_points(2) == 4.0
+    points.levels[1].story_points = 32.0
+    points.validate(NO)
+    assert points.get_default_story_points(2) == 8.0
+
+
+def test_missing_level_kept() -> None:
+    """A level the guess says nothing about is not worked out twice."""
+    points = read([(1, 2.0), (3, 8.0)])
+    assert points.get_default_story_points(2) is None
+    # pylint: disable-next=protected-access
+    assert points._points_for_level[2] is None
+
+
 def test_cache_rebuilt() -> None:
     """A level added afterwards is used once the guess is validated."""
     points = DefaultStoryPoints(stderr_file=NO)
@@ -167,7 +201,9 @@ def test_cache_rebuilt() -> None:
     ([(1, 2.0)], True, False),
     ([(1, 2.0)], False, True),
     ([], True, False),
-    ([(1, 0.0), (2, 0.0)], True, False)])
+    ([(1, 0.0), (2, 0.0)], True, False),
+    ([(1, 0.04), (2, 0.04)], True, False),
+    ([(1, 0.04), (2, 2.0)], False, True)])
 def test_refused_guess(levels: list[tuple[int, float]], interpolate: bool,
                        extrapolate: bool) -> None:
     """A repeated level, and filling in without two levels, are refused."""

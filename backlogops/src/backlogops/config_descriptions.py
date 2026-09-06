@@ -341,8 +341,10 @@ _DEF_POINT_LEVEL: Descriptions = {
     ('story_points',): 'What a backlog item of this level is worked with '
                        'while it has no story points of its own. Not '
                        'negative. Zero says such an item is no work at '
-                       'all, and a zero here is left out of the growth '
-                       'the two settings above work with.'}
+                       'all, and anything under 0.05 here is left out of '
+                       'the growth the two settings above work with, '
+                       'because dividing by it would make every level '
+                       'above it absurdly large.'}
 """Every member of one default story points level."""
 
 _DEF_STORY_POINTS: Descriptions = {

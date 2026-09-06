@@ -121,6 +121,7 @@
 * [backlogops.default\_story\_points](#backlogops.default_story_points)
   * [\_SUBJECT](#backlogops.default_story_points._SUBJECT)
   * [\_LEVEL\_LIMIT](#backlogops.default_story_points._LEVEL_LIMIT)
+  * [\_NON\_ZERO\_ENOUGH](#backlogops.default_story_points._NON_ZERO_ENOUGH)
   * [\_NO\_FACTOR](#backlogops.default_story_points._NO_FACTOR)
   * [\_level\_validator](#backlogops.default_story_points._level_validator)
   * [\_points\_validator](#backlogops.default_story_points._points_validator)
@@ -142,6 +143,7 @@
     * [\_check\_unique\_levels](#backlogops.default_story_points.DefaultStoryPoints._check_unique_levels)
     * [\_check\_fill\_in\_levels](#backlogops.default_story_points.DefaultStoryPoints._check_fill_in_levels)
     * [check\_consistency](#backlogops.default_story_points.DefaultStoryPoints.check_consistency)
+    * [\_worked\_out](#backlogops.default_story_points.DefaultStoryPoints._worked_out)
     * [get\_default\_story\_points](#backlogops.default_story_points.DefaultStoryPoints.get_default_story_points)
 * [backlogops.demo\_backlog](#backlogops.demo_backlog)
   * [\_POINTS](#backlogops.demo_backlog._POINTS)
@@ -149,11 +151,13 @@
   * [\_NEXT\_KEYS](#backlogops.demo_backlog._NEXT_KEYS)
   * [\_LATER\_KEYS](#backlogops.demo_backlog._LATER_KEYS)
   * [\_DEPENDENCIES](#backlogops.demo_backlog._DEPENDENCIES)
+  * [\_UNESTIMATED](#backlogops.demo_backlog._UNESTIMATED)
   * [\_make\_item](#backlogops.demo_backlog._make_item)
   * [\_epics](#backlogops.demo_backlog._epics)
   * [\_story\_parent](#backlogops.demo_backlog._story_parent)
   * [\_stories](#backlogops.demo_backlog._stories)
   * [\_tasks](#backlogops.demo_backlog._tasks)
+  * [\_unestimated](#backlogops.demo_backlog._unestimated)
   * [\_apply\_releases](#backlogops.demo_backlog._apply_releases)
   * [\_apply\_dependencies](#backlogops.demo_backlog._apply_dependencies)
   * [\_mixed\_order](#backlogops.demo_backlog._mixed_order)
@@ -3414,9 +3418,10 @@ size by. Level 1 with 2 story points and level 3 with 8 grow by a factor
 of 2 per level, so an interpolated level 2 is 4. Extrapolation continues
 past the given levels with the factor of the two highest of them upwards
 and the factor of the two lowest of them downwards, so level 4 is 16 and
-level 0 is 1. A level given zero story points counts as zero where it is
-given, but takes no part in any factor, because a ratio to zero says
-nothing about how sizes grow.
+level 0 is 1. A level given very few story points counts as those where it
+is given, but takes no part in any factor, because a ratio to nearly
+nothing says nothing about how sizes grow: it would make every level
+above it absurdly large.
 
 Which backlog items this guess applies to is decided by
 :func:`backlogops.use_story_points`, not here.
@@ -3432,6 +3437,18 @@ What owns the members, used to start an error message.
 #### \_LEVEL\_LIMIT
 
 How far from zero a level number of a default may be.
+
+<a id="backlogops.default_story_points._NON_ZERO_ENOUGH"></a>
+
+#### \_NON\_ZERO\_ENOUGH
+
+Fewest story points a level may have and still fix a growth factor.
+
+A factor is the ratio between two levels, so a level of nearly no story
+points is no more usable than a level of none at all: dividing by it
+makes every level above it absurdly large. A level below this counts as
+what it says where it is given, and is passed over when a factor is
+worked out.
 
 <a id="backlogops.default_story_points._NO_FACTOR"></a>
 
@@ -3526,9 +3543,10 @@ def _anchors(levels: list[DefaultStoryPointLevel]) -> list[tuple[int, float]]
 
 Return the level and points pairs a factor may be worked out from.
 
-The pairs are sorted by level and hold only the levels with story
-points above zero, because a factor is a ratio and a ratio to zero
-says nothing about how sizes grow from one level to the next.
+The pairs are sorted by level and hold only the levels of at least
+:data:`_NON_ZERO_ENOUGH` story points, because a factor is a ratio
+and a ratio to nearly nothing says nothing about how sizes grow from
+one level to the next.
 
 **Arguments**:
 
@@ -3683,8 +3701,10 @@ Create defaults that guess nothing, or read them from JSON.
   guessed from them.
 - `extrapolate` - Whether a level above the highest or below the
   lowest given level is guessed from the two nearest ones.
-- `_points_for_level` - What each given level counts as, by level
-  number, built by :meth:`build_cache`.
+- `_points_for_level` - What each level asked for counts as, by
+  level number. :meth:`build_cache` puts the given levels
+  in it, and a level worked out from them is added to it
+  the first time it is asked for.
 
 <a id="backlogops.default_story_points.DefaultStoryPoints._get_read_old_config"></a>
 
@@ -3730,12 +3750,18 @@ that what it reports goes where the caller asked for it.
 def build_cache() -> None
 ```
 
-Build what each given level counts as, by level number.
+Build the lookup afresh from the levels that are given.
 
-This is called whenever the configuration is validated. An
-application that changes the levels afterwards validates the
-configuration again, or calls this, before the changed levels are
-used.
+The levels worked out from the given ones are not built here.
+Each of them is added to the same lookup the first time it is
+asked for, so a backlog of many items works out a level once
+however many items are at that level.
+
+This is called whenever the configuration is validated, and
+starting afresh is what forgets the levels worked out from the
+earlier ones. An application that changes the levels afterwards
+validates the configuration again, or calls this, before the
+changed levels are used.
 
 <a id="backlogops.default_story_points.DefaultStoryPoints._check_unique_levels"></a>
 
@@ -3782,6 +3808,16 @@ levels a factor is worked out from.
 - `ValueError` - A level is given twice, or a filled-in level is
   asked for without two levels to work the factor from.
 
+<a id="backlogops.default_story_points.DefaultStoryPoints._worked_out"></a>
+
+#### \_worked\_out
+
+```python
+def _worked_out(level: int) -> Optional[float]
+```
+
+Return what a level that is given no story points counts as.
+
 <a id="backlogops.default_story_points.DefaultStoryPoints.get_default_story_points"></a>
 
 #### get\_default\_story\_points
@@ -3796,6 +3832,8 @@ A level that is given its own story points counts as those, zero
 included. A level that is not given any is filled in from the
 given ones as far as the two settings allow: between them when
 interpolation is allowed, and beyond them when extrapolation is.
+What a level counts as is worked out once and then kept, so a
+backlog of many items costs one lookup for each of them.
 
 **Arguments**:
 
@@ -3813,21 +3851,31 @@ interpolation is allowed, and beyond them when extrapolation is.
 
 A demonstration backlog and releases for manual tests and examples.
 
-The demo data has three level-2 items (epics), twenty level-1 items
-(stories) and two level-0 items (tasks). The two tasks share the same
-story as parent, and fifteen of the stories have an epic as parent. A few
-dependencies are added between items. Two releases exist: ``Next`` with a
-planned date one month ahead, and ``Later`` with no planned date. Five
-items are assigned to ``Next`` and five to ``Later``; the rest have no
-release. The items are returned in a deliberately mixed order, so the
-backlog is neither dependency-ordered nor release-ordered, while still
-passing all consistency checks.
+The estimated part of the demo data has three level-2 items (epics),
+twenty level-1 items (stories) and two level-0 items (tasks). The two
+tasks share the same story as parent, and fifteen of the stories have an
+epic as parent. A few dependencies are added between items. Two releases
+exist: ``Next`` with a planned date one month ahead, and ``Later`` with no
+planned date. Five items are assigned to ``Next`` and five to ``Later``;
+the rest have no release.
+
+Beside those, fourteen items carry no story points at all, because nobody
+has estimated them yet: three level-2 items, of which two have two
+level-1 children each and one of those children has two level-0 children;
+two more level-1 items without a parent, one of them with two level-0
+children; and one level-0 item standing on its own. They show what the
+configured default story points are for, and they are what makes the demo
+useful for trying an estimate of a backlog that is not fully broken down.
+
+The items are returned in a deliberately mixed order, so the backlog is
+neither dependency-ordered nor release-ordered, while still passing all
+consistency checks.
 
 <a id="backlogops.demo_backlog._POINTS"></a>
 
 #### \_POINTS
 
-Story point values cycled over the demo items.
+Story point values cycled over the estimated demo items.
 
 <a id="backlogops.demo_backlog._STATUSES"></a>
 
@@ -3852,6 +3900,16 @@ Demo items delivered in the ``Later`` release.
 #### \_DEPENDENCIES
 
 A few demo dependencies as (item key, dependency field, target key).
+
+<a id="backlogops.demo_backlog._UNESTIMATED"></a>
+
+#### \_UNESTIMATED
+
+The items nobody has estimated, as (key, level, title, parent key).
+
+``UE3`` is a bigger item that is not broken down at all, ``UE1`` and
+``UE2`` are broken down into children that are not estimated either, and
+``US6``, ``UT5`` stand on their own at their level.
 
 <a id="backlogops.demo_backlog._make_item"></a>
 
@@ -3907,6 +3965,19 @@ def _tasks() -> list[BacklogItem]
 
 Return the two level-0 tasks, both children of story ``S1``.
 
+<a id="backlogops.demo_backlog._unestimated"></a>
+
+#### \_unestimated
+
+```python
+def _unestimated() -> list[BacklogItem]
+```
+
+Return the fourteen items that carry no story points at all.
+
+None of them is in a release or in a dependency, so they change
+neither the release counts nor the dependency graph of the demo.
+
 <a id="backlogops.demo_backlog._apply_releases"></a>
 
 #### \_apply\_releases
@@ -3933,10 +4004,16 @@ Add the demo dependencies between items.
 
 ```python
 def _mixed_order(epics: list[BacklogItem], stories: list[BacklogItem],
-                 tasks: list[BacklogItem]) -> list[BacklogItem]
+                 tasks: list[BacklogItem],
+                 unestimated: list[BacklogItem]) -> list[BacklogItem]
 ```
 
 Interleave the items so they are neither level nor release sorted.
+
+The unestimated items are spread over the result rather than kept
+together, so that a demo table shows them among the estimated ones.
+A position past the end of the list appends, which is what the last
+of them do.
 
 <a id="backlogops.demo_backlog._one_month_ahead"></a>
 
@@ -3964,8 +4041,8 @@ applications on top of this library.
 
 **Returns**:
 
-  A backlog with epics, stories and tasks, and the ``Next`` and
-  ``Later`` releases.
+  A backlog with epics, stories and tasks, estimated and
+  unestimated, and the ``Next`` and ``Later`` releases.
 
 <a id="backlogops.no_text_io"></a>
 

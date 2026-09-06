@@ -12,9 +12,10 @@ size by. Level 1 with 2 story points and level 3 with 8 grow by a factor
 of 2 per level, so an interpolated level 2 is 4. Extrapolation continues
 past the given levels with the factor of the two highest of them upwards
 and the factor of the two lowest of them downwards, so level 4 is 16 and
-level 0 is 1. A level given zero story points counts as zero where it is
-given, but takes no part in any factor, because a ratio to zero says
-nothing about how sizes grow.
+level 0 is 1. A level given very few story points counts as those where it
+is given, but takes no part in any factor, because a ratio to nearly
+nothing says nothing about how sizes grow: it would make every level
+above it absurdly large.
 
 Which backlog items this guess applies to is decided by
 :func:`backlogops.use_story_points`, not here.
@@ -39,8 +40,18 @@ _SUBJECT = 'Default story points'
 _LEVEL_LIMIT = 100
 """How far from zero a level number of a default may be."""
 
-_NO_FACTOR = ('needs two levels with story points above zero to work out a '
-              'factor from')
+_NON_ZERO_ENOUGH = 0.05
+"""Fewest story points a level may have and still fix a growth factor.
+
+A factor is the ratio between two levels, so a level of nearly no story
+points is no more usable than a level of none at all: dividing by it
+makes every level above it absurdly large. A level below this counts as
+what it says where it is given, and is passed over when a factor is
+worked out.
+"""
+
+_NO_FACTOR = (f'needs two levels with at least {_NON_ZERO_ENOUGH:g} story '
+              'points each to work out a factor from')
 """Why filling in levels is refused when too few levels are given."""
 
 
@@ -109,9 +120,10 @@ class DefaultStoryPointLevel(Config):
 def _anchors(levels: list[DefaultStoryPointLevel]) -> list[tuple[int, float]]:
     """Return the level and points pairs a factor may be worked out from.
 
-    The pairs are sorted by level and hold only the levels with story
-    points above zero, because a factor is a ratio and a ratio to zero
-    says nothing about how sizes grow from one level to the next.
+    The pairs are sorted by level and hold only the levels of at least
+    :data:`_NON_ZERO_ENOUGH` story points, because a factor is a ratio
+    and a ratio to nearly nothing says nothing about how sizes grow from
+    one level to the next.
 
     Args:
         levels: The configured defaults, in any order.
@@ -120,7 +132,7 @@ def _anchors(levels: list[DefaultStoryPointLevel]) -> list[tuple[int, float]]:
         The level number and story points of each usable level, sorted.
     """
     return sorted((level.level, level.story_points) for level in levels
-                  if level.story_points > 0.0)
+                  if level.story_points >= _NON_ZERO_ENOUGH)
 
 
 def _grown(low: tuple[int, float], high: tuple[int, float],
@@ -231,13 +243,15 @@ class DefaultStoryPoints(Config):
                 guessed from them.
             extrapolate: Whether a level above the highest or below the
                 lowest given level is guessed from the two nearest ones.
-            _points_for_level: What each given level counts as, by level
-                number, built by :meth:`build_cache`.
+            _points_for_level: What each level asked for counts as, by
+                level number. :meth:`build_cache` puts the given levels
+                in it, and a level worked out from them is added to it
+                the first time it is asked for.
         """
         self.interpolate: bool = False
         self.extrapolate: bool = False
         self.levels: list[DefaultStoryPointLevel] = []
-        self._points_for_level: dict[int, float] = {}
+        self._points_for_level: dict[int, Optional[float]] = {}
         super().__init__(from_json_data_text=from_json_data_text,
                          from_json_filename=from_json_filename,
                          auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
@@ -270,12 +284,18 @@ class DefaultStoryPoints(Config):
                 WholeConfigValidationStep(validator=consistency)]
 
     def build_cache(self) -> None:
-        """Build what each given level counts as, by level number.
+        """Build the lookup afresh from the levels that are given.
 
-        This is called whenever the configuration is validated. An
-        application that changes the levels afterwards validates the
-        configuration again, or calls this, before the changed levels are
-        used.
+        The levels worked out from the given ones are not built here.
+        Each of them is added to the same lookup the first time it is
+        asked for, so a backlog of many items works out a level once
+        however many items are at that level.
+
+        This is called whenever the configuration is validated, and
+        starting afresh is what forgets the levels worked out from the
+        earlier ones. An application that changes the levels afterwards
+        validates the configuration again, or calls this, before the
+        changed levels are used.
         """
         self._points_for_level = {level.level: level.story_points
                                   for level in self.levels}
@@ -316,24 +336,8 @@ class DefaultStoryPoints(Config):
         self._check_fill_in_levels(stderr_file)
         self.build_cache()
 
-    def get_default_story_points(self, level: int) -> Optional[float]:
-        """Return what a backlog item of one level counts as.
-
-        A level that is given its own story points counts as those, zero
-        included. A level that is not given any is filled in from the
-        given ones as far as the two settings allow: between them when
-        interpolation is allowed, and beyond them when extrapolation is.
-
-        Args:
-            level: The level of the backlog item to guess the size of.
-
-        Returns:
-            The story points to count such an item as, or None when the
-            configuration says nothing about that level.
-        """
-        points = self._points_for_level.get(level)
-        if points is not None:
-            return points
+    def _worked_out(self, level: int) -> Optional[float]:
+        """Return what a level that is given no story points counts as."""
         anchors = _anchors(self.levels)
         if len(anchors) < 2:
             return None
@@ -344,3 +348,24 @@ class DefaultStoryPoints(Config):
         if self.extrapolate:
             return _extrapolated(anchors, level)
         return None
+
+    def get_default_story_points(self, level: int) -> Optional[float]:
+        """Return what a backlog item of one level counts as.
+
+        A level that is given its own story points counts as those, zero
+        included. A level that is not given any is filled in from the
+        given ones as far as the two settings allow: between them when
+        interpolation is allowed, and beyond them when extrapolation is.
+        What a level counts as is worked out once and then kept, so a
+        backlog of many items costs one lookup for each of them.
+
+        Args:
+            level: The level of the backlog item to guess the size of.
+
+        Returns:
+            The story points to count such an item as, or None when the
+            configuration says nothing about that level.
+        """
+        if level not in self._points_for_level:
+            self._points_for_level[level] = self._worked_out(level)
+        return self._points_for_level[level]

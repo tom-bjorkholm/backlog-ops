@@ -9,7 +9,7 @@ from tkinter import ttk
 from datetime import date
 from typing import cast
 import pytest
-from tableio import Color, Fmt, ValueFmt
+from tableio import Color, Fmt, Value, ValueFmt
 from backlogops import (
     BacklogItem, BacklogReleases, LevelDisplay, Release, Status,
     get_demo_backlog)
@@ -17,7 +17,7 @@ from backlogops_gui import table_view
 from backlogops_gui.table_view import (
     HIGHLIGHT_FILL, backlog_table, make_table, release_table,
     supports_cell_tags, _tag_name)
-from backlogops_gui.table_view import _insert_row, _row_format
+from backlogops_gui.table_view import _cell_text, _insert_row, _row_format
 
 
 def test_backlog_columns() -> None:
@@ -77,6 +77,42 @@ def test_release_rename() -> None:
     data = BacklogReleases(backlog=[], releases=[Release(name='R1')])
     columns, _rows = release_table(data, names={'name': 'Release'})
     assert columns[0] == 'Release'
+
+
+@pytest.mark.parametrize('value, shown', [
+    (1.0, '1'),
+    (0.5, '0.5'),
+    (0.50, '0.5'),
+    (13.0, '13'),
+    (2.25, '2.25'),
+    (0.0, '0'),
+    (3, '3'),
+    (True, 'True'),
+    ('text', 'text'),
+    (None, '')])
+def test_cell_text(value: Value, shown: str) -> None:
+    """Test a cell drops the trailing zeros a decimal does not need."""
+    assert _cell_text(value) == shown
+
+
+def test_half_point_shown() -> None:
+    """Test half a story point reaches the table as ``0.5``."""
+    item = BacklogItem(key='A1', level=1, title='T', story_points=0.5,
+                       status=Status.TODO)
+    data = BacklogReleases(backlog=[item], releases=[])
+    columns, rows = backlog_table(data)
+    cell = rows[0][columns.index('story_points')]
+    assert _cell_text(cell.value) == '0.5'
+
+
+def test_whole_point_shown() -> None:
+    """Test a whole story point reaches the table without a decimal."""
+    item = BacklogItem(key='A1', level=1, title='T', story_points=3.0,
+                       status=Status.TODO)
+    data = BacklogReleases(backlog=[item], releases=[])
+    columns, rows = backlog_table(data)
+    cell = rows[0][columns.index('story_points')]
+    assert _cell_text(cell.value) == '3'
 
 
 def test_empty_tables() -> None:

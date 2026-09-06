@@ -23,12 +23,21 @@ def test_requires_output() -> None:
 
 
 def test_writes_demo(tmp_path: Path) -> None:
-    """Test the command writes a readable demo backlog and releases."""
+    """Test the command writes a readable demo backlog and releases.
+
+    The unestimated items of the demo are written with an empty story
+    points cell and are read back as items nobody has estimated, which
+    is what the whole round trip of an unestimated item comes down to.
+    """
     target = tmp_path / 'demo.ods'
     assert demo_backlog.main(['-o', str(target)]) == 0
     back = read_data_file(target)
-    assert len(back.backlog) == 25
+    assert len(back.backlog) == 39
     assert len(back.releases) == 2
+    unestimated = [item for item in back.backlog
+                   if item.story_points is None]
+    assert len(unestimated) == 14
+    assert 0.5 in {item.story_points for item in back.backlog}
 
 
 def test_output_preset(tmp_path: Path) -> None:

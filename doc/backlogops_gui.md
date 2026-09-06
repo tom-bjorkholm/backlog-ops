@@ -2556,8 +2556,10 @@ so the on-screen colors match a written spreadsheet: the status cell and the
 estimated-ready-date cell are highlighted by the format rules, and the other
 cells are left plain. The columns are the union of the field names met in the
 rows, kept in first-seen order, and every cell is rendered as text so the
-table can show any value type. A per-table column-name map can rename a
-column or drop it from the display, as the GUI display configuration decides.
+table can show any value type; a decimal number loses the trailing zeros
+it does not need, so story points read as ``1`` and ``0.5``. A per-table
+column-name map can rename a column or drop it from the display, as the GUI
+display configuration decides.
 
 <a id="backlogops_gui.table_view.backlog_table"></a>
 

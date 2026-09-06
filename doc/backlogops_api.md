@@ -2249,9 +2249,10 @@ size by. Level 1 with 2 story points and level 3 with 8 grow by a factor
 of 2 per level, so an interpolated level 2 is 4. Extrapolation continues
 past the given levels with the factor of the two highest of them upwards
 and the factor of the two lowest of them downwards, so level 4 is 16 and
-level 0 is 1. A level given zero story points counts as zero where it is
-given, but takes no part in any factor, because a ratio to zero says
-nothing about how sizes grow.
+level 0 is 1. A level given very few story points counts as those where it
+is given, but takes no part in any factor, because a ratio to nearly
+nothing says nothing about how sizes grow: it would make every level
+above it absurdly large.
 
 Which backlog items this guess applies to is decided by
 :func:`backlogops.use_story_points`, not here.
@@ -2354,8 +2355,10 @@ Create defaults that guess nothing, or read them from JSON.
   guessed from them.
 - `extrapolate` - Whether a level above the highest or below the
   lowest given level is guessed from the two nearest ones.
-- `_points_for_level` - What each given level counts as, by level
-  number, built by :meth:`build_cache`.
+- `_points_for_level` - What each level asked for counts as, by
+  level number. :meth:`build_cache` puts the given levels
+  in it, and a level worked out from them is added to it
+  the first time it is asked for.
 
 <a id="backlogops.default_story_points.DefaultStoryPoints.nested_configs"></a>
 
@@ -2390,12 +2393,18 @@ that what it reports goes where the caller asked for it.
 def build_cache() -> None
 ```
 
-Build what each given level counts as, by level number.
+Build the lookup afresh from the levels that are given.
 
-This is called whenever the configuration is validated. An
-application that changes the levels afterwards validates the
-configuration again, or calls this, before the changed levels are
-used.
+The levels worked out from the given ones are not built here.
+Each of them is added to the same lookup the first time it is
+asked for, so a backlog of many items works out a level once
+however many items are at that level.
+
+This is called whenever the configuration is validated, and
+starting afresh is what forgets the levels worked out from the
+earlier ones. An application that changes the levels afterwards
+validates the configuration again, or calls this, before the
+changed levels are used.
 
 <a id="backlogops.default_story_points.DefaultStoryPoints.check_consistency"></a>
 
@@ -2436,6 +2445,8 @@ A level that is given its own story points counts as those, zero
 included. A level that is not given any is filled in from the
 given ones as far as the two settings allow: between them when
 interpolation is allowed, and beyond them when extrapolation is.
+What a level counts as is worked out once and then kept, so a
+backlog of many items costs one lookup for each of them.
 
 **Arguments**:
 
@@ -2453,15 +2464,25 @@ interpolation is allowed, and beyond them when extrapolation is.
 
 A demonstration backlog and releases for manual tests and examples.
 
-The demo data has three level-2 items (epics), twenty level-1 items
-(stories) and two level-0 items (tasks). The two tasks share the same
-story as parent, and fifteen of the stories have an epic as parent. A few
-dependencies are added between items. Two releases exist: ``Next`` with a
-planned date one month ahead, and ``Later`` with no planned date. Five
-items are assigned to ``Next`` and five to ``Later``; the rest have no
-release. The items are returned in a deliberately mixed order, so the
-backlog is neither dependency-ordered nor release-ordered, while still
-passing all consistency checks.
+The estimated part of the demo data has three level-2 items (epics),
+twenty level-1 items (stories) and two level-0 items (tasks). The two
+tasks share the same story as parent, and fifteen of the stories have an
+epic as parent. A few dependencies are added between items. Two releases
+exist: ``Next`` with a planned date one month ahead, and ``Later`` with no
+planned date. Five items are assigned to ``Next`` and five to ``Later``;
+the rest have no release.
+
+Beside those, fourteen items carry no story points at all, because nobody
+has estimated them yet: three level-2 items, of which two have two
+level-1 children each and one of those children has two level-0 children;
+two more level-1 items without a parent, one of them with two level-0
+children; and one level-0 item standing on its own. They show what the
+configured default story points are for, and they are what makes the demo
+useful for trying an estimate of a backlog that is not fully broken down.
+
+The items are returned in a deliberately mixed order, so the backlog is
+neither dependency-ordered nor release-ordered, while still passing all
+consistency checks.
 
 <a id="backlogops.demo_backlog.get_demo_backlog"></a>
 
@@ -2479,8 +2500,8 @@ applications on top of this library.
 
 **Returns**:
 
-  A backlog with epics, stories and tasks, and the ``Next`` and
-  ``Later`` releases.
+  A backlog with epics, stories and tasks, estimated and
+  unestimated, and the ``Next`` and ``Later`` releases.
 
 <a id="backlogops.no_text_io"></a>
 

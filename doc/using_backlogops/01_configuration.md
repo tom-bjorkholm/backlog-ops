@@ -143,8 +143,8 @@ and `extrapolate` continues past both ends: level 4 is 16 and level 0 is 1.
 The upward factor comes from the two highest levels you gave and the downward
 factor from the two lowest, so you never need to list every level. Turning
 both settings off uses only the levels you list and leaves every other level
-costing nothing. Either setting needs two levels with story points above
-zero, because a factor is worked out from two of them.
+costing nothing. Either setting needs two levels of at least 0.05 story
+points, because a factor is worked out from two of them.
 
 The guess is used only where nothing better is known:
 
@@ -158,8 +158,10 @@ The guess is used only where nothing better is known:
 * a done or rejected item is no work left, whatever it carries.
 
 A level may be given zero story points, which says an unestimated item of
-that level costs nothing. Such a zero takes no part in the growth used to
-fill in the other levels.
+that level costs nothing. Such a zero — and anything under 0.05 — counts as
+what it says where you give it, but takes no part in the growth used to fill
+in the other levels: dividing by nearly nothing would make every level above
+it absurdly large.
 
 ### Status mapping
 
