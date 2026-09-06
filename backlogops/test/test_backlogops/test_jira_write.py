@@ -134,6 +134,34 @@ def test_create_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     assert 'key' not in fields
 
 
+def test_add_unestimated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an item nobody has estimated writes no story point field.
+
+    A new issue has no story points to clear, so the field is left out of
+    the payload rather than created and then cleared.
+    """
+    client = _WriteClient()
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.story_points = None
+    add_backlog_to_jira(connections, 'w', [item],
+                        on_existing_key=OnExistingKey.SKIP)
+    assert 'customfield_10016' not in client.created[0]
+    assert client.created[0]['summary'] == 'T'
+
+
+@pytest.mark.parametrize('points', [0.0, 0.5])
+def test_add_points(monkeypatch: pytest.MonkeyPatch, points: float) -> None:
+    """Test an estimate of zero and of half a point are both written."""
+    client = _WriteClient()
+    connections = _connections(monkeypatch, client)
+    item = _item('A')
+    item.story_points = points
+    add_backlog_to_jira(connections, 'w', [item],
+                        on_existing_key=OnExistingKey.SKIP)
+    assert client.created[0]['customfield_10016'] == points
+
+
 def test_skip_unsettable(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a field the edit screen omits is skipped and reported."""
     client = _WriteClient(editable={'description': 'Description'})

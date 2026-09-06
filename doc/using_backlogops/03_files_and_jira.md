@@ -74,6 +74,11 @@ rather than silently loaded.
 Reads the backlog items and releases from Jira through a preset and writes
 them to a file, exactly like the other commands write their output.
 
+An issue whose story point field is empty is read as an item nobody has
+estimated yet, not as an item of zero points. A forecast then counts it as
+what your [default story points](01_configuration.md#default-story-points)
+guess for its level, instead of counting it as free.
+
 **CLI**
 
 ```sh
@@ -138,6 +143,13 @@ as two lists, unless `-q`; `--added-file` / `--existing-file` also save them.
 
 Matches Jira issues to file items **by key** and changes only the columns you
 choose — nothing else on the issue is touched.
+
+An empty cell in a chosen column leaves the Jira field as it is, so a column
+your file does not fill cannot wipe Jira. The story points are the one
+exception: an empty `story_points` cell says nobody has estimated the item,
+which is worth knowing, so it clears the story points in Jira. Leave
+`story_points` out of the chosen columns when your file has estimates you do
+not trust.
 
 **CLI**
 

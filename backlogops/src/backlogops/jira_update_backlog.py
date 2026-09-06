@@ -10,7 +10,9 @@ through the write column map and compared to the item's value, so only the
 fields that actually differ are written; an item whose selected fields
 already match is reported as already correct and its issue is not touched.
 An empty internal value is left unset, so an empty value never clears a
-Jira field.
+Jira field. The story points are the exception: an item nobody has
+estimated yet clears the story points in Jira, because carrying no
+estimate is as much a fact about the item as a number is.
 
 The selected fields are written in the same way they are read: a settable
 field (summary, description, story points, team, fix version) through an
@@ -44,11 +46,10 @@ from typing import NamedTuple, Optional, TextIO
 from jira import JIRA, Issue, JIRAError
 from backlogops.backlog import Backlog, BacklogItem, Status
 from backlogops.jira_connect import JiraConnections
-from backlogops.jira_io_config import JiraAttrPath, JiraAttrType
+from backlogops.jira_io_config import JiraAttrPath
 from backlogops.jira_rank_backlog import (
     JiraRankAnchor, RankEnv, rank_backlog_or_warn)
-from backlogops.jira_read import (
-    _backlog_row, _coerce_all, _field_id, _filtered_values, _walk)
+from backlogops.jira_read import _coerce_all, _filtered_values, _row, _walk
 from backlogops.jira_write import (
     AddedToJira, FailedItem, ItemNotInJiraError, OnExistingKey, OnMissingKey,
     StatusMismatch, _WriteContext, _build_ctx, _editable_field_ids,
@@ -56,7 +57,8 @@ from backlogops.jira_write import (
     _report_status_mismatch, _skipped_names, _try_link, _try_transitions,
     add_backlog_to_jira)
 from backlogops.jira_write_fields import (
-    FailedLink, _LinkSpec, _dep_link_attrs, _parent_fields, _place_value)
+    FailedLink, _LinkSpec, _clear_parent_fields, _clear_value,
+    _dep_link_attrs, _parent_fields, _place_value)
 from backlogops.jira_write_format import (
     _failed_section, _link_section, _outcome_prefix, _result_section,
     _status_section)
@@ -76,6 +78,15 @@ _LINK_FIELDS = frozenset({'parent_key', 'depends_on_f2s', 'depends_on_f2f',
 
 _SKIP_DATA = frozenset({'key', 'level', 'status'}) | _LINK_FIELDS
 """Fields not written by the settable-field diff (handled elsewhere)."""
+
+_CLEARABLE_FIELDS = frozenset({'story_points'})
+"""Selected fields whose empty internal value clears the Jira field.
+
+A backlog item with no story points is one nobody has estimated yet,
+which is a fact about the item worth writing to Jira. Every other empty
+value is only a value the backlog does not carry, and it leaves the Jira
+field as it is.
+"""
 
 
 class LinkUpdate(Enum):
@@ -196,8 +207,11 @@ def _field_diff(work: _Work) -> dict[str, object]:
     """Return the settable-field payload whose value differs in Jira.
 
     Only the selected settable fields are considered; the status, parent
-    and dependency fields are handled separately. An empty internal value
-    is left unset, and a value equal to the current Jira value is skipped.
+    and dependency fields are handled separately. A value equal to the
+    current Jira value is skipped, which also leaves an already empty
+    Jira field alone. An empty internal value is otherwise left unset,
+    except for the fields of :data:`_CLEARABLE_FIELDS`, which clear the
+    Jira field they are mapped to.
     """
     base = work.ctx.base
     fields: dict[str, object] = {}
@@ -206,9 +220,12 @@ def _field_diff(work: _Work) -> dict[str, object]:
             continue
         desired = _internal_value(name, work.item, base.types.levels,
                                   base.types.issue_type_map)
-        if desired in (None, '') or work.current.get(name) == desired:
+        if work.current.get(name) == desired:
             continue
-        _place_value(fields, attrs[0], desired, base.custom_ids)
+        if desired not in (None, ''):
+            _place_value(fields, attrs[0], desired, base.custom_ids)
+        elif name in _CLEARABLE_FIELDS:
+            _clear_value(fields, attrs[0], base.custom_ids)
     return fields
 
 
@@ -318,21 +335,6 @@ def _clear_parent(work: _Work, current: object) -> None:
               lambda: work.issue.update(fields=fields))
 
 
-def _clear_parent_fields(column_map: dict[str, tuple[JiraAttrPath, ...]],
-                         custom_ids: dict[str, str]) -> dict[str, object]:
-    """Return the update fields that clear the first mapped parent path."""
-    attrs = column_map.get('parent_key', ())
-    if not attrs:
-        return {}
-    attr = attrs[0]
-    if attr.kind is JiraAttrType.CUSTOM_FIELD:
-        field_id = _field_id(attr.path[0], custom_ids)
-        return {field_id: None} if field_id is not None else {}
-    if attr.kind is JiraAttrType.FIELD:
-        return {attr.path[0]: None}
-    return {}
-
-
 def _apply_deps(work: _Work) -> bool:
     """Reconcile every selected dependency field's Jira issue links."""
     changed = False
@@ -416,9 +418,8 @@ def _update_one(ctx: _UpdateCtx, item: BacklogItem, issue: Issue,
     correct when nothing needed changing, or as failed when the field
     update was refused.
     """
-    current = _backlog_row(issue, getattr(issue, 'fields', None),
-                           ctx.base.column_map, ctx.base.custom_ids,
-                           ctx.stderr_file)
+    current = _row(issue, getattr(issue, 'fields', None), ctx.base.column_map,
+                   ctx.base.custom_ids, ctx.stderr_file)
     work = _Work(ctx, item, issue, current, acc)
     data_changed = _write_fields(work, _field_diff(work))
     if data_changed is None:
@@ -518,7 +519,9 @@ def update_backlog_in_jira(connections: JiraConnections, preset_name: str,
     Each matched issue has the selected fields updated: only the fields
     named in ``fields_to_update`` that are mapped for writing and are not
     the key or the issue type, and among those only the ones whose current
-    Jira value differs from the item. The status is set by a transition,
+    Jira value differs from the item. An empty internal value is left
+    unset, except for the story points, which an item nobody has
+    estimated yet clears in Jira. The status is set by a transition,
     the parent by the mapped parent field, and the dependencies by Jira
     issue links reconciled per ``link_update``. An item whose update Jira
     refuses is collected in ``failed`` with a concise reason, and the other

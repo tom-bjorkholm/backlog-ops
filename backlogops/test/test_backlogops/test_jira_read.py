@@ -186,9 +186,21 @@ def test_build_status_map() -> None:
 
 @pytest.mark.parametrize('points', [None, ''])
 def test_empty_points(points: object) -> None:
-    """Test Jira backlog items without story points become zero points."""
+    """Test a Jira issue with no story points reads as unestimated."""
     data = _build(_issue(points=points), _version())
-    assert data.backlog[0].story_points == 0
+    assert data.backlog[0].story_points is None
+
+
+@pytest.mark.parametrize('points, expected',
+                         [(0, 0.0), (0.5, 0.5), (13, 13.0)])
+def test_points_read(points: object, expected: float) -> None:
+    """Test an estimate of zero, a fraction and a whole number are read.
+
+    Zero story points are an estimate somebody made, not a missing one,
+    so they must not read as an unestimated item.
+    """
+    data = _build(_issue(points=points), _version())
+    assert data.backlog[0].story_points == expected
 
 
 def _blocked_by(key: str) -> SimpleNamespace:

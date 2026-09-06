@@ -27,12 +27,12 @@ from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, JiraColumnMap
 from backlogops.jira_write import (
     AddedToJira, FailedItem, ItemNotInJiraError, OnExistingKey, OnMissingKey,
     StatusMismatch)
-from backlogops.jira_write_fields import FailedLink, _LinkSpec
+from backlogops.jira_write_fields import (
+    FailedLink, _LinkSpec, _clear_parent_fields)
 from backlogops import jira_update_backlog
 from backlogops.jira_update_backlog import (
     LinkUpdate, UpdatedBacklogInJira, format_backlog_updates,
-    updatable_backlog_fields, update_backlog_in_jira, _clear_parent_fields,
-    _find_link_id)
+    updatable_backlog_fields, update_backlog_in_jira, _find_link_id)
 from .jira_write_helpers import (
     attr_parent_config, connections_for as _connections, NO, RankCall,
     capture_rank)
@@ -59,8 +59,9 @@ def _blocks(dep: str, link_id: str = 'L1') -> SimpleNamespace:
 
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def _issue(key: str, *, summary: str = 'T', description: str = 'D',
-           points: int = 5, team: Optional[str] = None, status: str = 'To Do',
-           parent: Optional[str] = None, release: Optional[str] = None,
+           points: Optional[float] = 5.0, team: Optional[str] = None,
+           status: str = 'To Do', parent: Optional[str] = None,
+           release: Optional[str] = None,
            links: Optional[list[SimpleNamespace]] = None,
            fail: bool = False) -> '_Issue':
     """Return a fake issue whose fields hold the given current values."""
@@ -242,6 +243,54 @@ def test_empty_left_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     result = _upd(connections, [_item('A', team=None)], ['team'])
     assert result.already_correct == ['A']
     assert client.issues['A'].updates == []
+
+
+def test_clear_points(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an item nobody has estimated clears the Jira story points."""
+    client = _Client({'A': _issue('A', points=5.0)})
+    connections = _connections(monkeypatch, client)
+    item = _item('A', story_points=None)
+    result = _upd(connections, [item], ['story_points'])
+    assert result.updated == ['A']
+    assert client.issues['A'].updates == [{'customfield_10016': None}]
+
+
+def test_points_stay_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an unestimated item and an empty Jira field need no change."""
+    client = _Client({'A': _issue('A', points=None)})
+    connections = _connections(monkeypatch, client)
+    item = _item('A', story_points=None)
+    result = _upd(connections, [item], ['story_points'])
+    assert result.already_correct == ['A']
+    assert client.issues['A'].updates == []
+
+
+@pytest.mark.parametrize('points', [0.0, 0.5, 13.0])
+def test_points_written(monkeypatch: pytest.MonkeyPatch,
+                        points: float) -> None:
+    """Test an estimate of zero, of a fraction and of a whole is written.
+
+    Zero story points are an estimate somebody made rather than a missing
+    one, so they are written although an empty value would not be.
+    """
+    client = _Client({'A': _issue('A', points=None)})
+    connections = _connections(monkeypatch, client)
+    item = _item('A', story_points=points)
+    _upd(connections, [item], ['story_points'])
+    assert client.issues['A'].updates == [{'customfield_10016': points}]
+
+
+def test_clear_points_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a clear the edit screen has no field for is reported."""
+    client = _Client({'A': _issue('A', points=5.0)})
+    client.editable = {'summary'}
+    connections = _connections(monkeypatch, client)
+    errors = io.StringIO()
+    item = _item('A', story_points=None)
+    result = _upd(connections, [item], ['story_points'], stderr=errors)
+    assert result.already_correct == ['A']
+    assert client.issues['A'].updates == []
+    assert 'customfield_10016' in errors.getvalue()
 
 
 def test_status_transition(monkeypatch: pytest.MonkeyPatch) -> None:

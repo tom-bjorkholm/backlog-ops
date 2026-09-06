@@ -3,10 +3,11 @@
 
 Writing to Jira is the inverse of reading: a value read from a Jira
 attribute path is written back to the same path. This module holds the
-pure helpers that build one Jira field payload from a mapped path
-(:func:`_place_value` and the parent update fields from
-:func:`_parent_fields`) and that derive how a dependency field is written
-as a Jira issue link (:func:`_link_specs`). It also defines
+pure helpers that set or clear one Jira field from a mapped path
+(:func:`_place_value` and :func:`_clear_value`, and the parent update
+fields from :func:`_parent_fields` and :func:`_clear_parent_fields`) and
+that derive how a dependency field is written as a Jira issue link
+(:func:`_link_specs`). It also defines
 :class:`FailedLink`, the result of a link that Jira refused. The
 orchestration that creates issues and writes the links lives in
 :mod:`backlogops.jira_write`, which imports these helpers.
@@ -70,6 +71,24 @@ def _place_value(fields: dict[str, object], attr: JiraAttrPath, value: object,
         fields.update(_field_payload(attr.path, value))
 
 
+def _clear_value(fields: dict[str, object], attr: JiraAttrPath,
+                 custom_ids: dict[str, str]) -> None:
+    """Clear the Jira field a mapped path names, by kind.
+
+    Jira clears a whole field, so the field named by the path's first
+    step is set to None rather than the step the value is read from: a
+    parent read from ``parent.key`` is cleared by ``{'parent': None}``.
+    A path that names no writable field, such as a read-only attribute
+    or an unresolved custom field, leaves the fields untouched.
+    """
+    if attr.kind is JiraAttrType.CUSTOM_FIELD:
+        field_id = _field_id(attr.path[0], custom_ids)
+        if field_id is not None:
+            fields[field_id] = None
+    elif attr.kind is JiraAttrType.FIELD:
+        fields[attr.path[0]] = None
+
+
 def _parent_fields(column_map: JiraColumnMap, custom_ids: dict[str, str],
                    parent_key: str) -> dict[str, object]:
     """Build the update fields that set an item's parent link.
@@ -85,6 +104,24 @@ def _parent_fields(column_map: JiraColumnMap, custom_ids: dict[str, str],
         return {}
     fields: dict[str, object] = {}
     _place_value(fields, attrs[0], parent_key, custom_ids)
+    return fields
+
+
+def _clear_parent_fields(column_map: JiraColumnMap,
+                         custom_ids: dict[str, str]) -> dict[str, object]:
+    """Build the update fields that clear an item's parent link.
+
+    The first mapped ``parent_key`` path is inverted the way
+    :func:`_parent_fields` inverts it, but set to None, so the default
+    map's ``parent`` field becomes ``{'parent': None}``. A ``parent_key``
+    that is not mapped, or whose custom field cannot be resolved, yields
+    no fields.
+    """
+    attrs = column_map.get('parent_key', ())
+    if not attrs:
+        return {}
+    fields: dict[str, object] = {}
+    _clear_value(fields, attrs[0], custom_ids)
     return fields
 
 

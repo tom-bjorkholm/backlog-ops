@@ -5594,7 +5594,10 @@ their field ids through the live custom field list of the Jira instance.
 Only the fields named by the column map are fetched, and the issues are
 read page by page through :func:`backlogops.jira_search.search_all_issues`,
 so a backlog of many thousands of items is read in full without fetching
-every field of every issue.
+every field of every issue. An issue whose story point field is empty
+reads as a backlog item nobody has estimated yet, carrying no story
+points rather than zero of them, so that a forecast counts it as what
+the configured default story points guess for its level.
 
 The caller may override the preset's filter for one read. When no filter
 is configured at all, the default filter selects every issue in the
@@ -5944,7 +5947,9 @@ through the write column map and compared to the item's value, so only the
 fields that actually differ are written; an item whose selected fields
 already match is reported as already correct and its issue is not touched.
 An empty internal value is left unset, so an empty value never clears a
-Jira field.
+Jira field. The story points are the exception: an item nobody has
+estimated yet clears the story points in Jira, because carrying no
+estimate is as much a fact about the item as a number is.
 
 The selected fields are written in the same way they are read: a settable
 field (summary, description, story points, team, fix version) through an
@@ -6035,7 +6040,9 @@ as :func:`add_backlog_to_jira` does) and left alone in ``IGNORE`` mode.
 Each matched issue has the selected fields updated: only the fields
 named in ``fields_to_update`` that are mapped for writing and are not
 the key or the issue type, and among those only the ones whose current
-Jira value differs from the item. The status is set by a transition,
+Jira value differs from the item. An empty internal value is left
+unset, except for the story points, which an item nobody has
+estimated yet clears in Jira. The status is set by a transition,
 the parent by the mapped parent field, and the dependencies by Jira
 issue links reconciled per ``link_update``. An item whose update Jira
 refuses is collected in ``failed`` with a concise reason, and the other
@@ -7371,20 +7378,20 @@ which Jira requires at create time; the parent key is the one Jira
 assigned to a parent created in this run, or the item's parent key when
 the parent already exists in Jira. An item whose creation Jira still
 refuses is collected in the result's ``failed`` list with a concise
-reason, and the remaining items are still added. The payload for each
-new issue is built by
-inverting the preset's write
-backlog column map: a plain field such as the summary is set directly, a
-nested field such as the issue type is wrapped by its path steps, a list
-field such as the fix versions is wrapped as named objects, and a custom
-field is set by its resolved field id. The issue type written for an item
-comes from the preset's level-to-issue-type map (falling back to the
-level name), so a Jira that renamed a type (such as a Swedish
-``Deluppgift`` sub-task) still gets a valid issue type. The issue is
-first created with the fields a create screen accepts (project, summary,
-issue type) and the remaining fields are then set through an update,
-because a create screen often omits fields such as the story points that
-an edit screen accepts.
+reason, and the remaining items are still added. The payload for each new
+issue is built by inverting the preset's write backlog column map: a plain
+field such as the summary is set directly, a nested field such as the issue
+type is wrapped by its path steps, a list field such as the fix versions is
+wrapped as named objects, and a custom field is set by its resolved field
+id. A field the item has no value for is not written at all, so an item
+nobody has estimated yet is created with its story points left unset. The
+issue type written for an item comes from the preset's level-to-issue-type
+map (falling back to the level name), so a Jira that renamed a type (such
+as a Swedish ``Deluppgift`` sub-task) still gets a valid issue type. The
+issue is first created with the fields a create screen accepts (project,
+summary, issue type) and the remaining fields are then set through an
+update, because a create screen often omits fields such as the story
+points that an edit screen accepts.
 
 The item key is assigned by Jira, so it is not written; instead each
 added item is copied and the copy carries the key Jira assigned. Once
@@ -8950,10 +8957,11 @@ Invert a Jira column map into write payloads and issue-link specs.
 
 Writing to Jira is the inverse of reading: a value read from a Jira
 attribute path is written back to the same path. This module holds the
-pure helpers that build one Jira field payload from a mapped path
-(:func:`_place_value` and the parent update fields from
-:func:`_parent_fields`) and that derive how a dependency field is written
-as a Jira issue link (:func:`_link_specs`). It also defines
+pure helpers that set or clear one Jira field from a mapped path
+(:func:`_place_value` and :func:`_clear_value`, and the parent update
+fields from :func:`_parent_fields` and :func:`_clear_parent_fields`) and
+that derive how a dependency field is written as a Jira issue link
+(:func:`_link_specs`). It also defines
 :class:`FailedLink`, the result of a link that Jira refused. The
 orchestration that creates issues and writes the links lives in
 :mod:`backlogops.jira_write`, which imports these helpers.

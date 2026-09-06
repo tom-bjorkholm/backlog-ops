@@ -505,7 +505,6 @@
   * [\_merge\_values](#backlogops.jira_read._merge_values)
   * [\_field\_values](#backlogops.jira_read._field_values)
   * [\_row](#backlogops.jira_read._row)
-  * [\_backlog\_row](#backlogops.jira_read._backlog_row)
   * [build\_backlog\_releases](#backlogops.jira_read.build_backlog_releases)
   * [resolve\_jql](#backlogops.jira_read.resolve_jql)
   * [read\_backlog\_from\_jira](#backlogops.jira_read.read_backlog_from_jira)
@@ -540,6 +539,7 @@
   * [\_IDENTITY\_FIELDS](#backlogops.jira_update_backlog._IDENTITY_FIELDS)
   * [\_LINK\_FIELDS](#backlogops.jira_update_backlog._LINK_FIELDS)
   * [\_SKIP\_DATA](#backlogops.jira_update_backlog._SKIP_DATA)
+  * [\_CLEARABLE\_FIELDS](#backlogops.jira_update_backlog._CLEARABLE_FIELDS)
   * [LinkUpdate](#backlogops.jira_update_backlog.LinkUpdate)
   * [UpdatedBacklogInJira](#backlogops.jira_update_backlog.UpdatedBacklogInJira)
   * [\_UpdateCtx](#backlogops.jira_update_backlog._UpdateCtx)
@@ -555,7 +555,6 @@
   * [\_apply\_parent](#backlogops.jira_update_backlog._apply_parent)
   * [\_write\_parent](#backlogops.jira_update_backlog._write_parent)
   * [\_clear\_parent](#backlogops.jira_update_backlog._clear_parent)
-  * [\_clear\_parent\_fields](#backlogops.jira_update_backlog._clear_parent_fields)
   * [\_apply\_deps](#backlogops.jira_update_backlog._apply_deps)
   * [\_apply\_one\_dep](#backlogops.jira_update_backlog._apply_one_dep)
   * [\_create\_dep\_link](#backlogops.jira_update_backlog._create_dep_link)
@@ -1077,7 +1076,9 @@
   * [\_nest](#backlogops.jira_write_fields._nest)
   * [\_field\_payload](#backlogops.jira_write_fields._field_payload)
   * [\_place\_value](#backlogops.jira_write_fields._place_value)
+  * [\_clear\_value](#backlogops.jira_write_fields._clear_value)
   * [\_parent\_fields](#backlogops.jira_write_fields._parent_fields)
+  * [\_clear\_parent\_fields](#backlogops.jira_write_fields._clear_parent_fields)
   * [\_LinkSpec](#backlogops.jira_write_fields._LinkSpec)
   * [\_link\_attr](#backlogops.jira_write_fields._link_attr)
   * [\_link\_spec\_for](#backlogops.jira_write_fields._link_spec_for)
@@ -8969,7 +8970,10 @@ their field ids through the live custom field list of the Jira instance.
 Only the fields named by the column map are fetched, and the issues are
 read page by page through :func:`backlogops.jira_search.search_all_issues`,
 so a backlog of many thousands of items is read in full without fetching
-every field of every issue.
+every field of every issue. An issue whose story point field is empty
+reads as a backlog item nobody has estimated yet, carrying no story
+points rather than zero of them, so that a forecast counts it as what
+the configured default story points guess for its level.
 
 The caller may override the preset's filter for one read. When no filter
 is configured at all, the default filter selects every issue in the
@@ -9195,18 +9199,6 @@ def _row(attr_root: object,
 ```
 
 Return one Jira object as a row keyed by internal field name.
-
-<a id="backlogops.jira_read._backlog_row"></a>
-
-#### \_backlog\_row
-
-```python
-def _backlog_row(attr_root: object, field_root: object,
-                 column_map: JiraColumnMap, custom_ids: dict[str, str],
-                 stderr_file: TextIO) -> dict[str, object]
-```
-
-Return one Jira issue row with Jira-specific defaults applied.
 
 <a id="backlogops.jira_read.build_backlog_releases"></a>
 
@@ -9671,7 +9663,9 @@ through the write column map and compared to the item's value, so only the
 fields that actually differ are written; an item whose selected fields
 already match is reported as already correct and its issue is not touched.
 An empty internal value is left unset, so an empty value never clears a
-Jira field.
+Jira field. The story points are the exception: an item nobody has
+estimated yet clears the story points in Jira, because carrying no
+estimate is as much a fact about the item as a number is.
 
 The selected fields are written in the same way they are read: a settable
 field (summary, description, story points, team, fix version) through an
@@ -9713,6 +9707,17 @@ Selected fields written as links rather than as issue fields.
 #### \_SKIP\_DATA
 
 Fields not written by the settable-field diff (handled elsewhere).
+
+<a id="backlogops.jira_update_backlog._CLEARABLE_FIELDS"></a>
+
+#### \_CLEARABLE\_FIELDS
+
+Selected fields whose empty internal value clears the Jira field.
+
+A backlog item with no story points is one nobody has estimated yet,
+which is a fact about the item worth writing to Jira. Every other empty
+value is only a value the backlog does not carry, and it leaves the Jira
+field as it is.
 
 <a id="backlogops.jira_update_backlog.LinkUpdate"></a>
 
@@ -9839,8 +9844,11 @@ def _field_diff(work: _Work) -> dict[str, object]
 Return the settable-field payload whose value differs in Jira.
 
 Only the selected settable fields are considered; the status, parent
-and dependency fields are handled separately. An empty internal value
-is left unset, and a value equal to the current Jira value is skipped.
+and dependency fields are handled separately. A value equal to the
+current Jira value is skipped, which also leaves an already empty
+Jira field alone. An empty internal value is otherwise left unset,
+except for the fields of :data:`_CLEARABLE_FIELDS`, which clear the
+Jira field they are mapped to.
 
 <a id="backlogops.jira_update_backlog._write_fields"></a>
 
@@ -9915,17 +9923,6 @@ def _clear_parent(work: _Work, current: object) -> None
 ```
 
 Clear the item's parent by setting the mapped parent field to None.
-
-<a id="backlogops.jira_update_backlog._clear_parent_fields"></a>
-
-#### \_clear\_parent\_fields
-
-```python
-def _clear_parent_fields(column_map: dict[str, tuple[JiraAttrPath, ...]],
-                         custom_ids: dict[str, str]) -> dict[str, object]
-```
-
-Return the update fields that clear the first mapped parent path.
 
 <a id="backlogops.jira_update_backlog._apply_deps"></a>
 
@@ -10098,7 +10095,9 @@ as :func:`add_backlog_to_jira` does) and left alone in ``IGNORE`` mode.
 Each matched issue has the selected fields updated: only the fields
 named in ``fields_to_update`` that are mapped for writing and are not
 the key or the issue type, and among those only the ones whose current
-Jira value differs from the item. The status is set by a transition,
+Jira value differs from the item. An empty internal value is left
+unset, except for the story points, which an item nobody has
+estimated yet clears in Jira. The status is set by a transition,
 the parent by the mapped parent field, and the dependencies by Jira
 issue links reconciled per ``link_update``. An item whose update Jira
 refuses is collected in ``failed`` with a concise reason, and the other
@@ -12777,20 +12776,20 @@ which Jira requires at create time; the parent key is the one Jira
 assigned to a parent created in this run, or the item's parent key when
 the parent already exists in Jira. An item whose creation Jira still
 refuses is collected in the result's ``failed`` list with a concise
-reason, and the remaining items are still added. The payload for each
-new issue is built by
-inverting the preset's write
-backlog column map: a plain field such as the summary is set directly, a
-nested field such as the issue type is wrapped by its path steps, a list
-field such as the fix versions is wrapped as named objects, and a custom
-field is set by its resolved field id. The issue type written for an item
-comes from the preset's level-to-issue-type map (falling back to the
-level name), so a Jira that renamed a type (such as a Swedish
-``Deluppgift`` sub-task) still gets a valid issue type. The issue is
-first created with the fields a create screen accepts (project, summary,
-issue type) and the remaining fields are then set through an update,
-because a create screen often omits fields such as the story points that
-an edit screen accepts.
+reason, and the remaining items are still added. The payload for each new
+issue is built by inverting the preset's write backlog column map: a plain
+field such as the summary is set directly, a nested field such as the issue
+type is wrapped by its path steps, a list field such as the fix versions is
+wrapped as named objects, and a custom field is set by its resolved field
+id. A field the item has no value for is not written at all, so an item
+nobody has estimated yet is created with its story points left unset. The
+issue type written for an item comes from the preset's level-to-issue-type
+map (falling back to the level name), so a Jira that renamed a type (such
+as a Swedish ``Deluppgift`` sub-task) still gets a valid issue type. The
+issue is first created with the fields a create screen accepts (project,
+summary, issue type) and the remaining fields are then set through an
+update, because a create screen often omits fields such as the story
+points that an edit screen accepts.
 
 The item key is assigned by Jira, so it is not written; instead each
 added item is copied and the copy carries the key Jira assigned. Once
@@ -13045,6 +13044,10 @@ def _create_fields(ctx: _WriteContext, item: BacklogItem) -> dict[str, object]
 ```
 
 Build the Jira create-issue fields for one backlog item.
+
+An empty internal value is not written, because a new issue has no
+value to clear: an item nobody has estimated yet is created with its
+story points left unset, as an item with no team or release is.
 
 <a id="backlogops.jira_write._issue_exists"></a>
 
@@ -17439,10 +17442,11 @@ Invert a Jira column map into write payloads and issue-link specs.
 
 Writing to Jira is the inverse of reading: a value read from a Jira
 attribute path is written back to the same path. This module holds the
-pure helpers that build one Jira field payload from a mapped path
-(:func:`_place_value` and the parent update fields from
-:func:`_parent_fields`) and that derive how a dependency field is written
-as a Jira issue link (:func:`_link_specs`). It also defines
+pure helpers that set or clear one Jira field from a mapped path
+(:func:`_place_value` and :func:`_clear_value`, and the parent update
+fields from :func:`_parent_fields` and :func:`_clear_parent_fields`) and
+that derive how a dependency field is written as a Jira issue link
+(:func:`_link_specs`). It also defines
 :class:`FailedLink`, the result of a link that Jira refused. The
 orchestration that creates issues and writes the links lives in
 :mod:`backlogops.jira_write`, which imports these helpers.
@@ -17501,6 +17505,23 @@ def _place_value(fields: dict[str, object], attr: JiraAttrPath, value: object,
 
 Place one field value into the Jira create-fields dict by kind.
 
+<a id="backlogops.jira_write_fields._clear_value"></a>
+
+#### \_clear\_value
+
+```python
+def _clear_value(fields: dict[str, object], attr: JiraAttrPath,
+                 custom_ids: dict[str, str]) -> None
+```
+
+Clear the Jira field a mapped path names, by kind.
+
+Jira clears a whole field, so the field named by the path's first
+step is set to None rather than the step the value is read from: a
+parent read from ``parent.key`` is cleared by ``{'parent': None}``.
+A path that names no writable field, such as a read-only attribute
+or an unresolved custom field, leaves the fields untouched.
+
 <a id="backlogops.jira_write_fields._parent_fields"></a>
 
 #### \_parent\_fields
@@ -17517,6 +17538,23 @@ The first mapped ``parent_key`` path is inverted, so the default map's
 ``Epic Link`` custom field becomes its resolved field id. A
 ``parent_key`` that is not mapped, or whose custom field cannot be
 resolved, yields no fields.
+
+<a id="backlogops.jira_write_fields._clear_parent_fields"></a>
+
+#### \_clear\_parent\_fields
+
+```python
+def _clear_parent_fields(column_map: JiraColumnMap,
+                         custom_ids: dict[str, str]) -> dict[str, object]
+```
+
+Build the update fields that clear an item's parent link.
+
+The first mapped ``parent_key`` path is inverted the way
+:func:`_parent_fields` inverts it, but set to None, so the default
+map's ``parent`` field becomes ``{'parent': None}``. A ``parent_key``
+that is not mapped, or whose custom field cannot be resolved, yields
+no fields.
 
 <a id="backlogops.jira_write_fields._LinkSpec"></a>
 

@@ -13,7 +13,10 @@ their field ids through the live custom field list of the Jira instance.
 Only the fields named by the column map are fetched, and the issues are
 read page by page through :func:`backlogops.jira_search.search_all_issues`,
 so a backlog of many thousands of items is read in full without fetching
-every field of every issue.
+every field of every issue. An issue whose story point field is empty
+reads as a backlog item nobody has estimated yet, carrying no story
+points rather than zero of them, so that a forecast counts it as what
+the configured default story points guess for its level.
 
 The caller may override the preset's filter for one read. When no filter
 is configured at all, the default filter selects every issue in the
@@ -250,16 +253,6 @@ def _row(attr_root: object, field_root: object, column_map: JiraColumnMap,
             for name, attrs in column_map.items()}
 
 
-def _backlog_row(attr_root: object, field_root: object,
-                 column_map: JiraColumnMap, custom_ids: dict[str, str],
-                 stderr_file: TextIO) -> dict[str, object]:
-    """Return one Jira issue row with Jira-specific defaults applied."""
-    row = _row(attr_root, field_root, column_map, custom_ids, stderr_file)
-    if 'story_points' in row and row['story_points'] in (None, ''):
-        row['story_points'] = 0
-    return row
-
-
 # pylint: disable-next=too-many-arguments
 def build_backlog_releases(
         issues: Iterable[object], versions: Iterable[object],
@@ -295,8 +288,8 @@ def build_backlog_releases(
     """
     custom_ids = _custom_ids(fields_list)
     backlog: list[BacklogItem] = [
-        row_to_item(_backlog_row(issue, getattr(issue, 'fields', None),
-                                 backlog_map, custom_ids, stderr_file),
+        row_to_item(_row(issue, getattr(issue, 'fields', None), backlog_map,
+                         custom_ids, stderr_file),
                     levels, status_map, stderr_file)
         for issue in issues]
     releases: list[Release] = [

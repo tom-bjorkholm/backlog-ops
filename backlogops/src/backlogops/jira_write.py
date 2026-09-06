@@ -12,20 +12,20 @@ which Jira requires at create time; the parent key is the one Jira
 assigned to a parent created in this run, or the item's parent key when
 the parent already exists in Jira. An item whose creation Jira still
 refuses is collected in the result's ``failed`` list with a concise
-reason, and the remaining items are still added. The payload for each
-new issue is built by
-inverting the preset's write
-backlog column map: a plain field such as the summary is set directly, a
-nested field such as the issue type is wrapped by its path steps, a list
-field such as the fix versions is wrapped as named objects, and a custom
-field is set by its resolved field id. The issue type written for an item
-comes from the preset's level-to-issue-type map (falling back to the
-level name), so a Jira that renamed a type (such as a Swedish
-``Deluppgift`` sub-task) still gets a valid issue type. The issue is
-first created with the fields a create screen accepts (project, summary,
-issue type) and the remaining fields are then set through an update,
-because a create screen often omits fields such as the story points that
-an edit screen accepts.
+reason, and the remaining items are still added. The payload for each new
+issue is built by inverting the preset's write backlog column map: a plain
+field such as the summary is set directly, a nested field such as the issue
+type is wrapped by its path steps, a list field such as the fix versions is
+wrapped as named objects, and a custom field is set by its resolved field
+id. A field the item has no value for is not written at all, so an item
+nobody has estimated yet is created with its story points left unset. The
+issue type written for an item comes from the preset's level-to-issue-type
+map (falling back to the level name), so a Jira that renamed a type (such
+as a Swedish ``Deluppgift`` sub-task) still gets a valid issue type. The
+issue is first created with the fields a create screen accepts (project,
+summary, issue type) and the remaining fields are then set through an
+update, because a create screen often omits fields such as the story
+points that an edit screen accepts.
 
 The item key is assigned by Jira, so it is not written; instead each
 added item is copied and the copy carries the key Jira assigned. Once
@@ -262,7 +262,12 @@ def _internal_value(name: str, item: BacklogItem, levels: Levels,
 
 
 def _create_fields(ctx: _WriteContext, item: BacklogItem) -> dict[str, object]:
-    """Build the Jira create-issue fields for one backlog item."""
+    """Build the Jira create-issue fields for one backlog item.
+
+    An empty internal value is not written, because a new issue has no
+    value to clear: an item nobody has estimated yet is created with its
+    story points left unset, as an item with no team or release is.
+    """
     fields: dict[str, object] = {'project': {'key': ctx.project}}
     for name, attrs in ctx.column_map.items():
         if name in _SKIP_WRITE_FIELDS or not attrs:
