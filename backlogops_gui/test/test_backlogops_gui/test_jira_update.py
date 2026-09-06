@@ -118,7 +118,7 @@ def _bl_update_result() -> UpdatedBacklogInJira:
     return UpdatedBacklogInJira(updated=['A'], already_correct=['B'],
                                 ignored=[], failed=[], status_mismatch=[],
                                 failed_links=[],
-                                added=AddedToJira([], [], [], {}, [], []))
+                                added=AddedToJira([], [], [], {}, [], [], []))
 
 
 def _fake_bl_update(captured: dict[str, object], result: UpdatedBacklogInJira

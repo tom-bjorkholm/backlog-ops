@@ -15,8 +15,9 @@ share them without depending on each other in a cycle.
 # MIT License
 
 from backlogops.backlog import Backlog
-from backlogops.jira_write import AddedToJira, FailedItem, StatusMismatch
-from backlogops.jira_write_fields import FailedLink
+from backlogops.jira_write import AddedToJira, FailedItem
+from backlogops.jira_write_status import StatusMismatch
+from backlogops.jira_write_fields import FailedField, FailedLink
 
 
 def _labeled_lines(heading: str, count: int, body: list[str]) -> list[str]:
@@ -63,8 +64,10 @@ def format_add_result(result: AddedToJira) -> str:
     """Return a listing of the added, present, failed and unmatched items.
 
     Each section has a heading with its count, then one ``key  title`` line
-    per item, or a ``(none)`` line when the section is empty. The CLI
-    prints this text and the GUI shows it in a copy-pasteable pop-up.
+    per item, or a ``(none)`` line when the section is empty. An item whose
+    issue was created but whose field value or link Jira refused is in
+    ``Added to Jira`` and again in the section naming what was refused. The
+    CLI prints this text and the GUI shows it in a copy-pasteable pop-up.
     """
     lines = _result_section('Added to Jira', result.stored)
     lines.append('')
@@ -74,6 +77,8 @@ def format_add_result(result: AddedToJira) -> str:
     lines.append('')
     lines.extend(_status_section('Status not set in Jira',
                                  result.status_mismatch))
+    lines.append('')
+    lines.extend(_field_section('Fields not set', result.failed_fields))
     lines.append('')
     lines.extend(_link_section('Links not written', result.failed_links))
     return '\n'.join(lines)
@@ -92,6 +97,13 @@ def _status_section(heading: str, mismatch: list[StatusMismatch]) -> list[str]:
             f'{bad.expected.name}, Jira status {bad.actual!r}'
             for bad in mismatch]
     return _labeled_lines(heading, len(mismatch), body)
+
+
+def _field_section(heading: str, fields: list[FailedField]) -> list[str]:
+    """Return the heading and the key, field and reason of each refusal."""
+    body = [f'  {bad.item.key}  {bad.field}  - {bad.reason}'
+            for bad in fields]
+    return _labeled_lines(heading, len(fields), body)
 
 
 def _link_section(heading: str, links: list[FailedLink]) -> list[str]:

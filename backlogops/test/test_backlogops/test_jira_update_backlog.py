@@ -25,8 +25,8 @@ from backlogops.backlog import BacklogItem, Status
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, JiraColumnMap
 from backlogops.jira_write import (
-    AddedToJira, FailedItem, ItemNotInJiraError, OnExistingKey, OnMissingKey,
-    StatusMismatch)
+    AddedToJira, FailedItem, ItemNotInJiraError, OnExistingKey, OnMissingKey)
+from backlogops.jira_write_status import StatusMismatch
 from backlogops.jira_write_fields import (
     FailedLink, _LinkSpec, _clear_parent_fields)
 from backlogops import jira_update_backlog
@@ -577,7 +577,7 @@ def test_missing_add(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     added_item = BacklogItem(key='JIRA-9', level=1, title='New',
                              story_points=0, status=Status.TODO)
-    added = AddedToJira([added_item], [], [], {'NEW': 'JIRA-9'}, [], [])
+    added = AddedToJira([added_item], [], [], {'NEW': 'JIRA-9'}, [], [], [])
     captured: dict[str, object] = {}
     monkeypatch.setattr(jira_update_backlog, 'add_backlog_to_jira',
                         _stub_add(captured, added))
@@ -626,7 +626,7 @@ def test_format_updates() -> None:
     """Test the listing shows the sections with their entries."""
     failed = FailedItem(_item('E-1'), 'HTTP 400: nope')
     added_item = _item('P-1')
-    added = AddedToJira([added_item], [], [], {}, [], [])
+    added = AddedToJira([added_item], [], [], {}, [], [], [])
     result = UpdatedBacklogInJira(
         updated=['A'], already_correct=['B'], ignored=['C'], failed=[failed],
         status_mismatch=[StatusMismatch(_item('M'), Status.DONE, 'To Do')],
@@ -644,7 +644,7 @@ def test_format_updates() -> None:
 
 def test_format_empty() -> None:
     """Test an empty section is shown as a count of zero and (none)."""
-    empty = AddedToJira([], [], [], {}, [], [])
+    empty = AddedToJira([], [], [], {}, [], [], [])
     text = format_backlog_updates(
         UpdatedBacklogInJira([], [], [], [], [], [], empty))
     assert 'Updated in Jira (0):' in text

@@ -8,7 +8,8 @@ from typing import Callable
 import pytest
 from backlogops import (
     AddedReleasesToJira, AddedToJira, BacklogItem, BacklogOpsConfig,
-    BacklogReleases, ExistsInJiraError, Release, ReleaseExistsError, Status)
+    BacklogReleases, ExistsInJiraError, FailedField, FailedItem, FailedLink,
+    Release, ReleaseExistsError, Status)
 from backlogops_gui.jira_dialogs import (
     JiraReleaseWriteOptions, JiraWriteOptions)
 from .jira_test_helpers import config, make_app, make_immediate, record_calls
@@ -42,7 +43,7 @@ def _add_result() -> AddedToJira:
                         status=Status.TODO)
     return AddedToJira(stored=[added], already_present=[], failed=[],
                        key_map={'A': 'PROJ-1'}, status_mismatch=[],
-                       failed_links=[])
+                       failed_fields=[], failed_links=[])
 
 
 def _fake_write(result: AddedToJira) -> Callable[..., AddedToJira]:
@@ -70,6 +71,31 @@ def test_write_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     # pylint: disable-next=protected-access
     app.jira.writer._add_backlog(DATA, got.append)
     assert got == [result]
+
+
+def test_write_logs_failures(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the logged summary counts what the add could not write.
+
+    An item Jira refused, a field value it refused and a link it refused
+    are all in the summary, so a partly written backlog does not look
+    like a clean one in the log.
+    """
+    bad = BacklogItem(key='B', level=1, title='Bad', story_points=1,
+                      status=Status.TODO)
+    result = _add_result()._replace(
+        failed=[FailedItem(bad, 'HTTP 400: nope')],
+        failed_fields=[FailedField(bad, 'fixVersions', 'HTTP 400: no')],
+        failed_links=[FailedLink(bad, 'PROJ-1', 'parent', 'HTTP 400: gone')])
+    monkeypatch.setattr(ASK_WRITE, _write_opts)
+    monkeypatch.setattr(ADD_BACKLOG, _fake_write(result))
+    monkeypatch.setattr(THREAD, make_immediate)
+    app = make_app(config())
+    # pylint: disable-next=protected-access
+    app.jira.writer._add_backlog(DATA, lambda _result: None)
+    text = app.log.text()
+    assert '1 failed' in text
+    assert '1 fields not set' in text
+    assert '1 links not written' in text
 
 
 def test_write_cancel(monkeypatch: pytest.MonkeyPatch) -> None:

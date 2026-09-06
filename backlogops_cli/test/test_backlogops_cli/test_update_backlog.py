@@ -40,7 +40,7 @@ def _result() -> UpdatedBacklogInJira:
     """Return a canned update result with one updated item."""
     return UpdatedBacklogInJira(updated=['A'], already_correct=[], ignored=[],
                                 failed=[], status_mismatch=[], failed_links=[],
-                                added=AddedToJira([], [], [], {}, [], []))
+                                added=AddedToJira([], [], [], {}, [], [], []))
 
 
 def _fake_update(captured: dict[str, object], result: UpdatedBacklogInJira

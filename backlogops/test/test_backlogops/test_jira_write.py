@@ -26,16 +26,20 @@ from backlogops.jira_io_config import (
     DEF_BACKLOG_COLUMN_MAP, JiraAttrPath, JiraAttrType)
 from backlogops.jira_write import (
     add_backlog_to_jira, AddedToJira, ExistsInJiraError, FailedItem,
-    OnExistingKey, StatusMismatch, UnknownIssueTypeError, apply_jira_keys,
-    jira_custom_fields, jira_editable_fields,
-    _issue_type_meta, _status_from_name, _transition_target,
-    _types_from_createmeta, _types_from_dicts)
+    OnExistingKey, apply_jira_keys, jira_custom_fields,
+    jira_editable_fields)
+from backlogops.jira_write_status import (
+    StatusMismatch, _status_from_name, _transition_target)
+from backlogops.jira_write_types import (
+    UnknownIssueTypeError, _issue_type_meta, _types_from_createmeta,
+    _types_from_dicts)
 from backlogops.jira_write_fields import (
-    FailedLink, _link_spec_for, _parent_fields, _place_value)
+    FailedField, FailedLink, _link_spec_for, _parent_fields, _place_value)
 from backlogops.levels import DEFAULT_LEVELS, level_name
 from .jira_write_helpers import (
     attr_parent_config, connect_each as _connect_each,
-    connections_for as _connections, jira_write_config as _config, NO,
+    connections_for as _connections, jira_write_config as _config,
+    leveled_item as _leveled, title_only_config as _title_only_config, NO,
     RankCall, capture_rank, WriteClient as _WriteClient)
 
 
@@ -52,13 +56,6 @@ def _item(key: str) -> BacklogItem:
     """Return a default backlog item with a description extra field."""
     return BacklogItem(key=key, level=1, title='T', story_points=5,
                        status=Status.TODO, extra_fields={'description': 'D'})
-
-
-def _leveled(key: str, level: int,
-             parent: Optional[str] = None) -> BacklogItem:
-    """Return a backlog item at a level, optionally with a parent key."""
-    return BacklogItem(key=key, level=level, title=f'T {key}', story_points=0,
-                       status=Status.TODO, parent_key=parent)
 
 
 SMAP: dict[str, Status] = {
@@ -272,6 +269,7 @@ def test_format_result() -> None:
         stored=[added], already_present=[present],
         failed=[FailedItem(bad, 'HTTP 400: nope')], key_map={'A': 'P-1'},
         status_mismatch=[StatusMismatch(late, Status.DONE, 'To Do')],
+        failed_fields=[FailedField(late, 'fixVersions', 'HTTP 400: no')],
         failed_links=[FailedLink(linked, 'P-1', 'Blocks', 'HTTP 400: link')])
     text = format_add_result(result)
     assert 'Added to Jira (1):' in text
@@ -282,16 +280,19 @@ def test_format_result() -> None:
     assert 'E-1  Epic  - HTTP 400: nope' in text
     assert 'Status not set in Jira (1):' in text
     assert "P-2  Late  - expected DONE, Jira status 'To Do'" in text
+    assert 'Fields not set (1):' in text
+    assert 'P-2  fixVersions  - HTTP 400: no' in text
     assert 'Links not written (1):' in text
     assert 'P-3 -> P-1  (Blocks)  - HTTP 400: link' in text
 
 
 def test_format_empty() -> None:
     """Test an empty section is shown as a count of zero and (none)."""
-    text = format_add_result(AddedToJira([], [], [], {}, [], []))
+    text = format_add_result(AddedToJira([], [], [], {}, [], [], []))
     assert 'Added to Jira (0):' in text
     assert 'Failed to add (0):' in text
     assert 'Status not set in Jira (0):' in text
+    assert 'Fields not set (0):' in text
     assert 'Links not written (0):' in text
     assert '(none)' in text
 
@@ -495,15 +496,6 @@ def test_types_bad_project() -> None:
     assert _types_from_createmeta(client, 'P') == {'Story': False}
 
 
-def _title_only_config() -> JiraIOConfig:
-    """Return a config whose backlog map has only create-screen fields."""
-    config = _config()
-    config.backlog_column_maps = {'bk': {
-        'title': (JiraAttrPath(JiraAttrType.FIELD, ('summary',)),),
-        'level': (JiraAttrPath(JiraAttrType.FIELD, ('issuetype', 'name')),)}}
-    return config
-
-
 def test_create_no_update(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an all-create-field issue skips the follow-up update."""
     client = _WriteClient()
@@ -530,7 +522,7 @@ def test_create_no_editable(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_status_empty_name(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an empty Jira status name reports a mismatch with no actual."""
     client = _WriteClient()
-    client.behavior.init_status = ''
+    client.behavior.trans.init_status = ''
     connections = _connections(monkeypatch, client)
     result = add_backlog_to_jira(connections, 'w', [_item('A')],
                                  on_existing_key=OnExistingKey.SKIP,
@@ -550,8 +542,8 @@ def test_transition_target(trans: dict[str, object],
 def test_trans_list_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a transition-listing error leaves a reported status mismatch."""
     client = _WriteClient()
-    client.behavior.init_status = 'To Do'
-    client.behavior.transition_fault = 'list'
+    client.behavior.trans.init_status = 'To Do'
+    client.behavior.trans.fault = 'list'
     connections = _connections(monkeypatch, client)
     item = _item('A')
     item.status = Status.DONE
@@ -581,9 +573,11 @@ def test_reexport() -> None:
     assert backlogops.ExistsInJiraError is ExistsInJiraError
     assert backlogops.StatusMismatch is StatusMismatch
     assert backlogops.FailedLink is FailedLink
+    assert backlogops.FailedField is FailedField
     assert 'add_backlog_to_jira' in backlogops.__all__
     assert 'StatusMismatch' in backlogops.__all__
     assert 'FailedLink' in backlogops.__all__
+    assert 'FailedField' in backlogops.__all__
     assert 'JiraConnections' in backlogops.__all__
 
 
@@ -624,21 +618,21 @@ def test_apply_keys_refs() -> None:
 def test_status_match(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a created status matching the item needs no transition."""
     client = _WriteClient()
-    client.behavior.init_status = 'To Do'
-    client.behavior.transitions = [_trans('11', 'Done')]
+    client.behavior.trans.init_status = 'To Do'
+    client.behavior.trans.available = [_trans('11', 'Done')]
     connections = _connections(monkeypatch, client)
     result = add_backlog_to_jira(connections, 'w', [_item('A')],
                                  on_existing_key=OnExistingKey.SKIP,
                                  status_map=SMAP, stderr_file=NO)
     assert result.status_mismatch == []
-    assert not client.behavior.transitioned
+    assert not client.behavior.trans.transitioned
 
 
 def test_status_transition(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a mismatching status is fixed by a matching transition."""
     client = _WriteClient()
-    client.behavior.init_status = 'To Do'
-    client.behavior.transitions = [_trans('21', 'Done')]
+    client.behavior.trans.init_status = 'To Do'
+    client.behavior.trans.available = [_trans('21', 'Done')]
     connections = _connections(monkeypatch, client)
     item = _item('A')
     item.status = Status.DONE
@@ -646,14 +640,14 @@ def test_status_transition(monkeypatch: pytest.MonkeyPatch) -> None:
                                  on_existing_key=OnExistingKey.SKIP,
                                  status_map=SMAP, stderr_file=NO)
     assert result.status_mismatch == []
-    assert client.behavior.transitioned == [('JIRA-1', '21')]
+    assert client.behavior.trans.transitioned == [('JIRA-1', '21')]
 
 
 def test_status_no_match(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an unreachable status is reported as a mismatch."""
     client = _WriteClient()
-    client.behavior.init_status = 'To Do'
-    client.behavior.transitions = [_trans('11', 'In Progress')]
+    client.behavior.trans.init_status = 'To Do'
+    client.behavior.trans.available = [_trans('11', 'In Progress')]
     connections = _connections(monkeypatch, client)
     item = _item('A')
     item.status = Status.DONE
@@ -665,16 +659,16 @@ def test_status_no_match(monkeypatch: pytest.MonkeyPatch) -> None:
     bad = result.status_mismatch[0]
     assert bad.expected is Status.DONE
     assert bad.actual == 'To Do'
-    assert not client.behavior.transitioned
+    assert not client.behavior.trans.transitioned
     assert 'JIRA-1' in errors.getvalue()
 
 
 def test_status_trans_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a rejected transition leaves a reported status mismatch."""
     client = _WriteClient()
-    client.behavior.init_status = 'To Do'
-    client.behavior.transitions = [_trans('31', 'Done')]
-    client.behavior.transition_fault = 'apply'
+    client.behavior.trans.init_status = 'To Do'
+    client.behavior.trans.available = [_trans('31', 'Done')]
+    client.behavior.trans.fault = 'apply'
     connections = _connections(monkeypatch, client)
     item = _item('A')
     item.status = Status.DONE

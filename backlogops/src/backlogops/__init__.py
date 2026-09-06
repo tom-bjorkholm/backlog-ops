@@ -74,10 +74,12 @@ from backlogops.jira_update_releases import (
     UpdatedReleasesInJira, format_release_updates, update_releases_in_jira)
 from backlogops.jira_write import (
     AddedToJira, ExistsInJiraError, FailedItem, ItemNotInJiraError,
-    OnExistingKey, OnMissingKey, StatusMismatch, UnknownIssueTypeError,
+    OnExistingKey, OnMissingKey,
     add_backlog_to_jira, apply_jira_keys, jira_custom_fields,
     jira_editable_fields)
-from backlogops.jira_write_fields import FailedLink
+from backlogops.jira_write_fields import FailedField, FailedLink
+from backlogops.jira_write_status import StatusMismatch
+from backlogops.jira_write_types import UnknownIssueTypeError
 from backlogops.jira_write_format import format_add_result
 from backlogops.jira_write_releases import (
     AddedReleasesToJira, FailedRelease, ReleaseExistsError,
@@ -123,7 +125,8 @@ __all__ = [
     'DEF_STATUS_INPUT_MAP', 'DefaultStoryPointLevel', 'DefaultStoryPoints',
     'DependencyMode', 'EDIT_SETTINGS',
     'ExceptionWorkHours',
-    'ExistsInJiraError', 'FailedItem', 'FailedLink', 'FailedRelease',
+    'ExistsInJiraError', 'FailedField', 'FailedItem', 'FailedLink',
+    'FailedRelease',
     'FailedRename', 'FileExistsCb', 'FormatRules', 'FteException',
     'GUI_DESCRIPTIONS', 'GuiDisplayConfig', 'INPUT_DESCRIPTIONS',
     'InputFormatConfig', 'ItemNotInJiraError', 'JIRA_DESCRIPTIONS',

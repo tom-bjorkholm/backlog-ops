@@ -25,7 +25,15 @@ as a Swedish ``Deluppgift`` sub-task) still gets a valid issue type. The
 issue is first created with the fields a create screen accepts (project,
 summary, issue type) and the remaining fields are then set through an
 update, because a create screen often omits fields such as the story
-points that an edit screen accepts.
+points that an edit screen accepts. Only the create can fail an item: once
+Jira has created the issue its key is kept whatever else goes wrong, so a
+value Jira refuses is collected in the result's ``failed_fields`` list and
+reported rather than losing the created issue. Jira applies an update as a
+whole, so a refused update of several fields is retried one field at a
+time and only the values Jira really refuses are lost. Because a release
+that is not a version of the project is such a value, the releases of the
+items to add are checked against the project's versions and the unknown
+ones are reported before anything is created.
 
 The item key is assigned by Jira, so it is not written; instead each
 added item is copied and the copy carries the key Jira assigned. Once
@@ -57,17 +65,20 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from functools import partial
 from typing import Callable, NamedTuple, Optional, TextIO
-from config_as_json import string_to_enum_best_match
 from jira import JIRA, Issue, JIRAError
 from backlogops.backlog import Backlog, BacklogItem, DEPENDENCY_FIELDS, Status
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap, JiraIssueTypeMap
 from backlogops.jira_rank_backlog import (
     JiraRankAnchor, RankEnv, rank_backlog_or_warn)
-from backlogops.jira_read import _coerce, _custom_ids, _resolve
-from backlogops.jira_write_fields import FailedLink, _LinkSpec, _link_specs, \
-    _parent_fields, _place_value
-from backlogops.levels import DEFAULT_LEVELS, Levels, level_name
+from backlogops.jira_read import _custom_ids
+from backlogops.jira_write_fields import FailedField, FailedLink, _LinkSpec, \
+    _link_specs, _parent_fields, _place_value
+from backlogops.jira_write_status import StatusMismatch, _jira_status_name, \
+    _maps_to, _report_status_mismatch, _try_transitions
+from backlogops.jira_write_types import _TypeInfo, _issue_type, \
+    _issue_type_meta, _subtask_types, _validate_issue_types
+from backlogops.levels import DEFAULT_LEVELS, Levels
 
 _SKIP_WRITE_FIELDS = frozenset({'key', 'status', 'parent_key'}) | \
     frozenset(DEPENDENCY_FIELDS)
@@ -121,24 +132,6 @@ class ItemNotInJiraError(RuntimeError):
                          + ', '.join(names) + '.')
 
 
-class UnknownIssueTypeError(ValueError):
-    """Raised when a backlog item's issue type is not valid in the project.
-
-    It carries the invalid issue type names mapped to the item keys that
-    use them, and the sorted valid type names, so a caller can report
-    them. It derives from :class:`ValueError`.
-    """
-
-    def __init__(self, bad: dict[str, list[str]], valid: list[str]) -> None:
-        """Store the bad and valid type names and build the message."""
-        self.bad = bad
-        self.valid = valid
-        parts = '; '.join(f'{name!r} (for {", ".join(keys)})'
-                          for name, keys in sorted(bad.items()))
-        super().__init__(f'Invalid Jira issue type(s): {parts}. Valid '
-                         f'types: {", ".join(valid)}.')
-
-
 class OnExistingKey(Enum):
     """What to do when a backlog item's key already exists in Jira."""
 
@@ -161,21 +154,6 @@ class FailedItem(NamedTuple):
     reason: str
 
 
-class StatusMismatch(NamedTuple):
-    """A created issue whose Jira status could not be matched.
-
-    Fields:
-        item: The stored copy of the item, carrying its new Jira key.
-        expected: The internal status the item carries.
-        actual: The Jira status name the created issue ended up in, or
-            None when the status could not be read.
-    """
-
-    item: BacklogItem
-    expected: Status
-    actual: Optional[str]
-
-
 class AddedToJira(NamedTuple):
     """The result of adding a backlog to Jira.
 
@@ -191,6 +169,9 @@ class AddedToJira(NamedTuple):
             Jira assigned.
         status_mismatch: The stored items whose created issue could not be
             transitioned to a Jira status matching the item's status.
+        failed_fields: The field values Jira refused to set on a created
+            issue, each with a concise reason; the issue itself was
+            created and is in ``stored``.
         failed_links: The parent and dependency links Jira refused to
             write, each with a concise reason.
     """
@@ -200,21 +181,8 @@ class AddedToJira(NamedTuple):
     failed: list[FailedItem]
     key_map: dict[str, str]
     status_mismatch: list[StatusMismatch]
+    failed_fields: list[FailedField]
     failed_links: list[FailedLink]
-
-
-@dataclass(frozen=True)
-class _TypeInfo:
-    """The level and issue-type resolution used when creating issues.
-
-    ``subtask_types`` holds the Jira issue type names that are sub-tasks,
-    or None when the create metadata did not reveal them, in which case a
-    sub-task is detected by the lowest configured level instead.
-    """
-
-    levels: Levels
-    issue_type_map: JiraIssueTypeMap
-    subtask_types: Optional[frozenset[str]]
 
 
 @dataclass(frozen=True)
@@ -235,19 +203,6 @@ class _WriteContext:
     custom_names: dict[str, str]
     types: _TypeInfo
     status_map: Optional[dict[str, Status]]
-
-
-def _issue_type(level: int, issue_type_map: JiraIssueTypeMap,
-                levels: Levels) -> Optional[str]:
-    """Return the Jira issue type to write for one internal level.
-
-    The preset's level-to-issue-type map wins when it names the level;
-    otherwise the level's own name is used, as before.
-    """
-    mapped = issue_type_map.get(level)
-    if mapped is not None:
-        return mapped
-    return level_name(level, levels)
 
 
 def _internal_value(name: str, item: BacklogItem, levels: Levels,
@@ -298,87 +253,6 @@ def _raise_existing(existing: set[str], stderr_file: TextIO) -> None:
     error = ExistsInJiraError(sorted(existing))
     print(str(error), file=stderr_file)
     raise error
-
-
-def _types_from_dicts(items: object) -> dict[str, bool]:
-    """Return each issue type ``name`` mapped to its ``subtask`` flag."""
-    result: dict[str, bool] = {}
-    if isinstance(items, list):
-        for item in items:
-            name = item.get('name') if isinstance(item, dict) else None
-            if isinstance(name, str):
-                result[name] = bool(item.get('subtask'))
-    return result
-
-
-def _types_from_issuetypes(client: JIRA, project: str) -> dict[str, bool]:
-    """Return issue type name to subtask flag via the issuetypes API."""
-    meta = client.createmeta_issuetypes(project)
-    values = meta.get('values', []) if isinstance(meta, dict) else []
-    return _types_from_dicts(values)
-
-
-def _types_from_createmeta(client: JIRA, project: str) -> dict[str, bool]:
-    """Return issue type name to subtask flag via the older createmeta API."""
-    meta = client.createmeta(projectKeys=project, expand='projects.issuetypes')
-    projects = meta.get('projects', []) if isinstance(meta, dict) else []
-    result: dict[str, bool] = {}
-    for proj in projects:
-        if isinstance(proj, dict):
-            result.update(_types_from_dicts(proj.get('issuetypes', [])))
-    return result
-
-
-def _issue_type_meta(client: JIRA, project: str) -> dict[str, bool]:
-    """Return the project's creatable issue types with subtask flags.
-
-    Each creatable issue type name is mapped to whether Jira marks it a
-    sub-task. Different Jira versions expose the create metadata through
-    different endpoints and reject the other, so both are tried; when
-    neither works the result is empty, issue-type validation is skipped
-    and sub-task detection falls back to the lowest configured level.
-    """
-    for reader in (_types_from_issuetypes, _types_from_createmeta):
-        try:
-            types = reader(client, project)
-        except JIRAError:
-            continue
-        if types:
-            return types
-    return {}
-
-
-def _subtask_types(type_meta: dict[str, bool]) -> Optional[frozenset[str]]:
-    """Return the sub-task issue type names, or None when unknown.
-
-    None means the create metadata was unavailable, so the caller detects
-    a sub-task by the lowest configured level instead.
-    """
-    if not type_meta:
-        return None
-    return frozenset(name for name, subtask in type_meta.items() if subtask)
-
-
-def _validate_issue_types(valid: set[str], backlog: Backlog, levels: Levels,
-                          issue_type_map: JiraIssueTypeMap) -> None:
-    """Raise when an item's issue type is not valid in the project.
-
-    The issue type written for each item is resolved through the preset's
-    level-to-issue-type map, falling back to the level name. The valid
-    type names come from the project's create metadata. When that is
-    empty (an unexpected response), the check is skipped and each issue
-    type is left to fail at create time instead.
-    """
-    if not valid:
-        return
-    bad: dict[str, list[str]] = {}
-    for item in backlog:
-        name = _issue_type(item.level, issue_type_map, levels) \
-            or f'level {item.level}'
-        if name not in valid:
-            bad.setdefault(name, []).append(item.key)
-    if bad:
-        raise UnknownIssueTypeError(bad, sorted(valid))
 
 
 def _issue_key(issue: object) -> str:
@@ -443,17 +317,103 @@ def _subtasks_last(ctx: _WriteContext, backlog: Backlog) -> Backlog:
     return non_sub + sub
 
 
+class _Created(NamedTuple):
+    """A created Jira issue and the outcome of setting its other fields.
+
+    ``skipped`` are the mapped field ids the issue's edit screen does not
+    offer and ``refused`` pairs each field id Jira refused to set with its
+    reason. Both are reported by the caller, and neither costs the item
+    the key Jira assigned: the issue exists once it is created.
+    """
+
+    key: str
+    issue: Issue
+    skipped: list[str]
+    refused: list[tuple[str, str]]
+
+
+def _refusal(issue: Issue, fields: dict[str, object]) -> Optional[str]:
+    """Return Jira's reason for refusing this update, or None on success."""
+    try:
+        issue.update(fields=fields)
+    except JIRAError as error:
+        return _jira_reason(error)
+    return None
+
+
+def _all_refused(fields: dict[str, object],
+                 reason: str) -> list[tuple[str, str]]:
+    """Return every field name paired with one shared refusal reason."""
+    return [(name, reason) for name in sorted(fields)]
+
+
+def _set_one_by_one(issue: Issue,
+                    fields: dict[str, object]) -> list[tuple[str, str]]:
+    """Set each field on its own, returning the refused ones with reasons."""
+    refused: list[tuple[str, str]] = []
+    for name, value in fields.items():
+        reason = _refusal(issue, {name: value})
+        if reason is not None:
+            refused.append((name, reason))
+    return refused
+
+
+def _set_fields(issue: Issue,
+                fields: dict[str, object]) -> list[tuple[str, str]]:
+    """Set the fields on the issue, returning the refused ones with reasons.
+
+    Jira applies an edit as a whole, so a single unusable value, such as a
+    fix version the project does not have, would also cost the item its
+    story points. A refused update of more than one field is therefore
+    retried one field at a time, so only the values Jira really refuses
+    are lost. A single field has nothing to salvage and is not retried.
+    """
+    if not fields:
+        return []
+    reason = _refusal(issue, fields)
+    if reason is None:
+        return []
+    if len(fields) == 1:
+        return _all_refused(fields, reason)
+    return _set_one_by_one(issue, fields)
+
+
+def _set_extra_fields(ctx: _WriteContext, issue: Issue, key: str,
+                      update: dict[str, object]) -> _Created:
+    """Set the mapped fields the create screen did not accept.
+
+    Nothing here raises: Jira has already assigned the key, so a refusal
+    is reported rather than allowed to cost the item its created issue.
+    The update is limited to the fields the issue's edit screen offers,
+    and an edit screen that cannot be read leaves every field refused.
+    """
+    if not update:
+        return _Created(key, issue, [], [])
+    try:
+        editable = _editable_field_ids(ctx.client, key)
+    except JIRAError as error:
+        return _Created(key, issue, [],
+                        _all_refused(update, _jira_reason(error)))
+    allowed = {name: value for name, value in update.items()
+               if name in editable}
+    return _Created(key, issue, sorted(set(update) - editable),
+                    _set_fields(issue, allowed))
+
+
 def _create_issue(ctx: _WriteContext, item: BacklogItem,
-                  parent_key: Optional[str]) -> tuple[str, list[str], Issue]:
+                  parent_key: Optional[str]) -> _Created:
     """Create the issue and set the fields its edit screen offers.
 
-    The issue is created with the create-screen fields, then the remaining
-    mapped fields are set through an update, limited to the fields the
-    issue's edit screen offers. Mapped fields the edit screen does not
-    offer (such as story points on an issue type without them) are
-    returned as skipped so the caller can report them. A sub-task's
-    ``parent_key`` is set at create time, which Jira requires. The created
-    issue object is returned too, so its status can be reconciled.
+    The issue is created with the create-screen fields, which is the only
+    step that can fail the item: after it Jira has assigned a key, and
+    that key must be kept whatever else fails. The remaining mapped fields
+    are then set through an update, limited to the fields the issue's edit
+    screen offers. Mapped fields the edit screen does not offer (such as
+    story points on an issue type without them) are returned as skipped
+    and fields Jira refuses are returned with their reason, so the caller
+    can report both. A sub-task's ``parent_key`` is set at create time,
+    which Jira requires. The created issue object is returned too, so its
+    status can be reconciled.
     """
     fields = _create_fields(ctx, item)
     if parent_key is not None:
@@ -463,15 +423,7 @@ def _create_issue(ctx: _WriteContext, item: BacklogItem,
     update = {name: value for name, value in fields.items()
               if name not in _CREATE_FIELD_NAMES}
     issue = ctx.client.create_issue(fields=create)
-    new_key = _issue_key(issue)
-    if not update:
-        return new_key, [], issue
-    editable = _editable_field_ids(ctx.client, new_key)
-    allowed = {name: value for name, value in update.items()
-               if name in editable}
-    if allowed:
-        issue.update(fields=allowed)
-    return new_key, sorted(set(update) - editable), issue
+    return _set_extra_fields(ctx, issue, _issue_key(issue), update)
 
 
 def _skipped_names(skipped: list[str], custom_names: dict[str, str]) -> str:
@@ -516,98 +468,6 @@ def _remap_refs(item: BacklogItem, key_map: dict[str, str]) -> None:
         setattr(item, dep_field, [key_map.get(dep, dep) for dep in deps])
 
 
-def _status_from_name(name: str, status_map: Optional[dict[str, Status]]
-                      ) -> Optional[Status]:
-    """Return the internal status a Jira status name maps to, or None.
-
-    A configured ``status_map`` is matched case-insensitively first, as
-    when reading; otherwise the built-in status-name matching is used. A
-    name that matches neither returns None.
-    """
-    if status_map:
-        lookup = {key.lower(): value for key, value in status_map.items()}
-        mapped = lookup.get(name.lower())
-        if mapped is not None:
-            return mapped
-    try:
-        result = string_to_enum_best_match(name, Status)
-    except KeyError:
-        return None
-    assert isinstance(result, Status)
-    return result
-
-
-def _maps_to(name: Optional[str], target: Status,
-             status_map: Optional[dict[str, Status]]) -> bool:
-    """Return whether a Jira status name maps to the target status."""
-    return name is not None and _status_from_name(name, status_map) is target
-
-
-def _jira_status_name(ctx: _WriteContext, issue: object) -> Optional[str]:
-    """Return the created issue's Jira status name via the column map."""
-    field_root = getattr(issue, 'fields', None)
-    for attr in ctx.column_map.get('status', ()):
-        value = _coerce(_resolve(issue, field_root, attr, ctx.custom_ids))
-        if isinstance(value, str) and value:
-            return value
-    return None
-
-
-def _transition_target(trans: dict[str, object]) -> Optional[str]:
-    """Return the target status name of a workflow transition, or None."""
-    to_field = trans.get('to')
-    if isinstance(to_field, dict):
-        name = to_field.get('name')
-        if isinstance(name, str):
-            return name
-    return None
-
-
-def _available_transitions(client: JIRA,
-                           issue: object) -> list[dict[str, object]]:
-    """Return the issue's available workflow transitions, or empty."""
-    try:
-        transitions = client.transitions(issue)
-    except JIRAError:
-        return []
-    return transitions if isinstance(transitions, list) else []
-
-
-def _matching_transitions(ctx: _WriteContext, target: Status,
-                          issue: object) -> list[str]:
-    """Return ids of transitions whose target maps to the target status."""
-    result: list[str] = []
-    for trans in _available_transitions(ctx.client, issue):
-        trans_id = trans.get('id')
-        if isinstance(trans_id, str) and _maps_to(_transition_target(trans),
-                                                  target, ctx.status_map):
-            result.append(trans_id)
-    return result
-
-
-def _try_transitions(ctx: _WriteContext, target: Status,
-                     issue: object) -> bool:
-    """Transition the issue to a matching status; True on the first success.
-
-    A direct transition to the target status is assumed to reach it, so
-    the first transition that Jira accepts is treated as a success.
-    """
-    for trans_id in _matching_transitions(ctx, target, issue):
-        try:
-            ctx.client.transition_issue(issue, trans_id)
-            return True
-        except JIRAError:
-            continue
-    return False
-
-
-def _report_status_mismatch(bad: StatusMismatch, stderr_file: TextIO) -> None:
-    """Warn that a created issue's status could not be matched."""
-    print(f'WARNING: {bad.item.key} ({bad.item.title}) is {bad.actual!r} in '
-          f'Jira, not a status matching {bad.expected.name}; transition it '
-          'manually.', file=stderr_file)
-
-
 def _reconcile_status(ctx: _WriteContext, item: BacklogItem, issue: object,
                       stderr_file: TextIO) -> Optional[StatusMismatch]:
     """Match the created issue's status to the item, or report a mismatch.
@@ -616,10 +476,10 @@ def _reconcile_status(ctx: _WriteContext, item: BacklogItem, issue: object,
     nothing is done. Otherwise a workflow transition to a matching status
     is attempted; if none succeeds the mismatch is reported and returned.
     """
-    name = _jira_status_name(ctx, issue)
+    name = _jira_status_name(ctx.column_map, ctx.custom_ids, issue)
     if _maps_to(name, item.status, ctx.status_map):
         return None
-    if _try_transitions(ctx, item.status, issue):
+    if _try_transitions(ctx.client, item.status, issue, ctx.status_map):
         return None
     bad = StatusMismatch(item, item.status, name)
     _report_status_mismatch(bad, stderr_file)
@@ -627,21 +487,36 @@ def _reconcile_status(ctx: _WriteContext, item: BacklogItem, issue: object,
 
 
 @dataclass
+class _Refused:
+    """What Jira refused while a backlog was added, collected as it came.
+
+    ``items`` are the items whose creation Jira refused, ``status`` the
+    created issues whose status could not be matched, ``fields`` the field
+    values Jira refused to set on a created issue, and ``links`` the links
+    it refused to write. They become the like-named lists of
+    :class:`AddedToJira`.
+    """
+
+    items: list[FailedItem]
+    status: list[StatusMismatch]
+    fields: list[FailedField]
+    links: list[FailedLink]
+
+
+@dataclass
 class _Added:
     """Mutable accumulator of the add-to-Jira results being built.
 
     ``issues`` keeps each created issue by its assigned Jira key, so a
-    parent link can be set through the already-created issue, and ``links``
-    collects the links Jira refused to write.
+    parent link can be set through the already-created issue, and
+    ``refused`` collects everything Jira refused along the way.
     """
 
     stored: Backlog
     already: Backlog
-    failed: list[FailedItem]
-    mismatch: list[StatusMismatch]
     key_map: dict[str, str]
     issues: dict[str, Issue]
-    links: list[FailedLink]
+    refused: _Refused
 
 
 def _report_failed_link(failed: FailedLink, stderr_file: TextIO) -> None:
@@ -684,7 +559,7 @@ def _write_dep_links(ctx: _WriteContext, item: BacklogItem, spec: _LinkSpec,
         inward, outward = ((dep, item.key) if spec.dep_is_inward
                            else (item.key, dep))
         template = FailedLink(item, dep, spec.link_type, '')
-        _try_link(acc.links, template, stderr_file,
+        _try_link(acc.refused.links, template, stderr_file,
                   partial(ctx.client.create_issue_link, spec.link_type, inward,
                           outward))
 
@@ -701,7 +576,7 @@ def _write_parent_link(ctx: _WriteContext, item: BacklogItem, parent_key: str,
     if not fields:
         return
     template = FailedLink(item, parent_key, 'parent', '')
-    _try_link(acc.links, template, stderr_file,
+    _try_link(acc.refused.links, template, stderr_file,
               lambda: acc.issues[item.key].update(fields=fields))
 
 
@@ -721,6 +596,24 @@ def _write_item_links(ctx: _WriteContext, item: BacklogItem,
         _write_dep_links(ctx, item, spec, acc, stderr_file)
 
 
+def _record_refused_fields(acc: _Added, stored: BacklogItem,
+                           refused: list[tuple[str, str]],
+                           custom_names: dict[str, str],
+                           stderr_file: TextIO) -> None:
+    """Collect and report the field values Jira refused on a new issue.
+
+    The created issue keeps the key Jira assigned, so only these values
+    are lost. Each is collected in the result and warned about, naming a
+    custom field by its display name as a skipped field is named.
+    """
+    for field_id, reason in refused:
+        failed = FailedField(stored, _skipped_names([field_id], custom_names),
+                             reason)
+        acc.refused.fields.append(failed)
+        print(f'WARNING: {stored.key} field {failed.field} was not set: '
+              f'{reason}.', file=stderr_file)
+
+
 def _add_item(ctx: _WriteContext, item: BacklogItem, existing: set[str],
               acc: _Added, stderr_file: TextIO) -> None:
     """Create one not-yet-present item and record it in the accumulator.
@@ -728,27 +621,32 @@ def _add_item(ctx: _WriteContext, item: BacklogItem, existing: set[str],
     An already-present item is copied into ``already``. A refused create is
     recorded in ``failed``. A created item is copied with its Jira key,
     recorded in ``stored``, ``key_map`` and ``issues``, and its status is
-    reconciled.
+    reconciled. Only a refused create fails the item: once Jira has
+    created the issue the key is kept, and the fields its edit screen does
+    not offer or Jira refuses are reported instead.
     """
     if item.key in existing:
         acc.already.append(copy.deepcopy(item))
         return
     try:
         parent = _subtask_parent(item, ctx, acc.key_map)
-        new_key, skipped, issue = _create_issue(ctx, item, parent)
+        created = _create_issue(ctx, item, parent)
     except JIRAError as error:
-        acc.failed.append(FailedItem(copy.deepcopy(item), _jira_reason(error)))
+        failed = FailedItem(copy.deepcopy(item), _jira_reason(error))
+        acc.refused.items.append(failed)
         return
-    if skipped:
-        _report_skipped(item.key, new_key, skipped, ctx.custom_names,
-                        stderr_file)
-    stored_item = _stored_copy(item, new_key)
+    if created.skipped:
+        _report_skipped(item.key, created.key, created.skipped,
+                        ctx.custom_names, stderr_file)
+    stored_item = _stored_copy(item, created.key)
     acc.stored.append(stored_item)
-    acc.key_map[item.key] = new_key
-    acc.issues[new_key] = issue
-    bad = _reconcile_status(ctx, stored_item, issue, stderr_file)
+    acc.key_map[item.key] = created.key
+    acc.issues[created.key] = created.issue
+    _record_refused_fields(acc, stored_item, created.refused, ctx.custom_names,
+                           stderr_file)
+    bad = _reconcile_status(ctx, stored_item, created.issue, stderr_file)
     if bad is not None:
-        acc.mismatch.append(bad)
+        acc.refused.status.append(bad)
 
 
 def _write_new_items(ctx: _WriteContext, backlog: Backlog, existing: set[str],
@@ -762,7 +660,7 @@ def _write_new_items(ctx: _WriteContext, backlog: Backlog, existing: set[str],
     The parent and dependency links are then written to Jira using those
     keys; a link Jira refuses is collected in ``failed_links``.
     """
-    acc = _Added([], [], [], [], {}, {}, [])
+    acc = _Added([], [], {}, {}, _Refused([], [], [], []))
     for item in _subtasks_last(ctx, backlog):
         _add_item(ctx, item, existing, acc, stderr_file)
     for stored_item in acc.stored:
@@ -770,8 +668,42 @@ def _write_new_items(ctx: _WriteContext, backlog: Backlog, existing: set[str],
     specs = _link_specs(ctx.column_map)
     for stored_item in acc.stored:
         _write_item_links(ctx, stored_item, specs, acc, stderr_file)
-    return AddedToJira(acc.stored, acc.already, acc.failed, acc.key_map,
-                       acc.mismatch, acc.links)
+    bad = acc.refused
+    return AddedToJira(acc.stored, acc.already, bad.items, acc.key_map,
+                       bad.status, bad.fields, bad.links)
+
+
+def _project_versions(ctx: _WriteContext) -> Optional[set[str]]:
+    """Return the Jira project's version names, or None when unreadable."""
+    try:
+        return {str(version.name)
+                for version in ctx.client.project_versions(ctx.project)}
+    except JIRAError:
+        return None
+
+
+def _warn_unknown_releases(ctx: _WriteContext, backlog: Backlog,
+                           stderr_file: TextIO) -> None:
+    """Warn for item releases that are not versions of the Jira project.
+
+    Jira refuses a fix version its project does not have, which would
+    otherwise only show up as a refused field on every released item.
+    Releases are added to Jira by a separate operation, so this only
+    reports them and the write goes ahead. Nothing is reported when the
+    release is not a mapped field or the versions cannot be read.
+    """
+    if not ctx.column_map.get('release'):
+        return
+    known = _project_versions(ctx)
+    if known is None:
+        return
+    unknown = sorted({item.release for item in backlog
+                      if item.release and item.release not in known})
+    if unknown:
+        print(f'WARNING: not a version of Jira project {ctx.project}: '
+              f'{", ".join(unknown)}; add those releases to Jira first, or '
+              'Jira refuses the release of the items in them.',
+              file=stderr_file)
 
 
 # pylint: disable-next=too-many-arguments
@@ -798,11 +730,14 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
     and dependency keys are remapped to the assigned Jira keys, and each
     created issue is transitioned to a Jira status matching the item's
     status; an issue that cannot be matched is collected in
-    ``status_mismatch``. Finally the parent link of each non-sub-task and
-    the mapped dependency links are written to Jira using the assigned
-    keys, deriving the Jira link type and direction from the column map; a
-    link Jira refuses is collected in ``failed_links``. The argument
-    backlog is never modified.
+    ``status_mismatch``. A field value Jira refuses on a created issue is
+    collected in ``failed_fields`` and does not cost the item its issue,
+    and a release that is not a version of the project is warned about
+    before anything is created. Finally the parent link of each
+    non-sub-task and the mapped dependency links are written to Jira using
+    the assigned keys, deriving the Jira link type and direction from the
+    column map; a link Jira refuses is collected in ``failed_links``. The
+    argument backlog is never modified.
 
     Args:
         connections: The pool of live Jira clients and the configuration
@@ -827,8 +762,9 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
         The stored items with their Jira keys and remapped references, the
         already-present items, the items whose creation failed with a
         reason, the map from each stored item's original key to its Jira
-        key, the created issues whose status could not be matched, and the
-        parent and dependency links Jira refused to write.
+        key, the created issues whose status could not be matched, the
+        field values Jira refused to set, and the parent and dependency
+        links Jira refused to write.
 
     Raises:
         KeyError: If the preset or a referenced connection or map is
@@ -844,6 +780,8 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
     existing = _existing_keys(ctx.client, backlog)
     if on_existing_key is OnExistingKey.RAISE and existing:
         _raise_existing(existing, stderr_file)
+    _warn_unknown_releases(ctx, [item for item in backlog
+                                 if item.key not in existing], stderr_file)
     result = _write_new_items(ctx, backlog, existing, stderr_file)
     if rank_anchor is not None:
         env = RankEnv(connections, preset_name, rank_anchor, levels,

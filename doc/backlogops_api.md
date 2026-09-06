@@ -97,6 +97,8 @@
     * [seek](#backlogops.no_text_io.NoTextIO.seek)
     * [tell](#backlogops.no_text_io.NoTextIO.tell)
     * [truncate](#backlogops.no_text_io.NoTextIO.truncate)
+* [backlogops.jira\_write\_status](#backlogops.jira_write_status)
+  * [StatusMismatch](#backlogops.jira_write_status.StatusMismatch)
 * [backlogops.release\_change\_io](#backlogops.release_change_io)
   * [CONTENT\_HEADER](#backlogops.release_change_io.CONTENT_HEADER)
   * [DATE\_HEADER](#backlogops.release_change_io.DATE_HEADER)
@@ -339,17 +341,17 @@
   * [levels\_from\_list](#backlogops.levels.levels_from_list)
   * [level\_number\_from\_name](#backlogops.levels.level_number_from_name)
   * [level\_name](#backlogops.levels.level_name)
+* [backlogops.jira\_write\_types](#backlogops.jira_write_types)
+  * [UnknownIssueTypeError](#backlogops.jira_write_types.UnknownIssueTypeError)
+    * [\_\_init\_\_](#backlogops.jira_write_types.UnknownIssueTypeError.__init__)
 * [backlogops.jira\_write](#backlogops.jira_write)
   * [ExistsInJiraError](#backlogops.jira_write.ExistsInJiraError)
     * [\_\_init\_\_](#backlogops.jira_write.ExistsInJiraError.__init__)
   * [ItemNotInJiraError](#backlogops.jira_write.ItemNotInJiraError)
     * [\_\_init\_\_](#backlogops.jira_write.ItemNotInJiraError.__init__)
-  * [UnknownIssueTypeError](#backlogops.jira_write.UnknownIssueTypeError)
-    * [\_\_init\_\_](#backlogops.jira_write.UnknownIssueTypeError.__init__)
   * [OnExistingKey](#backlogops.jira_write.OnExistingKey)
   * [OnMissingKey](#backlogops.jira_write.OnMissingKey)
   * [FailedItem](#backlogops.jira_write.FailedItem)
-  * [StatusMismatch](#backlogops.jira_write.StatusMismatch)
   * [AddedToJira](#backlogops.jira_write.AddedToJira)
   * [add\_backlog\_to\_jira](#backlogops.jira_write.add_backlog_to_jira)
   * [apply\_jira\_keys](#backlogops.jira_write.apply_jira_keys)
@@ -411,6 +413,7 @@
   * [estimate\_ready\_date](#backlogops.estimate_ready_date.estimate_ready_date)
   * [set\_plan\_from\_estimate](#backlogops.estimate_ready_date.set_plan_from_estimate)
 * [backlogops.jira\_write\_fields](#backlogops.jira_write_fields)
+  * [FailedField](#backlogops.jira_write_fields.FailedField)
   * [FailedLink](#backlogops.jira_write_fields.FailedLink)
 * [backlogops.work\_hours](#backlogops.work_hours)
   * [WeekDay](#backlogops.work_hours.WeekDay)
@@ -2615,6 +2618,42 @@ def truncate(size: int | None = None) -> int
 Truncate the NoTextIO object.
 
 This method does nothing and returns 0.
+
+<a id="backlogops.jira_write_status"></a>
+
+# backlogops.jira\_write\_status
+
+Match the Jira status of a written issue to the internal status.
+
+Jira does not let a status be set as an ordinary field: it is reached by
+a workflow transition. :func:`_status_from_name` maps a Jira status name
+to an internal :class:`~backlogops.backlog.Status`, preferring a
+configured status map and falling back to the built-in name matching, and
+:func:`_jira_status_name` reads the name an issue currently has through
+the column map. :func:`_try_transitions` then applies the first workflow
+transition whose target maps to the wanted status, and
+:class:`StatusMismatch` records an issue that no transition could move.
+
+Nothing here writes fields or links, so both the module that adds issues
+and the module that updates them can share these helpers without
+depending on each other in a cycle. The write context is not used; the
+caller passes the client, the column map and the status map it holds.
+
+<a id="backlogops.jira_write_status.StatusMismatch"></a>
+
+## StatusMismatch Objects
+
+```python
+class StatusMismatch(NamedTuple)
+```
+
+A created issue whose Jira status could not be matched.
+
+Fields:
+    item: The stored copy of the item, carrying its new Jira key.
+    expected: The internal status the item carries.
+    actual: The Jira status name the created issue ended up in, or
+        None when the status could not be read.
 
 <a id="backlogops.release_change_io"></a>
 
@@ -6288,8 +6327,10 @@ def format_add_result(result: AddedToJira) -> str
 Return a listing of the added, present, failed and unmatched items.
 
 Each section has a heading with its count, then one ``key  title`` line
-per item, or a ``(none)`` line when the section is empty. The CLI
-prints this text and the GUI shows it in a copy-pasteable pop-up.
+per item, or a ``(none)`` line when the section is empty. An item whose
+issue was created but whose field value or link Jira refused is in
+``Added to Jira`` and again in the section naming what was refused. The
+CLI prints this text and the GUI shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.io_config"></a>
 
@@ -7361,6 +7402,51 @@ Return the configured name for a level number, or None when unknown.
   The name of the level with that number, or None when no level
   with that number is configured.
 
+<a id="backlogops.jira_write_types"></a>
+
+# backlogops.jira\_write\_types
+
+Resolve and validate the Jira issue type of a backlog item.
+
+A backlog item carries an internal level while Jira needs an issue type
+name. :func:`_issue_type` resolves one from the other through the preset's
+level-to-issue-type map, falling back to the level's own name, so a Jira
+that renamed a type (such as a Swedish ``Deluppgift`` sub-task) still gets
+a valid issue type. :func:`_issue_type_meta` reads the project's creatable
+issue types and whether Jira marks each one a sub-task, trying both create
+metadata endpoints because different Jira versions expose only one of
+them, and :func:`_subtask_types` reduces that to the sub-task type names.
+:func:`_validate_issue_types` checks a whole backlog against the project
+before anything is created, raising :class:`UnknownIssueTypeError`.
+
+The write modules import these helpers; nothing here writes to Jira, so
+the modules that create and update issues can share them without
+depending on each other in a cycle.
+
+<a id="backlogops.jira_write_types.UnknownIssueTypeError"></a>
+
+## UnknownIssueTypeError Objects
+
+```python
+class UnknownIssueTypeError(ValueError)
+```
+
+Raised when a backlog item's issue type is not valid in the project.
+
+It carries the invalid issue type names mapped to the item keys that
+use them, and the sorted valid type names, so a caller can report
+them. It derives from :class:`ValueError`.
+
+<a id="backlogops.jira_write_types.UnknownIssueTypeError.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(bad: dict[str, list[str]], valid: list[str]) -> None
+```
+
+Store the bad and valid type names and build the message.
+
 <a id="backlogops.jira_write"></a>
 
 # backlogops.jira\_write
@@ -7391,7 +7477,15 @@ as a Swedish ``Deluppgift`` sub-task) still gets a valid issue type. The
 issue is first created with the fields a create screen accepts (project,
 summary, issue type) and the remaining fields are then set through an
 update, because a create screen often omits fields such as the story
-points that an edit screen accepts.
+points that an edit screen accepts. Only the create can fail an item: once
+Jira has created the issue its key is kept whatever else goes wrong, so a
+value Jira refuses is collected in the result's ``failed_fields`` list and
+reported rather than losing the created issue. Jira applies an update as a
+whole, so a refused update of several fields is retried one field at a
+time and only the values Jira really refuses are lost. Because a release
+that is not a version of the project is such a value, the releases of the
+items to add are checked against the project's versions and the unknown
+ones are reported before anything is created.
 
 The item key is assigned by Jira, so it is not written; instead each
 added item is copied and the copy carries the key Jira assigned. Once
@@ -7463,30 +7557,6 @@ def __init__(names: list[str], noun: str = 'Items') -> None
 
 Store the missing identifiers and build the message.
 
-<a id="backlogops.jira_write.UnknownIssueTypeError"></a>
-
-## UnknownIssueTypeError Objects
-
-```python
-class UnknownIssueTypeError(ValueError)
-```
-
-Raised when a backlog item's issue type is not valid in the project.
-
-It carries the invalid issue type names mapped to the item keys that
-use them, and the sorted valid type names, so a caller can report
-them. It derives from :class:`ValueError`.
-
-<a id="backlogops.jira_write.UnknownIssueTypeError.__init__"></a>
-
-#### \_\_init\_\_
-
-```python
-def __init__(bad: dict[str, list[str]], valid: list[str]) -> None
-```
-
-Store the bad and valid type names and build the message.
-
 <a id="backlogops.jira_write.OnExistingKey"></a>
 
 ## OnExistingKey Objects
@@ -7517,22 +7587,6 @@ class FailedItem(NamedTuple)
 
 A backlog item that could not be added, with the failure reason.
 
-<a id="backlogops.jira_write.StatusMismatch"></a>
-
-## StatusMismatch Objects
-
-```python
-class StatusMismatch(NamedTuple)
-```
-
-A created issue whose Jira status could not be matched.
-
-Fields:
-    item: The stored copy of the item, carrying its new Jira key.
-    expected: The internal status the item carries.
-    actual: The Jira status name the created issue ended up in, or
-        None when the status could not be read.
-
 <a id="backlogops.jira_write.AddedToJira"></a>
 
 ## AddedToJira Objects
@@ -7555,6 +7609,9 @@ Fields:
         Jira assigned.
     status_mismatch: The stored items whose created issue could not be
         transitioned to a Jira status matching the item's status.
+    failed_fields: The field values Jira refused to set on a created
+        issue, each with a concise reason; the issue itself was
+        created and is in ``stored``.
     failed_links: The parent and dependency links Jira refused to
         write, each with a concise reason.
 
@@ -7591,11 +7648,14 @@ are still added. Once every issue exists, each stored copy's parent
 and dependency keys are remapped to the assigned Jira keys, and each
 created issue is transitioned to a Jira status matching the item's
 status; an issue that cannot be matched is collected in
-``status_mismatch``. Finally the parent link of each non-sub-task and
-the mapped dependency links are written to Jira using the assigned
-keys, deriving the Jira link type and direction from the column map; a
-link Jira refuses is collected in ``failed_links``. The argument
-backlog is never modified.
+``status_mismatch``. A field value Jira refuses on a created issue is
+collected in ``failed_fields`` and does not cost the item its issue,
+and a release that is not a version of the project is warned about
+before anything is created. Finally the parent link of each
+non-sub-task and the mapped dependency links are written to Jira using
+the assigned keys, deriving the Jira link type and direction from the
+column map; a link Jira refuses is collected in ``failed_links``. The
+argument backlog is never modified.
 
 **Arguments**:
 
@@ -7623,8 +7683,9 @@ backlog is never modified.
   The stored items with their Jira keys and remapped references, the
   already-present items, the items whose creation failed with a
   reason, the map from each stored item's original key to its Jira
-  key, the created issues whose status could not be matched, and the
-  parent and dependency links Jira refused to write.
+  key, the created issues whose status could not be matched, the
+  field values Jira refused to set, and the parent and dependency
+  links Jira refused to write.
   
 
 **Raises**:
@@ -8961,10 +9022,31 @@ pure helpers that set or clear one Jira field from a mapped path
 (:func:`_place_value` and :func:`_clear_value`, and the parent update
 fields from :func:`_parent_fields` and :func:`_clear_parent_fields`) and
 that derive how a dependency field is written as a Jira issue link
-(:func:`_link_specs`). It also defines
-:class:`FailedLink`, the result of a link that Jira refused. The
-orchestration that creates issues and writes the links lives in
-:mod:`backlogops.jira_write`, which imports these helpers.
+(:func:`_link_specs`). It also defines :class:`FailedField` and
+:class:`FailedLink`, the results of a field value and of a link that Jira
+refused. The orchestration that creates issues and writes the links lives
+in :mod:`backlogops.jira_write`, which imports these helpers.
+
+<a id="backlogops.jira_write_fields.FailedField"></a>
+
+## FailedField Objects
+
+```python
+class FailedField(NamedTuple)
+```
+
+A field of a created issue that Jira refused to set.
+
+The issue itself exists in Jira and keeps the key it was assigned;
+only this field's value was not stored, typically because Jira does
+not accept the value, such as a fix version the project does not have.
+
+Fields:
+    item: The stored source item, carrying its Jira key.
+    field: The Jira field that was not set; a custom field also shows
+        its display name, as ``customfield_10016 (Story point
+        estimate)``.
+    reason: A concise reason Jira gave for refusing the value.
 
 <a id="backlogops.jira_write_fields.FailedLink"></a>
 

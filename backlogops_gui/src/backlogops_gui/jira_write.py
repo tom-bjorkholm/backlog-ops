@@ -70,7 +70,10 @@ class JiraWriter(JiraAction):
         def done(result: AddedToJira) -> None:
             """Hand the result to the window and log the completed write."""
             summary = (f"Added {len(result.stored)} backlog items to Jira; "
-                       f"{len(result.already_present)} already present "
+                       f"{len(result.already_present)} already present; "
+                       f"{len(result.failed)} failed; "
+                       f"{len(result.failed_fields)} fields not set; "
+                       f"{len(result.failed_links)} links not written "
                        f"(preset '{name}').\n")
             self._finish(on_done, result, summary)
         self._dispatch('Could not add to Jira', name, call, done)

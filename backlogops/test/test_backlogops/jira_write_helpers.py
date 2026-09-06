@@ -19,7 +19,7 @@ from typing import Callable, Optional
 import pytest
 from jira import JIRAError
 from backlogops import JiraRankAnchor
-from backlogops.backlog import BacklogItem
+from backlogops.backlog import BacklogItem, Status
 from backlogops.jira_rank_backlog import RankEnv
 import backlogops.jira_connect as jc
 from backlogops.jira_connect import JiraConnections
@@ -27,7 +27,7 @@ from backlogops.jira_io_config import (
     DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP, JiraAttrPath,
     JiraAttrType, JiraColumnMap, JiraConnectConfig, JiraIOConfig, JiraPreset,
     TokenStorage)
-from backlogops.jira_write import _transition_target
+from backlogops.jira_write_status import _transition_target
 from backlogops.no_text_io import NoTextIO
 
 NO = NoTextIO()
@@ -228,6 +228,13 @@ EDITABLE_DEFAULT: dict[str, str] = {
     'customfield_10001': 'Team', 'fixVersions': 'Fix versions'}
 """Fields the fake add issue's edit screen offers by default."""
 
+VERSIONS_DEFAULT: frozenset[str] = frozenset({'R1', 'R2'})
+"""Versions the fake add issue's project has, as the tests name them.
+
+A release outside this set is not a version of the project, which is what
+makes the add warn about it before creating anything.
+"""
+
 ISSUE_TYPES_DEFAULT: dict[str, bool] = {
     'Story': False, 'Epic': False, 'Subtask': True}
 """Creatable issue types of the fake Jira, mapped to their subtask flag.
@@ -238,34 +245,56 @@ unavailable, so that sub-task detection falls back to the lowest level.
 
 
 @dataclass
-class WriteBehavior:
-    """How the fake Jira answers create, edit and transition calls.
+class TransitionBehavior:
+    """How the fake Jira answers workflow transition calls.
 
-    ``transition_fault`` selects a transition failure: ``'apply'`` makes
-    applying a transition raise and ``'list'`` makes listing the available
-    transitions raise; the empty default lets both succeed.
+    ``init_status`` is the status a created issue starts in, ``available``
+    are the transitions it offers, ``transitioned`` records the applied
+    ones as (issue key, transition id), and ``fault`` selects a failure:
+    ``'apply'`` makes applying a transition raise and ``'list'`` makes
+    listing them raise; the empty default lets both succeed.
+    """
+
+    init_status: str = 'TODO'
+    available: list[dict[str, object]] = field(default_factory=list)
+    transitioned: list[tuple[str, str]] = field(default_factory=list)
+    fault: str = ''
+
+
+@dataclass
+class WriteBehavior:
+    """How the fake Jira answers create and edit calls.
+
+    ``fail_fields`` names the fields whose value Jira refuses, so an update
+    carrying one of them raises, ``fail_editmeta`` makes the edit screen
+    unreadable, ``versions`` are the project's versions, so a release
+    outside them is reported as unknown, and ``trans`` holds the workflow
+    transition answers.
     """
 
     editable: dict[str, str]
     issue_types: dict[str, bool]
     fail_types: set[str]
-    init_status: str = 'TODO'
-    transitions: list[dict[str, object]] = field(default_factory=list)
-    transition_fault: str = ''
-    transitioned: list[tuple[str, str]] = field(default_factory=list)
+    fail_fields: set[str] = field(default_factory=set)
+    fail_editmeta: bool = False
+    versions: set[str] = field(default_factory=lambda: set(VERSIONS_DEFAULT))
+    trans: TransitionBehavior = field(default_factory=TransitionBehavior)
 
 
 @dataclass
 class WriteLinkLog:
     """Recorded update and link calls, and the link failure knobs.
 
-    ``updates`` records each ``update`` call as (key, fields), ``links``
+    ``updates`` records each accepted ``update`` call as (key, fields) and
+    ``refused`` each rejected one, so a retry of a refused update one field
+    at a time is visible. ``links``
     records each created issue link as (type, inward, outward),
     ``fail_parent`` makes a parent update fail, and ``fail_link_to`` names
     the endpoint keys whose link creation should fail.
     """
 
     updates: list[tuple[str, dict[str, object]]] = field(default_factory=list)
+    refused: list[tuple[str, dict[str, object]]] = field(default_factory=list)
     links: list[tuple[str, str, str]] = field(default_factory=list)
     fail_parent: bool = False
     fail_link_to: set[str] = field(default_factory=set)
@@ -353,20 +382,36 @@ class WriteClient:
         record = dict(fields)
         self.created.append(record)
         key = f'JIRA-{len(self.created)}'
-        status = SimpleNamespace(name=self.behavior.init_status)
+        status = SimpleNamespace(name=self.behavior.trans.init_status)
         return SimpleNamespace(key=key, update=self._updater(key, record),
                                fields=SimpleNamespace(status=status))
 
     def _updater(self, key: str, record: dict[str, object]
                  ) -> Callable[..., None]:
-        """Return an update callback that records and may refuse a parent."""
+        """Return an update callback that records and may refuse fields.
+
+        Jira applies an update as a whole, so an update carrying any field
+        of ``fail_fields`` raises and none of its fields is recorded, which
+        is what makes the one-field-at-a-time retry observable.
+        """
         def update(fields: dict[str, object]) -> None:
-            """Record the update, refusing a parent link when set to fail."""
+            """Record the update, refusing a parent or a refused field."""
             if self.link_log.fail_parent and 'parent' in fields:
                 raise JIRAError(status_code=400, text='parent rejected')
+            bad = sorted(self.behavior.fail_fields & set(fields))
+            if bad:
+                self.link_log.refused.append((key, dict(fields)))
+                raise JIRAError(status_code=400,
+                                text=f'value rejected for {bad[0]}')
             record.update(fields)
             self.link_log.updates.append((key, dict(fields)))
         return update
+
+    def project_versions(self, project: str) -> list[SimpleNamespace]:
+        """Return the project's versions, each carrying its name."""
+        _ = project
+        return [SimpleNamespace(name=name)
+                for name in sorted(self.behavior.versions)]
 
     def create_issue_link(self, link_type: str, inward: str, outward: str,
                           comment: Optional[dict[str, object]] = None) -> None:
@@ -378,31 +423,33 @@ class WriteClient:
         self.link_log.links.append((link_type, inward, outward))
 
     def editmeta(self, issue: str) -> dict[str, object]:
-        """Return the edit-screen field metadata for the issue."""
+        """Return the edit-screen field metadata, or raise when set to."""
         _ = issue
+        if self.behavior.fail_editmeta:
+            raise JIRAError(status_code=500, text='no edit screen')
         return {'fields': {fid: {'name': name}
                            for fid, name in self.behavior.editable.items()}}
 
     def transitions(self, issue: SimpleNamespace) -> list[dict[str, object]]:
         """Return the configured transitions, or raise when set to fail."""
         _ = issue
-        if self.behavior.transition_fault == 'list':
+        if self.behavior.trans.fault == 'list':
             raise JIRAError(status_code=500, text='cannot list transitions')
-        return list(self.behavior.transitions)
+        return list(self.behavior.trans.available)
 
     def transition_issue(self, issue: SimpleNamespace,
                          transition: str) -> None:
         """Apply a transition, updating the status, or raise when set to."""
-        if self.behavior.transition_fault == 'apply':
+        if self.behavior.trans.fault == 'apply':
             raise JIRAError(status_code=400, text='transition rejected')
         target = self._target_of(transition)
         if target is not None:
             issue.fields.status.name = target
-        self.behavior.transitioned.append((issue.key, transition))
+        self.behavior.trans.transitioned.append((issue.key, transition))
 
     def _target_of(self, transition: str) -> Optional[str]:
         """Return the target status name of a transition id, or None."""
-        for trans in self.behavior.transitions:
+        for trans in self.behavior.trans.available:
             if trans.get('id') == transition:
                 return _transition_target(trans)
         return None
@@ -419,6 +466,22 @@ def connect_each(clients: list[WriteClient]
     """Return a stand-in ``_connect`` yielding each client in turn."""
     supply = iter(clients)
     return lambda connection, passphrase: next(supply)
+
+
+def leveled_item(key: str, level: int,
+                 parent: Optional[str] = None) -> BacklogItem:
+    """Return a backlog item at a level, optionally with a parent key."""
+    return BacklogItem(key=key, level=level, title=f'T {key}', story_points=0,
+                       status=Status.TODO, parent_key=parent)
+
+
+def title_only_config() -> JiraIOConfig:
+    """Return a config whose backlog map has only create-screen fields."""
+    config = jira_write_config()
+    config.backlog_column_maps = {'bk': {
+        'title': (JiraAttrPath(JiraAttrType.FIELD, ('summary',)),),
+        'level': (JiraAttrPath(JiraAttrType.FIELD, ('issuetype', 'name')),)}}
+    return config
 
 
 def attr_parent_config() -> JiraIOConfig:

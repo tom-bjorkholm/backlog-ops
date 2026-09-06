@@ -52,10 +52,11 @@ from backlogops.jira_rank_backlog import (
 from backlogops.jira_read import _coerce_all, _filtered_values, _row, _walk
 from backlogops.jira_write import (
     AddedToJira, FailedItem, ItemNotInJiraError, OnExistingKey, OnMissingKey,
-    StatusMismatch, _WriteContext, _build_ctx, _editable_field_ids,
-    _internal_value, _jira_reason, _jira_status_name, _maps_to,
-    _report_status_mismatch, _skipped_names, _try_link, _try_transitions,
-    add_backlog_to_jira)
+    _WriteContext, _build_ctx, _editable_field_ids, _internal_value,
+    _jira_reason, _skipped_names, _try_link, add_backlog_to_jira)
+from backlogops.jira_write_status import (
+    StatusMismatch, _jira_status_name, _maps_to, _report_status_mismatch,
+    _try_transitions)
 from backlogops.jira_write_fields import (
     FailedLink, _LinkSpec, _clear_parent_fields, _clear_value,
     _dep_link_attrs, _parent_fields, _place_value)
@@ -267,10 +268,11 @@ def _apply_status(work: _Work) -> bool:
     if 'status' not in work.ctx.selected:
         return False
     base = work.ctx.base
-    name = _jira_status_name(base, work.issue)
+    name = _jira_status_name(base.column_map, base.custom_ids, work.issue)
     if _maps_to(name, work.item.status, base.status_map):
         return False
-    if _try_transitions(base, work.item.status, work.issue):
+    if _try_transitions(base.client, work.item.status, work.issue,
+                        base.status_map):
         return True
     bad = StatusMismatch(copy.deepcopy(work.item), work.item.status, name)
     _report_status_mismatch(bad, work.ctx.stderr_file)
@@ -447,7 +449,7 @@ def _make_ctx(base: _WriteContext, fields_to_update: list[str],
 
 def _empty_added() -> AddedToJira:
     """Return an empty add result for the non-add policies."""
-    return AddedToJira([], [], [], {}, [], [])
+    return AddedToJira([], [], [], {}, [], [], [])
 
 
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments

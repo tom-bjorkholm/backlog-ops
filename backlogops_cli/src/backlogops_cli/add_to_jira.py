@@ -70,6 +70,7 @@ def _add(parsed: argparse.Namespace, config: BacklogOpsConfig,
     print(f'Added {len(result.stored)} items to Jira; '
           f'{len(result.already_present)} already present; '
           f'{len(result.failed)} failed; '
+          f'{len(result.failed_fields)} fields not set; '
           f'{len(result.failed_links)} links not written.', file=sys.stderr)
     return result
 

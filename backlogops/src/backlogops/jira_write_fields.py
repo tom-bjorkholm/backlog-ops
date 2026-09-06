@@ -7,10 +7,10 @@ pure helpers that set or clear one Jira field from a mapped path
 (:func:`_place_value` and :func:`_clear_value`, and the parent update
 fields from :func:`_parent_fields` and :func:`_clear_parent_fields`) and
 that derive how a dependency field is written as a Jira issue link
-(:func:`_link_specs`). It also defines
-:class:`FailedLink`, the result of a link that Jira refused. The
-orchestration that creates issues and writes the links lives in
-:mod:`backlogops.jira_write`, which imports these helpers.
+(:func:`_link_specs`). It also defines :class:`FailedField` and
+:class:`FailedLink`, the results of a field value and of a link that Jira
+refused. The orchestration that creates issues and writes the links lives
+in :mod:`backlogops.jira_write`, which imports these helpers.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -24,6 +24,26 @@ from backlogops.jira_read import _field_id
 
 _JIRA_LIST_FIELDS = frozenset({'fixVersions', 'versions', 'components'})
 """Jira issue fields whose create value is a list of named objects."""
+
+
+class FailedField(NamedTuple):
+    """A field of a created issue that Jira refused to set.
+
+    The issue itself exists in Jira and keeps the key it was assigned;
+    only this field's value was not stored, typically because Jira does
+    not accept the value, such as a fix version the project does not have.
+
+    Fields:
+        item: The stored source item, carrying its Jira key.
+        field: The Jira field that was not set; a custom field also shows
+            its display name, as ``customfield_10016 (Story point
+            estimate)``.
+        reason: A concise reason Jira gave for refusing the value.
+    """
+
+    item: BacklogItem
+    field: str
+    reason: str
 
 
 class FailedLink(NamedTuple):

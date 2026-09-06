@@ -689,7 +689,7 @@ def test_apply_add_result() -> None:
                         status=Status.TODO)
     result = AddedToJira(stored=[added], already_present=[], failed=[],
                          key_map={'A': 'PROJ-1'}, status_mismatch=[],
-                         failed_links=[])
+                         failed_fields=[], failed_links=[])
     calls: list[str] = []
     reports: list[str] = []
     apply_add_result(data, result, lambda: calls.append('refresh'),
@@ -710,7 +710,7 @@ def test_apply_update_result() -> None:
                          status=Status.TODO)
     add_res = AddedToJira(stored=[stored], already_present=[], failed=[],
                           key_map={'NEW': 'PROJ-9'}, status_mismatch=[],
-                          failed_links=[])
+                          failed_fields=[], failed_links=[])
     result = UpdatedBacklogInJira(updated=['A'], already_correct=[],
                                   ignored=[], failed=[], status_mismatch=[],
                                   failed_links=[], added=add_res)
