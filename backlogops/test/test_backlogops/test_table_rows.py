@@ -13,7 +13,8 @@ from backlogops.no_text_io import NoTextIO
 from backlogops.releases import Release
 from backlogops.table_rows import item_to_row, release_to_row
 from backlogops.table_rows import row_to_item, row_to_release
-from backlogops.table_rows import _extra_cell, _maybe_int, _split_deps
+from backlogops.table_rows import _extra_cell, _maybe_float, _maybe_int, \
+    _split_deps
 from backlogops.table_rows import (
     LEVEL_NAME_COLUMN, _name_cell_text, display_level_rows, fold_level_name)
 
@@ -78,6 +79,22 @@ def test_maybe_int(value: object, expected: object) -> None:
     assert isinstance(result, type(expected))
 
 
+@pytest.mark.parametrize('value, expected', [
+    (True, True),
+    (False, False),
+    (3, 3.0),
+    (2.5, 2.5),
+    ('5', 5.0),
+    ('  0.5 ', 0.5),
+    ('x', 'x'),
+    (None, None)])
+def test_maybe_float(value: object, expected: object) -> None:
+    """Test numeric cells become decimals, others stay unchanged."""
+    result = _maybe_float(value)
+    assert result == expected
+    assert isinstance(result, type(expected))
+
+
 def test_round_trip() -> None:
     """Test an item converted to a row and back is unchanged."""
     item = _item()
@@ -88,9 +105,28 @@ def test_round_trip() -> None:
 
 def test_row_to_item_missing() -> None:
     """Test a row missing a mandatory column is reported on rebuild."""
-    row = {'key': 'BI-1', 'level': 1, 'title': 'T', 'status': 'TODO'}
+    row = {'key': 'BI-1', 'title': 'T', 'story_points': 3, 'status': 'TODO'}
     with pytest.raises(KeyError):
         row_to_item(row, stderr_file=NoTextIO())
+
+
+@pytest.mark.parametrize('row', [
+    {'key': 'BI-1', 'level': 1, 'title': 'T', 'status': 'TODO'},
+    {'key': 'BI-1', 'level': 1, 'title': 'T', 'status': 'TODO',
+     'story_points': ''},
+    {'key': 'BI-1', 'level': 1, 'title': 'T', 'status': 'TODO',
+     'story_points': None}])
+def test_row_no_points(row: dict[str, object]) -> None:
+    """Test a row without story points makes an unestimated item."""
+    item = row_to_item(row, stderr_file=NoTextIO())
+    assert item.story_points is None
+
+
+def test_row_half_point() -> None:
+    """Test a fraction of a story point survives the row conversion."""
+    row = {'key': 'BI-1', 'level': 1, 'title': 'T', 'status': 'TODO',
+           'story_points': '0.5'}
+    assert row_to_item(row, stderr_file=NoTextIO()).story_points == 0.5
 
 
 def test_release_round_trip() -> None:

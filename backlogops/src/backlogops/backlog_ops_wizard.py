@@ -26,6 +26,7 @@ from wizard_ui_bridge import WizardAbort, WizardUiBridge
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog_ops_config import BacklogOpsConfig, \
     DEF_STATUS_INPUT_MAP
+from backlogops.default_story_points import DefaultStoryPoints
 from backlogops.io_config import GuiDisplayConfig
 from backlogops.levels import DEFAULT_LEVELS, Level
 from backlogops.person import Person
@@ -70,6 +71,10 @@ _OUTPUT_PRESETS_HEAD = 'Configure the named output configurations.'
 
 _LEVELS_HEAD = 'Configure the backlog item levels.'
 """Stage heading shown while collecting the backlog item levels."""
+
+
+_DEF_POINTS_HEAD = 'Configure the default story points.'
+"""Stage heading shown while collecting the default story points."""
 
 
 _STATUS_MAP_HEAD = 'Configure the global status name mapping.'
@@ -121,7 +126,8 @@ def backlog_ops_wizard(ui_bridge: WizardUiBridge, *,
 
     The workforce is entered as by :func:`available_teams_wizard`, the
     user may then add any number of named input and output TableIO
-    configuration presets, edit the backlog item levels, adjust the global
+    configuration presets, edit the backlog item levels, say what an
+    unestimated backlog item is worked with, adjust the global
     status-name map, and finally choose how the GUI renames columns and
     shows levels. Each input preset
     asks how it reads the backlog and releases file columns into the
@@ -170,7 +176,7 @@ def _collect_teams(nav: _Navigator,
 
 def _collect_config(nav: _Navigator,
                     default: Optional[BacklogOpsConfig]) -> BacklogOpsConfig:
-    """Ask for workforce, TableIO presets, levels and GUI display."""
+    """Ask workforce, presets, levels, story point guess and display."""
     teams = _collect_teams(nav, default.available_teams if default else None)
     config = BacklogOpsConfig(available_teams=teams)
     nav.show(_INPUT_PRESETS_HEAD)
@@ -182,6 +188,9 @@ def _collect_config(nav: _Navigator,
     nav.show(_LEVELS_HEAD)
     config.levels = _levels_or_none(nav.ask_levels(
         seed=default.levels if default else None))
+    nav.show(_DEF_POINTS_HEAD)
+    config.default_story_points = _build_def_points(
+        nav, default.default_story_points if default else None)
     nav.show(_STATUS_MAP_HEAD)
     config.status_input_map = nav.ask_status_map(
         _GLOBAL_STATUS_QUESTION, DEF_STATUS_INPUT_MAP,
@@ -193,6 +202,59 @@ def _collect_config(nav: _Navigator,
     config.jira = _build_jira_config(nav, config.get_levels(),
                                      default.jira if default else None)
     return config
+
+
+_DEF_POINTS_QUESTION = (
+    'A backlog item that nobody has estimated is worked with no story '
+    'points at all unless you give a best guess for its level here. An '
+    'item that has story points of its own, and an item that is only a '
+    'container for its children, takes nothing from that guess.')
+"""Instruction shown above the default story points form."""
+
+
+def _build_def_points(nav: _Navigator, default: Optional[DefaultStoryPoints]
+                      ) -> DefaultStoryPoints:
+    """Ask what an unestimated backlog item is worked with.
+
+    Whether to guess at all, and whether to fill in the levels between
+    and beyond the ones given, are asked on one form; the levels
+    themselves are then one table, which is only asked for when there is
+    a guess to make.
+    """
+    values = nav.ask_form(_DEF_POINTS_QUESTION, _def_points_fields(),
+                          _def_points_rule, seed=_def_points_seed(default))
+    if not values.flag('guess'):
+        return DefaultStoryPoints()
+    return nav.ask_def_points(values.flag('interpolate'),
+                              values.flag('extrapolate'), seed=default)
+
+
+def _def_points_fields() -> list[FormField]:
+    """Return the fields of the default story points form."""
+    return [
+        yes_no_field('guess', 'Guess the size of backlog items that have no '
+                     'story points?', False),
+        yes_no_field('interpolate', 'Also guess a level between the levels '
+                     'you give?', True),
+        yes_no_field('extrapolate', 'Also guess a level above the highest '
+                     'or below the lowest level you give?', True)]
+
+
+def _def_points_rule(values: FormResult) -> tuple[Optional[str], set[str]]:
+    """Disable the filling-in questions when nothing is guessed at all."""
+    if not values.flag('guess'):
+        return None, {'interpolate', 'extrapolate'}
+    return None, set()
+
+
+def _def_points_seed(default: Optional[DefaultStoryPoints]
+                     ) -> Optional[FormResult]:
+    """Return the form values of a stored default story points."""
+    if default is None:
+        return None
+    return FormResult({'guess': bool(default.levels),
+                       'interpolate': default.interpolate,
+                       'extrapolate': default.extrapolate})
 
 
 def _build_gui_display(nav: _Navigator, default: Optional[GuiDisplayConfig]

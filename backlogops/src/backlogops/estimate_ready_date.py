@@ -5,13 +5,17 @@
 # MIT License
 
 import sys
+import warnings
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Optional, TextIO
 from backlogops.backlog import Backlog, BacklogItem, Status
 from backlogops.available_teams import AvailableTeams, membership_fte_on
+from backlogops.default_story_points import DefaultStoryPoints
 from backlogops.person import Person
 from backlogops.team import Team
+from backlogops.use_story_points import find_keys_with_children, \
+    use_story_points
 from backlogops.work_hours import CompanyWorkHours, ExceptionWorkHours, WeekDay
 
 _ONE_DAY = timedelta(days=1)
@@ -149,7 +153,7 @@ class _Workforce:
         per_day = team.velocity / team.sprint_length
         return per_day * self._team_fte(team, day) / team.sum_fte_at_velocity
 
-    def advance(self, team: Team, points: int,
+    def advance(self, team: Team, points: float,
                 cursor: _Cursor) -> Optional[tuple[date, _Cursor]]:
         """Return the ready date and new cursor after doing some work.
 
@@ -162,9 +166,9 @@ class _Workforce:
         does not finish within the horizon, which means the team has no
         capacity for it.
         """
-        if points <= 0:
+        if points <= 0.0:
             return cursor.day, cursor
-        remaining = float(points)
+        remaining = points
         day, used = cursor.day, cursor.used
         limit = day + _HORIZON
         while day <= limit:
@@ -192,10 +196,11 @@ class _Estimator:
     cursor: dict[str, _Cursor]
     by_label: dict[str, Team]
     stderr_file: TextIO
+    points: dict[str, float]
 
     @staticmethod
-    def create(teams: AvailableTeams, start: date,
-               stderr_file: TextIO) -> '_Estimator':
+    def create(teams: AvailableTeams, start: date, stderr_file: TextIO,
+               points: dict[str, float]) -> '_Estimator':
         """Create an estimator with every team free on the start date."""
         cursor = {team.name: _Cursor(start, 0.0) for team in teams.teams}
         by_label: dict[str, Team] = {}
@@ -203,7 +208,7 @@ class _Estimator:
             for label in [team.name, *team.aliases]:
                 by_label[label.lower()] = team
         return _Estimator(_Workforce.create(teams), cursor, by_label,
-                          stderr_file)
+                          stderr_file, points)
 
     def _warn(self, item: BacklogItem, reason: str) -> None:
         """Report that an item cannot be dated and why."""
@@ -237,9 +242,11 @@ class _Estimator:
 
         Done and rejected items consume no team time and get no date.
         Other items are worked by their assigned team, or by the team
-        that is free earliest, from where that team's cursor stands. When
-        the team has no capacity for the item, or no team is available,
-        the item gets no date and a warning is reported.
+        that is free earliest, from where that team's cursor stands, for
+        the story points the item is worked with as decided by
+        :func:`backlogops.use_story_points`. When the team has no
+        capacity for the item, or no team is available, the item gets no
+        date and a warning is reported.
         """
         if item.status in (Status.DONE, Status.REJECTED):
             return None
@@ -247,7 +254,7 @@ class _Estimator:
         if team is None:
             return None
         position = self.cursor[team.name]
-        result = self.workforce.advance(team, item.story_points, position)
+        result = self.workforce.advance(team, self.points[item.key], position)
         if result is None:
             self._warn(item, f'team {team.name!r} has no capacity for it')
             return None
@@ -303,9 +310,49 @@ class _ParentRollup:
         return result
 
 
+_NO_DEFAULTS = (
+    'estimate_ready_date() without default_story_points is deprecated; '
+    'pass the default_story_points of the configuration. Until it is '
+    'passed, a backlog item that nobody has estimated is worked with no '
+    'story points at all.')
+"""What is said about an estimate that is given no default story points."""
+
+
+def _defaults_or_warn(defaults: Optional[DefaultStoryPoints]
+                      ) -> DefaultStoryPoints:
+    """Return the given defaults, or empty ones with a deprecation.
+
+    Args:
+        defaults: What the caller passed, or None for the temporary
+            backward-compatible behaviour.
+
+    Returns:
+        The defaults to guess with, which guess nothing when None was
+        passed.
+    """
+    if defaults is not None:
+        return defaults
+    warnings.warn(_NO_DEFAULTS, DeprecationWarning, stacklevel=3)
+    return DefaultStoryPoints()
+
+
+def _points_of(backlog: Backlog,
+               defaults: DefaultStoryPoints) -> dict[str, float]:
+    """Return the story points to work each item with, by item key.
+
+    The keys of the items that have children are found once for the
+    whole backlog, so that pricing it is one pass over it.
+    """
+    with_children = find_keys_with_children(backlog)
+    return {item.key: use_story_points(backlog, item, defaults, with_children)
+            for item in backlog}
+
+
 def estimate_ready_date(backlog: Backlog, available_teams: AvailableTeams,
                         start_date: Optional[date] = None,
-                        stderr_file: TextIO = sys.stderr) -> Backlog:
+                        stderr_file: TextIO = sys.stderr, *,
+                        default_story_points: Optional[
+                            DefaultStoryPoints] = None) -> Backlog:
     """Estimate the ready date of backlog items.
 
     The teams start working on the start date, which defaults to today
@@ -327,6 +374,12 @@ def estimate_ready_date(backlog: Backlog, available_teams: AvailableTeams,
     all treated as still left to do; DONE and REJECTED items need no work
     and get no estimated date. See also the Status enum.
 
+    What an item that carries no story points of its own is worked with
+    is decided by :func:`backlogops.use_story_points` from the given
+    default story points: an item with children is a container and is no
+    work of its own, and an item without children is guessed at from its
+    level.
+
     A parent's estimated date is lifted to be no earlier than its latest
     child's, applied through the whole hierarchy, because a parent cannot
     be ready before its children even though work on the parent itself
@@ -346,13 +399,18 @@ def estimate_ready_date(backlog: Backlog, available_teams: AvailableTeams,
                          date, including absence, velocity and work hours.
         start_date: The day the teams start working, or None for today.
         stderr_file: The file to report warnings to.
+        default_story_points: What a backlog item that nobody has
+            estimated is worked with. None is deprecated and only kept
+            for backward compatibility: it works such an item with no
+            story points at all and reports a DeprecationWarning.
 
     Returns:
         A new backlog whose items carry the estimated ready date. The
         other fields are copied unchanged from the given items.
     """
     start = date.today() if start_date is None else start_date
-    estimator = _Estimator.create(available_teams, start, stderr_file)
+    points = _points_of(backlog, _defaults_or_warn(default_story_points))
+    estimator = _Estimator.create(available_teams, start, stderr_file, points)
     own = {item.key: estimator.own_date(item) for item in backlog}
     status = {item.key: item.status for item in backlog}
     rollup = _ParentRollup.create(backlog, own, status)

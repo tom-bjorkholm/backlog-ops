@@ -15,7 +15,8 @@ package boundary.
 from datetime import date
 from pathlib import Path
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, ExceptionWorkHours, FteException,
+    AvailableTeams, BacklogOpsConfig, DefaultStoryPointLevel,
+    DefaultStoryPoints, ExceptionWorkHours, FteException,
     InputFormatConfig, JiraAttrPath, JiraAttrType, JiraConnectConfig,
     JiraPreset, Level, LevelDisplay, Membership, OutputFormatConfig, Person,
     Status, Team, write_backlog_ops_config)
@@ -103,6 +104,30 @@ def _full_jira(config: BacklogOpsConfig) -> None:
     jira.presets = {'main': preset}
 
 
+def def_points(sizes: dict[int, float],
+               fill: bool = False) -> DefaultStoryPoints:
+    """Return a guess giving each level its size, filled in when asked.
+
+    Args:
+        sizes: The story points to give each level, by level number.
+        fill: Whether a level between or beyond the given ones is
+            guessed from them.
+
+    Returns:
+        The validated guess, ready to work out a level with.
+    """
+    points = DefaultStoryPoints(stderr_file=NoTextIO())
+    for number, size in sizes.items():
+        level = DefaultStoryPointLevel(stderr_file=NoTextIO())
+        level.level = number
+        level.story_points = size
+        points.levels.append(level)
+    points.interpolate = fill
+    points.extrapolate = fill
+    points.validate(NoTextIO())
+    return points
+
+
 def full_config() -> BacklogOpsConfig:
     """Return a configuration where every declared member holds a value.
 
@@ -116,6 +141,7 @@ def full_config() -> BacklogOpsConfig:
     config.output_configs = {'excel': _full_output()}
     config.gui_display.backlog_to_external = {'key': 'Key'}
     config.gui_display.release_to_external = {'name': 'Name'}
+    config.default_story_points = def_points({1: 2.0, 3: 8.0}, fill=True)
     _full_jira(config)
     return config
 

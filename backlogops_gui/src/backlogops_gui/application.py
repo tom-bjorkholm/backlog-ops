@@ -44,6 +44,7 @@ from config_as_json.file_extension import fix_file_extension
 from wizard_tk_bridge import WizardUiBridgeTk
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, BacklogReleases, CONFIG_EXTENSION,
+    DefaultStoryPoints,
     GuiDisplayConfig, InputFormatConfig, Levels, OutputFormatConfig, Status,
     get_demo_backlog, get_backlog_ops_config, backlog_ops_wizard,
     preset_wizard, read_backlog_ops_config, read_io_preset, safe_write_config,
@@ -197,6 +198,10 @@ class BacklogApp:
     def levels(self) -> Optional[Levels]:
         """Return the configured backlog item levels, or None when absent."""
         return self.config.get_levels() if self.config else None
+
+    def def_points(self) -> Optional[DefaultStoryPoints]:
+        """Return what an unestimated item is worked with, or None."""
+        return self.config.default_story_points if self.config else None
 
     def status_map(self) -> Optional[dict[str, Status]]:
         """Return the library-wide status input map, or None when absent."""
@@ -614,8 +619,8 @@ class BacklogApp:
             rename_releases=self.jira.renamer.rename_action())
         BacklogWindow(self.root, data, title, self.out_presets,
                       self.available_teams, self.log, self.levels,
-                      self.gui_display, warning, handlers, source=source,
-                      reload=reload)
+                      self.gui_display, warning, handlers,
+                      def_points=self.def_points, source=source, reload=reload)
 
     def report_versions(self) -> None:
         """Report version information into the log on a worker thread.

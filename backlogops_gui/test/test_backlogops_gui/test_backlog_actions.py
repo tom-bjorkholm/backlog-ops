@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence, TextIO, cast
 import pytest
 from backlogops import (
-    AddedToJira, AvailableTeams, BacklogItem, BacklogReleases, DependencyMode,
+    AddedToJira, AvailableTeams, BacklogItem, BacklogReleases,
+    DefaultStoryPoints, DependencyMode,
     NoTextIO, Release, ReleaseChange, ReleaseDateChange, Status,
     UpdatedBacklogInJira)
 from backlogops_gui import backlog_actions
@@ -27,6 +28,7 @@ DATA = BacklogReleases(backlog=[], releases=[])
 SINK = NoTextIO()
 PARENT = cast(tk.Misc, object())
 TEAMS = cast(AvailableTeams, object())
+POINTS = DefaultStoryPoints(stderr_file=NoTextIO())
 
 
 def _key_write_fail(keys: object, path: object, **_kw: object) -> None:
@@ -65,9 +67,11 @@ class _FakeData:
         self._record(f'release:{honor_dependencies}:{later}')
 
     def estimate_ready_date(self, _teams: object, start_date: object,
-                            _sink: TextIO) -> list[object]:
+                            _sink: TextIO, *,
+                            default_story_points: object) -> list[object]:
         """Record an estimate-ready-date call and return no changes."""
-        self._record(f'estimate:{start_date}')
+        self._record(f'estimate:{start_date}:'
+                     f'{type(default_story_points).__name__}')
         return []
 
     def set_plan_from_estimate(self, _sink: TextIO) -> None:
@@ -445,7 +449,7 @@ def test_estimate_no_teams() -> None:
     done: list[bool] = []
     data = _FakeData()
     errors: list[tuple[str, str]] = []
-    estimate_date(PARENT, _as_data(data), None, SINK, _refresher(done),
+    estimate_date(PARENT, _as_data(data), None, None, SINK, _refresher(done),
                   _record(errors), _record([]))
     assert errors == [('No configuration',
                        'There is no teams configuration to estimate from.')]
@@ -462,9 +466,9 @@ def test_estimate_success(monkeypatch: pytest.MonkeyPatch) -> None:
                         _changes_recorder(shown))
     done: list[bool] = []
     data = _FakeData()
-    estimate_date(PARENT, _as_data(data), TEAMS, SINK, _refresher(done),
-                  _record([]), _record([]))
-    assert data.calls == ['estimate:2026-06-15']
+    estimate_date(PARENT, _as_data(data), TEAMS, POINTS, SINK,
+                  _refresher(done), _record([]), _record([]))
+    assert data.calls == ['estimate:2026-06-15:DefaultStoryPoints']
     assert done == [True]
     assert shown == [('Release date changes', 'No release date changes.',
                       None)]
@@ -476,8 +480,8 @@ def test_estimate_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(backlog_actions, 'show_changes', _no_write)
     done: list[bool] = []
     data = _FakeData()
-    estimate_date(PARENT, _as_data(data), TEAMS, SINK, _refresher(done),
-                  _record([]), _record([]))
+    estimate_date(PARENT, _as_data(data), TEAMS, POINTS, SINK,
+                  _refresher(done), _record([]), _record([]))
     assert not data.calls
     assert not done
 

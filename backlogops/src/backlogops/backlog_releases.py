@@ -18,6 +18,7 @@ from backlogops.order_by_dependencies import order_by_dependencies, \
 from backlogops.estimate_ready_date import estimate_ready_date, \
     set_plan_from_estimate
 from backlogops.available_teams import AvailableTeams
+from backlogops.default_story_points import DefaultStoryPoints
 from backlogops.release_backlog_updates import estimate_release_dates, \
     release_plan_on_estimate, adjust_release_content, ReleaseChanges, \
     ReleaseDateChanges
@@ -215,7 +216,9 @@ class BacklogReleases:
 
     def estimate_ready_date(self, available_teams: AvailableTeams,
                             start_date: Optional[date] = None,
-                            stderr_file: TextIO = sys.stderr) \
+                            stderr_file: TextIO = sys.stderr, *,
+                            default_story_points: Optional[
+                                DefaultStoryPoints] = None) \
             -> ReleaseDateChanges:
         """Estimate the ready date of the member backlog items.
 
@@ -230,9 +233,14 @@ class BacklogReleases:
                          hours.
             start_date: The day the teams start working, or None for today.
             stderr_file: The file to report warnings to.
+            default_story_points: What a backlog item that nobody has
+                estimated is worked with. None is deprecated and only
+                kept for backward compatibility, as documented for
+                :func:`backlogops.estimate_ready_date`.
         """
-        self.backlog = estimate_ready_date(self.backlog, available_teams,
-                                           start_date, stderr_file)
+        self.backlog = estimate_ready_date(
+            self.backlog, available_teams, start_date, stderr_file,
+            default_story_points=default_story_points)
         self.releases, changes = estimate_release_dates(self.releases,
                                                         self.backlog)
         return changes

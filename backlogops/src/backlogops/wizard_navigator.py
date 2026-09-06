@@ -25,13 +25,15 @@ from tableio_cfg_json import TioJsonConfig
 from wizard_ui_bridge import PrefillValueType, WizardBack, \
     WizardCancelLevel, WizardUiBridge
 from backlogops.backlog import Status
+from backlogops.default_story_points import DefaultStoryPoints
 from backlogops.jira_io_config import JiraColumnMap, JiraIssueTypeMap
 from backlogops.levels import Level, LevelDisplay, Levels
 from backlogops.wizard_forms import FormField, FormResult, run_form, \
     _no_prefill, _no_rule
-from backlogops.wizard_helpers import _RenameKind, _read_int, \
-    _read_issue_type_map, _read_jira_map, _read_levels, _read_preset_name, \
-    _read_renames, _read_status_map, _read_tableio, _read_text
+from backlogops.wizard_helpers import _RenameKind, _read_def_points, \
+    _read_int, _read_issue_type_map, _read_jira_map, _read_levels, \
+    _read_preset_name, _read_renames, _read_status_map, _read_tableio, \
+    _read_text
 
 _T = TypeVar('_T')
 _D = TypeVar('_D')
@@ -278,6 +280,18 @@ class _Navigator:
             return _read_levels(self._ui, pre)
         result = self._ask(ask, seed)
         assert isinstance(result, list)
+        return result
+
+    def ask_def_points(self, interpolate: bool, extrapolate: bool, *,
+                       seed: Optional[DefaultStoryPoints] = None
+                       ) -> DefaultStoryPoints:
+        """Ask the default story points as one variable-row table."""
+        def ask(sd: object, _bw: bool) -> object:
+            """Ask the table, pre-filled from the remembered defaults."""
+            pre = sd if isinstance(sd, DefaultStoryPoints) else None
+            return _read_def_points(self._ui, interpolate, extrapolate, pre)
+        result = self._ask(ask, seed)
+        assert isinstance(result, DefaultStoryPoints)
         return result
 
     def ask_renames(self, fields: list[str], allow_extra: bool,

@@ -22,7 +22,11 @@ teams work in backlog order.
 
 Computes an estimated ready date for every item from the available teams
 (velocity, work hours, vacations, part-time periods) and the backlog order.
-Estimating the items also fills in the **estimated release dates**.
+Estimating the items also fills in the **estimated release dates**. An item
+nobody has estimated is worked with the guess configured under
+`default_story_points`
+([chapter 1](01_configuration.md#default-story-points)); without that guess
+such an item costs nothing and every date after it is too optimistic.
 
 **CLI**
 

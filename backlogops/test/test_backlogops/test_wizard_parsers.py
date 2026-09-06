@@ -14,7 +14,8 @@ import io
 from typing import Optional
 import pytest
 from wizard_ui_bridge import TableCell, WizardBack, WizardUiBridgeConsole
-from backlogops import Status
+from backlogops import DefaultStoryPoints, Status
+from backlogops.no_text_io import NoTextIO
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType
 from backlogops.levels import DEFAULT_LEVELS
 from backlogops.wizard_navigator import _Navigator
@@ -27,6 +28,8 @@ from backlogops.wizard_helpers import (
     _split_aliases, _status_check)
 from backlogops.wizard_helpers import (
     _issue_type_cells, _parse_issue_types, _read_issue_type_map)
+from backlogops.wizard_helpers import (
+    _def_points_check, _parse_points, _read_def_points)
 from .wizard_test_helpers import TableScript, bridge
 
 
@@ -232,6 +235,56 @@ def test_levels_reask() -> None:
     """Test an unparseable levels table is re-asked until it is valid."""
     scripted = TableScript([[['x', 'N', '']], [['1', 'Story', '']]])
     assert [level.name for level in _read_levels(scripted)] == ['Story']
+
+
+@pytest.mark.parametrize('text, expected', [
+    ('2', 2.0),
+    (' 0.5 ', 0.5),
+    ('x', None),
+    ('', None),
+    (None, None)])
+def test_parse_points(text: Optional[str], expected: Optional[float]) -> None:
+    """Test a story points cell is read as a number, or not at all."""
+    assert _parse_points(text) == expected
+
+
+@pytest.mark.parametrize('position, ok', [
+    ((0, 0), True),
+    ((1, 0), False),
+    ((0, 1), True),
+    ((1, 1), False)])
+def test_def_points_check(position: tuple[int, int], ok: bool) -> None:
+    """Test each cell of the guess table is checked as it is entered."""
+    table: list[list[Optional[str]]] = [['1', '2'], ['x', 'y']]
+    assert _def_points_check(table, position)[0] is ok
+
+
+def test_def_points_reask() -> None:
+    """Test an unreadable guess table is re-asked until it parses."""
+    scripted = TableScript([[['x', '2']], [['1', 'y']], [['1', '2']]])
+    points = _read_def_points(scripted, False, False)
+    assert points.get_default_story_points(1) == 2.0
+
+
+def test_def_points_seeded() -> None:
+    """Test a stored guess pre-fills a row per level it gives."""
+    scripted = TableScript([[['1', '2']], [['1', '2.5']]])
+    stored = _read_def_points(scripted, False, False)
+    _read_def_points(scripted, False, False, stored)
+    assert scripted.seen[1] == [[TableCell(value='1'), TableCell(value='2')]]
+
+
+def test_def_points_no_seed() -> None:
+    """Test a guess that gives no level starts the table empty.
+
+    Two empty rows are offered when a level is to be filled in, because
+    a factor is worked out from two levels.
+    """
+    scripted = TableScript([[['1', '2'], ['3', '8']]])
+    empty = DefaultStoryPoints(stderr_file=NoTextIO())
+    _read_def_points(scripted, True, False, empty)
+    assert scripted.seen[0] == [[TableCell(value=''), TableCell(value='')],
+                                [TableCell(value=''), TableCell(value='')]]
 
 
 def test_renames_reask() -> None:

@@ -15,6 +15,9 @@ item levels:
 * ``gui_display`` holds the GUI column-rename and level-display settings;
 * ``jira`` is the Jira input and output configuration, bridged to JSON by
   :class:`backlogops.jira_io_config.JiraIOConfig`;
+* ``default_story_points`` is what a backlog item that nobody has
+  estimated counts as, bridged to JSON by
+  :class:`backlogops.default_story_points.DefaultStoryPoints`;
 * ``levels`` is the optional list of backlog item levels. It is omitted
   from the file while it is ``None``; :meth:`BacklogOpsConfig.get_levels`
   then falls back to :data:`backlogops.levels.DEFAULT_LEVELS`. An empty
@@ -45,6 +48,7 @@ from backlogops.available_teams import AvailableTeams
 from backlogops.available_teams_config import AvailableTeamsConfig
 from backlogops.backlog import Status
 from backlogops.backlog_helpers import report_bad_value, report_wrong_type
+from backlogops.default_story_points import DefaultStoryPoints
 from backlogops.io_config import GuiDisplayConfig, InputFormatConfig, \
     OutputFormatConfig, _StatusMapValidator
 from backlogops.jira_io_config import JiraIOConfig
@@ -165,9 +169,10 @@ def _levels_to_json(value: object, *, path_text: str, stderr_file: TextIO,
 class _BacklogOpsReadOldConfig(ReadOldConfiguration):
     """Normalize older backlog-ops configuration files on read.
 
-    Two shape changes are accepted. The named input and output preset
-    maps were added after the first released file; an empty map is
-    supplied when an old file omits them. The workforce members were
+    Two shape changes are accepted. Sections added after a released file,
+    such as the named preset maps and the default story points, are
+    supplied empty when an old file omits them, which for the default
+    story points means guessing nothing. The workforce members were
     later moved from the top level into a nested ``available_teams``
     object; the move rules relocate them so old files keep loading.
     """
@@ -186,7 +191,7 @@ class _BacklogOpsReadOldConfig(ReadOldConfiguration):
         """Return defaults for the members old files may omit."""
         return {('input_configs',): {}, ('output_configs',): {},
                 ('gui_display',): {}, ('status_input_map',): {},
-                ('jira',): {}}
+                ('jira',): {}, ('default_story_points',): {}}
 
 
 DEF_STATUS_INPUT_MAP: dict[str, Status] = {
@@ -241,6 +246,9 @@ class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
             stderr_file=stderr_file,
             member_name=member_path(member_name, 'jira'))
         self.levels: Optional[list[Level]] = None
+        self.default_story_points: DefaultStoryPoints = DefaultStoryPoints(
+            stderr_file=stderr_file,
+            member_name=member_path(member_name, 'default_story_points'))
         self._unchecked_dicts = ['status_input_map']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
@@ -254,7 +262,7 @@ class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
 
     @override
     def nested_configs(self) -> NestedConfigs:
-        """Declare the workforce and the named TableIO preset maps."""
+        """Declare the workforce, the preset maps and the other sections."""
         member = ConfigNesting(kind=ConfigNestingKind.MEMBER,
                                config_type=AvailableTeamsConfig)
         in_cfg = ConfigNesting(kind=ConfigNestingKind.DICT_VALUE,
@@ -265,8 +273,11 @@ class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
                             config_type=GuiDisplayConfig)
         jira = ConfigNesting(kind=ConfigNestingKind.MEMBER,
                              config_type=JiraIOConfig)
+        points = ConfigNesting(kind=ConfigNestingKind.MEMBER,
+                               config_type=DefaultStoryPoints)
         return {'available_teams': member, 'input_configs': in_cfg,
-                'output_configs': out_cfg, 'gui_display': gui, 'jira': jira}
+                'output_configs': out_cfg, 'gui_display': gui, 'jira': jira,
+                'default_story_points': points}
 
     @override
     def _omit_none_from_json(self) -> list[str]:

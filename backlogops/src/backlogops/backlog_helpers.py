@@ -128,14 +128,19 @@ def accepts_none(data_type: object) -> bool:
 def _matches_class(value: object, data_type: type) -> bool:
     """Return True if a value matches a plain (unparameterized) class.
 
-    A boolean is rejected where an integer is expected, because a
+    A boolean is rejected where a number is expected, because a
     boolean is rarely a meaningful story point or numeric value here.
+    An integer is accepted where a ``float`` is expected, because that
+    is what the type hint itself means: a hint of ``float`` covers a
+    whole number as well, as the type checker reads it.
     A ``datetime`` is rejected where a ``date`` is expected, even though
     ``datetime`` is a subclass of ``date``, so that a date field never
     silently holds a value carrying a time component.
     """
     if data_type is int:
         return isinstance(value, int) and not isinstance(value, bool)
+    if data_type is float:
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
     if data_type is date:
         return isinstance(value, date) and not isinstance(value, datetime)
     return isinstance(value, data_type)
@@ -422,14 +427,43 @@ def convert_to_str(field_name: str, value: object,
     report_wrong_type(field_name, value, str, stderr_file)
 
 
+def convert_to_float(field_name: str, value: object,
+                     stderr_file: TextIO = sys.stderr) -> float:
+    """Convert a whole or decimal number to a ``float``.
+
+    A value that is already a float is returned unchanged, and a whole
+    number is widened to a float, so that story points written as ``5``
+    and as ``5.0`` are stored as one type. A boolean is rejected, even
+    though Python counts it as a whole number. A string is rejected as
+    well: a numeric field of a backlog item holds a number, and the
+    reading of a table cell that holds text is where such text is
+    turned into a number.
+
+    Args:
+        field_name: The name of the field being converted.
+        value: The number to convert.
+        stderr_file: The file to report errors to.
+
+    Returns:
+        The converted float.
+
+    Raises:
+        TypeError: If the value is not a whole or decimal number.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        report_wrong_type(field_name, value, float, stderr_file)
+    return float(value)
+
+
 def convert_field_value(field_name: str, value: object, data_type: object,
                         stderr_file: TextIO = sys.stderr) -> object:
     """Convert and validate a single field value against its type hint.
 
     ``None`` is accepted for optional fields. Enum fields are converted
     with :func:`convert_to_enum`, date fields with :func:`convert_to_date`,
-    string fields with :func:`convert_to_str`, and all other fields are
-    checked with :func:`value_matches_type`.
+    string fields with :func:`convert_to_str`, float fields with
+    :func:`convert_to_float`, and all other fields are checked with
+    :func:`value_matches_type`.
 
     Args:
         field_name: The name of the field being converted.
@@ -453,6 +487,8 @@ def convert_field_value(field_name: str, value: object, data_type: object,
         return convert_to_date(field_name, value, stderr_file)
     if inner_type is str:
         return convert_to_str(field_name, value, stderr_file)
+    if inner_type is float:
+        return convert_to_float(field_name, value, stderr_file)
     if not value_matches_type(value, data_type):
         report_wrong_type(field_name, value, data_type, stderr_file)
     return value

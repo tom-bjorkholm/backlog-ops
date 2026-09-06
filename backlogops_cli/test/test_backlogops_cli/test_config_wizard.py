@@ -81,7 +81,7 @@ def test_input_flag() -> None:
 def test_no_textual_writes(tmp_path: Path,
                            monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the forced console interface writes a configuration file."""
-    answers = [''] * 21
+    answers = [''] * 22
     monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
     assert config_wizard.main(
         ['-o', str(tmp_path / 'teams'), '--no-textual']) == 0
@@ -91,7 +91,7 @@ def test_no_textual_writes(tmp_path: Path,
 def test_main_writes_file(tmp_path: Path,
                           monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the command adds the .cfg extension and writes a readable file."""
-    answers = [''] * 21
+    answers = [''] * 22
     monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
     assert config_wizard.main(['-o', str(tmp_path / 'teams')]) == 0
     written = tmp_path / 'teams.cfg'
@@ -116,7 +116,7 @@ def test_overwrite_force(tmp_path: Path,
     """Test the force flag overwrites the existing config without asking."""
     target = tmp_path / 'teams.cfg'
     target.write_text('OLD', encoding='utf-8')
-    answers = [''] * 21
+    answers = [''] * 22
     monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
     assert config_wizard.main(['-o', str(tmp_path / 'teams'),
                                '--no-textual', '-f']) == 0

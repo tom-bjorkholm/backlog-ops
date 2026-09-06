@@ -118,7 +118,10 @@ the library:
 
 - `title` The title of the backlog item. Required.
 
-- `story_points` The story points of the backlog item. Required.
+- `story_points` The story points of the backlog item. Optional. An item with no
+  story points is one that nobody has estimated yet, and what such an item is
+  worked with when a completion date is estimated is configured. May be a
+  fraction, such as 0.5.
 
 - `status` The status of the backlog item. Required.
 
@@ -287,7 +290,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 2309 passed, 1 deselected in 58s
+- Test result: 2394 passed, 1 deselected in 59s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.

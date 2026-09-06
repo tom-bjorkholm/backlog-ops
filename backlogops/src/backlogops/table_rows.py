@@ -146,6 +146,25 @@ def _maybe_int(value: object) -> object:
     return value
 
 
+def _maybe_float(value: object) -> object:
+    """Return a numeric cell as a float when it holds one, else the value.
+
+    A cell written as text is turned into a number here, so that a
+    spreadsheet column of story points read as text still reaches the
+    backlog item as the number it shows.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return value
+    return value
+
+
 def _present_cells(row: Mapping[str, object]) -> dict[str, object]:
     """Return the row without cells that are absent (None or empty)."""
     return {key: value for key, value in row.items() if not _is_empty(value)}
@@ -158,15 +177,18 @@ def row_to_item(row: Mapping[str, object], levels: Optional[Levels] = None,
 
     A string status is matched case-insensitively against ``status_map``
     before the built-in status-name matching, as documented for
-    :func:`backlogops.backlog.get_backlog_item`.
+    :func:`backlogops.backlog.get_backlog_item`. A row with no story
+    points cell, or with an empty one, makes an item nobody has
+    estimated yet rather than an item of no size.
     """
     prepared = _present_cells(row)
     for name in DEPENDENCY_FIELDS:
         if name in prepared:
             prepared[name] = _split_deps(row[name])
-    for name in ('story_points', 'level'):
-        if name in prepared:
-            prepared[name] = _maybe_int(row[name])
+    if 'level' in prepared:
+        prepared['level'] = _maybe_int(row['level'])
+    prepared['story_points'] = (_maybe_float(row['story_points'])
+                                if 'story_points' in prepared else None)
     return get_backlog_item(prepared, levels, status_map, stderr_file)
 
 

@@ -112,6 +112,7 @@
     * [out\_presets](#backlogops_gui.application.BacklogApp.out_presets)
     * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
     * [levels](#backlogops_gui.application.BacklogApp.levels)
+    * [def\_points](#backlogops_gui.application.BacklogApp.def_points)
     * [status\_map](#backlogops_gui.application.BacklogApp.status_map)
     * [gui\_display](#backlogops_gui.application.BacklogApp.gui_display)
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
@@ -1483,6 +1484,16 @@ def levels() -> Optional[Levels]
 
 Return the configured backlog item levels, or None when absent.
 
+<a id="backlogops_gui.application.BacklogApp.def_points"></a>
+
+#### def\_points
+
+```python
+def def_points() -> Optional[DefaultStoryPoints]
+```
+
+Return what an unestimated item is worked with, or None.
+
 <a id="backlogops_gui.application.BacklogApp.status_map"></a>
 
 #### status\_map
@@ -1956,13 +1967,18 @@ Show the change listing in a pop-up that can save it to a file.
 
 ```python
 def estimate_date(parent: tk.Misc, data: BacklogReleases,
-                  teams: Optional[AvailableTeams], sink: TextIO,
+                  teams: Optional[AvailableTeams],
+                  points: Optional[DefaultStoryPoints], sink: TextIO,
                   refresh: Callable[[], None], on_error: Callable[[str, str],
                                                                   None],
                   on_info: Callable[[str, str], None]) -> None
 ```
 
 Ask for the start date and estimate the ready dates.
+
+An unestimated backlog item is worked with what the configuration
+guesses for its level, so the guess of the loaded configuration is
+passed on with the workforce.
 
 <a id="backlogops_gui.backlog_actions.set_plan"></a>
 
@@ -2180,6 +2196,7 @@ def __init__(
     warning: Optional[str] = None,
     jira: Optional[JiraHandlers] = None,
     *,
+    def_points: Callable[[], Optional[DefaultStoryPoints]] = lambda: None,
     source: Optional[BacklogSource] = None,
     reload: Optional[Callable[
         [Callable[[BacklogReleases, Optional[str]], None]], None]] = None
@@ -2206,6 +2223,8 @@ Build the window, its menu, its info region and the two tables.
 - `jira` - The Jira menu handlers to offer, or None for none. Each
   handler is None when its operation is unavailable, which
   disables its menu item.
+- `def_points` - Callable returning what the configuration works an
+  unestimated backlog item with, or None for none.
 - `source` - Where the data came from and when it was read. When
   given, an information region is shown at the top of the
   window; when None no information region is shown.

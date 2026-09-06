@@ -131,7 +131,10 @@ B4 = {'key': 'The key of the backlog item. Required. Must be unique. '
       'not contain any of the characters , . ; : ( ) [ ] { }.',
       'level': 'The level of the backlog item. Required. Must be an integer.',
       'title': 'The title of the backlog item. Required.',
-      'story_points': 'The story points of the backlog item. Required.',
+      'story_points': 'The story points of the backlog item. Optional. '
+      'An item with no story points is one that nobody has estimated yet, '
+      'and what such an item is worked with when a completion date is '
+      'estimated is configured. May be a fraction, such as 0.5.',
       'status': 'The status of the backlog item. Required.',
       'parent_key': 'The key of the parent backlog item. Optional. '
       'Must exist as a key in the backlog. '

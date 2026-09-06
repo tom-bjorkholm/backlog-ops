@@ -51,6 +51,7 @@ are:
 | --- | --- |
 | `available_teams` | The workforce: persons, teams, and the company calendar. Used by date estimation. |
 | `levels` | Your backlog levels and their names/aliases (optional; defaults apply when omitted). |
+| `default_story_points` | What an item nobody has estimated counts as when dates are estimated. |
 | `status_input_map` | Maps the status words in *your* files/Jira to the four internal statuses. |
 | `input_configs` | Named input presets (file format + column renaming when reading). |
 | `output_configs` | Named output presets (file format + column renaming when writing). |
@@ -119,6 +120,46 @@ where you mean level 1):
     {"level": 2, "name": "Epic", "aliases": []}
 ]
 ```
+
+### Default story points
+
+An item with an empty `story_points` is one nobody has estimated yet. Unless
+you say otherwise it costs nothing, which makes every date that follows it
+too optimistic. `default_story_points` is the best guess to use instead:
+
+```json
+"default_story_points": {
+    "extrapolate": true,
+    "interpolate": true,
+    "levels": [{"level": 1, "story_points": 2},
+               {"level": 3, "story_points": 8}]
+}
+```
+
+Two levels are given here, and the two settings fill in the rest by the
+growth between the levels you gave. Level 1 with 2 points and level 3 with 8
+grow by a factor of 2 per level, so `interpolate` makes level 2 a guess of 4,
+and `extrapolate` continues past both ends: level 4 is 16 and level 0 is 1.
+The upward factor comes from the two highest levels you gave and the downward
+factor from the two lowest, so you never need to list every level. Turning
+both settings off uses only the levels you list and leaves every other level
+costing nothing. Either setting needs two levels with story points above
+zero, because a factor is worked out from two of them.
+
+The guess is used only where nothing better is known:
+
+* an item with its own story points is worked with those, whether or not it
+  has children (its own points are the work on the item itself, beside the
+  work in its children);
+* an item without story points that **has children** is a container for them
+  and costs nothing of its own;
+* an item without story points and without children is a bigger item nobody
+  has broken down yet, and is worked with the guess for its level;
+* a done or rejected item is no work left, whatever it carries.
+
+A level may be given zero story points, which says an unestimated item of
+that level costs nothing. Such a zero takes no part in the growth used to
+fill in the other levels.
 
 ### Status mapping
 
@@ -373,7 +414,8 @@ configuration at once, and a migration for an older file.
 ### The configuration wizard
 
 Builds a complete backlog-ops file interactively: the workforce, the company
-calendar, named presets, levels and the status map. Related questions are
+calendar, named presets, levels, the guess for unestimated items and the
+status map. Related questions are
 grouped onto single forms — the company's weekly work hours together with its
 first holiday period, a team's velocity and sprint length (in working days), a
 work-hour exception's dates and hours, a team membership, and each Jira
@@ -383,7 +425,11 @@ through a calendar picker in the GUI, and every additional company holiday
 period is a form whose heading lists the periods entered so far. On the Jira
 preset form, once you set the project key the default filter (the whole
 project in rank order) is offered in the filter field, so you can accept it
-or type your own; once you type your own it is left untouched.
+or type your own; once you type your own it is left untouched. The default
+story points are asked as one form — whether to guess at all, and whether to
+fill in the levels between and beyond the ones you give — followed by a table
+of a level and its story points per row, which is skipped when you guess
+nothing.
 
 - **CLI:** `python3 -m backlogops_cli.config_wizard` — add `-i old.cfg` to
   start from an existing file (see [Starting from an existing

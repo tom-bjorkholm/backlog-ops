@@ -9,14 +9,17 @@ from datetime import date
 from typing import Optional
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogItem, CompanyWorkHours, ExceptionWorkHours,
-    Membership, Person, Status, Team, estimate_ready_date,
-    set_plan_from_estimate)
+    AvailableTeams, BacklogItem, CompanyWorkHours, DefaultStoryPoints,
+    ExceptionWorkHours, Membership, Person, Status, Team,
+    estimate_ready_date, set_plan_from_estimate)
 from backlogops.no_text_io import NoTextIO
+from .shared_test_data import def_points
 
 MON = date(2026, 6, 15)
 """A Monday used as the start date in the tests."""
 NO = NoTextIO()
+NO_GUESS = DefaultStoryPoints(stderr_file=NO)
+"""Defaults that guess nothing, which most of these tests estimate with."""
 
 
 def person(name: str,
@@ -59,7 +62,7 @@ def one_team(company: Optional[CompanyWorkHours] = None,
     return workforce([team('T', [member('Ann', fte)])], [ann], company)
 
 
-def item(key: str, sp: int = 1, status: Status = Status.TODO,
+def item(key: str, sp: Optional[float] = 1.0, status: Status = Status.TODO,
          assigned: Optional[str] = None,
          parent: Optional[str] = None) -> BacklogItem:
     """Build a backlog item with the fields the tests vary."""
@@ -67,10 +70,18 @@ def item(key: str, sp: int = 1, status: Status = Status.TODO,
                        status=status, team=assigned, parent_key=parent)
 
 
+def big(key: str, sp: Optional[float] = None) -> BacklogItem:
+    """Build a level two backlog item, by default an unestimated one."""
+    return BacklogItem(key=key, level=2, title=key, story_points=sp,
+                       status=Status.TODO)
+
+
 def run(backlog: list[BacklogItem], force: AvailableTeams,
-        start: Optional[date] = MON) -> dict[str, Optional[date]]:
+        start: Optional[date] = MON,
+        points: DefaultStoryPoints = NO_GUESS) -> dict[str, Optional[date]]:
     """Estimate the backlog and return a key to ready-date mapping."""
-    result = estimate_ready_date(backlog, force, start, NO)
+    result = estimate_ready_date(backlog, force, start, NO,
+                                 default_story_points=points)
     return {i.key: i.estimated_ready_date for i in result}
 
 
@@ -104,7 +115,8 @@ def test_zero_points() -> None:
 def test_input_unchanged() -> None:
     """Estimating does not modify the given backlog items."""
     backlog = [item('a', 3)]
-    estimate_ready_date(backlog, one_team(), MON, NO)
+    estimate_ready_date(backlog, one_team(), MON, NO,
+                        default_story_points=NO_GUESS)
     assert backlog[0].estimated_ready_date is None
 
 
@@ -199,7 +211,8 @@ def test_unknown_team_none() -> None:
     """An item naming an unknown team gets no date and a warning."""
     out = io.StringIO()
     backlog = [item('a', 3, assigned='Ghost')]
-    result = estimate_ready_date(backlog, one_team(), MON, out)
+    result = estimate_ready_date(backlog, one_team(), MON, out,
+                                 default_story_points=NO_GUESS)
     assert result[0].estimated_ready_date is None
     assert 'Ghost' in out.getvalue()
 
@@ -208,7 +221,8 @@ def test_no_teams_none() -> None:
     """With no teams available an item gets no date and a warning."""
     out = io.StringIO()
     empty = AvailableTeams(persons={}, teams=[])
-    result = estimate_ready_date([item('a', 3)], empty, MON, out)
+    result = estimate_ready_date([item('a', 3)], empty, MON, out,
+                                 default_story_points=NO_GUESS)
     assert result[0].estimated_ready_date is None
     assert 'a' in out.getvalue()
 
@@ -217,7 +231,8 @@ def test_no_capacity_none() -> None:
     """A team with no members never finishes, so the item has no date."""
     out = io.StringIO()
     force = workforce([team('T', [])], [])
-    result = estimate_ready_date([item('a', 3)], force, MON, out)
+    result = estimate_ready_date([item('a', 3)], force, MON, out,
+                                 default_story_points=NO_GUESS)
     assert result[0].estimated_ready_date is None
 
 
@@ -240,7 +255,8 @@ def test_done_child_no_delay() -> None:
 def test_set_plan_copies() -> None:
     """Setting the plan copies the estimated date, including None."""
     backlog = [item('a', 3), item('d', 3, Status.DONE)]
-    estimated = estimate_ready_date(backlog, one_team(), MON, NO)
+    estimated = estimate_ready_date(backlog, one_team(), MON, NO,
+                                    default_story_points=NO_GUESS)
     planned = set_plan_from_estimate(estimated, NO)
     assert planned[0].planned_ready_date == date(2026, 6, 17)
     assert planned[1].planned_ready_date is None
@@ -248,7 +264,8 @@ def test_set_plan_copies() -> None:
 
 def test_set_plan_unchanged() -> None:
     """Setting the plan does not modify the given backlog items."""
-    estimated = estimate_ready_date([item('a', 3)], one_team(), MON, NO)
+    estimated = estimate_ready_date([item('a', 3)], one_team(), MON, NO,
+                                    default_story_points=NO_GUESS)
     set_plan_from_estimate(estimated, NO)
     assert estimated[0].planned_ready_date is None
 
@@ -256,7 +273,8 @@ def test_set_plan_unchanged() -> None:
 def test_zero_standard_hours() -> None:
     """A company with an empty work week completes no work."""
     company = CompanyWorkHours(work_hours={})
-    result = estimate_ready_date([item('a', 3)], one_team(company), MON, NO)
+    result = estimate_ready_date([item('a', 3)], one_team(company), MON, NO,
+                                 default_story_points=NO_GUESS)
     assert result[0].estimated_ready_date is None
 
 
@@ -290,14 +308,16 @@ def test_zero_sprint_length() -> None:
     bad = Team(name='T', velocity=10.0, sum_fte_at_velocity=1.0,
                sprint_length=0, members=[member('Ann')])
     force = workforce([bad], [ann])
-    result = estimate_ready_date([item('a', 3)], force, MON, NO)
+    result = estimate_ready_date([item('a', 3)], force, MON, NO,
+                                 default_story_points=NO_GUESS)
     assert result[0].estimated_ready_date is None
 
 
 def test_parent_cycle() -> None:
     """A parent cycle is handled without infinite recursion."""
     backlog = [item('p', 1, parent='c'), item('c', 1, parent='p')]
-    result = estimate_ready_date(backlog, one_team(), MON, NO)
+    result = estimate_ready_date(backlog, one_team(), MON, NO,
+                                 default_story_points=NO_GUESS)
     assert all(i.estimated_ready_date is not None for i in result)
 
 
@@ -306,3 +326,46 @@ def test_terminal_frees_team(status: Status) -> None:
     """A done or rejected item before another leaves the team free."""
     backlog = [item('t', 3, status), item('a', 3)]
     assert run(backlog, one_team())['a'] == date(2026, 6, 17)
+
+
+def test_guessed_item_worked() -> None:
+    """An item with no story points is worked with the level guess."""
+    backlog = [big('a')]
+    points = def_points({2: 3.0})
+    assert run(backlog, one_team(), points=points) == {'a': date(2026, 6, 17)}
+
+
+def test_guessed_level_filled() -> None:
+    """A level between the given ones is guessed from the growth."""
+    backlog = [big('a')]
+    points = def_points({1: 2.0, 3: 8.0}, fill=True)
+    assert run(backlog, one_team(), points=points) == {'a': date(2026, 6, 18)}
+
+
+def test_no_guess_is_free() -> None:
+    """An unestimated item is no work when nothing guesses for it."""
+    backlog = [item('a', None), item('b', 3.0)]
+    assert run(backlog, one_team()) == {'a': MON, 'b': date(2026, 6, 17)}
+
+
+def test_container_no_guess() -> None:
+    """An unestimated item with children is a container and no work."""
+    backlog = [big('p'), item('c', 3.0, parent='p')]
+    points = def_points({1: 5.0, 2: 5.0})
+    dates = run(backlog, one_team(), points=points)
+    assert dates == {'p': date(2026, 6, 17), 'c': date(2026, 6, 17)}
+
+
+def test_half_point_item() -> None:
+    """Two half-point items are both finished on the first day."""
+    backlog = [item('a', 0.5), item('b', 0.5)]
+    assert run(backlog, one_team()) == {'a': MON, 'b': MON}
+
+
+def test_no_defaults_warn() -> None:
+    """Estimating without the defaults is deprecated but still works."""
+    with pytest.warns(DeprecationWarning, match='default_story_points'):
+        result = estimate_ready_date([item('a', None), item('b', 3.0)],
+                                     one_team(), MON, NO)
+    assert result[0].estimated_ready_date == MON
+    assert result[1].estimated_ready_date == date(2026, 6, 17)

@@ -20,8 +20,8 @@ from backlogops.available_teams import AvailableTeams
 from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.backlog_ops_wizard import (
     available_teams_wizard, backlog_ops_wizard, _WORKFORCE_HEAD,
-    _INPUT_PRESETS_HEAD, _OUTPUT_PRESETS_HEAD, _LEVELS_HEAD, _STATUS_MAP_HEAD,
-    _GUI_DISPLAY_HEAD, _JIRA_HEAD)
+    _INPUT_PRESETS_HEAD, _OUTPUT_PRESETS_HEAD, _LEVELS_HEAD,
+    _DEF_POINTS_HEAD, _STATUS_MAP_HEAD, _GUI_DISPLAY_HEAD, _JIRA_HEAD)
 
 GUI_KEEP = ['']
 """A blank answer that keeps the default GUI level display (both)."""
@@ -39,6 +39,9 @@ maps, which skips the presets too."""
 LEVELS_KEEP = ['']
 """A blank answer that accepts the pre-filled default levels table."""
 
+POINTS_SKIP = ['']
+"""A blank answer that guesses nothing for an unestimated item."""
+
 STATUS_KEEP = ['']
 """A blank answer that accepts the pre-filled default status map."""
 
@@ -53,7 +56,8 @@ CSV_OPTS = [''] * 7
 
 CONFIG_HEADS = [
     _WORKFORCE_HEAD, _INPUT_PRESETS_HEAD, _OUTPUT_PRESETS_HEAD,
-    _LEVELS_HEAD, _STATUS_MAP_HEAD, _GUI_DISPLAY_HEAD, _JIRA_HEAD]
+    _LEVELS_HEAD, _DEF_POINTS_HEAD, _STATUS_MAP_HEAD, _GUI_DISPLAY_HEAD,
+    _JIRA_HEAD]
 """The full-config wizard stage headings, in collection order."""
 
 

@@ -33,7 +33,7 @@ untouched):
 | `key` | yes | Unique. No whitespace and none of `, . ; : ( ) [ ] { }`. |
 | `level` | yes | Integer. Higher = broader (task → story → epic). |
 | `title` | yes | Free text. |
-| `story_points` | yes | The size estimate. |
+| `story_points` | no | The size estimate. May be a fraction such as `0.5`. Leave it empty for an item nobody has estimated yet; what such an item costs when dates are estimated is configured ([chapter 1](01_configuration.md#default-story-points)). |
 | `status` | yes | One of `TODO`, `IN_PROGRESS`, `DONE`, `REJECTED`. |
 | `parent_key` | no | Key of a higher-level parent. Implies dependencies (below). |
 | `release` | no | Release name. Must not contain tabs, newlines or control characters. |

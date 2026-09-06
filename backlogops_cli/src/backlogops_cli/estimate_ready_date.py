@@ -6,7 +6,8 @@ estimates the ready date of each backlog item from the available teams,
 as documented for :func:`backlogops.estimate_ready_date`. The teams
 configuration (velocity, work hours, vacations and so on) is taken from
 the file given by ``--config`` or, when that is absent, from the
-configured backlog-ops file. The backlog with the estimated dates and the
+configured backlog-ops file, and so is what a backlog item that nobody
+has estimated is worked with. The backlog with the estimated dates and the
 releases are written to the output file. The input and output formats are
 inferred from the file name extensions, but can be overridden by a
 configuration file or by a named preset.
@@ -58,8 +59,9 @@ def _estimate(parsed: argparse.Namespace, config: Optional[BacklogOpsConfig],
     None here; the assertion makes that explicit for the type checker.
     """
     assert isinstance(config, BacklogOpsConfig)
-    changes = data.estimate_ready_date(config.available_teams,
-                                       _start_date(parsed))
+    changes = data.estimate_ready_date(
+        config.available_teams, _start_date(parsed),
+        default_story_points=config.default_story_points)
     if parsed.set_plan:
         data.set_plan_from_estimate()
     return date_report(changes, overwrite_callback(parsed.force))

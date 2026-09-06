@@ -26,6 +26,8 @@ from tableio import FileAccess, access_capabilities
 from tableio_cfg_json import TioJsonConfig, tio_json_config_wizard
 from wizard_ui_bridge import TableCell, TableColumn, WizardUiBridge
 from backlogops.backlog import Status
+from backlogops.default_story_points import DefaultStoryPointLevel, \
+    DefaultStoryPoints
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
     JiraColumnMap, JiraIssueTypeMap
 from backlogops.wizard_forms import name_error
@@ -406,6 +408,113 @@ def _read_levels(ui: WizardUiBridge,
         else:
             reason = ('Enter a whole-number level and a non-empty name in '
                       'every row.')
+        cells = _cells_from_table(table)
+
+
+_DEF_POINTS_INSTRUCTION = (
+    'Story points to work a backlog item of each level with, while the '
+    'item has no story points of its own and has no children (a level '
+    'you leave out is guessed from these when you asked for that):')
+"""Instruction shown above the default story points table."""
+
+
+def _parse_points(text: Optional[str]) -> Optional[float]:
+    """Return ``text`` as story points, or None when it is no number."""
+    if text is None:
+        return None
+    try:
+        return float(text.strip())
+    except ValueError:
+        return None
+
+
+def _def_points_check(table: list[list[Optional[str]]],
+                      position: tuple[int, int]) -> tuple[bool, str]:
+    """Give early feedback that a level or story points cell is valid."""
+    row, col = position
+    if col == 0:
+        ok = _parse_level_int(table[row][0]) is not None
+        return (ok, '' if ok else 'Enter the level as a whole number.')
+    ok = _parse_points(table[row][1]) is not None
+    return (ok, '' if ok else 'Enter the story points as a number.')
+
+
+def _def_points_cells(seed: Optional[DefaultStoryPoints],
+                      rows: int) -> list[list[TableCell]]:
+    """Return the table rows filled from a seed, or ``rows`` empty ones."""
+    if seed is None or not seed.levels:
+        return [[TableCell(value=''), TableCell(value='')]
+                for _ in range(rows)]
+    return [[TableCell(value=str(level.level)),
+             TableCell(value=f'{level.story_points:g}')]
+            for level in seed.levels]
+
+
+def _parse_def_points(table: list[list[Optional[str]]], interpolate: bool,
+                      extrapolate: bool) -> Optional[DefaultStoryPoints]:
+    """Return the default story points of a table, or None on a bad cell.
+
+    The values are only read here; whether they make sense together is
+    left to the validation of the configuration class itself.
+    """
+    points = DefaultStoryPoints()
+    points.interpolate = interpolate
+    points.extrapolate = extrapolate
+    for row in table:
+        number = _parse_level_int(row[0])
+        size = _parse_points(row[1])
+        if number is None or size is None:
+            return None
+        level = DefaultStoryPointLevel()
+        level.level = number
+        level.story_points = size
+        points.levels.append(level)
+    return points
+
+
+def _def_points_problem(points: DefaultStoryPoints,
+                        error_file: TextIO) -> Optional[str]:
+    """Return a re-ask reason when the defaults are refused, else None.
+
+    Validating the built configuration is what checks it, so the wizard
+    refuses exactly what a stored file refuses, and the same call sorts
+    the levels and builds the lookup of the returned object.
+    """
+    try:
+        points.validate(error_file)
+    except (TypeError, ValueError, KeyError) as problem:
+        return str(problem.args[0]) if problem.args else str(problem)
+    return None
+
+
+def _read_def_points(ui: WizardUiBridge, interpolate: bool, extrapolate: bool,
+                     seed: Optional[DefaultStoryPoints] = None
+                     ) -> DefaultStoryPoints:
+    """Ask the default story points as one variable-row table question.
+
+    Two rows are asked for when a level between or beyond the given ones
+    is to be guessed, because a growth factor is worked out from two
+    levels. Each cell is checked as it is entered, and the whole table is
+    then checked by validating the configuration it builds.
+    """
+    columns = [TableColumn(header='Level'),
+               TableColumn(header='Story points')]
+    least = 2 if interpolate or extrapolate else 1
+    cells = _def_points_cells(seed, least)
+    reason: Optional[str] = None
+    while True:
+        table = ui.ask_table(columns, cells, _DEF_POINTS_INSTRUCTION,
+                             re_ask_reason=reason,
+                             partial_check=_def_points_check, min_rows=least,
+                             max_rows=_MAX_LEVELS)
+        points = _parse_def_points(table, interpolate, extrapolate)
+        if points is not None:
+            reason = _def_points_problem(points, ui.error_file())
+            if reason is None:
+                return points
+        else:
+            reason = ('Enter a whole-number level and its story points as '
+                      'a number in every row.')
         cells = _cells_from_table(table)
 
 

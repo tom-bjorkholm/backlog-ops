@@ -36,6 +36,8 @@ from backlogops.config_editing import EDIT_SETTINGS, descriptions_for
 from backlogops.config_file_io import (
     CONFIG_EXTENSION, io_preset_class, read_io_preset, safe_write_config)
 from backlogops.date_ranges import check_date_range, check_no_overlap
+from backlogops.default_story_points import (
+    DefaultStoryPointLevel, DefaultStoryPoints)
 from backlogops.demo_backlog import get_demo_backlog
 from backlogops.estimate_ready_date import (
     estimate_ready_date, set_plan_from_estimate)
@@ -105,6 +107,8 @@ from backlogops.table_rows import (
     display_level_rows, fold_level_name, item_to_row, map_column_order,
     release_to_row, row_to_item, row_to_release)
 from backlogops.team import FteException, Membership, Team
+from backlogops.use_story_points import find_keys_with_children, \
+    use_story_points
 from backlogops.work_hours import (
     CompanyWorkHours, DEFAULT_WORK_WEEK, ExceptionWorkHours, ScheduleWorkHours,
     WeekDay)
@@ -116,7 +120,8 @@ __all__ = [
     'CLEAR_TOKEN_WARNING', 'CONFIG_DESCRIPTIONS', 'CONFIG_EXTENSION',
     'CompanyWorkHours', 'DEFAULT_LEVELS',
     'DEFAULT_WORK_WEEK', 'DEF_BACKLOG_COLUMN_MAP', 'DEF_RELEASE_COLUMN_MAP',
-    'DEF_STATUS_INPUT_MAP', 'DependencyMode', 'EDIT_SETTINGS',
+    'DEF_STATUS_INPUT_MAP', 'DefaultStoryPointLevel', 'DefaultStoryPoints',
+    'DependencyMode', 'EDIT_SETTINGS',
     'ExceptionWorkHours',
     'ExistsInJiraError', 'FailedItem', 'FailedLink', 'FailedRelease',
     'FailedRename', 'FileExistsCb', 'FormatRules', 'FteException',
@@ -145,7 +150,8 @@ __all__ = [
     'display_level_order', 'display_level_rows',
     'encrypt_token_file',
     'encrypt_token_to_file', 'estimate_ready_date', 'estimate_release_dates',
-    'event_finish', 'event_start', 'find_cycle', 'fold_level_name',
+    'event_finish', 'event_start', 'find_cycle', 'find_keys_with_children',
+    'fold_level_name',
     'format_add_result', 'format_backlog', 'format_backlog_updates',
     'format_content_changes', 'format_date_changes', 'format_order_result',
     'format_rank_result', 'format_release_result', 'format_release_updates',
@@ -166,7 +172,7 @@ __all__ = [
     'rename_releases_in_jira', 'resolve_input_config', 'resolve_jql',
     'resolve_output_config', 'row_to_item', 'row_to_release',
     'safe_write_config', 'set_plan_from_estimate', 'updatable_backlog_fields',
-    'update_backlog_in_jira', 'update_releases_in_jira',
+    'update_backlog_in_jira', 'update_releases_in_jira', 'use_story_points',
     'write_available_teams', 'write_backlog_ops_config',
     'write_backlog_releases', 'write_content_changes', 'write_date_changes',
     'write_key_list']

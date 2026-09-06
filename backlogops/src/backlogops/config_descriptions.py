@@ -334,6 +334,33 @@ _LEVEL: Descriptions = {
                   'Each is unique across the levels and their aliases.'}
 """Every member of one backlog item level."""
 
+_DEF_POINT_LEVEL: Descriptions = {
+    ('level',): 'The backlog item level this guess is for. A small whole '
+                'number, as a backlog item level is: the levels of a '
+                'backlog usually run from zero to about five.',
+    ('story_points',): 'What a backlog item of this level is worked with '
+                       'while it has no story points of its own. Not '
+                       'negative. Zero says such an item is no work at '
+                       'all, and a zero here is left out of the growth '
+                       'the two settings above work with.'}
+"""Every member of one default story points level."""
+
+_DEF_STORY_POINTS: Descriptions = {
+    ('interpolate',): 'Whether a level between two of the levels below is '
+                      'guessed from them. Level 1 with 2 points and level '
+                      '3 with 8 grow by a factor of 2 per level, so level '
+                      '2 is guessed as 4.',
+    ('extrapolate',): 'Whether a level above the highest or below the '
+                      'lowest of the levels below is guessed the same '
+                      'way, from the two highest or the two lowest of '
+                      'them. With those levels, level 4 is guessed as 16.',
+    ('levels',): 'What an unestimated backlog item of a level is worked '
+                 'with, from the smallest item upwards. An item of a '
+                 'level that is neither here nor reached by the two '
+                 'settings above is worked with no story points at all.',
+    **prefixed(('levels', EVERY), _DEF_POINT_LEVEL)}
+"""What every member of a ``DefaultStoryPoints`` is for."""
+
 _TOP_LEVEL: Descriptions = {
     ('available_teams',): 'Who does the work: the persons, the teams, and '
                           'the working week of the company. This is what an '
@@ -356,7 +383,13 @@ _TOP_LEVEL: Descriptions = {
                'none of it.',
     ('levels',): 'The levels of a backlog item, from the smallest upwards. '
                  'Without them the built-in levels are used: Sub-Task, '
-                 'Story, Epic and Initiative.'}
+                 'Story, Epic and Initiative.',
+    ('default_story_points',): 'What a backlog item that nobody has '
+                               'estimated is worked with when a completion '
+                               'date is worked out. An item that has story '
+                               'points of its own is worked with those, and '
+                               'an item that has children is a container '
+                               'for them and no work of its own.'}
 """What every member of the top-level configuration is for."""
 
 CONFIG_DESCRIPTIONS: Descriptions = {
@@ -366,7 +399,8 @@ CONFIG_DESCRIPTIONS: Descriptions = {
     **prefixed(('output_configs', EVERY), OUTPUT_DESCRIPTIONS),
     **prefixed(('gui_display',), GUI_DESCRIPTIONS),
     **prefixed(('jira',), JIRA_DESCRIPTIONS),
-    **prefixed(('levels', EVERY), _LEVEL)}
+    **prefixed(('levels', EVERY), _LEVEL),
+    **prefixed(('default_story_points',), _DEF_STORY_POINTS)}
 """What every member of a ``BacklogOpsConfig`` is for.
 
 One mapping for the whole tree, because a description selector crosses the

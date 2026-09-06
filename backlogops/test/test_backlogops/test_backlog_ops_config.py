@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 from config_as_json import MigrateCfgWarnHook
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, DEFAULT_LEVELS, JiraConnectConfig,
+    AvailableTeams, BacklogOpsConfig, DEFAULT_LEVELS, DefaultStoryPointLevel,
+    JiraConnectConfig,
     Level, LevelDisplay, Status, TokenStorage, make_input_config,
     make_output_config, read_backlog_ops_config, resolve_input_config,
     resolve_output_config, write_backlog_ops_config, DEF_STATUS_INPUT_MAP)
@@ -306,6 +307,37 @@ def test_level_not_dict() -> None:
     text = _ops_text([{'level': 0, 'name': 'A'}, 'notadict'])
     with pytest.raises(TypeError):
         BacklogOpsConfig(from_json_data_text=text, stderr_file=NO_OUTPUT)
+
+
+def test_def_points_empty() -> None:
+    """Test a fresh configuration guesses nothing for any level."""
+    points = _empty().default_story_points
+    assert not points.levels
+    assert points.get_default_story_points(1) is None
+
+
+def test_def_points_stored(tmp_path: Path) -> None:
+    """Test the guess survives a write and a read of the whole file."""
+    config = _empty()
+    level = DefaultStoryPointLevel(stderr_file=NO_OUTPUT)
+    level.level = 2
+    level.story_points = 4.0
+    config.default_story_points.levels.append(level)
+    config_file = tmp_path / 'ops.cfg'
+    write_backlog_ops_config(config, config_file, NO_OUTPUT)
+    loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
+    assert loaded.default_story_points.get_default_story_points(2) == 4.0
+
+
+def test_old_no_def_points(tmp_path: Path) -> None:
+    """Test a file written before the guess existed loads without one."""
+    new = _config_json(_empty())
+    del new['default_story_points']
+    config_file = tmp_path / 'old.cfg'
+    config_file.write_text(json.dumps(new), encoding='UTF-8')
+    loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
+    assert not loaded.default_story_points.levels
+    assert loaded.default_story_points.get_default_story_points(1) is None
 
 
 def test_status_map_default() -> None:

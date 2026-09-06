@@ -62,6 +62,7 @@
   * [convert\_to\_enum](#backlogops.backlog_helpers.convert_to_enum)
   * [convert\_to\_date](#backlogops.backlog_helpers.convert_to_date)
   * [convert\_to\_str](#backlogops.backlog_helpers.convert_to_str)
+  * [convert\_to\_float](#backlogops.backlog_helpers.convert_to_float)
   * [convert\_field\_value](#backlogops.backlog_helpers.convert_field_value)
   * [is\_extra\_field\_map](#backlogops.backlog_helpers.is_extra_field_map)
   * [extra\_field\_name](#backlogops.backlog_helpers.extra_field_name)
@@ -117,6 +118,31 @@
     * [release\_plan\_on\_estimate](#backlogops.backlog_releases.BacklogReleases.release_plan_on_estimate)
     * [order\_releases\_by\_date](#backlogops.backlog_releases.BacklogReleases.order_releases_by_date)
     * [backlog\_in\_release\_order](#backlogops.backlog_releases.BacklogReleases.backlog_in_release_order)
+* [backlogops.default\_story\_points](#backlogops.default_story_points)
+  * [\_SUBJECT](#backlogops.default_story_points._SUBJECT)
+  * [\_LEVEL\_LIMIT](#backlogops.default_story_points._LEVEL_LIMIT)
+  * [\_NO\_FACTOR](#backlogops.default_story_points._NO_FACTOR)
+  * [\_level\_validator](#backlogops.default_story_points._level_validator)
+  * [\_points\_validator](#backlogops.default_story_points._points_validator)
+  * [DefaultStoryPointLevel](#backlogops.default_story_points.DefaultStoryPointLevel)
+    * [\_\_init\_\_](#backlogops.default_story_points.DefaultStoryPointLevel.__init__)
+    * [get\_validation\_plan](#backlogops.default_story_points.DefaultStoryPointLevel.get_validation_plan)
+  * [\_anchors](#backlogops.default_story_points._anchors)
+  * [\_grown](#backlogops.default_story_points._grown)
+  * [\_interpolated](#backlogops.default_story_points._interpolated)
+  * [\_extrapolated](#backlogops.default_story_points._extrapolated)
+  * [\_DefPointsReadOldConfig](#backlogops.default_story_points._DefPointsReadOldConfig)
+    * [get\_missing\_path\_values](#backlogops.default_story_points._DefPointsReadOldConfig.get_missing_path_values)
+  * [DefaultStoryPoints](#backlogops.default_story_points.DefaultStoryPoints)
+    * [\_\_init\_\_](#backlogops.default_story_points.DefaultStoryPoints.__init__)
+    * [\_get\_read\_old\_config](#backlogops.default_story_points.DefaultStoryPoints._get_read_old_config)
+    * [nested\_configs](#backlogops.default_story_points.DefaultStoryPoints.nested_configs)
+    * [get\_validation\_plan](#backlogops.default_story_points.DefaultStoryPoints.get_validation_plan)
+    * [build\_cache](#backlogops.default_story_points.DefaultStoryPoints.build_cache)
+    * [\_check\_unique\_levels](#backlogops.default_story_points.DefaultStoryPoints._check_unique_levels)
+    * [\_check\_fill\_in\_levels](#backlogops.default_story_points.DefaultStoryPoints._check_fill_in_levels)
+    * [check\_consistency](#backlogops.default_story_points.DefaultStoryPoints.check_consistency)
+    * [get\_default\_story\_points](#backlogops.default_story_points.DefaultStoryPoints.get_default_story_points)
 * [backlogops.demo\_backlog](#backlogops.demo_backlog)
   * [\_POINTS](#backlogops.demo_backlog._POINTS)
   * [\_STATUSES](#backlogops.demo_backlog._STATUSES)
@@ -167,6 +193,7 @@
     * [ask\_preset\_name](#backlogops.wizard_navigator._Navigator.ask_preset_name)
     * [ask\_tableio](#backlogops.wizard_navigator._Navigator.ask_tableio)
     * [ask\_levels](#backlogops.wizard_navigator._Navigator.ask_levels)
+    * [ask\_def\_points](#backlogops.wizard_navigator._Navigator.ask_def_points)
     * [ask\_renames](#backlogops.wizard_navigator._Navigator.ask_renames)
     * [ask\_status\_map](#backlogops.wizard_navigator._Navigator.ask_status_map)
     * [ask\_jira\_map](#backlogops.wizard_navigator._Navigator.ask_jira_map)
@@ -304,6 +331,9 @@
   * [\_by\_date\_order](#backlogops.jira_order_releases._by_date_order)
   * [order\_jira\_rel\_by\_date](#backlogops.jira_order_releases.order_jira_rel_by_date)
   * [format\_order\_result](#backlogops.jira_order_releases.format_order_result)
+* [backlogops.use\_story\_points](#backlogops.use_story_points)
+  * [find\_keys\_with\_children](#backlogops.use_story_points.find_keys_with_children)
+  * [use\_story\_points](#backlogops.use_story_points.use_story_points)
 * [backlogops.config\_descriptions](#backlogops.config_descriptions)
   * [EVERY](#backlogops.config_descriptions.EVERY)
   * [prefixed](#backlogops.config_descriptions.prefixed)
@@ -324,6 +354,8 @@
   * [\_JIRA\_PRESET](#backlogops.config_descriptions._JIRA_PRESET)
   * [JIRA\_DESCRIPTIONS](#backlogops.config_descriptions.JIRA_DESCRIPTIONS)
   * [\_LEVEL](#backlogops.config_descriptions._LEVEL)
+  * [\_DEF\_POINT\_LEVEL](#backlogops.config_descriptions._DEF_POINT_LEVEL)
+  * [\_DEF\_STORY\_POINTS](#backlogops.config_descriptions._DEF_STORY_POINTS)
   * [\_TOP\_LEVEL](#backlogops.config_descriptions._TOP_LEVEL)
   * [CONFIG\_DESCRIPTIONS](#backlogops.config_descriptions.CONFIG_DESCRIPTIONS)
 * [backlogops.team](#backlogops.team)
@@ -489,6 +521,7 @@
   * [release\_to\_row](#backlogops.table_rows.release_to_row)
   * [\_split\_deps](#backlogops.table_rows._split_deps)
   * [\_maybe\_int](#backlogops.table_rows._maybe_int)
+  * [\_maybe\_float](#backlogops.table_rows._maybe_float)
   * [\_present\_cells](#backlogops.table_rows._present_cells)
   * [row\_to\_item](#backlogops.table_rows.row_to_item)
   * [row\_to\_release](#backlogops.table_rows.row_to_release)
@@ -851,6 +884,7 @@
   * [\_INPUT\_PRESETS\_HEAD](#backlogops.backlog_ops_wizard._INPUT_PRESETS_HEAD)
   * [\_OUTPUT\_PRESETS\_HEAD](#backlogops.backlog_ops_wizard._OUTPUT_PRESETS_HEAD)
   * [\_LEVELS\_HEAD](#backlogops.backlog_ops_wizard._LEVELS_HEAD)
+  * [\_DEF\_POINTS\_HEAD](#backlogops.backlog_ops_wizard._DEF_POINTS_HEAD)
   * [\_STATUS\_MAP\_HEAD](#backlogops.backlog_ops_wizard._STATUS_MAP_HEAD)
   * [\_GUI\_DISPLAY\_HEAD](#backlogops.backlog_ops_wizard._GUI_DISPLAY_HEAD)
   * [\_JIRA\_HEAD](#backlogops.backlog_ops_wizard._JIRA_HEAD)
@@ -858,6 +892,11 @@
   * [backlog\_ops\_wizard](#backlogops.backlog_ops_wizard.backlog_ops_wizard)
   * [\_collect\_teams](#backlogops.backlog_ops_wizard._collect_teams)
   * [\_collect\_config](#backlogops.backlog_ops_wizard._collect_config)
+  * [\_DEF\_POINTS\_QUESTION](#backlogops.backlog_ops_wizard._DEF_POINTS_QUESTION)
+  * [\_build\_def\_points](#backlogops.backlog_ops_wizard._build_def_points)
+  * [\_def\_points\_fields](#backlogops.backlog_ops_wizard._def_points_fields)
+  * [\_def\_points\_rule](#backlogops.backlog_ops_wizard._def_points_rule)
+  * [\_def\_points\_seed](#backlogops.backlog_ops_wizard._def_points_seed)
   * [\_build\_gui\_display](#backlogops.backlog_ops_wizard._build_gui_display)
   * [\_levels\_or\_none](#backlogops.backlog_ops_wizard._levels_or_none)
   * [\_COMPANY\_QUESTION](#backlogops.backlog_ops_wizard._COMPANY_QUESTION)
@@ -968,6 +1007,13 @@
   * [\_levels\_problem](#backlogops.wizard_helpers._levels_problem)
   * [\_cells\_from\_table](#backlogops.wizard_helpers._cells_from_table)
   * [\_read\_levels](#backlogops.wizard_helpers._read_levels)
+  * [\_DEF\_POINTS\_INSTRUCTION](#backlogops.wizard_helpers._DEF_POINTS_INSTRUCTION)
+  * [\_parse\_points](#backlogops.wizard_helpers._parse_points)
+  * [\_def\_points\_check](#backlogops.wizard_helpers._def_points_check)
+  * [\_def\_points\_cells](#backlogops.wizard_helpers._def_points_cells)
+  * [\_parse\_def\_points](#backlogops.wizard_helpers._parse_def_points)
+  * [\_def\_points\_problem](#backlogops.wizard_helpers._def_points_problem)
+  * [\_read\_def\_points](#backlogops.wizard_helpers._read_def_points)
   * [\_ISSUE\_TYPE\_INSTRUCTION](#backlogops.wizard_helpers._ISSUE_TYPE_INSTRUCTION)
   * [\_issue\_type\_cells](#backlogops.wizard_helpers._issue_type_cells)
   * [\_parse\_issue\_types](#backlogops.wizard_helpers._parse_issue_types)
@@ -1016,6 +1062,9 @@
   * [\_ParentRollup](#backlogops.estimate_ready_date._ParentRollup)
     * [create](#backlogops.estimate_ready_date._ParentRollup.create)
     * [effective](#backlogops.estimate_ready_date._ParentRollup.effective)
+  * [\_NO\_DEFAULTS](#backlogops.estimate_ready_date._NO_DEFAULTS)
+  * [\_defaults\_or\_warn](#backlogops.estimate_ready_date._defaults_or_warn)
+  * [\_points\_of](#backlogops.estimate_ready_date._points_of)
   * [estimate\_ready\_date](#backlogops.estimate_ready_date.estimate_ready_date)
   * [set\_plan\_from\_estimate](#backlogops.estimate_ready_date.set_plan_from_estimate)
 * [backlogops.jira\_write\_fields](#backlogops.jira_write_fields)
@@ -1884,8 +1933,11 @@ def _matches_class(value: object, data_type: type) -> bool
 
 Return True if a value matches a plain (unparameterized) class.
 
-A boolean is rejected where an integer is expected, because a
+A boolean is rejected where a number is expected, because a
 boolean is rarely a meaningful story point or numeric value here.
+An integer is accepted where a ``float`` is expected, because that
+is what the type hint itself means: a hint of ``float`` covers a
+whole number as well, as the type checker reads it.
 A ``datetime`` is rejected where a ``date`` is expected, even though
 ``datetime`` is a subclass of ``date``, so that a date field never
 silently holds a value carrying a time component.
@@ -2192,6 +2244,42 @@ whether ``True`` should become ``'True'`` or ``'1'`` is ambiguous.
 
 - `TypeError` - If the value cannot be unambiguously converted.
 
+<a id="backlogops.backlog_helpers.convert_to_float"></a>
+
+#### convert\_to\_float
+
+```python
+def convert_to_float(field_name: str,
+                     value: object,
+                     stderr_file: TextIO = sys.stderr) -> float
+```
+
+Convert a whole or decimal number to a ``float``.
+
+A value that is already a float is returned unchanged, and a whole
+number is widened to a float, so that story points written as ``5``
+and as ``5.0`` are stored as one type. A boolean is rejected, even
+though Python counts it as a whole number. A string is rejected as
+well: a numeric field of a backlog item holds a number, and the
+reading of a table cell that holds text is where such text is
+turned into a number.
+
+**Arguments**:
+
+- `field_name` - The name of the field being converted.
+- `value` - The number to convert.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  The converted float.
+  
+
+**Raises**:
+
+- `TypeError` - If the value is not a whole or decimal number.
+
 <a id="backlogops.backlog_helpers.convert_field_value"></a>
 
 #### convert\_field\_value
@@ -2207,8 +2295,9 @@ Convert and validate a single field value against its type hint.
 
 ``None`` is accepted for optional fields. Enum fields are converted
 with :func:`convert_to_enum`, date fields with :func:`convert_to_date`,
-string fields with :func:`convert_to_str`, and all other fields are
-checked with :func:`value_matches_type`.
+string fields with :func:`convert_to_str`, float fields with
+:func:`convert_to_float`, and all other fields are checked with
+:func:`value_matches_type`.
 
 **Arguments**:
 
@@ -3138,9 +3227,12 @@ documented for :func:`backlogops.order_by_dependencies`.
 
 ```python
 def estimate_ready_date(
-        available_teams: AvailableTeams,
-        start_date: Optional[date] = None,
-        stderr_file: TextIO = sys.stderr) -> ReleaseDateChanges
+    available_teams: AvailableTeams,
+    start_date: Optional[date] = None,
+    stderr_file: TextIO = sys.stderr,
+    *,
+    default_story_points: Optional[DefaultStoryPoints] = None
+) -> ReleaseDateChanges
 ```
 
 Estimate the ready date of the member backlog items.
@@ -3157,6 +3249,10 @@ one documented for :func:`backlogops.estimate_ready_date`.
   hours.
 - `start_date` - The day the teams start working, or None for today.
 - `stderr_file` - The file to report warnings to.
+- `default_story_points` - What a backlog item that nobody has
+  estimated is worked with. None is deprecated and only
+  kept for backward compatibility, as documented for
+  :func:`backlogops.estimate_ready_date`.
 
 <a id="backlogops.backlog_releases.BacklogReleases.set_plan_from_estimate"></a>
 
@@ -3300,6 +3396,416 @@ recommended.
   :func:`backlogops.backlog_in_release_order`. Has no effect
   when honor_dependencies is False. Default is False.
 - `stderr_file` - The file to report a missing release reference to.
+
+<a id="backlogops.default_story_points"></a>
+
+# backlogops.default\_story\_points
+
+Best guess story points for backlog items that have none.
+
+A backlog item nobody has estimated yet still takes time, and a completion
+date worked out as if it took none is wrong in the one direction that
+matters. :class:`DefaultStoryPoints` is what the configuration says such
+an item counts as: a story point value for a backlog item level, and two
+settings that fill in the levels that are not given.
+
+Filling in works with a factor, which is what one level up multiplies the
+size by. Level 1 with 2 story points and level 3 with 8 grow by a factor
+of 2 per level, so an interpolated level 2 is 4. Extrapolation continues
+past the given levels with the factor of the two highest of them upwards
+and the factor of the two lowest of them downwards, so level 4 is 16 and
+level 0 is 1. A level given zero story points counts as zero where it is
+given, but takes no part in any factor, because a ratio to zero says
+nothing about how sizes grow.
+
+Which backlog items this guess applies to is decided by
+:func:`backlogops.use_story_points`, not here.
+
+<a id="backlogops.default_story_points._SUBJECT"></a>
+
+#### \_SUBJECT
+
+What owns the members, used to start an error message.
+
+<a id="backlogops.default_story_points._LEVEL_LIMIT"></a>
+
+#### \_LEVEL\_LIMIT
+
+How far from zero a level number of a default may be.
+
+<a id="backlogops.default_story_points._NO_FACTOR"></a>
+
+#### \_NO\_FACTOR
+
+Why filling in levels is refused when too few levels are given.
+
+<a id="backlogops.default_story_points._level_validator"></a>
+
+#### \_level\_validator
+
+```python
+def _level_validator() -> MemberValidator
+```
+
+Return the validator of the level number of one default.
+
+<a id="backlogops.default_story_points._points_validator"></a>
+
+#### \_points\_validator
+
+```python
+def _points_validator() -> MemberValidator
+```
+
+Return the validator of the story points of one default.
+
+A whole number in the file is accepted and stored as a decimal, so
+that ``4`` and ``4.0`` say the same thing, while ``true`` is refused
+although Python counts a boolean as a whole number.
+
+<a id="backlogops.default_story_points.DefaultStoryPointLevel"></a>
+
+## DefaultStoryPointLevel Objects
+
+```python
+class DefaultStoryPointLevel(Config)
+```
+
+The default story points of a backlog item at one level.
+
+<a id="backlogops.default_story_points.DefaultStoryPointLevel.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
+```
+
+Create the default of one level, or read it from JSON.
+
+**Arguments**:
+
+- `from_json_data_text` - Optional JSON text to parse directly.
+- `from_json_filename` - Optional JSON file to read.
+- `auto_ch_hook` - Hook notified about backward-compatible changes
+  made while reading.
+- `stderr_file` - Stream used for user-facing diagnostics.
+- `member_name` - Path for reaching this object from the top level,
+  so that a diagnostic names the whole path. None for an
+  object that is a member of nothing.
+  
+
+**Attributes**:
+
+- `level` - The backlog item level this default is for.
+- `story_points` - What an item of that level counts as.
+
+<a id="backlogops.default_story_points.DefaultStoryPointLevel.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check the level number and the story points of one default.
+
+<a id="backlogops.default_story_points._anchors"></a>
+
+#### \_anchors
+
+```python
+def _anchors(levels: list[DefaultStoryPointLevel]) -> list[tuple[int, float]]
+```
+
+Return the level and points pairs a factor may be worked out from.
+
+The pairs are sorted by level and hold only the levels with story
+points above zero, because a factor is a ratio and a ratio to zero
+says nothing about how sizes grow from one level to the next.
+
+**Arguments**:
+
+- `levels` - The configured defaults, in any order.
+  
+
+**Returns**:
+
+  The level number and story points of each usable level, sorted.
+
+<a id="backlogops.default_story_points._grown"></a>
+
+#### \_grown
+
+```python
+def _grown(low: tuple[int, float], high: tuple[int, float],
+           level: int) -> Optional[float]
+```
+
+Return the story points at one level on the curve through two.
+
+The two anchors fix a factor per level: the ratio of their story
+points spread evenly over the levels between them. The answer is the
+lower anchor grown by that factor once per level, which reaches the
+higher anchor again at its own level.
+
+**Arguments**:
+
+- `low` - The level and story points of the lower anchor.
+- `high` - The level and story points of the higher anchor, which is
+  at a higher level than ``low``.
+- `level` - The level to work out the story points for.
+  
+
+**Returns**:
+
+  The story points at that level, or None when the level is so far
+  from the anchors that the answer is out of the range of a float.
+
+<a id="backlogops.default_story_points._interpolated"></a>
+
+#### \_interpolated
+
+```python
+def _interpolated(anchors: list[tuple[int, float]],
+                  level: int) -> Optional[float]
+```
+
+Return the guess between the anchors around a level, or None.
+
+**Arguments**:
+
+- `anchors` - The usable levels, sorted, at least two of them.
+- `level` - The level to work out the story points for.
+  
+
+**Returns**:
+
+  The story points grown from the nearest anchor below to the
+  nearest anchor above, or None when the level has no anchor on
+  both sides of it.
+
+<a id="backlogops.default_story_points._extrapolated"></a>
+
+#### \_extrapolated
+
+```python
+def _extrapolated(anchors: list[tuple[int, float]],
+                  level: int) -> Optional[float]
+```
+
+Return the guess beyond the highest or lowest anchor, or None.
+
+**Arguments**:
+
+- `anchors` - The usable levels, sorted, at least two of them.
+- `level` - The level to work out the story points for.
+  
+
+**Returns**:
+
+  The story points grown on from the two highest anchors above them
+  and from the two lowest anchors below them, or None when the
+  level lies within the anchors.
+
+<a id="backlogops.default_story_points._DefPointsReadOldConfig"></a>
+
+## \_DefPointsReadOldConfig Objects
+
+```python
+class _DefPointsReadOldConfig(ReadOldConfiguration)
+```
+
+Read a configuration written before the guess was configurable.
+
+A file that has no default story points at all, and one that has an
+empty section of them, both mean the same thing: nothing is guessed,
+and an unestimated backlog item is worked with no story points.
+
+<a id="backlogops.default_story_points._DefPointsReadOldConfig.get_missing_path_values"></a>
+
+#### get\_missing\_path\_values
+
+```python
+def get_missing_path_values() -> dict[ConfigPath, object]
+```
+
+Return the empty guess an older file leaves out.
+
+<a id="backlogops.default_story_points.DefaultStoryPoints"></a>
+
+## DefaultStoryPoints Objects
+
+```python
+class DefaultStoryPoints(Config)
+```
+
+What a backlog item with no story points of its own counts as.
+
+<a id="backlogops.default_story_points.DefaultStoryPoints.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
+```
+
+Create defaults that guess nothing, or read them from JSON.
+
+**Arguments**:
+
+- `from_json_data_text` - Optional JSON text to parse directly.
+- `from_json_filename` - Optional JSON file to read.
+- `auto_ch_hook` - Hook notified about backward-compatible changes
+  made while reading.
+- `stderr_file` - Stream used for user-facing diagnostics.
+- `member_name` - Path for reaching this object from the top level,
+  so that a diagnostic names the whole path. None for an
+  object that is a member of nothing.
+  
+
+**Attributes**:
+
+- `levels` - The story points given for a level, sorted by level
+  number while the configuration is validated.
+- `interpolate` - Whether a level between two given levels is
+  guessed from them.
+- `extrapolate` - Whether a level above the highest or below the
+  lowest given level is guessed from the two nearest ones.
+- `_points_for_level` - What each given level counts as, by level
+  number, built by :meth:`build_cache`.
+
+<a id="backlogops.default_story_points.DefaultStoryPoints._get_read_old_config"></a>
+
+#### \_get\_read\_old\_config
+
+```python
+@override
+def _get_read_old_config() -> ReadOldConfiguration
+```
+
+Accept an older file that leaves the whole guess out.
+
+<a id="backlogops.default_story_points.DefaultStoryPoints.nested_configs"></a>
+
+#### nested\_configs
+
+```python
+@override
+def nested_configs() -> NestedConfigs
+```
+
+Declare the given levels as nested configuration objects.
+
+<a id="backlogops.default_story_points.DefaultStoryPoints.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check the two settings, then the levels as a whole.
+
+The consistency check is given the stream of this validation, so
+that what it reports goes where the caller asked for it.
+
+<a id="backlogops.default_story_points.DefaultStoryPoints.build_cache"></a>
+
+#### build\_cache
+
+```python
+def build_cache() -> None
+```
+
+Build what each given level counts as, by level number.
+
+This is called whenever the configuration is validated. An
+application that changes the levels afterwards validates the
+configuration again, or calls this, before the changed levels are
+used.
+
+<a id="backlogops.default_story_points.DefaultStoryPoints._check_unique_levels"></a>
+
+#### \_check\_unique\_levels
+
+```python
+def _check_unique_levels(stderr_file: TextIO) -> None
+```
+
+Check that no level number is given story points twice.
+
+<a id="backlogops.default_story_points.DefaultStoryPoints._check_fill_in_levels"></a>
+
+#### \_check\_fill\_in\_levels
+
+```python
+def _check_fill_in_levels(stderr_file: TextIO) -> None
+```
+
+Check that filling in levels has two levels to work from.
+
+<a id="backlogops.default_story_points.DefaultStoryPoints.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the given levels and build the level lookup.
+
+The levels are sorted by level number, so that a stored file reads
+from the smallest item upwards. Giving the same level twice is an
+error, and so is asking for levels to be filled in without the two
+levels a factor is worked out from.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `ValueError` - A level is given twice, or a filled-in level is
+  asked for without two levels to work the factor from.
+
+<a id="backlogops.default_story_points.DefaultStoryPoints.get_default_story_points"></a>
+
+#### get\_default\_story\_points
+
+```python
+def get_default_story_points(level: int) -> Optional[float]
+```
+
+Return what a backlog item of one level counts as.
+
+A level that is given its own story points counts as those, zero
+included. A level that is not given any is filled in from the
+given ones as far as the two settings allow: between them when
+interpolation is allowed, and beyond them when extrapolation is.
+
+**Arguments**:
+
+- `level` - The level of the backlog item to guess the size of.
+  
+
+**Returns**:
+
+  The story points to count such an item as, or None when the
+  configuration says nothing about that level.
 
 <a id="backlogops.demo_backlog"></a>
 
@@ -3918,6 +4424,20 @@ def ask_levels(*, seed: Optional[list[Level]] = None) -> list[Level]
 
 Ask the backlog item levels as one variable-row table.
 
+<a id="backlogops.wizard_navigator._Navigator.ask_def_points"></a>
+
+#### ask\_def\_points
+
+```python
+def ask_def_points(
+        interpolate: bool,
+        extrapolate: bool,
+        *,
+        seed: Optional[DefaultStoryPoints] = None) -> DefaultStoryPoints
+```
+
+Ask the default story points as one variable-row table.
+
 <a id="backlogops.wizard_navigator._Navigator.ask_renames"></a>
 
 #### ask\_renames
@@ -4229,6 +4749,9 @@ item levels:
 * ``gui_display`` holds the GUI column-rename and level-display settings;
 * ``jira`` is the Jira input and output configuration, bridged to JSON by
   :class:`backlogops.jira_io_config.JiraIOConfig`;
+* ``default_story_points`` is what a backlog item that nobody has
+  estimated counts as, bridged to JSON by
+  :class:`backlogops.default_story_points.DefaultStoryPoints`;
 * ``levels`` is the optional list of backlog item levels. It is omitted
   from the file while it is ``None``; :meth:`BacklogOpsConfig.get_levels`
   then falls back to :data:`backlogops.levels.DEFAULT_LEVELS`. An empty
@@ -4362,9 +4885,10 @@ class _BacklogOpsReadOldConfig(ReadOldConfiguration)
 
 Normalize older backlog-ops configuration files on read.
 
-Two shape changes are accepted. The named input and output preset
-maps were added after the first released file; an empty map is
-supplied when an old file omits them. The workforce members were
+Two shape changes are accepted. Sections added after a released file,
+such as the named preset maps and the default story points, are
+supplied empty when an old file omits them, which for the default
+story points means guessing nothing. The workforce members were
 later moved from the top level into a nested ``available_teams``
 object; the move rules relocate them so old files keep loading.
 
@@ -4445,7 +4969,7 @@ Accept old files with a flat workforce or no preset maps.
 def nested_configs() -> NestedConfigs
 ```
 
-Declare the workforce and the named TableIO preset maps.
+Declare the workforce, the preset maps and the other sections.
 
 <a id="backlogops.backlog_ops_config.BacklogOpsConfig._omit_none_from_json"></a>
 
@@ -5961,6 +6485,83 @@ Each section has a heading with its count, then one indented name per
 line, or a ``(none)`` line when it is empty. The CLI prints this text and
 the GUI shows it in a copy-pasteable pop-up.
 
+<a id="backlogops.use_story_points"></a>
+
+# backlogops.use\_story\_points
+
+The story points to work a backlog item with.
+
+A backlog item carries the story points somebody estimated it at, or
+carries none because nobody has estimated it yet. What the work on the
+item is counted as is another matter, and it is what
+:func:`use_story_points` answers: an item that is finished is no work
+left, an item that is only a container for its children is no work of its
+own, and an item nobody has estimated is what the configured
+:class:`backlogops.DefaultStoryPoints` guesses for its level.
+
+<a id="backlogops.use_story_points.find_keys_with_children"></a>
+
+#### find\_keys\_with\_children
+
+```python
+def find_keys_with_children(backlog: Backlog) -> set[str]
+```
+
+Return the keys of the backlog items that have children.
+
+Working this out once and handing it to :func:`use_story_points` is
+what keeps pricing a whole backlog a matter of one pass over it.
+
+**Arguments**:
+
+- `backlog` - The backlog to take the parent references from.
+  
+
+**Returns**:
+
+  The key of every item that another item names as its parent.
+
+<a id="backlogops.use_story_points.use_story_points"></a>
+
+#### use\_story\_points
+
+```python
+def use_story_points(backlog: Backlog,
+                     backlog_item: BacklogItem,
+                     default_story_points: DefaultStoryPoints,
+                     keys_with_children: Optional[set[str]] = None) -> float
+```
+
+Return the story points to work one backlog item with.
+
+A done or rejected item is no work left to do. An item that has story
+points of its own is worked with those, whether or not it has
+children, because those points are the work on the item itself beside
+the work in its children. An item without story points that has
+children is a container for them and is no work of its own. An item
+without story points and without children is a bigger item that
+nobody has broken down or estimated yet, and is worked with what the
+default story points guess for its level, or with none when they
+guess nothing for it.
+
+**Arguments**:
+
+- `backlog` - The backlog the item belongs to, used to find out
+  whether the item has children.
+- `backlog_item` - The backlog item to find the story points of.
+- `default_story_points` - What the configuration guesses for an item
+  nobody has estimated.
+- `keys_with_children` - The keys of the items that have children, as
+  :func:`find_keys_with_children` returns them, or None to work
+  them out from the backlog. Pass them when pricing more than
+  one item, so that the backlog is walked once instead of once
+  per item.
+  
+
+**Returns**:
+
+  The story points to work the item with, which is never negative.
+
 <a id="backlogops.config_descriptions"></a>
 
 # backlogops.config\_descriptions
@@ -6173,6 +6774,18 @@ What every member of a ``JiraIOConfig`` is for.
 #### \_LEVEL
 
 Every member of one backlog item level.
+
+<a id="backlogops.config_descriptions._DEF_POINT_LEVEL"></a>
+
+#### \_DEF\_POINT\_LEVEL
+
+Every member of one default story points level.
+
+<a id="backlogops.config_descriptions._DEF_STORY_POINTS"></a>
+
+#### \_DEF\_STORY\_POINTS
+
+What every member of a ``DefaultStoryPoints`` is for.
 
 <a id="backlogops.config_descriptions._TOP_LEVEL"></a>
 
@@ -6435,7 +7048,12 @@ Fields:
          not contain any of the characters , . ; : ( ) [ ] { }.
     level: The level of the backlog item. Required. Must be an integer.
     title: The title of the backlog item. Required.
-    story_points: The story points of the backlog item.
+    story_points: The story points of the backlog item, or None
+                  when nobody has estimated it yet. May be a
+                  fraction, such as 0.5. What the work on the
+                  item is counted as, which is another matter,
+                  is answered by
+                  :func:`backlogops.use_story_points`.
     status: The status of the backlog item.
     parent_key: The key of the parent backlog item. Optional.
                 Must exist as a key in the backlog.
@@ -8811,6 +9429,20 @@ def _maybe_int(value: object) -> object
 
 Return an integer when a numeric cell should be one, else the value.
 
+<a id="backlogops.table_rows._maybe_float"></a>
+
+#### \_maybe\_float
+
+```python
+def _maybe_float(value: object) -> object
+```
+
+Return a numeric cell as a float when it holds one, else the value.
+
+A cell written as text is turned into a number here, so that a
+spreadsheet column of story points read as text still reaches the
+backlog item as the number it shows.
+
 <a id="backlogops.table_rows._present_cells"></a>
 
 #### \_present\_cells
@@ -8836,7 +9468,9 @@ Return a backlog item from a row keyed by internal field name.
 
 A string status is matched case-insensitively against ``status_map``
 before the built-in status-name matching, as documented for
-:func:`backlogops.backlog.get_backlog_item`.
+:func:`backlogops.backlog.get_backlog_item`. A row with no story
+points cell, or with an empty one, makes an item nobody has
+estimated yet rather than an item of no size.
 
 <a id="backlogops.table_rows.row_to_release"></a>
 
@@ -14122,6 +14756,12 @@ Stage heading shown while collecting the output presets.
 
 Stage heading shown while collecting the backlog item levels.
 
+<a id="backlogops.backlog_ops_wizard._DEF_POINTS_HEAD"></a>
+
+#### \_DEF\_POINTS\_HEAD
+
+Stage heading shown while collecting the default story points.
+
 <a id="backlogops.backlog_ops_wizard._STATUS_MAP_HEAD"></a>
 
 #### \_STATUS\_MAP\_HEAD
@@ -14191,7 +14831,8 @@ Interactively create a backlog-ops configuration.
 
 The workforce is entered as by :func:`available_teams_wizard`, the
 user may then add any number of named input and output TableIO
-configuration presets, edit the backlog item levels, adjust the global
+configuration presets, edit the backlog item levels, say what an
+unestimated backlog item is worked with, adjust the global
 status-name map, and finally choose how the GUI renames columns and
 shows levels. Each input preset
 asks how it reads the backlog and releases file columns into the
@@ -14244,7 +14885,61 @@ def _collect_config(nav: _Navigator,
                     default: Optional[BacklogOpsConfig]) -> BacklogOpsConfig
 ```
 
-Ask for workforce, TableIO presets, levels and GUI display.
+Ask workforce, presets, levels, story point guess and display.
+
+<a id="backlogops.backlog_ops_wizard._DEF_POINTS_QUESTION"></a>
+
+#### \_DEF\_POINTS\_QUESTION
+
+Instruction shown above the default story points form.
+
+<a id="backlogops.backlog_ops_wizard._build_def_points"></a>
+
+#### \_build\_def\_points
+
+```python
+def _build_def_points(
+        nav: _Navigator,
+        default: Optional[DefaultStoryPoints]) -> DefaultStoryPoints
+```
+
+Ask what an unestimated backlog item is worked with.
+
+Whether to guess at all, and whether to fill in the levels between
+and beyond the ones given, are asked on one form; the levels
+themselves are then one table, which is only asked for when there is
+a guess to make.
+
+<a id="backlogops.backlog_ops_wizard._def_points_fields"></a>
+
+#### \_def\_points\_fields
+
+```python
+def _def_points_fields() -> list[FormField]
+```
+
+Return the fields of the default story points form.
+
+<a id="backlogops.backlog_ops_wizard._def_points_rule"></a>
+
+#### \_def\_points\_rule
+
+```python
+def _def_points_rule(values: FormResult) -> tuple[Optional[str], set[str]]
+```
+
+Disable the filling-in questions when nothing is guessed at all.
+
+<a id="backlogops.backlog_ops_wizard._def_points_seed"></a>
+
+#### \_def\_points\_seed
+
+```python
+def _def_points_seed(
+        default: Optional[DefaultStoryPoints]) -> Optional[FormResult]
+```
+
+Return the form values of a stored default story points.
 
 <a id="backlogops.backlog_ops_wizard._build_gui_display"></a>
 
@@ -15875,6 +16570,92 @@ user's own rows kept, so the reported duplicate can be corrected. The
 table is pre-filled from the seed levels, or from the default levels
 when no seed is given.
 
+<a id="backlogops.wizard_helpers._DEF_POINTS_INSTRUCTION"></a>
+
+#### \_DEF\_POINTS\_INSTRUCTION
+
+Instruction shown above the default story points table.
+
+<a id="backlogops.wizard_helpers._parse_points"></a>
+
+#### \_parse\_points
+
+```python
+def _parse_points(text: Optional[str]) -> Optional[float]
+```
+
+Return ``text`` as story points, or None when it is no number.
+
+<a id="backlogops.wizard_helpers._def_points_check"></a>
+
+#### \_def\_points\_check
+
+```python
+def _def_points_check(table: list[list[Optional[str]]],
+                      position: tuple[int, int]) -> tuple[bool, str]
+```
+
+Give early feedback that a level or story points cell is valid.
+
+<a id="backlogops.wizard_helpers._def_points_cells"></a>
+
+#### \_def\_points\_cells
+
+```python
+def _def_points_cells(seed: Optional[DefaultStoryPoints],
+                      rows: int) -> list[list[TableCell]]
+```
+
+Return the table rows filled from a seed, or ``rows`` empty ones.
+
+<a id="backlogops.wizard_helpers._parse_def_points"></a>
+
+#### \_parse\_def\_points
+
+```python
+def _parse_def_points(table: list[list[Optional[str]]], interpolate: bool,
+                      extrapolate: bool) -> Optional[DefaultStoryPoints]
+```
+
+Return the default story points of a table, or None on a bad cell.
+
+The values are only read here; whether they make sense together is
+left to the validation of the configuration class itself.
+
+<a id="backlogops.wizard_helpers._def_points_problem"></a>
+
+#### \_def\_points\_problem
+
+```python
+def _def_points_problem(points: DefaultStoryPoints,
+                        error_file: TextIO) -> Optional[str]
+```
+
+Return a re-ask reason when the defaults are refused, else None.
+
+Validating the built configuration is what checks it, so the wizard
+refuses exactly what a stored file refuses, and the same call sorts
+the levels and builds the lookup of the returned object.
+
+<a id="backlogops.wizard_helpers._read_def_points"></a>
+
+#### \_read\_def\_points
+
+```python
+def _read_def_points(
+        ui: WizardUiBridge,
+        interpolate: bool,
+        extrapolate: bool,
+        seed: Optional[DefaultStoryPoints] = None) -> DefaultStoryPoints
+```
+
+Ask the default story points as one variable-row table question.
+
+Two rows are asked for when a level between or beyond the given ones
+is to be guessed, because a growth factor is worked out from two
+levels. Each cell is checked as it is entered, and the whole table is
+then checked by validating the configuration it builds.
+
 <a id="backlogops.wizard_helpers._ISSUE_TYPE_INSTRUCTION"></a>
 
 #### \_ISSUE\_TYPE\_INSTRUCTION
@@ -16303,7 +17084,7 @@ rescaled by the team's effective full-time equivalent on the day.
 #### advance
 
 ```python
-def advance(team: Team, points: int,
+def advance(team: Team, points: float,
             cursor: _Cursor) -> Optional[tuple[date, _Cursor]]
 ```
 
@@ -16340,8 +17121,8 @@ item; lifting a parent's date to its children is done afterwards by
 
 ```python
 @staticmethod
-def create(teams: AvailableTeams, start: date,
-           stderr_file: TextIO) -> '_Estimator'
+def create(teams: AvailableTeams, start: date, stderr_file: TextIO,
+           points: dict[str, float]) -> '_Estimator'
 ```
 
 Create an estimator with every team free on the start date.
@@ -16388,9 +17169,11 @@ Return the date the team finishes the item's own work.
 
 Done and rejected items consume no team time and get no date.
 Other items are worked by their assigned team, or by the team
-that is free earliest, from where that team's cursor stands. When
-the team has no capacity for the item, or no team is available,
-the item gets no date and a warning is reported.
+that is free earliest, from where that team's cursor stands, for
+the story points the item is worked with as decided by
+:func:`backlogops.use_story_points`. When the team has no
+capacity for the item, or no team is available, the item gets no
+date and a warning is reported.
 
 <a id="backlogops.estimate_ready_date._ParentRollup"></a>
 
@@ -16431,15 +17214,60 @@ def effective(key: str) -> Optional[date]
 
 Return the effective ready date of one item key.
 
+<a id="backlogops.estimate_ready_date._NO_DEFAULTS"></a>
+
+#### \_NO\_DEFAULTS
+
+What is said about an estimate that is given no default story points.
+
+<a id="backlogops.estimate_ready_date._defaults_or_warn"></a>
+
+#### \_defaults\_or\_warn
+
+```python
+def _defaults_or_warn(
+        defaults: Optional[DefaultStoryPoints]) -> DefaultStoryPoints
+```
+
+Return the given defaults, or empty ones with a deprecation.
+
+**Arguments**:
+
+- `defaults` - What the caller passed, or None for the temporary
+  backward-compatible behaviour.
+  
+
+**Returns**:
+
+  The defaults to guess with, which guess nothing when None was
+  passed.
+
+<a id="backlogops.estimate_ready_date._points_of"></a>
+
+#### \_points\_of
+
+```python
+def _points_of(backlog: Backlog,
+               defaults: DefaultStoryPoints) -> dict[str, float]
+```
+
+Return the story points to work each item with, by item key.
+
+The keys of the items that have children are found once for the
+whole backlog, so that pricing it is one pass over it.
+
 <a id="backlogops.estimate_ready_date.estimate_ready_date"></a>
 
 #### estimate\_ready\_date
 
 ```python
-def estimate_ready_date(backlog: Backlog,
-                        available_teams: AvailableTeams,
-                        start_date: Optional[date] = None,
-                        stderr_file: TextIO = sys.stderr) -> Backlog
+def estimate_ready_date(
+        backlog: Backlog,
+        available_teams: AvailableTeams,
+        start_date: Optional[date] = None,
+        stderr_file: TextIO = sys.stderr,
+        *,
+        default_story_points: Optional[DefaultStoryPoints] = None) -> Backlog
 ```
 
 Estimate the ready date of backlog items.
@@ -16463,6 +17291,12 @@ weekly schedule. The story points of TODO and IN_PROGRESS items are
 all treated as still left to do; DONE and REJECTED items need no work
 and get no estimated date. See also the Status enum.
 
+What an item that carries no story points of its own is worked with
+is decided by :func:`backlogops.use_story_points` from the given
+default story points: an item with children is a container and is no
+work of its own, and an item without children is guessed at from its
+level.
+
 A parent's estimated date is lifted to be no earlier than its latest
 child's, applied through the whole hierarchy, because a parent cannot
 be ready before its children even though work on the parent itself
@@ -16483,6 +17317,10 @@ item gets no estimated date and a warning is reported.
   date, including absence, velocity and work hours.
 - `start_date` - The day the teams start working, or None for today.
 - `stderr_file` - The file to report warnings to.
+- `default_story_points` - What a backlog item that nobody has
+  estimated is worked with. None is deprecated and only kept
+  for backward compatibility: it works such an item with no
+  story points at all and reports a DeprecationWarning.
   
 
 **Returns**:

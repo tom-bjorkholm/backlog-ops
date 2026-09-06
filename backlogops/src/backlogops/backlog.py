@@ -61,7 +61,12 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
              not contain any of the characters , . ; : ( ) [ ] { }.
         level: The level of the backlog item. Required. Must be an integer.
         title: The title of the backlog item. Required.
-        story_points: The story points of the backlog item.
+        story_points: The story points of the backlog item, or None
+                      when nobody has estimated it yet. May be a
+                      fraction, such as 0.5. What the work on the
+                      item is counted as, which is another matter,
+                      is answered by
+                      :func:`backlogops.use_story_points`.
         status: The status of the backlog item.
         parent_key: The key of the parent backlog item. Optional.
                     Must exist as a key in the backlog.
@@ -100,7 +105,7 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
     key: str
     level: int
     title: str
-    story_points: int
+    story_points: Optional[float]
     status: Status
     parent_key: Optional[str] = None
     release: Optional[str] = None

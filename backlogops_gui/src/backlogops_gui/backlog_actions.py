@@ -16,7 +16,8 @@ import tkinter as tk
 from datetime import timedelta
 from typing import Callable, Optional, TextIO
 from backlogops import (
-    AddedToJira, AvailableTeams, BacklogReleases, Levels, OutputFormatConfig,
+    AddedToJira, AvailableTeams, BacklogReleases, DefaultStoryPoints, Levels,
+    OutputFormatConfig,
     ReleaseChanges, ReleaseDateChanges, UpdatedBacklogInJira, allow_overwrite,
     apply_jira_keys, format_add_result, format_backlog_updates,
     format_content_changes, format_date_changes, get_keys_in_order,
@@ -248,11 +249,17 @@ def _run_change(parent: tk.Misc,
 
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def estimate_date(parent: tk.Misc, data: BacklogReleases,
-                  teams: Optional[AvailableTeams], sink: TextIO,
+                  teams: Optional[AvailableTeams],
+                  points: Optional[DefaultStoryPoints], sink: TextIO,
                   refresh: Callable[[], None],
                   on_error: Callable[[str, str], None],
                   on_info: Callable[[str, str], None]) -> None:
-    """Ask for the start date and estimate the ready dates."""
+    """Ask for the start date and estimate the ready dates.
+
+    An unestimated backlog item is worked with what the configuration
+    guesses for its level, so the guess of the loaded configuration is
+    passed on with the workforce.
+    """
     if teams is None:
         on_error('No configuration',
                  'There is no teams configuration to estimate from.')
@@ -261,10 +268,12 @@ def estimate_date(parent: tk.Misc, data: BacklogReleases,
     if choice is None:
         return
     ready_teams, start = teams, choice.start_date
+    guess = DefaultStoryPoints() if points is None else points
 
     def change() -> tuple[str, Optional[Callable[[str], None]]]:
         """Estimate the dates and return the release date change report."""
-        changes = data.estimate_ready_date(ready_teams, start, sink)
+        changes = data.estimate_ready_date(ready_teams, start, sink,
+                                           default_story_points=guess)
         return _date_report(changes, sink)
     _run_change(parent, change, refresh, on_error, on_info,
                 'Could not estimate ready date', 'Release date changes')

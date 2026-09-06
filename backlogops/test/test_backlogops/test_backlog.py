@@ -181,6 +181,29 @@ def test_bad_field_errors(field_name: str, value: object) -> None:
     assert repr(value) in error_text
 
 
+@pytest.mark.parametrize('value', [3, 3.0, 0.5, 0.0, None])
+def test_story_point_values(value: Optional[float]) -> None:
+    """Test story points may be whole, a fraction, zero or absent.
+
+    A whole number is accepted where a decimal is declared, as the type
+    hint itself means, and is stored as a decimal. No story points at
+    all is an item nobody has estimated yet.
+    """
+    data = _valid_data()
+    data['story_points'] = value
+    item = get_backlog_item(data, stderr_file=NO_OUTPUT)
+    assert item.story_points == value
+    assert value is None or isinstance(item.story_points, float)
+    item.check_consistency(NO_OUTPUT)
+
+
+def test_whole_points_ok() -> None:
+    """Test a whole number set on the item itself passes the check."""
+    item = _valid_item()
+    item.story_points = 3
+    item.check_consistency(NO_OUTPUT)
+
+
 def test_internal_ok() -> None:
     """Test a fully populated valid item passes the internal check."""
     item = BacklogItem(key='BI-1', level=1, title='Title', story_points=3,
@@ -204,6 +227,7 @@ def test_internal_rel_label(release: str) -> None:
 
 @pytest.mark.parametrize('field_name, value', [
     ('story_points', 'three'),
+    ('story_points', True),
     ('key', 7),
     ('level', 'one'),
     ('level', True),

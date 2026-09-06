@@ -26,6 +26,7 @@ from wizard_tk_bridge.auto_scroll import auto_hide
 from wizard_tk_bridge.close_binding import CLOSE_ACCELERATOR, bind_close
 from backlogops import (
     AddedReleasesToJira, AddedToJira, AvailableTeams, BacklogReleases,
+    DefaultStoryPoints,
     GuiDisplayConfig, Levels, OrderedReleasesInJira, OutputFormatConfig,
     RankedInJira, RenamedReleasesInJira, UpdatedBacklogInJira,
     UpdatedReleasesInJira, format_order_result, format_rank_result,
@@ -112,6 +113,8 @@ class BacklogWindow:
                      [], GuiDisplayConfig] = GuiDisplayConfig,
                  warning: Optional[str] = None,
                  jira: Optional[JiraHandlers] = None, *,
+                 def_points: Callable[
+                     [], Optional[DefaultStoryPoints]] = lambda: None,
                  source: Optional[BacklogSource] = None,
                  reload: Optional[Callable[
                      [Callable[[BacklogReleases, Optional[str]], None]],
@@ -135,6 +138,8 @@ class BacklogWindow:
             jira: The Jira menu handlers to offer, or None for none. Each
                 handler is None when its operation is unavailable, which
                 disables its menu item.
+            def_points: Callable returning what the configuration works an
+                unestimated backlog item with, or None for none.
             source: Where the data came from and when it was read. When
                 given, an information region is shown at the top of the
                 window; when None no information region is shown.
@@ -146,6 +151,7 @@ class BacklogWindow:
         self._data = data
         self._presets = presets
         self._teams = teams
+        self._def_points = def_points
         self._sink = sink
         self._levels = levels
         self._gui_display = gui_display
@@ -461,8 +467,8 @@ class BacklogWindow:
 
     def _estimate_date(self) -> None:
         """Estimate the ready dates and refresh the tables."""
-        estimate_date(self._win, self._data, self._teams(), self._sink,
-                      self._changed_refresh, self._report_error,
+        estimate_date(self._win, self._data, self._teams(), self._def_points(),
+                      self._sink, self._changed_refresh, self._report_error,
                       self._report_info)
 
     def _set_plan(self) -> None:
