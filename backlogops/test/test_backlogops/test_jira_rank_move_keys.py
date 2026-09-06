@@ -192,3 +192,14 @@ def test_format_result() -> None:
     assert 'Ranked in Jira (1):' in text
     assert 'Not in Jira (1):' in text
     assert 'Excluded by the filter (1):' in text
+    assert text.startswith('NOT EVERYTHING SUCCEEDED IN JIRA:\n'
+                           '  Not in Jira: 1\n'
+                           '  Excluded by the filter: 1\n')
+    assert text.index('Not in Jira (1):') < text.index('Ranked in Jira (1):')
+
+
+def test_format_all_ranked() -> None:
+    """Test a listing without unranked keys opens with the all-ok line."""
+    text = format_rank_result(RankedInJira(['A'], [], []))
+    assert text.startswith('Everything requested succeeded in Jira.\n')
+    assert 'Ranked in Jira (1):' in text

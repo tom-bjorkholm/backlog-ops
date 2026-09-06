@@ -80,7 +80,8 @@ from backlogops.jira_write import (
 from backlogops.jira_write_fields import FailedField, FailedLink
 from backlogops.jira_write_status import StatusMismatch
 from backlogops.jira_write_types import UnknownIssueTypeError
-from backlogops.jira_write_format import format_add_result
+from backlogops.jira_write_format import (
+    format_add_result, report_has_problems)
 from backlogops.jira_write_releases import (
     AddedReleasesToJira, FailedRelease, ReleaseExistsError,
     add_releases_to_jira, format_release_result)
@@ -172,7 +173,8 @@ __all__ = [
     'read_backlog_ops_config', 'read_backlog_releases', 'read_io_preset',
     'read_jira_from_config', 'read_key_list', 'read_name_list', 'read_renames',
     'release_plan_on_estimate', 'release_to_row', 'rename_release_in_jira',
-    'rename_releases_in_jira', 'resolve_input_config', 'resolve_jql',
+    'rename_releases_in_jira', 'report_has_problems',
+    'resolve_input_config', 'resolve_jql',
     'resolve_output_config', 'row_to_item', 'row_to_release',
     'safe_write_config', 'set_plan_from_estimate', 'updatable_backlog_fields',
     'update_backlog_in_jira', 'update_releases_in_jira', 'use_story_points',

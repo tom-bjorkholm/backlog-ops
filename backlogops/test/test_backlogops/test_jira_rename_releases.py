@@ -133,6 +133,11 @@ def test_format_rename() -> None:
     assert 'New name already in use (1):' in text and '  R2 -> R3' in text
     assert 'Failed to rename (1):' in text
     assert '  R4 -> R7  - HTTP 400: nope' in text
+    assert text.startswith('NOT EVERYTHING SUCCEEDED IN JIRA:\n'
+                           '  Old name not in Jira: 1\n'
+                           '  New name already in use: 1\n'
+                           '  Failed to rename: 1\n')
+    assert text.index('Failed to rename (1):') < text.index('Renamed in Jira')
 
 
 def test_format_empty() -> None:
@@ -141,6 +146,7 @@ def test_format_empty() -> None:
     assert 'Renamed in Jira (0):' in text
     assert 'Failed to rename (0):' in text
     assert '(none)' in text
+    assert text.startswith('Everything requested succeeded in Jira.\n')
 
 
 def test_reexport() -> None:

@@ -31,7 +31,7 @@ from typing import NamedTuple, Optional, Sequence, TextIO
 from jira import JIRA
 from jira.resources import Resource
 from backlogops.jira_connect import JiraConnections
-from backlogops.jira_write_format import _key_section
+from backlogops.jira_write_format import _build_report, _key_section
 from backlogops.jira_write_releases import _by_name, _release_context
 
 
@@ -192,11 +192,12 @@ def order_jira_rel_by_date(connections: JiraConnections, preset_name: str, *,
 def format_order_result(result: OrderedReleasesInJira) -> str:
     """Return a listing of the ordered names and the names not in Jira.
 
-    Each section has a heading with its count, then one indented name per
-    line, or a ``(none)`` line when it is empty. The CLI prints this text and
-    the GUI shows it in a copy-pasteable pop-up.
+    The listing opens with a banner naming the names that could not be
+    ordered, then shows them, and last the ordered names. Each section has
+    a heading with its count, then one indented name per line, or a
+    ``(none)`` line when it is empty. The CLI prints this text and the GUI
+    shows it in a copy-pasteable pop-up.
     """
-    lines = _key_section('Ordered in Jira', result.ordered)
-    lines.append('')
-    lines.extend(_key_section('Not in Jira', result.not_in_jira))
-    return '\n'.join(lines)
+    return _build_report(
+        problems=[_key_section('Not in Jira', result.not_in_jira)],
+        done=[_key_section('Ordered in Jira', result.ordered)])

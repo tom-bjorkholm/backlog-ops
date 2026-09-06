@@ -14,7 +14,7 @@ from backlogops import (
     AddedToJira, BacklogReleases, GuiDisplayConfig, NoTextIO, get_demo_backlog)
 from backlogops_gui import backlog_window
 from backlogops_gui.backlog_window import (
-    BacklogSource, BacklogWindow, JiraHandlers, MODIFIED_MARK)
+    BacklogSource, BacklogWindow, JiraHandlers, MODIFIED_MARK, PROBLEM_MARK)
 from .gui_test_helpers import MsgRecorder, gui_root, press_close
 
 DATA = BacklogReleases(backlog=[], releases=[])
@@ -326,6 +326,15 @@ _JIRA_CALLBACKS = ['_on_jira_added', '_on_releases_added',
                    '_on_releases_renamed']
 """The Jira result callbacks, each reporting through a text pop-up."""
 
+_JIRA_TITLES = ['Added to Jira', 'Add releases to Jira',
+                'Update releases in Jira', 'Update backlog in Jira',
+                'Rank items in Jira', 'Order releases in Jira',
+                'Rename releases in Jira']
+"""The pop-up title of each Jira result callback, in the same order."""
+
+_PROBLEM_TEXT = 'NOT EVERYTHING SUCCEEDED IN JIRA:\n  Fields not set: 1\n'
+"""A result listing reporting that something did not happen in Jira."""
+
 
 def _all_handlers(store: list[object]) -> JiraHandlers:
     """Return a handler for every Jira operation, all recording as one."""
@@ -366,8 +375,8 @@ def test_jira_no_handlers() -> None:
             getattr(window, name)()
 
 
-def test_result_callbacks(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test each Jira result callback reports through a text pop-up."""
+def _report_titles(monkeypatch: pytest.MonkeyPatch, text: str) -> list[str]:
+    """Return the pop-up title each Jira callback shows for a listing."""
     titles: list[str] = []
 
     def report(_win: object, title: str, _text: object) -> None:
@@ -375,19 +384,31 @@ def test_result_callbacks(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def apply_result(_data: object, _result: object, _refresh: object,
                      show: Callable[[str], None]) -> None:
-        show('t')
+        show(text)
     monkeypatch.setattr(backlog_window, 'show_text_report', report)
     monkeypatch.setattr(backlog_window, 'apply_add_result', apply_result)
     monkeypatch.setattr(backlog_window, 'apply_update_result', apply_result)
     for name in ('format_release_result', 'format_release_updates',
                  'format_rank_result', 'format_order_result',
                  'format_rename_result'):
-        monkeypatch.setattr(backlog_window, name, lambda result: 'txt')
+        monkeypatch.setattr(backlog_window, name, lambda result: text)
     with gui_root() as root:
         window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK)
         for name in _JIRA_CALLBACKS:
             getattr(window, name)(object())
-    assert len(titles) == 7
+    return titles
+
+
+def test_result_callbacks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test each Jira result callback reports through a text pop-up."""
+    titles = _report_titles(monkeypatch, 'Everything requested succeeded.')
+    assert titles == _JIRA_TITLES
+
+
+def test_problem_titles(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a listing reporting a problem marks every pop-up title."""
+    titles = _report_titles(monkeypatch, _PROBLEM_TEXT)
+    assert titles == [f'{name}{PROBLEM_MARK}' for name in _JIRA_TITLES]
 
 
 T0 = datetime(2026, 7, 18, 14, 30, 45)

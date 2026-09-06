@@ -17,7 +17,8 @@ from typing import Optional, cast
 import pytest
 from jira import JIRA, JIRAError
 import backlogops
-from backlogops import JiraRankAnchor, format_add_result
+from backlogops import (
+    JiraRankAnchor, format_add_result, report_has_problems)
 from backlogops.backlog import BacklogItem, Status
 import backlogops.jira_connect as jc
 from backlogops.jira_connect import JiraConnections
@@ -284,6 +285,13 @@ def test_format_result() -> None:
     assert 'P-2  fixVersions  - HTTP 400: no' in text
     assert 'Links not written (1):' in text
     assert 'P-3 -> P-1  (Blocks)  - HTTP 400: link' in text
+    assert text.startswith('NOT EVERYTHING SUCCEEDED IN JIRA:\n'
+                           '  Failed to add: 1\n'
+                           '  Status not set in Jira: 1\n'
+                           '  Fields not set: 1\n'
+                           '  Links not written: 1\n')
+    assert text.index('Failed to add (1):') < text.index('Added to Jira (1):')
+    assert report_has_problems(text)
 
 
 def test_format_empty() -> None:
@@ -295,6 +303,8 @@ def test_format_empty() -> None:
     assert 'Fields not set (0):' in text
     assert 'Links not written (0):' in text
     assert '(none)' in text
+    assert text.startswith('Everything requested succeeded in Jira.\n')
+    assert not report_has_problems(text)
 
 
 def test_failed_continue(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -579,6 +589,8 @@ def test_reexport() -> None:
     assert 'FailedLink' in backlogops.__all__
     assert 'FailedField' in backlogops.__all__
     assert 'JiraConnections' in backlogops.__all__
+    assert backlogops.report_has_problems is report_has_problems
+    assert 'report_has_problems' in backlogops.__all__
 
 
 def test_stored_refs_remap(monkeypatch: pytest.MonkeyPatch) -> None:

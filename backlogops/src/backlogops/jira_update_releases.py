@@ -31,7 +31,7 @@ from jira.resources import Resource
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap
 from backlogops.jira_write import ItemNotInJiraError, OnMissingKey
-from backlogops.jira_write_format import _key_section, _outcome_prefix
+from backlogops.jira_write_format import _build_report, _key_section
 from backlogops.jira_write_releases import (
     FailedRelease, _ReleaseCtx, _by_name, _failed_section, _release_context,
     _report_skipped, _run_version_write, _try_create_version, _version_kwargs)
@@ -214,16 +214,16 @@ def update_releases_in_jira(connections: JiraConnections, preset_name: str,
 def format_release_updates(result: UpdatedReleasesInJira) -> str:
     """Return a listing of the update outcome per release.
 
-    The sections are the updated, already-correct, ignored, added and
-    failed releases. Each section has a heading with its count, then one
-    line per release name, or a ``(none)`` line when the section is empty.
-    The CLI prints this text and the GUI shows it in a copy-pasteable
-    pop-up.
+    The listing opens with a banner naming what did not happen, then
+    shows the failed releases, the ignored ones, and last the updated,
+    already-correct and added releases. Each section has a heading with
+    its count, then one line per release name, or a ``(none)`` line when
+    the section is empty. The CLI prints this text and the GUI shows it in
+    a copy-pasteable pop-up.
     """
-    lines = _outcome_prefix(result.updated, result.already_correct,
-                            result.ignored)
-    lines.append('')
-    lines.extend(_key_section('Added to Jira', result.added))
-    lines.append('')
-    lines.extend(_failed_section('Failed to update', result.failed))
-    return '\n'.join(lines)
+    return _build_report(
+        problems=[_failed_section('Failed to update', result.failed)],
+        skipped=[_key_section('Not in Jira (ignored)', result.ignored)],
+        done=[_key_section('Updated in Jira', result.updated),
+              _key_section('Already correct in Jira', result.already_correct),
+              _key_section('Added to Jira', result.added)])

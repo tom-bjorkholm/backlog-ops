@@ -30,7 +30,8 @@ from backlogops import (
     GuiDisplayConfig, Levels, OrderedReleasesInJira, OutputFormatConfig,
     RankedInJira, RenamedReleasesInJira, UpdatedBacklogInJira,
     UpdatedReleasesInJira, format_order_result, format_rank_result,
-    format_release_result, format_release_updates, format_rename_result)
+    format_release_result, format_release_updates, format_rename_result,
+    report_has_problems)
 from backlogops_gui.backlog_actions import (
     adjust_content, apply_add_result, apply_update_result, estimate_date,
     extract_keys, order_by_deps, order_by_keys, order_by_release, order_dates,
@@ -42,6 +43,8 @@ from backlogops_gui.table_view import (
 RELEASE_COLUMN_WIDTH = 110
 WARNING_WRAP = 760
 MODIFIED_MARK = ' — Modified'
+PROBLEM_MARK = ' — NOT ALL SUCCEEDED'
+"""Added to a Jira pop-up title when the listing reports a problem."""
 
 
 def current_time() -> datetime:
@@ -509,7 +512,18 @@ class BacklogWindow:
 
     def _show_add_report(self, text: str) -> None:
         """Show the add result text in a copy-pasteable pop-up."""
-        show_text_report(self._win, 'Added to Jira', text)
+        self._show_jira_report('Added to Jira', text)
+
+    def _show_jira_report(self, title: str, text: str) -> None:
+        """Show a Jira result listing, marking a title with problems.
+
+        A listing reporting something that did not happen gets a marked
+        title, so the user sees that not everything succeeded even when
+        the pop-up shows only its first lines or the log is hidden behind
+        another window.
+        """
+        mark = PROBLEM_MARK if report_has_problems(text) else ''
+        show_text_report(self._win, f'{title}{mark}', text)
 
     def _releases_add(self) -> None:
         """Add the shown releases to Jira and show the result lists."""
@@ -522,8 +536,8 @@ class BacklogWindow:
         A release name never changes, so the shown releases already match
         what was added and no rebuild of the tables is needed.
         """
-        show_text_report(self._win, 'Add releases to Jira',
-                         format_release_result(result))
+        self._show_jira_report('Add releases to Jira',
+                               format_release_result(result))
 
     def _releases_update(self) -> None:
         """Update the shown releases in Jira and show the result lists."""
@@ -537,8 +551,8 @@ class BacklogWindow:
         failed releases. An update changes only the Jira versions, not the
         shown releases, so no rebuild of the tables is needed.
         """
-        show_text_report(self._win, 'Update releases in Jira',
-                         format_release_updates(result))
+        self._show_jira_report('Update releases in Jira',
+                               format_release_updates(result))
 
     def _backlog_update(self) -> None:
         """Update the shown backlog in Jira and show the result lists."""
@@ -557,7 +571,7 @@ class BacklogWindow:
 
     def _show_update_report(self, text: str) -> None:
         """Show the backlog update result text in a copy-pasteable pop-up."""
-        show_text_report(self._win, 'Update backlog in Jira', text)
+        self._show_jira_report('Update backlog in Jira', text)
 
     def _rank_jira(self) -> None:
         """Move chosen issues in the Jira rank order and show the result."""
@@ -570,8 +584,8 @@ class BacklogWindow:
         Ranking changes only the Jira rank of issues, not the shown
         backlog, so no rebuild of the tables is needed.
         """
-        show_text_report(self._win, 'Rank items in Jira',
-                         format_rank_result(result))
+        self._show_jira_report('Rank items in Jira',
+                               format_rank_result(result))
 
     def _releases_order(self) -> None:
         """Order the releases in Jira and show the result lists."""
@@ -584,8 +598,8 @@ class BacklogWindow:
         Ordering changes only the Jira version order, not the shown
         releases, so no rebuild of the tables is needed.
         """
-        show_text_report(self._win, 'Order releases in Jira',
-                         format_order_result(result))
+        self._show_jira_report('Order releases in Jira',
+                               format_order_result(result))
 
     def _releases_rename(self) -> None:
         """Rename the shown releases in Jira and show the result lists."""
@@ -598,5 +612,5 @@ class BacklogWindow:
         Renaming changes only the Jira version names, not the shown
         releases, so no rebuild of the tables is needed.
         """
-        show_text_report(self._win, 'Rename releases in Jira',
-                         format_rename_result(result))
+        self._show_jira_report('Rename releases in Jira',
+                               format_rename_result(result))

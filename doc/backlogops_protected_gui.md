@@ -57,6 +57,8 @@
   * [ask\_release\_order](#backlogops_gui.backlog_dialogs.ask_release_order)
   * [ask\_buffer\_days](#backlogops_gui.backlog_dialogs.ask_buffer_days)
 * [backlogops\_gui.report\_windows](#backlogops_gui.report_windows)
+  * [\_add\_scrollbars](#backlogops_gui.report_windows._add_scrollbars)
+  * [\_scrolled\_text](#backlogops_gui.report_windows._scrolled_text)
   * [show\_change\_list](#backlogops_gui.report_windows.show_change_list)
   * [show\_text\_report](#backlogops_gui.report_windows.show_text_report)
 * [backlogops\_gui.token\_dialog](#backlogops_gui.token_dialog)
@@ -308,6 +310,7 @@
   * [build\_key\_box](#backlogops_gui.key_list_box.build_key_box)
   * [load\_keys\_into](#backlogops_gui.key_list_box.load_keys_into)
 * [backlogops\_gui.backlog\_window](#backlogops_gui.backlog_window)
+  * [PROBLEM\_MARK](#backlogops_gui.backlog_window.PROBLEM_MARK)
   * [current\_time](#backlogops_gui.backlog_window.current_time)
   * [BacklogSource](#backlogops_gui.backlog_window.BacklogSource)
   * [JiraHandlers](#backlogops_gui.backlog_window.JiraHandlers)
@@ -349,6 +352,7 @@
     * [\_jira\_add](#backlogops_gui.backlog_window.BacklogWindow._jira_add)
     * [\_on\_jira\_added](#backlogops_gui.backlog_window.BacklogWindow._on_jira_added)
     * [\_show\_add\_report](#backlogops_gui.backlog_window.BacklogWindow._show_add_report)
+    * [\_show\_jira\_report](#backlogops_gui.backlog_window.BacklogWindow._show_jira_report)
     * [\_releases\_add](#backlogops_gui.backlog_window.BacklogWindow._releases_add)
     * [\_on\_releases\_added](#backlogops_gui.backlog_window.BacklogWindow._on_releases_added)
     * [\_releases\_update](#backlogops_gui.backlog_window.BacklogWindow._releases_update)
@@ -1034,8 +1038,35 @@ Read-only text pop-ups for change listings and text reports.
 
 A change listing is shown with a Save-to-file and a Dismiss button, so the
 user can keep a record of what an action changed. A text report is shown
-read-only but copy-pasteable, with only a Dismiss button. Both return the
-created window so a caller or a test can drive or close it.
+read-only but copy-pasteable, with only a Dismiss button. Both show their
+text in a non-wrapping box with a vertical and a horizontal scrollbar, so
+the user sees that the text continues past the visible part of the window.
+Both return the created window so a caller or a test can drive or close it.
+
+<a id="backlogops_gui.report_windows._add_scrollbars"></a>
+
+#### \_add\_scrollbars
+
+```python
+def _add_scrollbars(frame: tk.Frame, box: tk.Text) -> None
+```
+
+Add the vertical and horizontal scrollbars driving the text box.
+
+<a id="backlogops_gui.report_windows._scrolled_text"></a>
+
+#### \_scrolled\_text
+
+```python
+def _scrolled_text(parent: tk.Misc, text: str, width: int,
+                   height: int) -> None
+```
+
+Pack a read-only scrollable box showing the text in the parent.
+
+The text is shown in a disabled box, which still lets the user select
+and copy it. The box does not wrap, so a line longer than the window
+is reached with the horizontal scrollbar.
 
 <a id="backlogops_gui.report_windows.show_change_list"></a>
 
@@ -1048,9 +1079,9 @@ def show_change_list(parent: tk.Misc, title: str, text: str,
 
 Show a change listing with Save-to-file and Dismiss buttons.
 
-The listing is shown read-only. The Save button calls ``on_save`` and
-the Dismiss button closes the window. The created window is returned
-so a caller (or a test) can drive or close it.
+The listing is shown read-only in a scrollable box. The Save button
+calls ``on_save`` and the Dismiss button closes the window. The created
+window is returned so a caller (or a test) can drive or close it.
 
 <a id="backlogops_gui.report_windows.show_text_report"></a>
 
@@ -1062,9 +1093,9 @@ def show_text_report(parent: tk.Misc, title: str, text: str) -> tk.Toplevel
 
 Show read-only, copy-pasteable text with a Dismiss button.
 
-The text is shown in a disabled text box, which still lets the user
-select and copy it. The created window is returned so a caller or a
-test can drive or close it.
+The report is shown in a scrollable box tall enough to show a listing
+with a few entries per section without scrolling. The created window
+is returned so a caller or a test can drive or close it.
 
 <a id="backlogops_gui.token_dialog"></a>
 
@@ -3943,6 +3974,12 @@ planning, key extraction, saving to a file and closing the window; the
 in :mod:`backlogops_gui.backlog_actions`, so they can be tested without a
 display.
 
+<a id="backlogops_gui.backlog_window.PROBLEM_MARK"></a>
+
+#### PROBLEM\_MARK
+
+Added to a Jira pop-up title when the listing reports a problem.
+
 <a id="backlogops_gui.backlog_window.current_time"></a>
 
 #### current\_time
@@ -4418,6 +4455,21 @@ def _show_add_report(text: str) -> None
 ```
 
 Show the add result text in a copy-pasteable pop-up.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._show_jira_report"></a>
+
+#### \_show\_jira\_report
+
+```python
+def _show_jira_report(title: str, text: str) -> None
+```
+
+Show a Jira result listing, marking a title with problems.
+
+A listing reporting something that did not happen gets a marked
+title, so the user sees that not everything succeeded even when
+the pop-up shows only its first lines or the log is hidden behind
+another window.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._releases_add"></a>
 

@@ -237,6 +237,11 @@ def test_format_updates() -> None:
     assert 'Added to Jira (1):' in text and '  R3' in text
     assert 'Failed to update (1):' in text
     assert '  R4  - HTTP 400: nope' in text
+    assert text.startswith('NOT EVERYTHING SUCCEEDED IN JIRA:\n'
+                           '  Failed to update: 1\n'
+                           'Skipped:\n'
+                           '  Not in Jira (ignored): 1\n')
+    assert text.index('Failed to update (1):') < text.index('Updated in Jira')
 
 
 def test_format_empty() -> None:
@@ -248,6 +253,7 @@ def test_format_empty() -> None:
     assert 'Added to Jira (0):' in text
     assert 'Failed to update (0):' in text
     assert '(none)' in text
+    assert text.startswith('Everything requested succeeded in Jira.\n')
 
 
 def test_reexport() -> None:

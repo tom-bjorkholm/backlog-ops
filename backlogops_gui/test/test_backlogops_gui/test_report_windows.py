@@ -5,10 +5,32 @@
 # MIT License
 
 import tkinter as tk
+from typing import Callable
 import pytest
 from backlogops_gui import report_windows
 from backlogops_gui.report_windows import show_change_list, show_text_report
 from .gui_test_helpers import CloseSpy, gui_root
+
+
+def _scrollbars(window: tk.Toplevel) -> list[tk.Scrollbar]:
+    """Return the scrollbars of the text box packed in a pop-up."""
+    return [child for frame in window.winfo_children()
+            for child in frame.winfo_children()
+            if isinstance(child, tk.Scrollbar)]
+
+
+@pytest.mark.parametrize('show', [
+    lambda parent, text: show_text_report(parent, 'Report', text),
+    lambda parent, text: show_change_list(parent, 'Changes', text,
+                                          lambda: None)])
+def test_scrollbars(show: Callable[[tk.Misc, str], tk.Toplevel]) -> None:
+    """Test a pop-up scrolls a text taller and wider than its box."""
+    with gui_root() as root:
+        window = show(root, 'a long line of report text\n' * 40)
+        orients = {str(scroll.cget('orient'))
+                   for scroll in _scrollbars(window)}
+        assert orients == {'vertical', 'horizontal'}
+        window.destroy()
 
 
 def test_change_list_no_wm() -> None:

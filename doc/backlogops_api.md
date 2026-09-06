@@ -286,6 +286,7 @@
   * [jira\_rank\_move\_keys](#backlogops.jira_rank_move_keys.jira_rank_move_keys)
   * [format\_rank\_result](#backlogops.jira_rank_move_keys.format_rank_result)
 * [backlogops.jira\_write\_format](#backlogops.jira_write_format)
+  * [report\_has\_problems](#backlogops.jira_write_format.report_has_problems)
   * [format\_add\_result](#backlogops.jira_write_format.format_add_result)
 * [backlogops.io\_config](#backlogops.io_config)
   * [EXTENSION\_FORMATS](#backlogops.io_config.EXTENSION_FORMATS)
@@ -3805,9 +3806,11 @@ def format_order_result(result: OrderedReleasesInJira) -> str
 
 Return a listing of the ordered names and the names not in Jira.
 
-Each section has a heading with its count, then one indented name per
-line, or a ``(none)`` line when it is empty. The CLI prints this text and
-the GUI shows it in a copy-pasteable pop-up.
+The listing opens with a banner naming the names that could not be
+ordered, then shows them, and last the ordered names. Each section has
+a heading with its count, then one indented name per line, or a
+``(none)`` line when it is empty. The CLI prints this text and the GUI
+shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.use_story_points"></a>
 
@@ -4788,9 +4791,12 @@ def format_rename_result(result: RenamedReleasesInJira) -> str
 
 Return a listing of the renamed, unchanged, missing and failed renames.
 
-Each section has a heading with its count, then one line per entry, or a
-``(none)`` line when the section is empty. The CLI prints this text and
-the GUI shows it in a copy-pasteable pop-up.
+The listing opens with a banner naming the renames that did not
+happen, then shows the missing old names, the colliding new names and
+the failed renames, and last the renamed and unchanged releases. Each
+section has a heading with its count, then one line per entry, or a
+``(none)`` line when the section is empty. The CLI prints this text
+and the GUI shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.available_teams_config"></a>
 
@@ -6179,14 +6185,15 @@ def format_backlog_updates(result: UpdatedBacklogInJira) -> str
 
 Return a listing of the update outcome per backlog item.
 
-The sections are the updated, already-correct and ignored keys, the
-added items, the items Jira refused to add, and the status mismatches,
-refused field values and failed links, which combine the updated items
-with any added items. Each section has a heading with its count, then
-one line per entry, or a ``(none)`` line when empty. An item whose
-field value or link Jira refused is still among the updated keys, and
-again in the section naming what was refused. The CLI prints this text
-and the GUI shows it in a copy-pasteable pop-up.
+The listing opens with a banner naming what did not happen, then shows
+the items Jira refused to add and the refused statuses, field values
+and links, which combine the updated items with any added items, then
+the ignored keys, and last the updated, already-correct and added
+items. Each section has a heading with its count, then one line per
+entry, or a ``(none)`` line when empty. An item whose field value or
+link Jira refused is still among the updated keys, and again in the
+section naming what was refused. The CLI prints this text and the GUI
+shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.jira_rank_move_keys"></a>
 
@@ -6308,24 +6315,46 @@ def format_rank_result(result: RankedInJira) -> str
 
 Return a listing of the ranked, not-in-Jira and not-in-filter keys.
 
-Each section has a heading with its count, then one indented key per
-line, or a ``(none)`` line when it is empty. The CLI prints this text
-and the GUI shows it in a copy-pasteable pop-up.
+The listing opens with a banner naming the keys that were not ranked,
+then shows them, and last the ranked keys. Each section has a heading
+with its count, then one indented key per line, or a ``(none)`` line
+when it is empty. The CLI prints this text and the GUI shows it in a
+copy-pasteable pop-up.
 
 <a id="backlogops.jira_write_format"></a>
 
 # backlogops.jira\_write\_format
 
-Format the result of a Jira write operation into a text listing.
+Format the result of a Jira operation into a text listing.
 
-These helpers turn the named tuples returned by the add and update
-operations into a labelled, copy-pasteable listing. Each section shows a
-heading with its count, then one line per entry or a ``(none)`` line when
-it is empty. The CLI prints the listing and the GUI shows it in a pop-up.
+These helpers turn the named tuples returned by the add, update, rank,
+order and rename operations into a labelled, copy-pasteable listing.
+:func:`_build_report` opens a listing with a banner naming what did not
+happen, then shows the problem sections, the skipped sections and last
+what succeeded. A user who sees only the top of a small pop-up therefore
+still sees that not everything was written. Each section shows a heading
+with its count, then one line per entry or a ``(none)`` line when it is
+empty. The CLI prints the listing and the GUI shows it in a pop-up whose
+title it marks using :func:`report_has_problems`.
 
 The functions live apart from the write logic in
 :mod:`backlogops.jira_write` so that the write, update and rank modules can
 share them without depending on each other in a cycle.
+
+<a id="backlogops.jira_write_format.report_has_problems"></a>
+
+#### report\_has\_problems
+
+```python
+def report_has_problems(report: str) -> bool
+```
+
+Return whether a formatted Jira listing reports a problem.
+
+A listing where something the user asked for did not happen opens with
+the problem banner. The GUI marks the pop-up title of such a listing,
+so a user whose log is hidden behind another window still sees that
+not everything succeeded.
 
 <a id="backlogops.jira_write_format.format_add_result"></a>
 
@@ -6337,11 +6366,14 @@ def format_add_result(result: AddedToJira) -> str
 
 Return a listing of the added, present, failed and unmatched items.
 
-Each section has a heading with its count, then one ``key  title`` line
-per item, or a ``(none)`` line when the section is empty. An item whose
-issue was created but whose field value or link Jira refused is in
-``Added to Jira`` and again in the section naming what was refused. The
-CLI prints this text and the GUI shows it in a copy-pasteable pop-up.
+The listing opens with a banner naming what Jira refused, then shows
+the refused items, field values, statuses and links, and last the
+added and already-present items. Each section has a heading with its
+count, then one ``key  title`` line per item, or a ``(none)`` line
+when the section is empty. An item whose issue was created but whose
+field value or link Jira refused is in ``Added to Jira`` and again in
+the section naming what was refused. The CLI prints this text and the
+GUI shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.io_config"></a>
 
@@ -6979,9 +7011,11 @@ def format_release_result(result: AddedReleasesToJira) -> str
 
 Return a listing of the added, present and failed releases.
 
-Each section has a heading with its count, then one line per release,
-or a ``(none)`` line when the section is empty. The CLI prints this
-text and the GUI shows it in a copy-pasteable pop-up.
+The listing opens with a banner naming the releases Jira refused,
+then shows them, and last the added and already-present releases. Each
+section has a heading with its count, then one line per release, or a
+``(none)`` line when the section is empty. The CLI prints this text
+and the GUI shows it in a copy-pasteable pop-up.
 
 <a id="backlogops.date_ranges"></a>
 
@@ -7864,11 +7898,12 @@ def format_release_updates(result: UpdatedReleasesInJira) -> str
 
 Return a listing of the update outcome per release.
 
-The sections are the updated, already-correct, ignored, added and
-failed releases. Each section has a heading with its count, then one
-line per release name, or a ``(none)`` line when the section is empty.
-The CLI prints this text and the GUI shows it in a copy-pasteable
-pop-up.
+The listing opens with a banner naming what did not happen, then
+shows the failed releases, the ignored ones, and last the updated,
+already-correct and added releases. Each section has a heading with
+its count, then one line per release name, or a ``(none)`` line when
+the section is empty. The CLI prints this text and the GUI shows it in
+a copy-pasteable pop-up.
 
 <a id="backlogops.backlog_releases_io"></a>
 

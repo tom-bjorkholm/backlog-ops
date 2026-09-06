@@ -130,6 +130,9 @@ def test_format_order() -> None:
     text = format_order_result(result)
     assert 'Ordered in Jira (2):' in text and '  R1' in text and '  R2' in text
     assert 'Not in Jira (1):' in text and '  RX' in text
+    assert text.startswith('NOT EVERYTHING SUCCEEDED IN JIRA:\n'
+                           '  Not in Jira: 1\n')
+    assert text.index('Not in Jira (1):') < text.index('Ordered in Jira (2):')
 
 
 def test_format_empty() -> None:
@@ -138,6 +141,7 @@ def test_format_empty() -> None:
     assert 'Ordered in Jira (0):' in text
     assert 'Not in Jira (0):' in text
     assert '(none)' in text
+    assert text.startswith('Everything requested succeeded in Jira.\n')
 
 
 def test_reexport() -> None:

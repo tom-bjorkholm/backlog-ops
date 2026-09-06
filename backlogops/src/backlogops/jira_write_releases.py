@@ -39,7 +39,7 @@ from jira.resources import Resource
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap
 from backlogops.jira_write import OnExistingKey, _jira_reason
-from backlogops.jira_write_format import _labeled_lines
+from backlogops.jira_write_format import _ReportSection, _build_report
 from backlogops.releases import Release, Releases
 
 _VERSION_CREATE_FIELDS = frozenset({
@@ -300,28 +300,29 @@ def _release_line(release: Release) -> str:
     return f'  {release.name}'
 
 
-def _release_section(heading: str, releases: Releases) -> list[str]:
+def _release_section(heading: str, releases: Releases) -> _ReportSection:
     """Return the heading and the name-and-date line for each release."""
-    return _labeled_lines(heading, len(releases),
-                          [_release_line(release) for release in releases])
+    body = [_release_line(release) for release in releases]
+    return _ReportSection(heading, body)
 
 
-def _failed_section(heading: str, failed: list[FailedRelease]) -> list[str]:
+def _failed_section(heading: str,
+                    failed: list[FailedRelease]) -> _ReportSection:
     """Return the heading and the name and reason of each failure."""
     body = [f'  {entry.release.name}  - {entry.reason}' for entry in failed]
-    return _labeled_lines(heading, len(failed), body)
+    return _ReportSection(heading, body)
 
 
 def format_release_result(result: AddedReleasesToJira) -> str:
     """Return a listing of the added, present and failed releases.
 
-    Each section has a heading with its count, then one line per release,
-    or a ``(none)`` line when the section is empty. The CLI prints this
-    text and the GUI shows it in a copy-pasteable pop-up.
+    The listing opens with a banner naming the releases Jira refused,
+    then shows them, and last the added and already-present releases. Each
+    section has a heading with its count, then one line per release, or a
+    ``(none)`` line when the section is empty. The CLI prints this text
+    and the GUI shows it in a copy-pasteable pop-up.
     """
-    lines = _release_section('Added to Jira', result.stored)
-    lines.append('')
-    lines.extend(_release_section('Already in Jira', result.already_present))
-    lines.append('')
-    lines.extend(_failed_section('Failed to add', result.failed))
-    return '\n'.join(lines)
+    return _build_report(
+        problems=[_failed_section('Failed to add', result.failed)],
+        done=[_release_section('Added to Jira', result.stored),
+              _release_section('Already in Jira', result.already_present)])

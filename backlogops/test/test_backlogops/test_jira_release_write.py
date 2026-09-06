@@ -174,6 +174,9 @@ def test_format_result() -> None:
     assert '  R2' in text
     assert 'Failed to add (1):' in text
     assert '  R3  - HTTP 400: nope' in text
+    assert text.startswith('NOT EVERYTHING SUCCEEDED IN JIRA:\n'
+                           '  Failed to add: 1\n')
+    assert text.index('Failed to add (1):') < text.index('Added to Jira (1):')
 
 
 def test_format_empty() -> None:
@@ -183,6 +186,7 @@ def test_format_empty() -> None:
     assert 'Already in Jira (0):' in text
     assert 'Failed to add (0):' in text
     assert '(none)' in text
+    assert text.startswith('Everything requested succeeded in Jira.\n')
 
 
 def test_reexport() -> None:

@@ -32,7 +32,7 @@ from backlogops.jira_rank_backlog import (
     JiraRankAnchor, _ensure_rank_order, _rank_keys)
 from backlogops.jira_read import read_backlog_from_jira, resolve_jql
 from backlogops.jira_write import _issue_exists
-from backlogops.jira_write_format import _key_section
+from backlogops.jira_write_format import _build_report, _key_section
 from backlogops.levels import Levels
 from backlogops.order_by_dependencies import (
     order_by_dependencies, precedence_relations)
@@ -260,14 +260,14 @@ def jira_rank_move_keys(connections: JiraConnections, preset_name: str,
 def format_rank_result(result: RankedInJira) -> str:
     """Return a listing of the ranked, not-in-Jira and not-in-filter keys.
 
-    Each section has a heading with its count, then one indented key per
-    line, or a ``(none)`` line when it is empty. The CLI prints this text
-    and the GUI shows it in a copy-pasteable pop-up.
+    The listing opens with a banner naming the keys that were not ranked,
+    then shows them, and last the ranked keys. Each section has a heading
+    with its count, then one indented key per line, or a ``(none)`` line
+    when it is empty. The CLI prints this text and the GUI shows it in a
+    copy-pasteable pop-up.
     """
-    lines = _key_section('Ranked in Jira', result.keys_ranked_ok)
-    lines.append('')
-    lines.extend(_key_section('Not in Jira', result.keys_not_in_jira))
-    lines.append('')
-    lines.extend(_key_section('Excluded by the filter',
-                              result.keys_not_in_filter))
-    return '\n'.join(lines)
+    return _build_report(
+        problems=[_key_section('Not in Jira', result.keys_not_in_jira),
+                  _key_section('Excluded by the filter',
+                               result.keys_not_in_filter)],
+        done=[_key_section('Ranked in Jira', result.keys_ranked_ok)])

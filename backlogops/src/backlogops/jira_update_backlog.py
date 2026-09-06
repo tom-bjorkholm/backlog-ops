@@ -69,8 +69,8 @@ from backlogops.jira_write_fields import (
     FailedField, FailedLink, _LinkSpec, _clear_parent_fields, _clear_value,
     _dep_link_attrs, _parent_fields, _place_value)
 from backlogops.jira_write_format import (
-    _failed_section, _field_section, _link_section, _outcome_prefix,
-    _result_section, _status_section)
+    _build_report, _failed_section, _field_section, _key_section,
+    _link_section, _result_section, _status_section)
 from backlogops.levels import Levels
 
 _IDENTITY_FIELDS = frozenset({'key', 'level'})
@@ -631,29 +631,27 @@ def updatable_backlog_fields(connections: JiraConnections,
 def format_backlog_updates(result: UpdatedBacklogInJira) -> str:
     """Return a listing of the update outcome per backlog item.
 
-    The sections are the updated, already-correct and ignored keys, the
-    added items, the items Jira refused to add, and the status mismatches,
-    refused field values and failed links, which combine the updated items
-    with any added items. Each section has a heading with its count, then
-    one line per entry, or a ``(none)`` line when empty. An item whose
-    field value or link Jira refused is still among the updated keys, and
-    again in the section naming what was refused. The CLI prints this text
-    and the GUI shows it in a copy-pasteable pop-up.
+    The listing opens with a banner naming what did not happen, then shows
+    the items Jira refused to add and the refused statuses, field values
+    and links, which combine the updated items with any added items, then
+    the ignored keys, and last the updated, already-correct and added
+    items. Each section has a heading with its count, then one line per
+    entry, or a ``(none)`` line when empty. An item whose field value or
+    link Jira refused is still among the updated keys, and again in the
+    section naming what was refused. The CLI prints this text and the GUI
+    shows it in a copy-pasteable pop-up.
     """
     added = result.added
-    mismatch = result.status_mismatch + added.status_mismatch
-    fields = result.failed_fields + added.failed_fields
-    links = result.failed_links + added.failed_links
-    lines = _outcome_prefix(result.updated, result.already_correct,
-                            result.ignored)
-    lines.append('')
-    lines.extend(_result_section('Added to Jira', added.stored))
-    lines.append('')
-    lines.extend(_failed_section('Failed to add', added.failed))
-    lines.append('')
-    lines.extend(_status_section('Status not set in Jira', mismatch))
-    lines.append('')
-    lines.extend(_field_section('Fields not set', fields))
-    lines.append('')
-    lines.extend(_link_section('Links not written', links))
-    return '\n'.join(lines)
+    return _build_report(
+        problems=[_failed_section('Failed to add', added.failed),
+                  _status_section('Status not set in Jira',
+                                  result.status_mismatch
+                                  + added.status_mismatch),
+                  _field_section('Fields not set', result.failed_fields
+                                 + added.failed_fields),
+                  _link_section('Links not written', result.failed_links
+                                + added.failed_links)],
+        skipped=[_key_section('Not in Jira (ignored)', result.ignored)],
+        done=[_key_section('Updated in Jira', result.updated),
+              _key_section('Already correct in Jira', result.already_correct),
+              _result_section('Added to Jira', added.stored)])

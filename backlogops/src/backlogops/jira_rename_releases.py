@@ -29,7 +29,8 @@ from jira import JIRAError
 from jira.resources import Resource
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_write import _jira_reason
-from backlogops.jira_write_format import _key_section, _labeled_lines
+from backlogops.jira_write_format import (
+    _ReportSection, _build_report, _key_section)
 from backlogops.jira_write_releases import _by_name, _release_context
 
 
@@ -180,35 +181,35 @@ def rename_release_in_jira(connections: JiraConnections, preset_name: str,
 
 
 def _rename_section(heading: str,
-                    renames: Sequence[ReleaseRename]) -> list[str]:
+                    renames: Sequence[ReleaseRename]) -> _ReportSection:
     """Return the heading and one ``old -> new`` line per rename."""
     body = [f'  {rename.old_name} -> {rename.new_name}' for rename in renames]
-    return _labeled_lines(heading, len(renames), body)
+    return _ReportSection(heading, body)
 
 
 def _failed_rename_section(heading: str,
-                           failed: Sequence[FailedRename]) -> list[str]:
+                           failed: Sequence[FailedRename]) -> _ReportSection:
     """Return the heading and the names and reason of each failed rename."""
     body = [f'  {entry.rename.old_name} -> {entry.rename.new_name}'
             f'  - {entry.reason}' for entry in failed]
-    return _labeled_lines(heading, len(failed), body)
+    return _ReportSection(heading, body)
 
 
 def format_rename_result(result: RenamedReleasesInJira) -> str:
     """Return a listing of the renamed, unchanged, missing and failed renames.
 
-    Each section has a heading with its count, then one line per entry, or a
-    ``(none)`` line when the section is empty. The CLI prints this text and
-    the GUI shows it in a copy-pasteable pop-up.
+    The listing opens with a banner naming the renames that did not
+    happen, then shows the missing old names, the colliding new names and
+    the failed renames, and last the renamed and unchanged releases. Each
+    section has a heading with its count, then one line per entry, or a
+    ``(none)`` line when the section is empty. The CLI prints this text
+    and the GUI shows it in a copy-pasteable pop-up.
     """
-    lines = _rename_section('Renamed in Jira', result.renamed)
-    lines.append('')
-    lines.extend(_key_section('Unchanged (new name equals old)',
-                              result.unchanged))
-    lines.append('')
-    lines.extend(_key_section('Old name not in Jira', result.missing))
-    lines.append('')
-    lines.extend(_rename_section('New name already in use', result.collisions))
-    lines.append('')
-    lines.extend(_failed_rename_section('Failed to rename', result.failed))
-    return '\n'.join(lines)
+    return _build_report(
+        problems=[_key_section('Old name not in Jira', result.missing),
+                  _rename_section('New name already in use',
+                                  result.collisions),
+                  _failed_rename_section('Failed to rename', result.failed)],
+        done=[_rename_section('Renamed in Jira', result.renamed),
+              _key_section('Unchanged (new name equals old)',
+                           result.unchanged)])
