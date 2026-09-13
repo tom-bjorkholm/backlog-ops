@@ -1409,7 +1409,7 @@ Ask whether to edit the configuration in use or one in a file.
 File-format option dialogs for reading and writing backlog files.
 
 The format options mirror the command line: the format is either inferred
-from the file name, taken from a named preset stored in the teams
+from the file name, taken from a named preset stored in the backlog-ops
 configuration, or read from a stand-alone configuration file. Writing also
 offers to put the releases before the backlog. The chosen format is
 returned as a single value understood by the resolver in
@@ -2186,7 +2186,7 @@ Read a key list file into the text box, reporting failures.
 def _confirm() -> None
 ```
 
-Store the preset, filter, keys and end, requiring preset+keys.
+Store the preset, filter, keys and anchor, needing preset+keys.
 
 <a id="backlogops_gui.jira_dialogs.ask_jira_rank"></a>
 
@@ -2635,7 +2635,7 @@ Tkinter application for backlog operations.
 
 The application opens a main window whose menu reads a backlog from a file
 or from Jira, loads or replaces the active configuration from a file, runs
-the teams configuration wizard, edits a configuration or a stand-alone
+the backlog-ops configuration wizard, edits a configuration or a stand-alone
 preset file in the folding editor of
 :mod:`backlogops_gui.config_edit`, creates a stand-alone input or output
 preset file, migrates a stand-alone preset file to the current format,
@@ -2649,8 +2649,8 @@ modified, and offers a "Read again" button that re-reads the same source.
 On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
-make clear that the application is running. The teams configuration is
-taken from the file given with ``-c`` or from the configured locations;
+make clear that the application is running. The backlog-ops configuration
+is taken from the file given with ``-c`` or from the configured locations;
 when no configuration is found a startup dialog offers to run the wizard,
 load a configuration file, or exit. Cancelling the wizard or a dialog
 returns to that choice, so the application ends only when the user exits.
@@ -3418,14 +3418,16 @@ Start the backlog operations GUI.
 
 # backlogops\_gui.jira\_rank
 
-Move issues to the front or end of a Jira backlog by rank.
+Move issues to a chosen anchor of a Jira backlog by rank.
 
-The ranker offers a handler that asks for a preset, the keys to move and
-which end to move them to, then ranks them in Jira on a worker thread and
-hands the result back to the GUI thread. It is available only when a
-configuration with Jira presets is loaded. The backlog and the current
-ranking come from Jira through the preset, not from the shown backlog, so
-the handler does not need the shown data.
+The ranker offers a handler that asks for a preset, an issue filter, the
+keys to move, the anchor to move them to and whether to honour relations,
+then ranks them in Jira on a worker thread and hands the result back to the
+GUI thread. The anchor is either end of the backlog or the first or last of
+the listed keys. It is available only when a configuration with Jira presets
+is loaded. The backlog and the current ranking come from Jira through the
+preset, not from the shown backlog, so the handler does not need the shown
+data.
 
 <a id="backlogops_gui.jira_rank.JiraRanker"></a>
 
@@ -3435,7 +3437,7 @@ the handler does not need the shown data.
 class JiraRanker(JiraAction)
 ```
 
-Moves issues to the front or end of a Jira backlog by rank.
+Moves issues to a chosen anchor of a Jira backlog by rank.
 
 <a id="backlogops_gui.jira_rank.JiraRanker.rank_action"></a>
 
@@ -3456,7 +3458,7 @@ Return the rank handler, or None when it is unavailable.
 def _rank(on_done: Callable[[RankedInJira], None]) -> None
 ```
 
-Ask for a preset, filter, keys and end, then rank in Jira.
+Ask for a preset, filter, keys and anchor, then rank in Jira.
 
 <a id="backlogops_gui.jira_rank.JiraRanker._rank_worker"></a>
 
@@ -4066,7 +4068,8 @@ Build the window, its menu, its info region and the two tables.
 - `data` - The backlog and releases to show.
 - `title` - The window title, typically the source file name.
 - `presets` - Callable returning the current output presets.
-- `teams` - Callable returning the loaded teams configuration.
+- `teams` - Callable returning the loaded workforce, or None when
+  no configuration is loaded.
 - `sink` - Stream that receives low-level write diagnostics.
 - `levels` - Callable returning the configured levels, or None for
   the default levels.
@@ -5004,7 +5007,7 @@ Read and write a backlog and releases with format options.
 These helpers wrap the library read and write functions and resolve the
 format the same way the command line does: an empty value infers the
 format from the file name, a value of only letters and digits is a preset
-name looked up in the presets from the teams configuration, and any other
+name looked up in the presets of the backlog-ops configuration, and any other
 value is the path of a stand-alone format configuration file. Diagnostics
 go to the given sink, because a graphical application shows them in a log
 view rather than on a console.

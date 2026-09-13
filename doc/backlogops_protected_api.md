@@ -9841,7 +9841,7 @@ before anything is changed, ``IGNORE`` leaves the missing item alone, and
 ``ADD`` creates it exactly as :func:`add_backlog_to_jira` would, writing
 all of its mapped fields. When items are added their assigned Jira keys are
 used to remap the parent and dependency keys of the updated items, so an
-updated item that referred to a newly added item links to its Jira key. An
+updated item that referred to a newly added item links to its Jira key.
 A field value Jira refuses is collected in the result's ``failed_fields``
 list with a concise reason and does not stop the rest of that item's
 update: Jira applies an update as a whole, so a refused update is retried

@@ -129,7 +129,8 @@ class BacklogWindow:
             data: The backlog and releases to show.
             title: The window title, typically the source file name.
             presets: Callable returning the current output presets.
-            teams: Callable returning the loaded teams configuration.
+            teams: Callable returning the loaded workforce, or None when
+                no configuration is loaded.
             sink: Stream that receives low-level write diagnostics.
             levels: Callable returning the configured levels, or None for
                 the default levels.

@@ -96,8 +96,9 @@ imply). Most operations exist to keep those two in a sensible relationship.
    data model (items, levels, releases, dependencies), file formats, and a
    throw-away demo backlog to try everything on.
 3. [Moving a backlog between files, formats and Jira](03_files_and_jira.md) —
-   read and write files, convert formats, pull a backlog out of Jira, and
-   push a file backlog into Jira.
+   read and write files, convert formats, pull a backlog out of Jira, push a
+   file backlog into Jira, and read the result listing that says what Jira
+   refused.
 4. [Ordering the backlog](04_ordering.md) — order by dependencies, by a key
    list, or in release order, and persist the order back to Jira by rank.
 5. [Estimating ready dates and planning releases](05_estimating.md) —

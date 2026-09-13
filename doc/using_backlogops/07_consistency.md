@@ -46,8 +46,25 @@ The CLI reader calls the consistency check as part of loading the input, so:
 
 There is therefore no separate "check" command to run in the normal case —
 loading the file *is* the check. In the GUI the same validation runs when you
-read a backlog (from a file or from Jira) or create the demo; a problem is
-shown in an error dialog and the backlog window is not opened with bad data.
+read a backlog from a file or create the demo; a problem is shown in an error
+dialog and the backlog window is not opened with bad data.
+
+### Reading from Jira is the exception
+
+A Jira read is filtered, and a filter can leave a cross reference dangling
+through no fault of yours: an item's parent, or its release, may simply be
+outside what the filter selected. Refusing such a read would make a filtered
+Jira backlog unusable, so both front ends report the problem and carry on:
+
+- the CLI `read_jira` command prints the inconsistency and **still writes the
+  output file**, so a partial read still produces something to look at;
+- the GUI **opens the backlog window** on the data, with a prominent warning
+  over the tables. While that warning is shown the backlog operations are
+  disabled and only saving remains, so you can inspect and export the data
+  without acting on an inconsistent backlog.
+
+Widen the filter until the references it needs are inside it, and the warning
+goes away.
 
 ## Reading the error, and fixing it
 

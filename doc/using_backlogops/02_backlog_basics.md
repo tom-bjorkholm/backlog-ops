@@ -80,11 +80,23 @@ releases) live in one file.
 ## Create a demo backlog to experiment with
 
 The quickest way to learn the tool is to generate a small, realistic backlog
-and run commands against it. The demo has three epics (`E1`–`E3`), twenty
-stories (`S1`–`S20`), two sub-tasks (`T1`, `T2`), a handful of dependencies,
-and two releases: `Next` (planned one month out) and `Later` (no date). It is
-deliberately **not** in dependency or release order, so the ordering commands
-have something to do — yet it passes every consistency check.
+and run commands against it. The estimated part has three epics (`E1`–`E3`),
+twenty stories (`S1`–`S20`), two sub-tasks (`T1`, `T2`), a handful of
+dependencies, and two releases: `Next` (planned one month out) and `Later`
+(no date).
+
+Beside those, fourteen items (`UE1`–`UE3`, `US1`–`US6`, `UT1`–`UT5`) carry no
+story points at all, because nobody has estimated them yet. They are what
+makes the demo useful for trying an estimate of a backlog that is not fully
+broken down, and for seeing what
+[default story points](01_configuration.md#default-story-points) do: without a
+guess they cost nothing, and with one they push the dates out. None of them is
+in a release or in a dependency, so they change neither the release contents
+nor the dependency graph.
+
+The thirty-nine items are deliberately **not** in dependency or release order,
+so the ordering commands have something to do — yet the demo passes every
+consistency check.
 
 **CLI** — write it to any supported format:
 

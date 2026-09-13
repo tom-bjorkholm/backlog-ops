@@ -14,9 +14,11 @@ customer consistent with those dates. The natural sequence is:
    date;
 4. **order releases** by date.
 
-All of these need the workforce, so a configuration file is required
-(chapter 1). Order the backlog first (chapter 4) — the estimate assumes the
-teams work in backlog order.
+Step 1 is the one that needs the workforce, so `estimate_ready_date` requires
+a configuration file (chapter 1) and fails without one. The later steps work
+from the dates already in the file, so they fall back to the built-in defaults
+when no configuration is found. Order the backlog first (chapter 4) — the
+estimate assumes the teams work in backlog order.
 
 ## Estimate ready dates
 
@@ -127,7 +129,9 @@ python3 -m backlogops_cli.order_releases -i estimated.xlsx -o sorted.xlsx -e
 
 Jira stores releases as **versions**. Four commands keep them in step with
 your plan. All take `-p`/`--preset`, print result lists unless `-q`, and
-prompt for the token pass phrase only when needed.
+prompt for the token pass phrase only when needed. Each listing leads with
+what Jira refused or what was skipped — see [reading the result of a Jira
+operation](03_files_and_jira.md#reading-the-result-of-a-jira-operation).
 
 ### Set the release dates in Jira
 

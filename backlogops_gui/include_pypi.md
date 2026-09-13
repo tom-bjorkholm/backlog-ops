@@ -24,9 +24,11 @@ python -m backlogops_gui
 python -m backlogops_gui -c config_file.cfg
 ````
 
-At first startup you do not have any configuration file yet,
-so when you start the application it will start the configuration
-wizard.
+At first startup you do not have any configuration file yet, so the
+application shows a *No configuration* dialog offering to run the
+configuration wizard, load an existing configuration file, or exit.
+Cancelling the wizard or the file chooser returns to that dialog, so
+the application starts only once a configuration is in place.
 
 ## Main window
 
@@ -93,6 +95,17 @@ is in the menus.
 
 The backlog window shows 2 read-only tables: one with the backlog and
 one with the list of releases. You will want to use the menus.
+
+At the top of the window an information region records where the data
+came from and when it was read, marks the window once you change the
+backlog, and offers a **Read again** button that re-reads the same
+source (the same file, or the same Jira preset and filter) in place. A
+re-read with unsaved changes asks for confirmation first.
+
+Each Jira action answers in a copy-pasteable pop-up that leads with what
+did not happen: what Jira refused, then what was skipped, and last what
+succeeded. When something was refused the pop-up title is marked
+*NOT ALL SUCCEEDED*, so it is visible even behind another window.
 
 - Backlog
 

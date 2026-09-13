@@ -30,12 +30,12 @@ python3 -m backlogops_cli.order_by_deps -i demo.xlsx -o ordered.xlsx
 # Keep two keys far apart from their dependencies, and prefer pushing
 # dependents later rather than pulling prerequisites earlier:
 python3 -m backlogops_cli.order_by_deps -i demo.xlsx -o ordered.xlsx \
-    -s S5 -s S6 --later --mode SPREAD
+    -s S5 -s S6 --later --mode EVEN
 ```
 
 | Flag | Meaning |
 | --- | --- |
-| `-m` / `--mode` | Placement of dependency items (default `KEEP`). |
+| `-m` / `--mode` | Placement of dependency items: `KEEP` (default), `EARLY` or `EVEN`. |
 | `-s` / `--space-around` | A key to keep far from its dependencies; repeatable. |
 | `-L` / `--later` | Push dependents later instead of pulling prerequisites earlier. |
 
@@ -62,8 +62,10 @@ python3 -m backlogops_cli.order_by_keys -i demo.xlsx -k epics.txt -o front.xlsx
 ```
 
 `extract_keys` takes `-l` / `--levels` (one or more level names, aliases or
-numbers) and writes to `-o`, or to standard output when `-o` is omitted.
-`order_by_keys` takes the key-list file with `-k` / `--key-list`.
+numbers) and writes to `-o`, or to standard output when `-o` is omitted. Give
+several levels as one `-l Epic Story`, not as a repeated `-l`, because a
+second `-l` replaces the first rather than adding to it. `order_by_keys`
+takes the key-list file with `-k` / `--key-list`.
 
 **GUI** — *Backlog → Extract keys…* and *Backlog → Order by keys…*
 
@@ -145,7 +147,7 @@ python3 -m backlogops_cli.rank_in_jira -c my.cfg -p scrum -k hot.txt \
 ```sh
 python3 -m backlogops_cli.read_jira -c my.cfg -p scrum -o work.xlsx
 python3 -m backlogops_cli.order_by_deps -i work.xlsx -o work.xlsx -f
-python3 -m backlogops_cli.extract_keys -i work.xlsx -l Epic -l Story -o keys.txt
+python3 -m backlogops_cli.extract_keys -i work.xlsx -l Epic Story -o keys.txt
 python3 -m backlogops_cli.rank_in_jira -c my.cfg -p scrum -k keys.txt \
     --anchor backlog-top --honor-relations
 ```

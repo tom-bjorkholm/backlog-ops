@@ -4,7 +4,7 @@
 Read a clear text API token from a file or from standard input, encrypt it
 with a pass phrase and write the encrypted token to a file. The pass phrase
 is requested on the terminal and is not echoed. The clear text token file
-is not modified, unless the the encrypted token file is the same as the
+is not modified, unless the encrypted token file is the same as the
 clear text token file, in which case the clear text token file is overwritten
 with the encrypted token. The encrypted token file is written atomically,
 so that it is either the old version or the new version, and never a

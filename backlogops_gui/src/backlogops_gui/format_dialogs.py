@@ -2,7 +2,7 @@
 """File-format option dialogs for reading and writing backlog files.
 
 The format options mirror the command line: the format is either inferred
-from the file name, taken from a named preset stored in the teams
+from the file name, taken from a named preset stored in the backlog-ops
 configuration, or read from a stand-alone configuration file. Writing also
 offers to put the releases before the backlog. The chosen format is
 returned as a single value understood by the resolver in

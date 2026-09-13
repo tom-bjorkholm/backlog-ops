@@ -185,6 +185,58 @@ Two more choices matter:
 **Library** —
 [`update_backlog_in_jira`](../backlogops_api.md#backlogops.jira_update_backlog.update_backlog_in_jira).
 
+## Reading the result of a Jira operation
+
+Jira can accept part of what you asked for and refuse the rest, and a refusal
+is usually about one value on one issue: a fix version the project does not
+have, a field that is not on that issue type's edit screen, a status with no
+workflow transition into it. Such a refusal does not stop the run — the rest
+of that item, and every other item, is still written — so **every Jira
+operation answers with a listing, and the listing leads with what did not
+happen.** The same text is printed by the CLI and shown in a pop-up by the
+GUI.
+
+The listing opens with one of three banners:
+
+| Opening line | What it means |
+| --- | --- |
+| `NOT EVERYTHING SUCCEEDED IN JIRA:` | Something you asked for did not happen. The lines under it count each kind. |
+| `Skipped:` | Nothing was refused; some items were skipped by the policy you chose (for example `--on-missing ignore`). |
+| `Everything requested succeeded in Jira.` | Nothing was refused and nothing was skipped. |
+
+After the banner come the problem sections, then the skipped sections, and
+only then what succeeded — so a small pop-up shows the bad news without
+scrolling. Each section is a heading with its count and one line per entry, or
+`(none)` when it is empty. For a backlog update the problem sections are:
+
+- **Failed to add** — items Jira refused to create (only under
+  `--on-missing add`);
+- **Status not set in Jira** — no workflow transition reached the item's
+  status;
+- **Fields not set** — a value Jira refused, with the issue key, the field
+  and Jira's own reason;
+- **Links not written** — a parent or dependency link Jira refused.
+
+An item that appears under *Fields not set* is still listed under *Updated in
+Jira*, because the rest of its update was applied. Only the field named there
+was lost.
+
+In the GUI the pop-up title of such a listing is marked
+`— NOT ALL SUCCEEDED`, so you notice it even when the window is behind
+another one. In the CLI the listing goes to standard output (suppress it with
+`-q`) and a one-line summary goes to standard error, counting what was
+updated, not added, not set and not linked.
+
+A refused field is most often a mapping problem rather than a data problem.
+`jira_fields --issue KEY` lists the fields that issue's edit screen actually
+accepts, which is the quickest way to tell a wrong mapping from a value Jira
+will never take — see [chapter 1](01_configuration.md#finding-the-correct-field-mapping-in-your-jira).
+
+**Library** —
+[`report_has_problems`](../backlogops_api.md#backlogops.jira_write_format.report_has_problems)
+answers whether a listing reports a problem, which is what marks it in a user
+interface.
+
 ## Putting it together
 
 These endpoints compose into round trips. A CLI Jira round trip is

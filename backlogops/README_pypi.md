@@ -41,6 +41,10 @@ The following functionality is available in all 3 packages:
 - Estimate ready date for the backlog items based on available teams, team
   velocity, vacation dates, periods with half time work, etc.
 
+- Configure what a backlog item that nobody has estimated counts as, per backlog
+  item level, so that an unestimated item does not make the estimated dates too
+  optimistic.
+
 - Extract backlog keys at given backlog item levels.
 
 - Reorder the backlog so that the dependencies are satisfied.
@@ -75,7 +79,16 @@ The following functionality is available in all 3 packages:
 - Migrate an older configuration or preset file to the current file format.
 
 - A wizard to create a backlog-ops configuration file with the workforce, named
-  input and output presets, level names, and status name mapping.
+  input and output presets, level names, status name mapping, the guess for
+  unestimated items, how the graphical user interface shows the data, and the
+  Jira integration.
+
+- An editor showing a whole configuration file or a stand-alone preset file at
+  once, folded where it is deep, to change a single value without stepping
+  through the wizard.
+
+- Encrypt the Jira API token to a pass-phrase-protected file, so that no
+  configuration file holds the token in clear text.
 
 - Read a backlog and releases from Jira into a backlog and release table.
 
@@ -93,6 +106,10 @@ The following functionality is available in all 3 packages:
 
 - Move backlog items to a chosen anchor in the Jira rank order, following a key
   list.
+
+- Report what a Jira operation did not do. Every Jira result opens with what
+  Jira refused or what was skipped, so a value that was not written is visible
+  without reading the whole listing.
 
 ## The operating model
 
@@ -229,8 +246,10 @@ from backlogops import (
 
 - `read_backlog_ops_config`, `write_backlog_ops_config`,
   `get_backlog_ops_config`: read, write, and look up the top-level
-  `BacklogOpsConfig` (workforce, named input and output presets, and the
-  optional backlog item levels).
+  `BacklogOpsConfig` (workforce, named input and output presets, the
+  status-name map, the guess for unestimated items, the GUI display
+  settings, the Jira configuration, and the optional backlog item
+  levels).
 
 - `read_key_list`, `write_key_list`: read and write a list of keys.
 
@@ -262,6 +281,11 @@ from backlogops import (
 - `estimate_ready_date`, `set_plan_from_estimate`: estimate ready dates
   and set planned dates from the estimate.
 
+- `DefaultStoryPoints`, `use_story_points`: what a backlog item that
+  nobody has estimated counts as, and the story points to work any one
+  item with. The estimate uses them, so an unestimated item does not
+  count as free.
+
 - `estimate_release_dates`, `release_plan_on_estimate`,
   `adjust_release_content`: estimate and plan release dates, and adjust
   release content to fit the planned dates.
@@ -288,14 +312,21 @@ from backlogops import (
 - `JiraIOConfig`, `JiraPreset`: the Jira connection and preset
   configuration.
 
+- `format_add_result`, `format_backlog_updates`, `format_release_result`,
+  `format_release_updates`, `format_rank_result`, `format_order_result`,
+  `format_rename_result`: turn the result of a Jira operation into a
+  listing that opens with what Jira refused or what was skipped.
+  `report_has_problems` answers whether such a listing reports something
+  that did not happen, which is what marks it in a user interface.
+
 For the full set of public names see the API documentation linked above.
 
 ## Test summary
 
-- Test result: 2454 passed, 1 deselected in 59s
+- Test result: 2555 passed, 1 deselected in 59s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
-- Built version(s): 1.2.1
+- Built version(s): 1.3
 - Build and test using Python 3.14.7

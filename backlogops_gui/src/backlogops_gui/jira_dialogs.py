@@ -560,7 +560,7 @@ class JiraRankDialog(ModalDialog):
         load_keys_into(self._win, self._text, self._sink)
 
     def _confirm(self) -> None:
-        """Store the preset, filter, keys and end, requiring preset+keys."""
+        """Store the preset, filter, keys and anchor, needing preset+keys."""
         name = self._preset.get()
         if not name:
             messagebox.showerror('No Jira preset', 'Select a Jira preset.',

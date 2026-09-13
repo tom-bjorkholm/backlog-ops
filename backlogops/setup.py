@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
   name='backlogops',
-  version='1.2.1',
+  version='1.3',
   description='Library with backlog operations.',
   author='Tom Björkholm',
   author_email='klausuler_linnet0q@icloud.com',
@@ -19,8 +19,8 @@ setup(
     'jira[cli,opt] >= 3.10.5',
     'tableio >= 1.1',
     'tableio-cfg-json >= 1.4',
-    'wizard-ui-bridge[textual] >= 1.3',
+    'wizard-ui-bridge[textual] >= 1.4',
     'versionreporter >= 0.4',
-    'edit-cfg-json >= 0.2.0',
+    'edit-cfg-json >= 0.3.0',
   ]
 )

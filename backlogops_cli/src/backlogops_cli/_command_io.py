@@ -145,12 +145,14 @@ def add_config_arg(parser: argparse.ArgumentParser) -> None:
     """Add the ``-c``/``--config`` backlog-ops configuration argument.
 
     The configuration file holds the workforce, the named input and output
-    presets, the levels and the global status map. Without ``-c`` the file
-    is discovered the same way as the GUI.
+    presets, the levels, the global status map, the guess for unestimated
+    items, the GUI display settings and the Jira configuration. Without
+    ``-c`` the file is discovered the same way as the GUI.
     """
     parser.add_argument('-c', '--config', dest='config',
                         help='Backlog-ops configuration file (workforce, '
-                        'named presets, levels, status map). Without -c the '
+                        'named presets, levels, status map, default story '
+                        'points, Jira configuration). Without -c the '
                         'file is found from $BACKLOGOPS_CFG, else '
                         'backlogops.cfg in $BACKLOGOPS_DIR, else '
                         '$HOME/.backlogops.cfg.')

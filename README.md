@@ -49,9 +49,17 @@ pip install --upgrade backlogops-gui
 
 ### Information for use
 
-Please see
+To learn how to use backlogops from the command line and from the GUI, start
+with the user manual: [Using backlogops](doc/using_backlogops/README.md). It
+explains the concepts and when to reach for which command, and names the
+library function behind each action.
+
+For an overview of the packages and the available functionality, see
 [https://pypi.org/project/backlogops](https://pypi.org/project/backlogops)
 or [backlogops/README_pypi.md](backlogops/README_pypi.md).
+
+For the code documentation generated from the docstrings, see
+[doc/README.md](doc/README.md).
 
 ## Cloning
 
@@ -103,9 +111,17 @@ The helper scripts are:
   duplicate-code diagnostics only appear on a clean build.
 - `run_pypi_build.py`
   Create the distribution artifacts intended for PyPI publishing.
+- `run_static_checks.py`
+  Run mypy, flake8, python-layout and pylint on the named files only, for
+  fast iteration while editing. It does not update the virtual environment,
+  so imports from `./venv` are not refreshed.
+- `run_focus_sensitive_tests.py`
+  Run the GUI tests that need an unlocked display and an uninterrupted
+  focused window. These are excluded from the normal build, and the
+  computer must be left alone while they run.
 
-The standard verification suite includes pytest, pylint, flake8, and mypy.
-After a build, the generated reports can be browsed through
+The standard verification suite includes pytest, pylint, flake8, mypy and
+python-layout. After a build, the generated reports can be browsed through
 `reports/index.html`.
 
 After running `run_build.py` or `run_clean_build.py`, you can manually test
@@ -124,10 +140,10 @@ they are included as parts of README_pypi.md.
 
 ## Test summary
 
-- Test result: 2454 passed, 1 deselected in 59s
+- Test result: 2555 passed, 1 deselected in 59s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
-- Built version(s): 1.2.1
+- Built version(s): 1.3
 - Build and test using Python 3.14.7

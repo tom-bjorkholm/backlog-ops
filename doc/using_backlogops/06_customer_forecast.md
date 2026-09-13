@@ -62,6 +62,14 @@ Steps 2–4 read and write the same working file; step 4 re-formats it for the
 customer. Nothing is written back to Jira, so the customer report can never
 disturb the real backlog.
 
+A word of warning about step 3. A real Jira backlog almost always holds issues
+nobody has estimated yet, and an issue whose story point field is empty is
+read as exactly that. Unless your configuration says what such an item counts
+as, it counts as **free**, and every date after it — including the release
+date you are about to send the customer — comes out too early. Set
+`default_story_points` ([chapter 1](01_configuration.md#default-story-points))
+before you promise anything on the strength of this forecast.
+
 ## Do it from the GUI
 
 1. *File → Read backlog from Jira…* — pick the `scrum` preset. A backlog

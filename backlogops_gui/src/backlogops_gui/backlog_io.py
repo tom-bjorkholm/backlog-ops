@@ -4,7 +4,7 @@
 These helpers wrap the library read and write functions and resolve the
 format the same way the command line does: an empty value infers the
 format from the file name, a value of only letters and digits is a preset
-name looked up in the presets from the teams configuration, and any other
+name looked up in the presets of the backlog-ops configuration, and any other
 value is the path of a stand-alone format configuration file. Diagnostics
 go to the given sink, because a graphical application shows them in a log
 view rather than on a console.

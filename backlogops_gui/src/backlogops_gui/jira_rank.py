@@ -1,12 +1,14 @@
 #! /usr/local/bin/python3
-"""Move issues to the front or end of a Jira backlog by rank.
+"""Move issues to a chosen anchor of a Jira backlog by rank.
 
-The ranker offers a handler that asks for a preset, the keys to move and
-which end to move them to, then ranks them in Jira on a worker thread and
-hands the result back to the GUI thread. It is available only when a
-configuration with Jira presets is loaded. The backlog and the current
-ranking come from Jira through the preset, not from the shown backlog, so
-the handler does not need the shown data.
+The ranker offers a handler that asks for a preset, an issue filter, the
+keys to move, the anchor to move them to and whether to honour relations,
+then ranks them in Jira on a worker thread and hands the result back to the
+GUI thread. The anchor is either end of the backlog or the first or last of
+the listed keys. It is available only when a configuration with Jira presets
+is loaded. The backlog and the current ranking come from Jira through the
+preset, not from the shown backlog, so the handler does not need the shown
+data.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -20,7 +22,7 @@ from backlogops_gui.jira_dialogs import JiraRankOptions, ask_jira_rank
 
 # pylint: disable-next=too-few-public-methods
 class JiraRanker(JiraAction):
-    """Moves issues to the front or end of a Jira backlog by rank."""
+    """Moves issues to a chosen anchor of a Jira backlog by rank."""
 
     def rank_action(self) -> Optional[Callable[
             [Callable[[RankedInJira], None]], None]]:
@@ -28,7 +30,7 @@ class JiraRanker(JiraAction):
         return self._rank if self._available() else None
 
     def _rank(self, on_done: Callable[[RankedInJira], None]) -> None:
-        """Ask for a preset, filter, keys and end, then rank in Jira."""
+        """Ask for a preset, filter, keys and anchor, then rank in Jira."""
         options = ask_jira_rank(self._app.root, self._preset_filters(),
                                 self._app.log)
         if options is None:

@@ -31,8 +31,10 @@ from backlogops import (
 
 - `read_backlog_ops_config`, `write_backlog_ops_config`,
   `get_backlog_ops_config`: read, write, and look up the top-level
-  `BacklogOpsConfig` (workforce, named input and output presets, and the
-  optional backlog item levels).
+  `BacklogOpsConfig` (workforce, named input and output presets, the
+  status-name map, the guess for unestimated items, the GUI display
+  settings, the Jira configuration, and the optional backlog item
+  levels).
 
 - `read_key_list`, `write_key_list`: read and write a list of keys.
 
@@ -64,6 +66,11 @@ from backlogops import (
 - `estimate_ready_date`, `set_plan_from_estimate`: estimate ready dates
   and set planned dates from the estimate.
 
+- `DefaultStoryPoints`, `use_story_points`: what a backlog item that
+  nobody has estimated counts as, and the story points to work any one
+  item with. The estimate uses them, so an unestimated item does not
+  count as free.
+
 - `estimate_release_dates`, `release_plan_on_estimate`,
   `adjust_release_content`: estimate and plan release dates, and adjust
   release content to fit the planned dates.
@@ -89,5 +96,12 @@ from backlogops import (
 
 - `JiraIOConfig`, `JiraPreset`: the Jira connection and preset
   configuration.
+
+- `format_add_result`, `format_backlog_updates`, `format_release_result`,
+  `format_release_updates`, `format_rank_result`, `format_order_result`,
+  `format_rename_result`: turn the result of a Jira operation into a
+  listing that opens with what Jira refused or what was skipped.
+  `report_has_problems` answers whether such a listing reports something
+  that did not happen, which is what marks it in a user interface.
 
 For the full set of public names see the API documentation linked above.

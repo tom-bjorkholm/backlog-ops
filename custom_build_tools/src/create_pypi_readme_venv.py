@@ -77,6 +77,9 @@ B2 = [
     '(for exploring the features).',
     'Estimate ready date for the backlog items based on available teams, '
     'team velocity, vacation dates, periods with half time work, etc.',
+    'Configure what a backlog item that nobody has estimated counts as, '
+    'per backlog item level, so that an unestimated item does not make '
+    'the estimated dates too optimistic.',
     'Extract backlog keys at given backlog item levels.',
     'Reorder the backlog so that the dependencies are satisfied.',
     'Reorder the backlog so that items identified by keys in a list '
@@ -98,8 +101,14 @@ B2 = [
     'Migrate an older configuration or preset file to the current file '
     'format.',
     'A wizard to create a backlog-ops configuration file with the '
-    'workforce, named input and output presets, level names, and status '
-    'name mapping.',
+    'workforce, named input and output presets, level names, status '
+    'name mapping, the guess for unestimated items, how the graphical '
+    'user interface shows the data, and the Jira integration.',
+    'An editor showing a whole configuration file or a stand-alone '
+    'preset file at once, folded where it is deep, to change a single '
+    'value without stepping through the wizard.',
+    'Encrypt the Jira API token to a pass-phrase-protected file, so '
+    'that no configuration file holds the token in clear text.',
     'Read a backlog and releases from Jira into a backlog and release '
     'table.',
     'Write a backlog to Jira, creating a new Jira issue for each '
@@ -113,7 +122,10 @@ B2 = [
     'input order.',
     'Rename releases in Jira, changing the Jira version names.',
     'Move backlog items to a chosen anchor in the Jira rank order, '
-    'following a key list.'
+    'following a key list.',
+    'Report what a Jira operation did not do. Every Jira result opens '
+    'with what Jira refused or what was skipped, so a value that was '
+    'not written is visible without reading the whole listing.'
 ]
 P3 = 'The operating model that most of the functionality is designed for ' \
      'is that the teams work off a single backlog in the order of the ' \

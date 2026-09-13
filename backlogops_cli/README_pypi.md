@@ -41,6 +41,10 @@ The following functionality is available in all 3 packages:
 - Estimate ready date for the backlog items based on available teams, team
   velocity, vacation dates, periods with half time work, etc.
 
+- Configure what a backlog item that nobody has estimated counts as, per backlog
+  item level, so that an unestimated item does not make the estimated dates too
+  optimistic.
+
 - Extract backlog keys at given backlog item levels.
 
 - Reorder the backlog so that the dependencies are satisfied.
@@ -75,7 +79,16 @@ The following functionality is available in all 3 packages:
 - Migrate an older configuration or preset file to the current file format.
 
 - A wizard to create a backlog-ops configuration file with the workforce, named
-  input and output presets, level names, and status name mapping.
+  input and output presets, level names, status name mapping, the guess for
+  unestimated items, how the graphical user interface shows the data, and the
+  Jira integration.
+
+- An editor showing a whole configuration file or a stand-alone preset file at
+  once, folded where it is deep, to change a single value without stepping
+  through the wizard.
+
+- Encrypt the Jira API token to a pass-phrase-protected file, so that no
+  configuration file holds the token in clear text.
 
 - Read a backlog and releases from Jira into a backlog and release table.
 
@@ -93,6 +106,10 @@ The following functionality is available in all 3 packages:
 
 - Move backlog items to a chosen anchor in the Jira rank order, following a key
   list.
+
+- Report what a Jira operation did not do. Every Jira result opens with what
+  Jira refused or what was skipped, so a value that was not written is visible
+  without reading the whole listing.
 
 ## The operating model
 
@@ -290,10 +307,10 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 2454 passed, 1 deselected in 59s
+- Test result: 2555 passed, 1 deselected in 59s
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
-- Built version(s): 1.2.1
+- Built version(s): 1.3
 - Build and test using Python 3.14.7

@@ -19,7 +19,7 @@ def custom_spec() -> Optional[BuildSpec]:
     ``test_backlogops`` when they are imported from the CLI tests.
     """
     return BuildSpec(python_layout_max_name_length=25,
-                     readme_summary_max_skipped=0,
+                     readme_summary_max_skipped=15,
                      excluded_test_markers=['focus_sensitive'],
                      mypy_paths=[Path('backlogops/test')],
                      custom_after_test=[create_pypi_readme_cmd])

@@ -3,7 +3,7 @@
 
 The application opens a main window whose menu reads a backlog from a file
 or from Jira, loads or replaces the active configuration from a file, runs
-the teams configuration wizard, edits a configuration or a stand-alone
+the backlog-ops configuration wizard, edits a configuration or a stand-alone
 preset file in the folding editor of
 :mod:`backlogops_gui.config_edit`, creates a stand-alone input or output
 preset file, migrates a stand-alone preset file to the current format,
@@ -17,8 +17,8 @@ modified, and offers a "Read again" button that re-reads the same source.
 On macOS the menu bar sits at the top of the display rather than in
 the window, so the main window body shows a short description, the current
 configuration status, and a log of the most recent diagnostic messages, to
-make clear that the application is running. The teams configuration is
-taken from the file given with ``-c`` or from the configured locations;
+make clear that the application is running. The backlog-ops configuration
+is taken from the file given with ``-c`` or from the configured locations;
 when no configuration is found a startup dialog offers to run the wizard,
 load a configuration file, or exit. Cancelling the wizard or a dialog
 returns to that choice, so the application ends only when the user exits.
