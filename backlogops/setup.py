@@ -21,6 +21,6 @@ setup(
     'tableio-cfg-json >= 1.4',
     'wizard-ui-bridge[textual] >= 1.4',
     'versionreporter >= 0.4',
-    'edit-cfg-json >= 0.3.0',
+    'edit-cfg-json >= 0.4.0',
   ]
 )

@@ -364,7 +364,7 @@ succeeded. When something was refused the pop-up title is marked
 
 ## Test summary
 
-- Test result: 2555 passed, 1 deselected in 58s
+- Test result: 2555 passed, 1 deselected in 61s (0:01:01)
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
