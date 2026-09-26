@@ -29,6 +29,9 @@ nobody has estimated is worked with the guess configured under
 `default_story_points`
 ([chapter 1](01_configuration.md#default-story-points)); without that guess
 such an item costs nothing and every date after it is too optimistic.
+The estimate works in story points; estimating also in [remaining
+time](01_configuration.md#remaining-time-estimates) can be configured, but
+ready dates are not yet estimated from it.
 
 **CLI**
 

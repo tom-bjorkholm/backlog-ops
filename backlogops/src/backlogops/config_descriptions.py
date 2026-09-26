@@ -115,6 +115,10 @@ _MEMBERSHIP: Descriptions = {
                          'The periods must not overlap.'}
 """Every member of one team membership, plus its exception list."""
 
+_FOCUS_RANGE = ('Common values are from 0.1 to 0.5, and it must be from '
+                '0.005 to 3.0.')
+"""The range of a focus factor, said of each member that holds one."""
+
 _TEAM: Descriptions = {
     ('name',): 'Name of the team, as a backlog item names the team that '
                'does it. Unique across the teams, and not empty.',
@@ -126,6 +130,12 @@ _TEAM: Descriptions = {
                               'grows or shrinks, so it must be positive.',
     ('sprint_length',): 'Length of one sprint in working days, not calendar '
                         'days. Must be positive.',
+    ('focus_factor',): 'Fraction of the working time of this team that '
+                       'counts as focused work on backlog items, making up '
+                       'for optimism or pessimism in the estimates too. '
+                       'Used only for remaining time estimates, when they '
+                       'are enabled; without it the default focus factor '
+                       f'of the remaining time is used. {_FOCUS_RANGE}',
     ('aliases',): 'Other names a backlog may use for this team. Each is '
                   'unique across the teams and matched without case.',
     ('members',): 'Who is in the team, and for how much of their time. One '
@@ -237,7 +247,10 @@ def _display_members(action: str) -> Descriptions:
         ('release_to_external',): 'The same for the releases table.',
         ('release_to_external', EVERY): column,
         ('level_display',): 'Which columns the level of a backlog item is '
-                            f'{action} in.'}
+                            f'{action} in.',
+        ('omit_none_column',): 'Whether a column that has no value on any '
+                               f'row is left out rather than {action} '
+                               'empty.'}
 
 
 OUTPUT_DESCRIPTIONS: Descriptions = {**_display_members('written'),
@@ -334,10 +347,13 @@ _LEVEL: Descriptions = {
                   'Each is unique across the levels and their aliases.'}
 """Every member of one backlog item level."""
 
-_DEF_POINT_LEVEL: Descriptions = {
-    ('level',): 'The backlog item level this guess is for. A small whole '
+_GUESS_LEVEL = ('The backlog item level this guess is for. A small whole '
                 'number, as a backlog item level is: the levels of a '
-                'backlog usually run from zero to about five.',
+                'backlog usually run from zero to about five.')
+"""The level of one default story points or remaining time level."""
+
+_DEF_POINT_LEVEL: Descriptions = {
+    ('level',): _GUESS_LEVEL,
     ('story_points',): 'What a backlog item of this level is worked with '
                        'while it has no story points of its own. Not '
                        'negative. Zero says such an item is no work at '
@@ -362,6 +378,48 @@ _DEF_STORY_POINTS: Descriptions = {
                  'settings above is worked with no story points at all.',
     **prefixed(('levels', EVERY), _DEF_POINT_LEVEL)}
 """What every member of a ``DefaultStoryPoints`` is for."""
+
+_DEF_TIME_LEVEL: Descriptions = {
+    ('level',): _GUESS_LEVEL,
+    ('remaining_time',): 'What a backlog item of this level is worked with '
+                         'while it has no remaining time of its own, as '
+                         'hours:minutes:seconds of focused work of one '
+                         'person. Whole weeks and days of 24 hours may '
+                         'come first, such as 1d 2:30:00, but it is '
+                         'always written as hours. Zero says such an item '
+                         'is no work at all, and anything under 0:10:00 '
+                         'is left out of the growth the two settings '
+                         'above work with.'}
+"""Every member of one default remaining time level."""
+
+_REMAINING_TIME: Descriptions = {
+    ('enable_remaining_time',): 'Whether backlog items are also estimated '
+                                'in remaining time. Story points are used '
+                                'either way and are recommended, but both '
+                                'may be used, such as while moving from '
+                                'remaining time to story points. Without '
+                                'this the other settings here are unused.',
+    ('levels',): 'What an unestimated backlog item of a level is worked '
+                 'with, from the smallest item upwards. An item of a '
+                 'level that is neither here nor reached by the two '
+                 'settings below is worked with no remaining time at all.',
+    ('interpolate',): 'Whether a level between two of the levels above is '
+                      'guessed from them. Level 1 with 2:00:00 and level '
+                      '3 with 8:00:00 grow by a factor of 2 per level, so '
+                      'level 2 is guessed as 4:00:00.',
+    ('extrapolate',): 'Whether a level above the highest or below the '
+                      'lowest of the levels above is guessed the same '
+                      'way, from the two highest or the two lowest of '
+                      'them. With those levels, level 4 is guessed as '
+                      '16:00:00.',
+    ('default_focus_factor',): 'Fraction of the working time of a team '
+                               'that counts as focused work on backlog '
+                               'items, for a team without a focus factor '
+                               'of its own. It makes up for meetings, '
+                               'other work and optimism or pessimism in '
+                               f'the estimates. {_FOCUS_RANGE}',
+    **prefixed(('levels', EVERY), _DEF_TIME_LEVEL)}
+"""What every member of a ``RemainingTimeConfig`` is for."""
 
 _TOP_LEVEL: Descriptions = {
     ('available_teams',): 'Who does the work: the persons, the teams, and '
@@ -391,7 +449,11 @@ _TOP_LEVEL: Descriptions = {
                                'date is worked out. An item that has story '
                                'points of its own is worked with those, and '
                                'an item that has children is a container '
-                               'for them and no work of its own.'}
+                               'for them and no work of its own.',
+    ('remaining_time',): 'Whether estimates in remaining time are used '
+                         'beside story points, and what a backlog item '
+                         'that nobody has estimated in remaining time is '
+                         'worked with then.'}
 """What every member of the top-level configuration is for."""
 
 CONFIG_DESCRIPTIONS: Descriptions = {
@@ -402,7 +464,8 @@ CONFIG_DESCRIPTIONS: Descriptions = {
     **prefixed(('gui_display',), GUI_DESCRIPTIONS),
     **prefixed(('jira',), JIRA_DESCRIPTIONS),
     **prefixed(('levels', EVERY), _LEVEL),
-    **prefixed(('default_story_points',), _DEF_STORY_POINTS)}
+    **prefixed(('default_story_points',), _DEF_STORY_POINTS),
+    **prefixed(('remaining_time',), _REMAINING_TIME)}
 """What every member of a ``BacklogOpsConfig`` is for.
 
 One mapping for the whole tree, because a description selector crosses the

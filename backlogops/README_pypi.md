@@ -80,8 +80,8 @@ The following functionality is available in all 3 packages:
 
 - A wizard to create a backlog-ops configuration file with the workforce, named
   input and output presets, level names, status name mapping, the guess for
-  unestimated items, how the graphical user interface shows the data, and the
-  Jira integration.
+  unestimated items, whether remaining time estimates are also used, how the
+  graphical user interface shows the data, and the Jira integration.
 
 - An editor showing a whole configuration file or a stand-alone preset file at
   once, folded where it is deep, to change a single value without stepping
@@ -247,9 +247,9 @@ from backlogops import (
 - `read_backlog_ops_config`, `write_backlog_ops_config`,
   `get_backlog_ops_config`: read, write, and look up the top-level
   `BacklogOpsConfig` (workforce, named input and output presets, the
-  status-name map, the guess for unestimated items, the GUI display
-  settings, the Jira configuration, and the optional backlog item
-  levels).
+  status-name map, the guess for unestimated items, whether remaining
+  time estimates are also used, the GUI display settings, the Jira
+  configuration, and the optional backlog item levels).
 
 - `read_key_list`, `write_key_list`: read and write a list of keys.
 
@@ -285,6 +285,11 @@ from backlogops import (
   nobody has estimated counts as, and the story points to work any one
   item with. The estimate uses them, so an unestimated item does not
   count as free.
+
+- `RemainingTimeConfig`, `parse_duration`, `format_duration`: whether
+  remaining time estimates are also used beside story points (story
+  points are recommended), with the focus factor and the guess for
+  unestimated items, and a remaining time read from and written as text.
 
 - `estimate_release_dates`, `release_plan_on_estimate`,
   `adjust_release_content`: estimate and plan release dates, and adjust
@@ -323,7 +328,7 @@ For the full set of public names see the API documentation linked above.
 
 ## Test summary
 
-- Test result: 2555 passed, 1 deselected in 61s (0:01:01)
+- Test result: 2685 passed, 1 deselected in 66s (0:01:06)
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.

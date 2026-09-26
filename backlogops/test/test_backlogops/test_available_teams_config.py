@@ -100,6 +100,26 @@ def test_dates_omitted(tmp_path: Path) -> None:
     assert 'end_date' not in bo_member
 
 
+def test_focus_omitted(tmp_path: Path) -> None:
+    """Test a team without a focus factor of its own omits it from JSON."""
+    filename = tmp_path / 'teams.json'
+    write_available_teams(_sample_teams(), filename, NoTextIO())
+    data = json.loads(filename.read_text())
+    assert 'focus_factor' not in data['teams'][0]
+    loaded = read_available_teams(filename, NoTextIO())
+    assert loaded.teams[0].focus_factor is None
+
+
+def test_focus_round_trip(tmp_path: Path) -> None:
+    """Test a focus factor of a team's own survives a file."""
+    filename = tmp_path / 'teams.json'
+    teams = _sample_teams()
+    teams.teams[0].focus_factor = 0.4
+    write_available_teams(teams, filename, NoTextIO())
+    loaded = read_available_teams(filename, NoTextIO())
+    assert loaded.teams[0].focus_factor == 0.4
+
+
 def test_empty(tmp_path: Path) -> None:
     """Test an empty workforce can be written and read back."""
     filename = tmp_path / 'empty.json'

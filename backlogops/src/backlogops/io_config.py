@@ -26,7 +26,8 @@ mapped to another string is renamed, and a name mapped to None drops that
 column (for an input map the named file column is discarded).
 The :class:`GuiDisplayConfig` carries the same per-table maps and level
 display, but no TableIO endpoint, deciding how a backlog and its releases
-are shown on screen.
+are shown on screen. An output endpoint and the GUI may both leave out a
+column that has no value on any row.
 
 :func:`resolve_input_config` and :func:`resolve_output_config` turn a
 command-line value into such a configuration. The value may be empty
@@ -48,7 +49,7 @@ from config_as_json import Config, ConfigAutoChangeHook, ConfigNesting, \
     ConfigNestingKind, ConfigPath, InvalidConfiguration, \
     MemberValidationStep, MemberValidator, NestedConfigs, ParseConverter, \
     PathOrStr, ReadOldConfiguration, RocfKeyMove, RocfValueMigration, \
-    RocfValueWrite, ValidationPlan, member_path
+    RocfValueWrite, ValidationPlan, ValueTypeValidator, member_path
 from tableio import Capabilities, FileAccess, access_capabilities
 from tableio_cfg_json import TioJsonConfig, tio_json_config_default
 from backlogops.backlog import Status
@@ -77,8 +78,15 @@ class _DisplayMapReadOldConfig(ReadOldConfiguration):
     and a missing level display defaults to BOTH. The enum member itself
     is supplied, not its name, because the missing value is inserted after
     the read-side scalar converters have run and so would otherwise stay
-    an unconverted string.
+    an unconverted string. A missing ``omit_none_column`` defaults to the
+    value given when the migration is created, because the output and the
+    GUI default it differently.
     """
+
+    def __init__(self, omit_none_column: bool) -> None:
+        """Remember the default of a missing ``omit_none_column``."""
+        super().__init__()
+        self._omit_none_column = omit_none_column
 
     def get_json_key_moves(self) -> list[RocfKeyMove]:
         """Move an older single output map into the backlog map."""
@@ -88,7 +96,8 @@ class _DisplayMapReadOldConfig(ReadOldConfiguration):
     def get_missing_path_values(self) -> dict[ConfigPath, object]:
         """Supply default maps and level display for an older file."""
         return {('backlog_to_external',): {}, ('release_to_external',): {},
-                ('level_display',): LevelDisplay.BOTH}
+                ('level_display',): LevelDisplay.BOTH,
+                ('omit_none_column',): self._omit_none_column}
 
 
 # pylint: disable-next=too-few-public-methods
@@ -372,6 +381,12 @@ class InputFormatConfig(_FormatConfig):
         return plan + [step]
 
 
+def _omit_none_step() -> MemberValidationStep:
+    """Return the step checking that omit_none_column is a boolean."""
+    return MemberValidationStep(member_names=['omit_none_column'],
+                                validator=ValueTypeValidator(value_type=bool))
+
+
 class OutputFormatConfig(_FormatConfig):
     """TableIO output endpoint with per-table internal-to-external maps.
 
@@ -383,6 +398,10 @@ class OutputFormatConfig(_FormatConfig):
     is written as its number, its name, or both. The maps default to empty
     and the display defaults to :data:`LevelDisplay.BOTH`; any of them may
     be absent from an older file, in which case the default applies.
+    A column that is None on every row is left out of the written file
+    when :attr:`omit_none_column` is True. It defaults to False, so that a
+    spreadsheet gets every column, ready for the user to fill in and read
+    back.
     """
 
     _FILE_ACCESS = FileAccess.CREATE
@@ -390,6 +409,7 @@ class OutputFormatConfig(_FormatConfig):
     backlog_to_external: dict[str, Optional[str]]
     release_to_external: dict[str, Optional[str]]
     level_display: LevelDisplay
+    omit_none_column: bool
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
@@ -400,6 +420,7 @@ class OutputFormatConfig(_FormatConfig):
         self.backlog_to_external = {}
         self.release_to_external = {}
         self.level_display = LevelDisplay.BOTH
+        self.omit_none_column = False
         _FormatConfig.__init__(self, from_json_data_text=from_json_data_text,
                                from_json_filename=from_json_filename,
                                auto_ch_hook=auto_ch_hook,
@@ -414,7 +435,13 @@ class OutputFormatConfig(_FormatConfig):
     @override
     def _get_read_old_config(self) -> ReadOldConfiguration:
         """Return the migration that splits the map and defaults display."""
-        return _DisplayMapReadOldConfig()
+        return _DisplayMapReadOldConfig(omit_none_column=False)
+
+    @override
+    def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
+        """Check the column-name maps and the omit-none-column setting."""
+        return _FormatConfig.get_validation_plan(self, stderr_file) + \
+            [_omit_none_step()]
 
 
 def make_input_config(tableio: TioJsonConfig,
@@ -432,17 +459,24 @@ def make_input_config(tableio: TioJsonConfig,
     return config
 
 
+# pylint: disable-next=too-many-arguments
 def make_output_config(tableio: TioJsonConfig,
                        backlog_to_external: dict[str, Optional[str]],
                        release_to_external: dict[str, Optional[str]],
                        level_display: LevelDisplay = LevelDisplay.BOTH,
-                       stderr_file: TextIO = sys.stderr) -> OutputFormatConfig:
-    """Return an output config from a TableIO config, maps and display."""
+                       stderr_file: TextIO = sys.stderr, *,
+                       omit_none_column: bool = False) -> OutputFormatConfig:
+    """Return an output config from a TableIO config, maps and display.
+
+    ``omit_none_column`` says whether a column that is None on every row
+    is left out of the written file.
+    """
     config = OutputFormatConfig(stderr_file=stderr_file)
     config.tableio = tableio
     config.backlog_to_external = dict(backlog_to_external)
     config.release_to_external = dict(release_to_external)
     config.level_display = level_display
+    config.omit_none_column = omit_none_column
     return config
 
 
@@ -456,12 +490,15 @@ class GuiDisplayConfig(Config):
     :func:`backlogops.table_rows.apply_column_map`) and a
     :class:`LevelDisplay`. The maps default to empty and the display
     defaults to :data:`LevelDisplay.BOTH`; any of them may be absent from
-    an older file, in which case the default applies.
+    an older file, in which case the default applies. A column that is
+    None on every row is not shown when :attr:`omit_none_column` is True,
+    which it defaults to, so that no screen width is spent on it.
     """
 
     backlog_to_external: dict[str, Optional[str]]
     release_to_external: dict[str, Optional[str]]
     level_display: LevelDisplay
+    omit_none_column: bool
 
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
@@ -471,6 +508,7 @@ class GuiDisplayConfig(Config):
         self.backlog_to_external = {}
         self.release_to_external = {}
         self.level_display = LevelDisplay.BOTH
+        self.omit_none_column = True
         self._unchecked_dicts = ['backlog_to_external', 'release_to_external']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
@@ -484,15 +522,15 @@ class GuiDisplayConfig(Config):
     @override
     def _get_read_old_config(self) -> ReadOldConfiguration:
         """Return the migration that defaults the maps and the display."""
-        return _DisplayMapReadOldConfig()
+        return _DisplayMapReadOldConfig(omit_none_column=True)
 
     @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
-        """Check each column-name map allows a string or None value."""
+        """Check the column-name maps and the omit-none-column setting."""
         _ = stderr_file
         return [MemberValidationStep(
             member_names=['backlog_to_external', 'release_to_external'],
-            validator=_ColumnMapValidator())]
+            validator=_ColumnMapValidator()), _omit_none_step()]
 
 
 def _format_from_suffix(data_file: PathOrStr) -> str:

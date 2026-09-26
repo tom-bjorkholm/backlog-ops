@@ -39,6 +39,7 @@ from backlogops.date_ranges import check_date_range, check_no_overlap
 from backlogops.default_story_points import (
     DefaultStoryPointLevel, DefaultStoryPoints)
 from backlogops.demo_backlog import get_demo_backlog
+from backlogops.duration_text import format_duration, parse_duration
 from backlogops.estimate_ready_date import (
     estimate_ready_date, set_plan_from_estimate)
 from backlogops.format_rules import FormatRules
@@ -103,6 +104,8 @@ from backlogops.release_change_io import (
     format_content_changes, format_date_changes, write_content_changes,
     write_date_changes)
 from backlogops.releases import Release, Releases, get_release, get_releases
+from backlogops.remaining_time_config import (
+    DefaultRemainingTimeLevel, RemainingTimeConfig)
 from backlogops.rename_list_io import read_renames
 from backlogops.table_create import FileExistsCb, allow_overwrite
 from backlogops.table_rows import (
@@ -123,7 +126,8 @@ __all__ = [
     'CLEAR_TOKEN_WARNING', 'CONFIG_DESCRIPTIONS', 'CONFIG_EXTENSION',
     'CompanyWorkHours', 'DEFAULT_LEVELS',
     'DEFAULT_WORK_WEEK', 'DEF_BACKLOG_COLUMN_MAP', 'DEF_RELEASE_COLUMN_MAP',
-    'DEF_STATUS_INPUT_MAP', 'DefaultStoryPointLevel', 'DefaultStoryPoints',
+    'DEF_STATUS_INPUT_MAP', 'DefaultRemainingTimeLevel',
+    'DefaultStoryPointLevel', 'DefaultStoryPoints',
     'DependencyMode', 'EDIT_SETTINGS',
     'ExceptionWorkHours',
     'ExistsInJiraError', 'FailedField', 'FailedItem', 'FailedLink',
@@ -140,7 +144,8 @@ __all__ = [
     'OrderedReleasesInJira', 'OutputFormatConfig', 'Person', 'RankedInJira',
     'Release', 'ReleaseChange', 'ReleaseChanges', 'ReleaseDateChange',
     'ReleaseDateChanges', 'ReleaseExistsError', 'ReleaseRename', 'Releases',
-    'ReleasesAndDateChanges', 'RenamedReleasesInJira', 'ScheduleWorkHours',
+    'ReleasesAndDateChanges', 'RemainingTimeConfig', 'RenamedReleasesInJira',
+    'ScheduleWorkHours',
     'Status', 'StatusMismatch', 'Team', 'TokenStorage',
     'UnknownIssueTypeError', 'UpdatedBacklogInJira', 'UpdatedReleasesInJira',
     'WORKFORCE_DESCRIPTIONS',
@@ -157,6 +162,7 @@ __all__ = [
     'event_finish', 'event_start', 'find_cycle', 'find_keys_with_children',
     'fold_level_name',
     'format_add_result', 'format_backlog', 'format_backlog_updates',
+    'format_duration',
     'format_content_changes', 'format_date_changes', 'format_order_result',
     'format_rank_result', 'format_release_result', 'format_release_updates',
     'format_releases', 'format_rename_result', 'get_backlog',
@@ -168,7 +174,8 @@ __all__ = [
     'jira_rank_move_keys', 'level_name', 'level_number_from_name',
     'levels_from_list', 'make_input_config', 'make_output_config',
     'map_column_order', 'move_keys_first', 'order_by_dependencies',
-    'order_jira_rel_by_date', 'order_releases_in_jira', 'precedence_relations',
+    'order_jira_rel_by_date', 'order_releases_in_jira', 'parse_duration',
+    'precedence_relations',
     'preset_wizard', 'read_available_teams', 'read_backlog_from_jira',
     'read_backlog_ops_config', 'read_backlog_releases', 'read_io_preset',
     'read_jira_from_config', 'read_key_list', 'read_name_list', 'read_renames',

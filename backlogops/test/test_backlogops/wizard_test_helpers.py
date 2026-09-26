@@ -19,12 +19,13 @@ from wizard_ui_bridge import TableCell, TableColumn, WizardUiBridge, \
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog_ops_config import BacklogOpsConfig
 from backlogops.backlog_ops_wizard import (
-    available_teams_wizard, backlog_ops_wizard, _WORKFORCE_HEAD,
-    _INPUT_PRESETS_HEAD, _OUTPUT_PRESETS_HEAD, _LEVELS_HEAD,
+    available_teams_wizard, backlog_ops_wizard, _REMAINING_HEAD,
+    _WORKFORCE_HEAD, _INPUT_PRESETS_HEAD, _OUTPUT_PRESETS_HEAD, _LEVELS_HEAD,
     _DEF_POINTS_HEAD, _STATUS_MAP_HEAD, _GUI_DISPLAY_HEAD, _JIRA_HEAD)
 
-GUI_KEEP = ['']
-"""A blank answer that keeps the default GUI level display (both)."""
+GUI_KEEP = ['', '']
+"""Blank answers that keep the default GUI level display (both) and
+leave out a column that has no value on any row."""
 
 MAPS_KEEP = ['', '']
 """Blank answers that accept a pre-filled backlog and releases map."""
@@ -38,6 +39,10 @@ maps, which skips the presets too."""
 
 LEVELS_KEEP = ['']
 """A blank answer that accepts the pre-filled default levels table."""
+
+REMAINING_OFF = ['']
+"""A blank answer that does not also estimate in remaining time, which
+asks nothing more about remaining time."""
 
 POINTS_SKIP = ['']
 """A blank answer that guesses nothing for an unestimated item."""
@@ -55,9 +60,9 @@ CSV_OPTS = [''] * 7
 """Blank answers for the CSV format encoding and six option cells."""
 
 CONFIG_HEADS = [
-    _WORKFORCE_HEAD, _INPUT_PRESETS_HEAD, _OUTPUT_PRESETS_HEAD,
-    _LEVELS_HEAD, _DEF_POINTS_HEAD, _STATUS_MAP_HEAD, _GUI_DISPLAY_HEAD,
-    _JIRA_HEAD]
+    _REMAINING_HEAD, _WORKFORCE_HEAD, _INPUT_PRESETS_HEAD,
+    _OUTPUT_PRESETS_HEAD, _LEVELS_HEAD, _DEF_POINTS_HEAD, _STATUS_MAP_HEAD,
+    _GUI_DISPLAY_HEAD, _JIRA_HEAD]
 """The full-config wizard stage headings, in collection order."""
 
 

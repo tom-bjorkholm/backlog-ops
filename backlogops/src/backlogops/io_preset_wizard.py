@@ -24,11 +24,7 @@ from backlogops.io_config import InputFormatConfig, OutputFormatConfig, \
     _FormatConfig, make_input_config, make_output_config
 from backlogops.table_rows import RELEASE_FIELDS
 from backlogops.wizard_helpers import _backlog_map_fields
-from backlogops.wizard_navigator import _Navigator, _ask_level_display
-
-
-_OUT_LEVEL_QUESTION = 'How to write levels (numeric, name or both)'
-"""Wizard prompt for how an output preset writes levels."""
+from backlogops.wizard_navigator import _Navigator, _ask_display
 
 
 _OUT_COLUMN_HEADER = 'Output column (blank drops it)'
@@ -163,7 +159,7 @@ def _ask_input_config(nav: _Navigator,
 def _ask_output_config(nav: _Navigator,
                        default: Optional[OutputFormatConfig] = None
                        ) -> OutputFormatConfig:
-    """Ask one output preset's format, both maps and level display."""
+    """Ask one output preset's format, both maps and display settings."""
     tableio = nav.ask_tableio(FileAccess.CREATE,
                               seed=default.tableio if default else None)
     backlog_map = nav.level(lambda: nav.ask_renames(
@@ -172,9 +168,9 @@ def _ask_output_config(nav: _Navigator,
     release_map = nav.level(lambda: nav.ask_renames(
         list(RELEASE_FIELDS), False, _OUT_COLUMN_HEADER,
         seed=default.release_to_external if default else None))
-    display = _ask_level_display(nav, _OUT_LEVEL_QUESTION,
-                                 default.level_display if default else None)
-    return make_output_config(tableio, backlog_map, release_map, display)
+    display, omit = _ask_display(nav, 'written', default, False)
+    return make_output_config(tableio, backlog_map, release_map, display,
+                              omit_none_column=omit)
 
 
 def _ask_input_preset(nav: _Navigator, used: set[str],

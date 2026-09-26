@@ -52,6 +52,7 @@ are:
 | `available_teams` | The workforce: persons, teams, and the company calendar. Used by date estimation. |
 | `levels` | Your backlog levels and their names/aliases (optional; defaults apply when omitted). |
 | `default_story_points` | What an item nobody has estimated counts as when dates are estimated. |
+| `remaining_time` | Whether remaining time estimates are also used, beside story points (off by default; story points are recommended). |
 | `status_input_map` | Maps the status words in *your* files/Jira to the four internal statuses. |
 | `input_configs` | Named input presets (file format + column renaming when reading). |
 | `output_configs` | Named output presets (file format + column renaming when writing). |
@@ -104,6 +105,11 @@ time from January (but half time in February for training) and takes July
 1–20 off; Bo is half time.* The sprint length is counted in **working days**,
 not calendar days. From this plus the backlog, estimation can compute when
 each item will be ready.
+
+A team may also have a `focus_factor` of its own, which is used only for
+[remaining time estimates](#remaining-time-estimates). It is left out of the
+file while the team uses the default focus factor, which is what a team
+that does not estimate in remaining time should do.
 
 ### Levels
 
@@ -163,6 +169,66 @@ what it says where you give it, but takes no part in the growth used to fill
 in the other levels: dividing by nearly nothing would make every level above
 it absurdly large.
 
+### Remaining time estimates
+
+We recommend estimating in story points. Estimating in remaining time has a
+number of shortcomings:
+
+- A relative estimate is easier to get right than an absolute one. Teams
+  estimating in time usually spend too long estimating, and still often
+  forget parts of the work to be done.
+- People confuse effective hours and calendar hours. Hearing that 48 hours
+  of work are left, many think of 2 days rather than one week and one day
+  (in a work week of 5 days of 8 hours).
+- Time goes to meetings, company e-mail and so on, which has to be
+  accounted for with a **focus factor**.
+- The focus factor also makes up for optimism in the estimates, so a focus
+  factor of 0.3 is common. People tend to read that as the team working on
+  something else 70% of the time, which leads to stressful arguments.
+
+Some development efforts are still required to estimate in remaining time,
+and `remaining_time` is for them. Enabling it does not disable story points:
+a development effort most likely uses one of the two, but it may use both,
+which can be useful while it moves from remaining time estimates to story
+points.
+
+```json
+"remaining_time": {
+    "enable_remaining_time": true,
+    "levels": [{"level": 1, "remaining_time": "2:00:00"},
+               {"level": 3, "remaining_time": "24:00:00"}],
+    "interpolate": true,
+    "extrapolate": true,
+    "default_focus_factor": 0.3
+}
+```
+
+* `enable_remaining_time` switches remaining time estimates on, beside the
+  story points that are used either way. It is `false` by default, and then
+  the rest of the section is not used (it is still checked when the file is
+  read).
+* A remaining time is **ideal focused work time of one person**: `0:30:00`
+  means one person working focused on only that item for 30 minutes. It is
+  written as hours, minutes and seconds. When you type or read one, whole
+  weeks and days may come first, such as `1w 1d 2:30:00`, where `1d` is 24
+  hours and `1w` is 7 days; it is always written back as hours, so that
+  becomes `194:30:00`. Showing only hours keeps a remaining time from being
+  mistaken for calendar time.
+* `levels`, `interpolate` and `extrapolate` are the guess for an item nobody
+  has estimated, and work just as for the [default story
+  points](#default-story-points). A level given less than 10 minutes (about
+  the time it takes to open an item and find out what to do) counts as what
+  it says, but takes no part in the growth used to fill in the other levels.
+* `default_focus_factor` is the fraction of the working time of a team that
+  counts as focused work on the backlog items, for a team without a
+  `focus_factor` of its own. Common values are from 0.1 to 0.5. It must be
+  from 0.005 to 3.0 (0.5% to 300%): zero would mean no progress ever, and a
+  value above 1 makes up for estimates that are too pessimistic.
+
+This version reads, checks, edits and writes the remaining time
+configuration. Remaining time on the backlog items themselves, and ready
+dates estimated from it, are not supported yet.
+
 ### Status mapping
 
 Internally there are four statuses: `TODO`, `IN_PROGRESS`, `DONE`,
@@ -202,6 +268,7 @@ to write.
     "customer-report": {
         "tableio": {"format_name": "Excel"},
         "level_display": "BOTH",
+        "omit_none_column": false,
         "backlog_to_external": {"key": "Issue key", "title": "Summary",
                                 "estimated_ready_date": "Forecast"},
         "release_to_external": {"name": "Release",
@@ -214,6 +281,15 @@ to write.
 `NAME` (name only), or `BOTH` (number and name in separate columns). You use
 these preset names on the command line, for example
 `-I from-excel` when reading or `-O customer-report` when writing.
+
+`omit_none_column` says whether a column that has no value on any row is
+left out. It is `false` by default for an output preset, so that a
+spreadsheet gets every column, ready for you to fill in and read back in
+under the right column name. The `gui_display` section has the same
+setting, which is `true` by default there, so that no screen width is spent
+on an empty column (such as the story points of a backlog estimated in
+remaining time). In this version the setting is stored and edited, but not
+yet applied when a backlog is written or shown.
 
 ## Jira configuration
 
@@ -415,9 +491,9 @@ configuration at once, and a migration for an older file.
 
 ### The configuration wizard
 
-Builds a complete backlog-ops file interactively: the workforce, the company
-calendar, named presets, levels, the guess for unestimated items and the
-status map. Related questions are
+Builds a complete backlog-ops file interactively: whether remaining time
+estimates are also used, the workforce, the company calendar, named presets, levels,
+the guess for unestimated items and the status map. Related questions are
 grouped onto single forms — the company's weekly work hours together with its
 first holiday period, a team's velocity and sprint length (in working days), a
 work-hour exception's dates and hours, a team membership, and each Jira
@@ -432,6 +508,15 @@ story points are asked as one form — whether to guess at all, and whether to
 fill in the levels between and beyond the ones you give — followed by a table
 of a level and its story points per row, which is skipped when you guess
 nothing.
+
+The first form asks whether to also estimate in remaining time; story
+points stay in use either way. When you say no, nothing more is asked about
+remaining time. When you say yes, the same form asks the default focus
+factor and whether and how to guess, followed by a table of a level and its
+remaining time per row; each team form then also asks whether the team has
+a focus factor of its own. How levels are shown and whether an empty column
+is left out are asked together on one form, both for an output preset and
+for the GUI display.
 
 - **CLI:** `python3 -m backlogops_cli.config_wizard` — add `-i old.cfg` to
   start from an existing file (see [Starting from an existing
@@ -456,7 +541,8 @@ file](#starting-from-an-existing-file)).
 ### The preset wizard
 
 Builds one stand-alone input or output preset file (format plus column maps,
-and level display for an output preset). Use its file name wherever an input
+and level display and whether to leave out an empty column for an output
+preset). Use its file name wherever an input
 (`-I`) or output (`-O`) format is expected.
 
 - **CLI:** `python3 -m backlogops_cli.preset_wizard` — add `-i old.cfg` to

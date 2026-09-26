@@ -11,7 +11,7 @@ re-asked, whether the user went back to it or forward into it once more.
 The field-reading and parsing helpers the navigator calls live in
 :mod:`backlogops.wizard_helpers`; the one-screen form toolkit lives in
 :mod:`backlogops.wizard_forms`. The small domain helper
-:func:`_ask_level_display` is shared by the configuration and preset wizards.
+:func:`_ask_display` is shared by the configuration and preset wizards.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -20,20 +20,20 @@ The field-reading and parsing helpers the navigator calls live in
 from dataclasses import dataclass, field
 from functools import partial
 from typing import Callable, Optional, Sequence, TextIO, TypeVar
+from config_as_json import Config
 from tableio import FileAccess
 from tableio_cfg_json import TioJsonConfig
 from wizard_ui_bridge import PrefillValueType, WizardBack, \
     WizardCancelLevel, WizardUiBridge
 from backlogops.backlog import Status
-from backlogops.default_story_points import DefaultStoryPoints
+from backlogops.io_config import GuiDisplayConfig, OutputFormatConfig
 from backlogops.jira_io_config import JiraColumnMap, JiraIssueTypeMap
 from backlogops.levels import Level, LevelDisplay, Levels
-from backlogops.wizard_forms import FormField, FormResult, run_form, \
-    _no_prefill, _no_rule
-from backlogops.wizard_helpers import _RenameKind, _read_def_points, \
-    _read_int, _read_issue_type_map, _read_jira_map, _read_levels, \
-    _read_preset_name, _read_renames, _read_status_map, _read_tableio, \
-    _read_text
+from backlogops.wizard_forms import FormField, FormResult, choice_field, \
+    run_form, yes_no_field, _no_prefill, _no_rule
+from backlogops.wizard_helpers import _RenameKind, _read_int, \
+    _read_issue_type_map, _read_jira_map, _read_levels, _read_preset_name, \
+    _read_renames, _read_status_map, _read_tableio, _read_text
 
 _T = TypeVar('_T')
 _D = TypeVar('_D')
@@ -282,16 +282,26 @@ class _Navigator:
         assert isinstance(result, list)
         return result
 
-    def ask_def_points(self, interpolate: bool, extrapolate: bool, *,
-                       seed: Optional[DefaultStoryPoints] = None
-                       ) -> DefaultStoryPoints:
-        """Ask the default story points as one variable-row table."""
+    def ask_guess[D: Config](self, read: Callable[[WizardUiBridge,
+                                                   Optional[D]], D],
+                             kind: type[D], *, seed: Optional[D] = None) -> D:
+        """Ask a guess by level with ``read``, pre-filled from a seed.
+
+        Args:
+            read: Asks the guess on a bridge, pre-filled from the guess
+                it is given, or empty when it is given None.
+            kind: The class of the guess, used to recognise a remembered
+                answer as a seed.
+            seed: The guess to pre-fill the question with, if any.
+
+        Returns:
+            The guess the user gave.
+        """
         def ask(sd: object, _bw: bool) -> object:
-            """Ask the table, pre-filled from the remembered defaults."""
-            pre = sd if isinstance(sd, DefaultStoryPoints) else None
-            return _read_def_points(self._ui, interpolate, extrapolate, pre)
+            """Ask the guess, pre-filled from the remembered one."""
+            return read(self._ui, sd if isinstance(sd, kind) else None)
         result = self._ask(ask, seed)
-        assert isinstance(result, DefaultStoryPoints)
+        assert isinstance(result, kind)
         return result
 
     def ask_renames(self, fields: list[str], allow_extra: bool,
@@ -403,11 +413,34 @@ class _Navigator:
                 del self._seeds[path]
 
 
-def _ask_level_display(nav: _Navigator, question: str,
-                       seed: Optional[LevelDisplay] = None) -> LevelDisplay:
-    """Ask how to show levels, defaulting to both number and name."""
+def _ask_display(nav: _Navigator, action: str,
+                 seed: Optional[OutputFormatConfig | GuiDisplayConfig],
+                 omit_default: bool) -> tuple[LevelDisplay, bool]:
+    """Ask how to show levels and whether to leave out empty columns.
+
+    Both are asked on one form. The level display defaults to both number
+    and name, and ``omit_default`` is the default of leaving out a column
+    that has no value on any row.
+
+    Args:
+        nav: The navigator asking the form.
+        action: Where the table goes, such as ``'written'`` for an output
+            preset or ``'shown'`` for the GUI, used in the questions.
+        seed: The stored display settings to pre-fill the form with.
+        omit_default: Whether an empty column is left out by default.
+
+    Returns:
+        The level display and whether an empty column is left out.
+    """
     choices = [display.name.lower() for display in LevelDisplay]
-    pre = seed.name.lower() if isinstance(seed, LevelDisplay) else None
-    answer = nav.ask_choice(question, choices,
-                            default=LevelDisplay.BOTH.name.lower(), seed=pre)
-    return LevelDisplay[answer.upper()]
+    fields = [choice_field('display', f'How levels are {action} (numeric, '
+                           'name or both)', choices,
+                           default=LevelDisplay.BOTH.name.lower()),
+              yes_no_field('omit', 'Leave out a column that has no value on '
+                           'any row?', omit_default)]
+    pre = None if seed is None else FormResult({
+        'display': seed.level_display.name.lower(),
+        'omit': seed.omit_none_column})
+    values = nav.ask_form(f'Configure how the tables are {action}.', fields,
+                          seed=pre)
+    return LevelDisplay[values.text('display').upper()], values.flag('omit')

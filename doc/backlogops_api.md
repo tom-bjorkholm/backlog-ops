@@ -49,6 +49,16 @@
   * [check\_key\_syntax](#backlogops.backlog_helpers.check_key_syntax)
   * [check\_label\_syntax](#backlogops.backlog_helpers.check_label_syntax)
   * [find\_cycle](#backlogops.backlog_helpers.find_cycle)
+* [backlogops.level\_defaults](#backlogops.level_defaults)
+  * [level\_validator](#backlogops.level_defaults.level_validator)
+  * [LevelDefault](#backlogops.level_defaults.LevelDefault)
+    * [as\_float](#backlogops.level_defaults.LevelDefault.as_float)
+  * [LevelDefaults](#backlogops.level_defaults.LevelDefaults)
+    * [\_\_init\_\_](#backlogops.level_defaults.LevelDefaults.__init__)
+    * [nested\_configs](#backlogops.level_defaults.LevelDefaults.nested_configs)
+    * [get\_validation\_plan](#backlogops.level_defaults.LevelDefaults.get_validation_plan)
+    * [build\_cache](#backlogops.level_defaults.LevelDefaults.build_cache)
+    * [check\_consistency](#backlogops.level_defaults.LevelDefaults.check_consistency)
 * [backlogops.key\_list\_io](#backlogops.key_list_io)
   * [TEXT\_EXTENSIONS](#backlogops.key_list_io.TEXT_EXTENSIONS)
   * [KEY\_COLUMN\_NAME](#backlogops.key_list_io.KEY_COLUMN_NAME)
@@ -77,14 +87,11 @@
     * [backlog\_in\_release\_order](#backlogops.backlog_releases.BacklogReleases.backlog_in_release_order)
 * [backlogops.default\_story\_points](#backlogops.default_story_points)
   * [DefaultStoryPointLevel](#backlogops.default_story_points.DefaultStoryPointLevel)
+    * [as\_float](#backlogops.default_story_points.DefaultStoryPointLevel.as_float)
     * [\_\_init\_\_](#backlogops.default_story_points.DefaultStoryPointLevel.__init__)
     * [get\_validation\_plan](#backlogops.default_story_points.DefaultStoryPointLevel.get_validation_plan)
   * [DefaultStoryPoints](#backlogops.default_story_points.DefaultStoryPoints)
     * [\_\_init\_\_](#backlogops.default_story_points.DefaultStoryPoints.__init__)
-    * [nested\_configs](#backlogops.default_story_points.DefaultStoryPoints.nested_configs)
-    * [get\_validation\_plan](#backlogops.default_story_points.DefaultStoryPoints.get_validation_plan)
-    * [build\_cache](#backlogops.default_story_points.DefaultStoryPoints.build_cache)
-    * [check\_consistency](#backlogops.default_story_points.DefaultStoryPoints.check_consistency)
     * [get\_default\_story\_points](#backlogops.default_story_points.DefaultStoryPoints.get_default_story_points)
 * [backlogops.demo\_backlog](#backlogops.demo_backlog)
   * [get\_demo\_backlog](#backlogops.demo_backlog.get_demo_backlog)
@@ -173,6 +180,8 @@
   * [JIRA\_DESCRIPTIONS](#backlogops.config_descriptions.JIRA_DESCRIPTIONS)
   * [CONFIG\_DESCRIPTIONS](#backlogops.config_descriptions.CONFIG_DESCRIPTIONS)
 * [backlogops.team](#backlogops.team)
+  * [FOCUS\_FACTOR\_RANGE](#backlogops.team.FOCUS_FACTOR_RANGE)
+  * [check\_focus\_factor](#backlogops.team.check_focus_factor)
   * [FteException](#backlogops.team.FteException)
     * [check\_consistency](#backlogops.team.FteException.check_consistency)
   * [Membership](#backlogops.team.Membership)
@@ -255,6 +264,9 @@
   * [get\_releases](#backlogops.releases.get_releases)
   * [check\_releases](#backlogops.releases.check_releases)
   * [order\_releases\_by\_date](#backlogops.releases.order_releases_by_date)
+* [backlogops.duration\_text](#backlogops.duration_text)
+  * [parse\_duration](#backlogops.duration_text.parse_duration)
+  * [format\_duration](#backlogops.duration_text.format_duration)
 * [backlogops.jira\_read](#backlogops.jira_read)
   * [is\_appendable\_jira\_field](#backlogops.jira_read.is_appendable_jira_field)
   * [build\_backlog\_releases](#backlogops.jira_read.build_backlog_releases)
@@ -288,6 +300,17 @@
 * [backlogops.jira\_write\_format](#backlogops.jira_write_format)
   * [report\_has\_problems](#backlogops.jira_write_format.report_has_problems)
   * [format\_add\_result](#backlogops.jira_write_format.format_add_result)
+* [backlogops.remaining\_time\_config](#backlogops.remaining_time_config)
+  * [DefaultRemainingTimeLevel](#backlogops.remaining_time_config.DefaultRemainingTimeLevel)
+    * [\_\_init\_\_](#backlogops.remaining_time_config.DefaultRemainingTimeLevel.__init__)
+    * [as\_float](#backlogops.remaining_time_config.DefaultRemainingTimeLevel.as_float)
+    * [get\_validation\_plan](#backlogops.remaining_time_config.DefaultRemainingTimeLevel.get_validation_plan)
+    * [serialize\_converters](#backlogops.remaining_time_config.DefaultRemainingTimeLevel.serialize_converters)
+  * [RemainingTimeConfig](#backlogops.remaining_time_config.RemainingTimeConfig)
+    * [\_\_init\_\_](#backlogops.remaining_time_config.RemainingTimeConfig.__init__)
+    * [get\_validation\_plan](#backlogops.remaining_time_config.RemainingTimeConfig.get_validation_plan)
+    * [check\_consistency](#backlogops.remaining_time_config.RemainingTimeConfig.check_consistency)
+    * [get\_default\_time](#backlogops.remaining_time_config.RemainingTimeConfig.get_default_time)
 * [backlogops.io\_config](#backlogops.io_config)
   * [EXTENSION\_FORMATS](#backlogops.io_config.EXTENSION_FORMATS)
   * [PRESET\_NAME\_RE](#backlogops.io_config.PRESET_NAME_RE)
@@ -298,6 +321,7 @@
   * [OutputFormatConfig](#backlogops.io_config.OutputFormatConfig)
     * [\_\_init\_\_](#backlogops.io_config.OutputFormatConfig.__init__)
     * [parse\_converters](#backlogops.io_config.OutputFormatConfig.parse_converters)
+    * [get\_validation\_plan](#backlogops.io_config.OutputFormatConfig.get_validation_plan)
   * [make\_input\_config](#backlogops.io_config.make_input_config)
   * [make\_output\_config](#backlogops.io_config.make_output_config)
   * [GuiDisplayConfig](#backlogops.io_config.GuiDisplayConfig)
@@ -1602,6 +1626,189 @@ reference is reported as ``[node, node]``.
   The nodes that form a cycle (with the start node repeated at the
   end), or None when the graph has no cycle.
 
+<a id="backlogops.level_defaults"></a>
+
+# backlogops.level\_defaults
+
+Best guess of a value by backlog item level, shared by its users.
+
+A backlog item nobody has estimated still takes time, and a completion
+date worked out as if it took none is wrong in the one direction that
+matters. :class:`LevelDefaults` is the shared part of what the
+configuration says such an item counts as: a value for a backlog item
+level, and two settings that fill in the levels that are not given. The
+value is story points in :class:`backlogops.DefaultStoryPoints` and
+remaining time in :class:`backlogops.RemainingTimeConfig`; the growth
+works on it as a float either way.
+
+Filling in works with a factor, which is what one level up multiplies the
+size by. Level 1 with 2 story points and level 3 with 8 grow by a factor
+of 2 per level, so an interpolated level 2 is 4. Extrapolation continues
+past the given levels with the factor of the two highest of them upwards
+and the factor of the two lowest of them downwards, so level 4 is 16 and
+level 0 is 1. A level given a value near zero counts as that value where
+it is given, but takes no part in any factor, because a ratio to nearly
+nothing says nothing about how sizes grow: it would make every level
+above it absurdly large.
+
+<a id="backlogops.level_defaults.level_validator"></a>
+
+#### level\_validator
+
+```python
+def level_validator() -> MemberValidator
+```
+
+Return the validator of the level number of one default.
+
+<a id="backlogops.level_defaults.LevelDefault"></a>
+
+## LevelDefault Objects
+
+```python
+class LevelDefault(Protocol)
+```
+
+What a default of one level offers to the shared growth.
+
+<a id="backlogops.level_defaults.LevelDefault.as_float"></a>
+
+#### as\_float
+
+```python
+def as_float() -> float
+```
+
+Return the value of this level as the number growth works on.
+
+<a id="backlogops.level_defaults.LevelDefaults"></a>
+
+## LevelDefaults Objects
+
+```python
+class LevelDefaults(Config, Generic[_L])
+```
+
+The shared guess of a value by level, and its fill-in settings.
+
+A subclass creates ``levels``, ``interpolate`` and ``extrapolate`` in
+its constructor, in the order it wants them in the file, before it
+calls the constructor of this class. It names its level class in
+:attr:`_LEVEL_TYPE` and itself in :attr:`_SUBJECT`, sets the smallest
+value a factor may be worked out from in :attr:`_NEAR_ZERO`, and says
+why filling in is refused without two such levels in
+:attr:`_NO_FACTOR`.
+
+**Attributes**:
+
+- `levels` - The value given for a level, sorted by level number
+  while the configuration is validated.
+- `interpolate` - Whether a level between two given levels is guessed
+  from them.
+- `extrapolate` - Whether a level above the highest or below the
+  lowest given level is guessed from the two nearest ones.
+- `_value_for_level` - What each level asked for counts as, by level
+  number, as the float growth works on. :meth:`build_cache`
+  puts the given levels in it, and a level worked out from them
+  is added to it the first time it is asked for.
+
+<a id="backlogops.level_defaults.LevelDefaults.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
+```
+
+Create the empty level lookup, then read the configuration.
+
+**Arguments**:
+
+- `from_json_data_text` - Optional JSON text to parse directly.
+- `from_json_filename` - Optional JSON file to read.
+- `auto_ch_hook` - Hook notified about backward-compatible changes
+  made while reading.
+- `stderr_file` - Stream used for user-facing diagnostics.
+- `member_name` - Path for reaching this object from the top level,
+  so that a diagnostic names the whole path. None for an
+  object that is a member of nothing.
+
+<a id="backlogops.level_defaults.LevelDefaults.nested_configs"></a>
+
+#### nested\_configs
+
+```python
+@override
+def nested_configs() -> NestedConfigs
+```
+
+Declare the given levels as nested configuration objects.
+
+<a id="backlogops.level_defaults.LevelDefaults.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check the two settings, then the levels as a whole.
+
+The consistency check is given the stream of this validation, so
+that what it reports goes where the caller asked for it.
+
+<a id="backlogops.level_defaults.LevelDefaults.build_cache"></a>
+
+#### build\_cache
+
+```python
+def build_cache() -> None
+```
+
+Build the lookup afresh from the levels that are given.
+
+The levels worked out from the given ones are not built here.
+Each of them is added to the same lookup the first time it is
+asked for, so a backlog of many items works out a level once
+however many items are at that level.
+
+This is called whenever the configuration is validated, and
+starting afresh is what forgets the levels worked out from the
+earlier ones. An application that changes the levels afterwards
+validates the configuration again, or calls this, before the
+changed levels are used.
+
+<a id="backlogops.level_defaults.LevelDefaults.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the given levels and build the level lookup.
+
+The levels are sorted by level number, so that a stored file reads
+from the smallest item upwards. Giving the same level twice is an
+error, and so is asking for levels to be filled in without the two
+levels a factor is worked out from.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `ValueError` - A level is given twice, or a filled-in level is
+  asked for without two levels to work the factor from.
+
 <a id="backlogops.key_list_io"></a>
 
 # backlogops.key\_list\_io
@@ -2249,14 +2456,8 @@ an item counts as: a story point value for a backlog item level, and two
 settings that fill in the levels that are not given.
 
 Filling in works with a factor, which is what one level up multiplies the
-size by. Level 1 with 2 story points and level 3 with 8 grow by a factor
-of 2 per level, so an interpolated level 2 is 4. Extrapolation continues
-past the given levels with the factor of the two highest of them upwards
-and the factor of the two lowest of them downwards, so level 4 is 16 and
-level 0 is 1. A level given very few story points counts as those where it
-is given, but takes no part in any factor, because a ratio to nearly
-nothing says nothing about how sizes grow: it would make every level
-above it absurdly large.
+size by, as described in :mod:`backlogops.level_defaults`. A level given
+fewer than 0.05 story points takes no part in any factor.
 
 Which backlog items this guess applies to is decided by
 :func:`backlogops.use_story_points`, not here.
@@ -2270,6 +2471,16 @@ class DefaultStoryPointLevel(Config)
 ```
 
 The default story points of a backlog item at one level.
+
+<a id="backlogops.default_story_points.DefaultStoryPointLevel.as_float"></a>
+
+#### as\_float
+
+```python
+def as_float() -> float
+```
+
+Return the story points, as the number growth works on.
 
 <a id="backlogops.default_story_points.DefaultStoryPointLevel.__init__"></a>
 
@@ -2319,7 +2530,7 @@ Check the level number and the story points of one default.
 ## DefaultStoryPoints Objects
 
 ```python
-class DefaultStoryPoints(Config)
+class DefaultStoryPoints(LevelDefaults[DefaultStoryPointLevel])
 ```
 
 What a backlog item with no story points of its own counts as.
@@ -2359,81 +2570,10 @@ Create defaults that guess nothing, or read them from JSON.
   guessed from them.
 - `extrapolate` - Whether a level above the highest or below the
   lowest given level is guessed from the two nearest ones.
-- `_points_for_level` - What each level asked for counts as, by
+- `_value_for_level` - What each level asked for counts as, by
   level number. :meth:`build_cache` puts the given levels
   in it, and a level worked out from them is added to it
   the first time it is asked for.
-
-<a id="backlogops.default_story_points.DefaultStoryPoints.nested_configs"></a>
-
-#### nested\_configs
-
-```python
-@override
-def nested_configs() -> NestedConfigs
-```
-
-Declare the given levels as nested configuration objects.
-
-<a id="backlogops.default_story_points.DefaultStoryPoints.get_validation_plan"></a>
-
-#### get\_validation\_plan
-
-```python
-@override
-def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
-```
-
-Check the two settings, then the levels as a whole.
-
-The consistency check is given the stream of this validation, so
-that what it reports goes where the caller asked for it.
-
-<a id="backlogops.default_story_points.DefaultStoryPoints.build_cache"></a>
-
-#### build\_cache
-
-```python
-def build_cache() -> None
-```
-
-Build the lookup afresh from the levels that are given.
-
-The levels worked out from the given ones are not built here.
-Each of them is added to the same lookup the first time it is
-asked for, so a backlog of many items works out a level once
-however many items are at that level.
-
-This is called whenever the configuration is validated, and
-starting afresh is what forgets the levels worked out from the
-earlier ones. An application that changes the levels afterwards
-validates the configuration again, or calls this, before the
-changed levels are used.
-
-<a id="backlogops.default_story_points.DefaultStoryPoints.check_consistency"></a>
-
-#### check\_consistency
-
-```python
-def check_consistency(stderr_file: TextIO = sys.stderr) -> None
-```
-
-Check the given levels and build the level lookup.
-
-The levels are sorted by level number, so that a stored file reads
-from the smallest item upwards. Giving the same level twice is an
-error, and so is asking for levels to be filled in without the two
-levels a factor is worked out from.
-
-**Arguments**:
-
-- `stderr_file` - The file to report errors to.
-  
-
-**Raises**:
-
-- `ValueError` - A level is given twice, or a filled-in level is
-  asked for without two levels to work the factor from.
 
 <a id="backlogops.default_story_points.DefaultStoryPoints.get_default_story_points"></a>
 
@@ -2443,14 +2583,10 @@ levels a factor is worked out from.
 def get_default_story_points(level: int) -> Optional[float]
 ```
 
-Return what a backlog item of one level counts as.
+Return the story points a backlog item of one level counts as.
 
-A level that is given its own story points counts as those, zero
-included. A level that is not given any is filled in from the
-given ones as far as the two settings allow: between them when
-interpolation is allowed, and beyond them when extrapolation is.
-What a level counts as is worked out once and then kept, so a
-backlog of many items costs one lookup for each of them.
+A level given story points of its own counts as those, and any
+other level is filled in as :class:`LevelDefaults` describes.
 
 **Arguments**:
 
@@ -2791,6 +2927,9 @@ item levels:
 * ``default_story_points`` is what a backlog item that nobody has
   estimated counts as, bridged to JSON by
   :class:`backlogops.default_story_points.DefaultStoryPoints`;
+* ``remaining_time`` says whether estimates in remaining time are used
+  beside story points, which are recommended, bridged to JSON by
+  :class:`backlogops.remaining_time_config.RemainingTimeConfig`;
 * ``levels`` is the optional list of backlog item levels. It is omitted
   from the file while it is ``None``; :meth:`BacklogOpsConfig.get_levels`
   then falls back to :data:`backlogops.levels.DEFAULT_LEVELS`. An empty
@@ -4025,6 +4164,39 @@ stand-alone preset file that holds the same class.
 
 Define a team, its memberships and their availability over time.
 
+<a id="backlogops.team.FOCUS_FACTOR_RANGE"></a>
+
+#### FOCUS\_FACTOR\_RANGE
+
+The smallest and the largest focus factor allowed.
+
+A focus factor of zero would mean no progress ever, so the smallest is
+0.5%. Estimates may be pessimistic, so a focus factor may be above 1, up
+to 300%. Common values are from 0.1 to 0.5.
+
+<a id="backlogops.team.check_focus_factor"></a>
+
+#### check\_focus\_factor
+
+```python
+def check_focus_factor(name: str, value: float, stderr_file: TextIO,
+                       subject: str) -> None
+```
+
+Check that a focus factor is within :data:`FOCUS_FACTOR_RANGE`.
+
+**Arguments**:
+
+- `name` - The name of the field that holds the focus factor.
+- `value` - The focus factor to check.
+- `stderr_file` - The file to report errors to.
+- `subject` - What owns the field, used to start error messages.
+  
+
+**Raises**:
+
+- `ValueError` - If the focus factor is out of range.
+
 <a id="backlogops.team.FteException"></a>
 
 ## FteException Objects
@@ -4152,6 +4324,18 @@ Fields:
                          changes. Must be positive.
     sprint_length: The length of the sprint counted in working days,
                    not calendar days. Must be positive.
+    focus_factor: The fraction of the working time of the team that
+                  counts as focused work on the backlog items. For
+                  example, 0.3 means that 30% of the working time
+                  counts as focused work. The factor also makes up
+                  for optimism, or pessimism, in the estimates, and
+                  common values are from 0.1 to 0.5. It is used only
+                  for remaining time estimates, when they are enabled
+                  in :class:`backlogops.RemainingTimeConfig`, and None
+                  means that the default focus factor of that
+                  configuration is used. It should be None when
+                  remaining time is not used. Must be from 0.005 to
+                  3.0 when given.
     aliases: The aliases for the team. A backlog might refer to the
              team using the team name or an alias. Compared
              case-insensitively. Each alias must be unique and not
@@ -5621,6 +5805,66 @@ of the list. Releases with the same date will keep their original order.
 
   The ordered list of releases.
 
+<a id="backlogops.duration_text"></a>
+
+# backlogops.duration\_text
+
+Read and write a remaining time as text.
+
+A remaining time is ideal focused person work time, which is easy to
+confuse with calendar time. What is written is therefore always hours,
+minutes and seconds, such as ``102:30:00``, so that nobody has to guess
+what a day or a week means. What is read may also start with whole weeks
+and days, such as ``1w 1d 2:30:00``, where a day is 24 hours and a week
+is 7 days, so that a large value is quick to type.
+
+<a id="backlogops.duration_text.parse_duration"></a>
+
+#### parse\_duration
+
+```python
+def parse_duration(text: str) -> Optional[timedelta]
+```
+
+Return the remaining time a text says, or None when it says none.
+
+The text is whole weeks (``1w``), whole days (``1d``) and hours,
+minutes and seconds (``2:30:00``), in that order and each of them
+optional, but at least one of them given. A day is 24 hours and a
+week is 7 days. Space around and between the parts is allowed.
+
+**Arguments**:
+
+- `text` - The text to read.
+  
+
+**Returns**:
+
+  The remaining time, or None when the text is empty, not in the
+  format above, or too large for a ``timedelta``.
+
+<a id="backlogops.duration_text.format_duration"></a>
+
+#### format\_duration
+
+```python
+def format_duration(duration: timedelta) -> str
+```
+
+Return a remaining time as hours, minutes and seconds.
+
+The hours are not split into days, so 1 day and 1.5 hours is written
+as ``25:30:00``. A fraction of a second is dropped.
+
+**Arguments**:
+
+- `duration` - The remaining time to write, not negative.
+  
+
+**Returns**:
+
+  The text ``H:MM:SS``, with as many hour digits as needed.
+
 <a id="backlogops.jira_read"></a>
 
 # backlogops.jira\_read
@@ -6375,6 +6619,233 @@ field value or link Jira refused is in ``Added to Jira`` and again in
 the section naming what was refused. The CLI prints this text and the
 GUI shows it in a copy-pasteable pop-up.
 
+<a id="backlogops.remaining_time_config"></a>
+
+# backlogops.remaining\_time\_config
+
+Configuration for using remaining time in backlog operations.
+
+Estimating in story points is recommended, but some development efforts
+are required to estimate in remaining time. Enabling remaining time does
+not disable story points: a development effort most likely uses one of
+them, but may use both, such as while it moves from remaining time to
+story points. :class:`RemainingTimeConfig` says whether remaining time is
+used at all, what the focus factor of a team without its own is, and what
+a backlog item that nobody has estimated counts as: a remaining time for
+a backlog item level, and two settings that fill in the levels that are
+not given, as described in :mod:`backlogops.level_defaults`. A level
+given less than 10 minutes takes no part in any factor.
+
+A remaining time is ideal focused person work time, written as hours,
+minutes and seconds, as described in :mod:`backlogops.duration_text`.
+
+<a id="backlogops.remaining_time_config.DefaultRemainingTimeLevel"></a>
+
+## DefaultRemainingTimeLevel Objects
+
+```python
+class DefaultRemainingTimeLevel(Config)
+```
+
+The default remaining time of a backlog item at one level.
+
+<a id="backlogops.remaining_time_config.DefaultRemainingTimeLevel.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
+```
+
+Create the default of one level, or read it from JSON.
+
+**Arguments**:
+
+- `from_json_data_text` - Optional JSON text to parse directly.
+- `from_json_filename` - Optional JSON file to read.
+- `auto_ch_hook` - Hook notified about backward-compatible changes
+  made while reading.
+- `stderr_file` - Stream used for user-facing diagnostics.
+- `member_name` - Path for reaching this object from the top level,
+  so that a diagnostic names the whole path. None for an
+  object that is a member of nothing.
+  
+
+**Attributes**:
+
+- `level` - The backlog item level this default is for.
+- `remaining_time` - What an item of that level counts as in ideal
+  focused person work time. (``0:30:00`` means one person
+  working focused on only this item for 30 minutes.) In the
+  file it is hours, minutes and seconds, such as
+  ``2:30:00``. When read it may start with whole weeks and
+  days, such as ``1w 1d 2:30:00``, where ``1d`` is 24 hours
+  and ``1w`` is 7 days; it is always written as hours, so
+  that is written as ``194:30:00``.
+
+<a id="backlogops.remaining_time_config.DefaultRemainingTimeLevel.as_float"></a>
+
+#### as\_float
+
+```python
+def as_float() -> float
+```
+
+Return the remaining time in seconds, for growth to work on.
+
+<a id="backlogops.remaining_time_config.DefaultRemainingTimeLevel.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check the level number and the remaining time of one default.
+
+<a id="backlogops.remaining_time_config.DefaultRemainingTimeLevel.serialize_converters"></a>
+
+#### serialize\_converters
+
+```python
+@override
+def serialize_converters() -> SerializeConverters
+```
+
+Write the remaining time as hours, minutes and seconds.
+
+<a id="backlogops.remaining_time_config.RemainingTimeConfig"></a>
+
+## RemainingTimeConfig Objects
+
+```python
+class RemainingTimeConfig(LevelDefaults[DefaultRemainingTimeLevel])
+```
+
+Configuration for remaining time in backlog operations.
+
+<a id="backlogops.remaining_time_config.RemainingTimeConfig.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(from_json_data_text: Optional[str] = None,
+             from_json_filename: Optional[PathOrStr] = None,
+             auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
+             stderr_file: TextIO = sys.stderr,
+             *,
+             member_name: Optional[str] = None) -> None
+```
+
+Create the remaining time configuration, or read it from JSON.
+
+**Arguments**:
+
+- `from_json_data_text` - Optional JSON text to parse directly.
+- `from_json_filename` - Optional JSON file to read.
+- `auto_ch_hook` - Hook notified about backward-compatible changes
+  made while reading.
+- `stderr_file` - Stream used for user-facing diagnostics.
+- `member_name` - Path for reaching this object from the top level,
+  so that a diagnostic names the whole path. None for an
+  object that is a member of nothing.
+  
+
+**Attributes**:
+
+- `enable_remaining_time` - Whether remaining time estimates are
+  handled at all in backlog operations. If False, the other
+  settings are ignored, although they are still validated,
+  and no completion is estimated from remaining time. Story
+  points are used either way, so True means that both kinds
+  of estimates are used. Most development efforts are
+  better off estimating in story points than in remaining
+  time.
+- `levels` - The remaining time given for a level, sorted by level
+  number while the configuration is validated.
+- `interpolate` - Whether a level between two given levels is
+  guessed from them.
+- `extrapolate` - Whether a level above the highest or below the
+  lowest given level is guessed from the two nearest ones.
+- `default_focus_factor` - The fraction of the working time of a
+  team that counts as focused work on the backlog items,
+  for a team that has no focus factor of its own. For
+  example, 0.3 means that 30% of the working time counts as
+  focused work. The factor also makes up for optimism, or
+  pessimism, in the estimates, and common values are from
+  0.1 to 0.5. It is from 0.005 to 3.0.
+- `_value_for_level` - What each level asked for counts as, in
+  seconds, by level number. :meth:`build_cache` puts the
+  given levels in it, and a level worked out from them is
+  added to it the first time it is asked for.
+
+<a id="backlogops.remaining_time_config.RemainingTimeConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check the switch and the focus factor, then the levels.
+
+<a id="backlogops.remaining_time_config.RemainingTimeConfig.check_consistency"></a>
+
+#### check\_consistency
+
+```python
+@override
+def check_consistency(stderr_file: TextIO = sys.stderr) -> None
+```
+
+Check the focus factor and the given levels.
+
+Besides the checks of the levels, the default focus factor must be
+within :data:`backlogops.team.FOCUS_FACTOR_RANGE`.
+
+**Arguments**:
+
+- `stderr_file` - The file to report errors to.
+  
+
+**Raises**:
+
+- `ValueError` - The focus factor is out of range, a level is given
+  twice, or a filled-in level is asked for without two
+  levels to work the factor from.
+
+<a id="backlogops.remaining_time_config.RemainingTimeConfig.get_default_time"></a>
+
+#### get\_default\_time
+
+```python
+def get_default_time(level: int) -> Optional[timedelta]
+```
+
+Return the remaining time a backlog item of one level counts as.
+
+A level given a remaining time of its own counts as that, and any
+other level is filled in in seconds as :class:`LevelDefaults`
+describes.
+
+**Arguments**:
+
+- `level` - The level of the backlog item to guess the size of.
+  
+
+**Returns**:
+
+  The remaining time to count such an item as, or None when the
+  configuration says nothing about that level or the guess is
+  too large for a ``timedelta``.
+
 <a id="backlogops.io_config"></a>
 
 # backlogops.io\_config
@@ -6406,7 +6877,8 @@ mapped to another string is renamed, and a name mapped to None drops that
 column (for an input map the named file column is discarded).
 The :class:`GuiDisplayConfig` carries the same per-table maps and level
 display, but no TableIO endpoint, deciding how a backlog and its releases
-are shown on screen.
+are shown on screen. An output endpoint and the GUI may both leave out a
+column that has no value on any row.
 
 :func:`resolve_input_config` and :func:`resolve_output_config` turn a
 command-line value into such a configuration. The value may be empty
@@ -6532,6 +7004,10 @@ carries a :class:`LevelDisplay`, deciding whether a backlog item level
 is written as its number, its name, or both. The maps default to empty
 and the display defaults to :data:`LevelDisplay.BOTH`; any of them may
 be absent from an older file, in which case the default applies.
+A column that is None on every row is left out of the written file
+when :attr:`omit_none_column` is True. It defaults to False, so that a
+spreadsheet gets every column, ready for the user to fill in and read
+back.
 
 <a id="backlogops.io_config.OutputFormatConfig.__init__"></a>
 
@@ -6559,6 +7035,17 @@ def parse_converters() -> dict[str, ParseConverter]
 
 Parse the level display member from its enum member name.
 
+<a id="backlogops.io_config.OutputFormatConfig.get_validation_plan"></a>
+
+#### get\_validation\_plan
+
+```python
+@override
+def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
+```
+
+Check the column-name maps and the omit-none-column setting.
+
 <a id="backlogops.io_config.make_input_config"></a>
 
 #### make\_input\_config
@@ -6582,10 +7069,15 @@ def make_output_config(tableio: TioJsonConfig,
                        backlog_to_external: dict[str, Optional[str]],
                        release_to_external: dict[str, Optional[str]],
                        level_display: LevelDisplay = LevelDisplay.BOTH,
-                       stderr_file: TextIO = sys.stderr) -> OutputFormatConfig
+                       stderr_file: TextIO = sys.stderr,
+                       *,
+                       omit_none_column: bool = False) -> OutputFormatConfig
 ```
 
 Return an output config from a TableIO config, maps and display.
+
+``omit_none_column`` says whether a column that is None on every row
+is left out of the written file.
 
 <a id="backlogops.io_config.GuiDisplayConfig"></a>
 
@@ -6604,7 +7096,9 @@ column-name maps ``backlog_to_external`` and ``release_to_external``
 :func:`backlogops.table_rows.apply_column_map`) and a
 :class:`LevelDisplay`. The maps default to empty and the display
 defaults to :data:`LevelDisplay.BOTH`; any of them may be absent from
-an older file, in which case the default applies.
+an older file, in which case the default applies. A column that is
+None on every row is not shown when :attr:`omit_none_column` is True,
+which it defaults to, so that no screen width is spent on it.
 
 <a id="backlogops.io_config.GuiDisplayConfig.__init__"></a>
 
@@ -6640,7 +7134,7 @@ Parse the level display member from its enum member name.
 def get_validation_plan(stderr_file: TextIO) -> ValidationPlan
 ```
 
-Check each column-name map allows a string or None value.
+Check the column-name maps and the omit-none-column setting.
 
 <a id="backlogops.io_config.resolve_input_config"></a>
 
@@ -8425,17 +8919,19 @@ Interactively build a workforce or a full backlog-ops configuration.
 The public helpers :func:`available_teams_wizard` and
 :func:`backlog_ops_wizard` ask the user for the company work hours, the
 persons and their personal work-hour exceptions, the teams with their
-members, and, for the full configuration, the named TableIO presets, the
-backlog item levels, the status-name map, the GUI display and the Jira
-integration. They drive any ``WizardUiBridge`` of ``wizard_ui_bridge``,
-so the same wizard logic runs on a console text interface, a Textual
-full-screen interface or a graphical user interface.
+members, and, for the full configuration, whether remaining time
+estimates are also used, the named TableIO presets, the backlog item
+levels, the guess for an unestimated item, the status-name map, the GUI
+display and the Jira integration. They drive any ``WizardUiBridge`` of
+``wizard_ui_bridge``, so the same wizard logic runs on a console text
+interface, a Textual full-screen interface or a graphical user interface.
 
 Each repeated part is asked by first requesting a count and then collecting
 exactly that many items, so there are no open-ended "add another?" prompts.
 The navigation machinery and the per-field readers live in
 :mod:`backlogops.wizard_helpers`; the input and output preset questions live
-in :mod:`backlogops.io_preset_wizard`.
+in :mod:`backlogops.io_preset_wizard`, and the questions about estimates in
+:mod:`backlogops.estimate_wizard`.
 
 <a id="backlogops.backlog_ops_wizard.available_teams_wizard"></a>
 
@@ -8486,7 +8982,12 @@ def backlog_ops_wizard(ui_bridge: WizardUiBridge,
 
 Interactively create a backlog-ops configuration.
 
-The workforce is entered as by :func:`available_teams_wizard`, the
+The user first says whether backlog items are also estimated in
+remaining time, beside the story points that are used either way, and
+if so with which default focus factor and guess for an item that has
+no remaining time. The workforce is then
+entered as by :func:`available_teams_wizard`, where each team is also
+asked for a focus factor of its own when remaining time is used. The
 user may then add any number of named input and output TableIO
 configuration presets, edit the backlog item levels, say what an
 unestimated backlog item is worked with, adjust the global

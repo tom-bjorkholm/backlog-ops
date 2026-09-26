@@ -23,8 +23,8 @@ from backlogops.io_preset_wizard import preset_wizard, _preset_direction
 from backlogops.levels import DEFAULT_LEVELS, LevelDisplay
 from .wizard_test_helpers import (
     COMPANY, CONFIG_HEADS, CSV_OPTS, GUI_MAPS_KEEP, JIRA_SKIP, LEVELS_KEEP,
-    MAPS_KEEP, POINTS_SKIP, SCHED, STATUS_KEEP, bridge, config_stdout,
-    run_config, teams_stdout)
+    MAPS_KEEP, POINTS_SKIP, REMAINING_OFF, SCHED, STATUS_KEEP, bridge,
+    config_stdout, run_config, teams_stdout)
 
 
 def test_preset_direction() -> None:
@@ -44,15 +44,15 @@ def test_preset_wizard() -> None:
     default levels, accepts both GUI rename tables, and finally selects a
     name-only GUI level display.
     """
-    answers = (COMPANY + ['0', '0']
+    answers = (REMAINING_OFF + COMPANY + ['0', '0']
                + ['1']
                + ['in name', 'in1'] + ['1'] + CSV_OPTS
                + ['2', 'Type', ''] + [''] + STATUS_KEEP
                + ['1']
                + ['out1'] + ['1'] + CSV_OPTS
-               + MAPS_KEEP + ['numeric']
+               + MAPS_KEEP + ['numeric', '']
                + LEVELS_KEEP + POINTS_SKIP + STATUS_KEEP
-               + MAPS_KEEP + ['name'] + JIRA_SKIP)
+               + MAPS_KEEP + ['name', ''] + JIRA_SKIP)
     config = backlog_ops_wizard(bridge(answers))
     assert isinstance(config, BacklogOpsConfig)
     assert sorted(config.input_configs) == ['in1']
@@ -76,10 +76,10 @@ def test_output_rename_wizard() -> None:
     field ``note`` to ``Notes``, while the releases table is kept as-is.
     """
     edit_backlog = ['1', 'Id', '5', ':e', ':+', 'note', 'Notes', '']
-    answers = (COMPANY + ['0', '0', '0']
+    answers = (REMAINING_OFF + COMPANY + ['0', '0', '0']
                + ['1']
                + ['out1'] + ['1'] + CSV_OPTS
-               + edit_backlog + [''] + ['both']
+               + edit_backlog + [''] + ['both', '']
                + LEVELS_KEEP + POINTS_SKIP + STATUS_KEEP
                + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(bridge(answers))
@@ -96,9 +96,9 @@ def test_gui_rename_wizard() -> None:
     row 1 (key) is renamed to ``Id`` and row 9 (team) is erased to hide it.
     """
     edit_backlog = ['1', 'Id', '9', ':e', '']
-    answers = (COMPANY + ['0', '0', '0', '0']
+    answers = (REMAINING_OFF + COMPANY + ['0', '0', '0', '0']
                + LEVELS_KEEP + POINTS_SKIP + STATUS_KEEP
-               + edit_backlog + [''] + ['both'] + JIRA_SKIP)
+               + edit_backlog + [''] + ['both', ''] + JIRA_SKIP)
     config = backlog_ops_wizard(bridge(answers))
     gui = config.gui_display
     assert gui.backlog_to_external == {'key': 'Id', 'team': None}
@@ -107,7 +107,8 @@ def test_gui_rename_wizard() -> None:
 
 def test_levels_default() -> None:
     """Test accepting the pre-filled default levels stores None."""
-    answers = (COMPANY + ['0', '0', '0', '0'] + LEVELS_KEEP + POINTS_SKIP
+    answers = (REMAINING_OFF + COMPANY
+               + ['0', '0', '0', '0'] + LEVELS_KEEP + POINTS_SKIP
                + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(bridge(answers))
     assert config.levels is None
@@ -125,7 +126,8 @@ def test_levels_edited_stored() -> None:
     defaults and are kept as a list.
     """
     edit_first = ['1', '', 'Chore', '']
-    answers = (COMPANY + ['0', '0', '0', '0'] + edit_first + ['']
+    answers = (REMAINING_OFF + COMPANY
+               + ['0', '0', '0', '0'] + edit_first + ['']
                + POINTS_SKIP + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(bridge(answers))
     assert config.levels is not None
@@ -143,7 +145,7 @@ def test_levels_added() -> None:
     accepted.
     """
     add_row = [':+', '-1', 'Spike', 'Research, Investigation']
-    answers = (COMPANY + ['0', '0', '0', '0'] + add_row + ['']
+    answers = (REMAINING_OFF + COMPANY + ['0', '0', '0', '0'] + add_row + ['']
                + POINTS_SKIP + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(bridge(answers))
     assert config.levels is not None
@@ -159,7 +161,7 @@ def test_levels_dup_number() -> None:
     rejects, then re-edited to a free number, so the table is accepted.
     """
     fix = ['2', '0', '', '', '', '2', '7', '', '', '']
-    answers = (COMPANY + ['0', '0', '0', '0'] + fix
+    answers = (REMAINING_OFF + COMPANY + ['0', '0', '0', '0'] + fix
                + POINTS_SKIP + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config, errors = run_config(answers)
     assert 'more than once' in errors
@@ -175,7 +177,7 @@ def test_levels_dup_name() -> None:
     check rejects, then renamed to a unique name, so it is accepted.
     """
     fix = ['1', '', 'Story', '', '', '1', '', 'Chore', '', '']
-    answers = (COMPANY + ['0', '0', '0', '0'] + fix
+    answers = (REMAINING_OFF + COMPANY + ['0', '0', '0', '0'] + fix
                + POINTS_SKIP + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config, errors = run_config(answers)
     assert 'duplicates' in errors
@@ -184,7 +186,8 @@ def test_levels_dup_name() -> None:
 
 def test_def_points_skipped() -> None:
     """Test declining the guess leaves an empty default story points."""
-    answers = (COMPANY + ['0', '0', '0', '0'] + LEVELS_KEEP + POINTS_SKIP
+    answers = (REMAINING_OFF + COMPANY
+               + ['0', '0', '0', '0'] + LEVELS_KEEP + POINTS_SKIP
                + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(bridge(answers))
     points = config.default_story_points
@@ -201,7 +204,8 @@ def test_def_points_table() -> None:
     yes, so level 2 is guessed as four.
     """
     fill = ['y', '', '', '1', '1', '2', '2', '3', '8', '']
-    answers = (COMPANY + ['0', '0', '0', '0'] + LEVELS_KEEP + fill
+    answers = (REMAINING_OFF + COMPANY
+               + ['0', '0', '0', '0'] + LEVELS_KEEP + fill
                + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(bridge(answers))
     points = config.default_story_points
@@ -214,7 +218,8 @@ def test_def_points_table() -> None:
 def test_def_points_one_row() -> None:
     """Test one level alone is accepted when nothing is filled in."""
     one_row = ['y', 'n', 'n', '1', '2', '5', '']
-    answers = (COMPANY + ['0', '0', '0', '0'] + LEVELS_KEEP + one_row
+    answers = (REMAINING_OFF + COMPANY
+               + ['0', '0', '0', '0'] + LEVELS_KEEP + one_row
                + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(bridge(answers))
     points = config.default_story_points
@@ -231,7 +236,8 @@ def test_def_points_dup_level() -> None:
     """
     dup = ['y', 'n', 'n', '1', '2', '5', ':+', '2', '9', '',
            '2', '3', '9', '']
-    answers = (COMPANY + ['0', '0', '0', '0'] + LEVELS_KEEP + dup
+    answers = (REMAINING_OFF + COMPANY
+               + ['0', '0', '0', '0'] + LEVELS_KEEP + dup
                + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config, errors = run_config(answers)
     assert 'the same level given twice' in errors
@@ -243,10 +249,12 @@ def test_def_points_dup_level() -> None:
 def test_def_points_seeded() -> None:
     """Test a stored guess pre-fills the form and the table."""
     fill = ['y', '', '', '1', '1', '2', '2', '3', '8', '']
-    answers = (COMPANY + ['0', '0', '0', '0'] + LEVELS_KEEP + fill
+    answers = (REMAINING_OFF + COMPANY
+               + ['0', '0', '0', '0'] + LEVELS_KEEP + fill
                + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     first = backlog_ops_wizard(bridge(answers))
-    kept = (COMPANY + ['0', '0', '0', '0'] + LEVELS_KEEP + ['', '', '', '']
+    kept = (REMAINING_OFF + COMPANY
+            + ['0', '0', '0', '0'] + LEVELS_KEEP + ['', '', '', '']
             + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     again = backlog_ops_wizard(bridge(kept), default=first)
     points = again.default_story_points
@@ -264,7 +272,7 @@ def test_input_rename_wizard() -> None:
     """
     edit_backlog = ['1', 'Issue ID', ':+', '', 'Junk', ':+', 'note',
                     'My Note']
-    answers = (COMPANY + ['0', '0']
+    answers = (REMAINING_OFF + COMPANY + ['0', '0']
                + ['1'] + ['in1'] + ['1'] + CSV_OPTS
                + edit_backlog + [''] + [''] + STATUS_KEEP
                + ['0']
@@ -280,11 +288,12 @@ def test_input_rename_wizard() -> None:
 def test_stage_heads_order() -> None:
     """Test a default config run shows each stage heading once, in order.
 
-    A fully default run announces the workforce, the input and output
-    presets, the levels, the status map and the GUI display, each exactly
-    once and in the order the stages are collected.
+    A fully default run announces the remaining time, the workforce, the
+    input and output presets, the levels, the status map and the GUI
+    display, each exactly once and in the order the stages are collected.
     """
-    answers = (COMPANY + ['0', '0', '0', '0'] + LEVELS_KEEP + POINTS_SKIP
+    answers = (REMAINING_OFF + COMPANY
+               + ['0', '0', '0', '0'] + LEVELS_KEEP + POINTS_SKIP
                + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     out = config_stdout(answers)
     positions = [out.find(head) for head in CONFIG_HEADS]
@@ -298,13 +307,13 @@ def test_stage_heads_presets() -> None:
     A run that adds one input and one output preset shows every stage
     heading once and in the order the stages are collected.
     """
-    answers = (COMPANY + ['0', '0']
+    answers = (REMAINING_OFF + COMPANY + ['0', '0']
                + ['1'] + ['in name', 'in1'] + ['1'] + CSV_OPTS
                + ['2', 'Type', ''] + [''] + STATUS_KEEP
                + ['1'] + ['out1'] + ['1'] + CSV_OPTS
-               + MAPS_KEEP + ['numeric']
+               + MAPS_KEEP + ['numeric', '']
                + LEVELS_KEEP + POINTS_SKIP + STATUS_KEEP
-               + MAPS_KEEP + ['name'] + JIRA_SKIP)
+               + MAPS_KEEP + ['name', ''] + JIRA_SKIP)
     out = config_stdout(answers)
     positions = [out.find(head) for head in CONFIG_HEADS]
     assert all(out.count(head) == 1 for head in CONFIG_HEADS)
@@ -319,7 +328,8 @@ def test_workforce_head_only() -> None:
     """
     out = teams_stdout(SCHED + ['', '', ''])
     assert out.count(_WORKFORCE_HEAD) == 1
-    assert all(head not in out for head in CONFIG_HEADS[1:])
+    assert all(head not in out for head in CONFIG_HEADS
+               if head != _WORKFORCE_HEAD)
 
 
 def test_head_repeats_on_back() -> None:
@@ -329,7 +339,7 @@ def test_head_repeats_on_back() -> None:
     stage, so the trail shows the workforce heading once but the input and
     output headings twice, and still reaches every stage.
     """
-    answers = (COMPANY + ['0', '0', '0'] + [':b'] + ['0', '0']
+    answers = (REMAINING_OFF + COMPANY + ['0', '0', '0'] + [':b'] + ['0', '0']
                + LEVELS_KEEP + POINTS_SKIP + STATUS_KEEP
                + GUI_MAPS_KEEP + JIRA_SKIP)
     out = config_stdout(answers)
@@ -379,7 +389,7 @@ def test_preset_output() -> None:
     The direction is output; the CSV format is kept; both rename tables
     are accepted unchanged and the level display is set to numeric.
     """
-    answers = ['output', '1'] + CSV_OPTS + MAPS_KEEP + ['numeric']
+    answers = ['output', '1'] + CSV_OPTS + MAPS_KEEP + ['numeric', '']
     config = preset_wizard(bridge(answers))
     assert isinstance(config, OutputFormatConfig)
     assert config.level_display == LevelDisplay.NUMERIC
@@ -411,7 +421,8 @@ def test_preset_reexport() -> None:
 def test_global_status_wizard() -> None:
     """Test the wizard captures a global status map with an added row."""
     add = [':+', 'Reviewing', 'IN_PROGRESS', '']
-    answers = (COMPANY + ['0', '0', '0', '0'] + LEVELS_KEEP + POINTS_SKIP
+    answers = (REMAINING_OFF + COMPANY
+               + ['0', '0', '0', '0'] + LEVELS_KEEP + POINTS_SKIP
                + add + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(bridge(answers))
     expected = {**DEF_STATUS_INPUT_MAP, 'Reviewing': Status.IN_PROGRESS}
@@ -420,7 +431,8 @@ def test_global_status_wizard() -> None:
 
 def test_global_status_def() -> None:
     """Test accepting the global status table keeps the default map."""
-    answers = (COMPANY + ['0', '0', '0', '0'] + LEVELS_KEEP + POINTS_SKIP
+    answers = (REMAINING_OFF + COMPANY
+               + ['0', '0', '0', '0'] + LEVELS_KEEP + POINTS_SKIP
                + STATUS_KEEP + GUI_MAPS_KEEP + JIRA_SKIP)
     config = backlog_ops_wizard(bridge(answers))
     assert config.status_input_map == DEF_STATUS_INPUT_MAP
@@ -429,7 +441,7 @@ def test_global_status_def() -> None:
 def test_in_preset_status() -> None:
     """Test an input preset captures its own status override map."""
     add = [':+', 'Spike', 'TODO', '']
-    answers = (COMPANY + ['0', '0']
+    answers = (REMAINING_OFF + COMPANY + ['0', '0']
                + ['1'] + ['in1'] + ['1'] + CSV_OPTS
                + MAPS_KEEP + add
                + ['0']

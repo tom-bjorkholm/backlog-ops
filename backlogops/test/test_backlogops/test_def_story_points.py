@@ -164,7 +164,7 @@ def test_worked_out_kept() -> None:
     points = read([(1, 2.0), (3, 8.0)], interpolate=True)
     assert points.get_default_story_points(2) == 4.0
     # pylint: disable-next=protected-access
-    assert points._points_for_level[2] == 4.0
+    assert points._value_for_level[2] == 4.0
 
 
 def test_kept_level_forgotten() -> None:
@@ -181,7 +181,7 @@ def test_missing_level_kept() -> None:
     points = read([(1, 2.0), (3, 8.0)])
     assert points.get_default_story_points(2) is None
     # pylint: disable-next=protected-access
-    assert points._points_for_level[2] is None
+    assert points._value_for_level[2] is None
 
 
 def test_cache_rebuilt() -> None:

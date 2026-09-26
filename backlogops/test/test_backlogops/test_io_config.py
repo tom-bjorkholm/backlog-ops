@@ -255,6 +255,61 @@ def test_gui_display_rt(tmp_path: Path) -> None:
     assert loaded.release_to_external == {'name': 'Release'}
 
 
+def test_omit_defaults() -> None:
+    """Test a file keeps empty columns, and the GUI leaves them out."""
+    output = OutputFormatConfig(stderr_file=NO_OUTPUT)
+    assert output.omit_none_column is False
+    assert GuiDisplayConfig(stderr_file=NO_OUTPUT).omit_none_column is True
+
+
+def test_omit_old_defaults() -> None:
+    """Test older output and GUI files get their own omit default."""
+    output = OutputFormatConfig(
+        from_json_data_text='{"tableio": {"format_name": "CSV"}}',
+        stderr_file=NO_OUTPUT)
+    gui = GuiDisplayConfig(from_json_data_text='{}', stderr_file=NO_OUTPUT)
+    assert output.omit_none_column is False
+    assert gui.omit_none_column is True
+
+
+def test_make_output_omit() -> None:
+    """Test the omit setting passed to make_output_config is kept."""
+    tableio = resolve_output_config(None, data_file='x.csv',
+                                    stderr_file=NO_OUTPUT).tableio
+    config = make_output_config(tableio, {}, {}, stderr_file=NO_OUTPUT,
+                                omit_none_column=True)
+    assert config.omit_none_column is True
+
+
+@pytest.mark.parametrize('omit', [True, False])
+def test_omit_round_trip(tmp_path: Path, omit: bool) -> None:
+    """Test the omit setting of output and GUI survives a file."""
+    tableio = resolve_output_config(None, data_file='x.csv',
+                                    stderr_file=NO_OUTPUT).tableio
+    output = make_output_config(tableio, {}, {}, stderr_file=NO_OUTPUT,
+                                omit_none_column=omit)
+    gui = GuiDisplayConfig(stderr_file=NO_OUTPUT)
+    gui.omit_none_column = omit
+    output.write(to_json_filename=tmp_path / 'out.cfg', stderr_file=NO_OUTPUT)
+    gui.write(to_json_filename=tmp_path / 'gui.cfg', stderr_file=NO_OUTPUT)
+    assert OutputFormatConfig(from_json_filename=tmp_path / 'out.cfg',
+                              stderr_file=NO_OUTPUT).omit_none_column is omit
+    assert GuiDisplayConfig(from_json_filename=tmp_path / 'gui.cfg',
+                            stderr_file=NO_OUTPUT).omit_none_column is omit
+
+
+@pytest.mark.parametrize('config_class, text', [
+    (OutputFormatConfig,
+     '{"tableio": {"format_name": "CSV"}, "omit_none_column": 1}'),
+    (GuiDisplayConfig, '{"omit_none_column": "yes"}')])
+def test_omit_not_bool(config_class: type[OutputFormatConfig
+                                          | GuiDisplayConfig],
+                       text: str) -> None:
+    """Test an omit setting that is not yes or no is refused."""
+    with pytest.raises((TypeError, ValueError)):
+        config_class(from_json_data_text=text, stderr_file=NO_OUTPUT)
+
+
 def _write_old_file(path: Path) -> None:
     """Write a minimal old endpoint file that needs ROCF on read."""
     path.write_text('{"tableio": {"format_name": "CSV"}}', encoding='UTF-8')
@@ -323,7 +378,7 @@ def test_make_in_status_def() -> None:
     """Test make_input_config defaults the status input map to empty."""
     base = resolve_input_config(None, data_file='d.csv', stderr_file=NO_OUTPUT)
     config = make_input_config(base.tableio, {}, {}, stderr_file=NO_OUTPUT)
-    assert config.status_input_map == {}
+    assert not config.status_input_map
 
 
 def test_in_status_rt() -> None:
@@ -352,7 +407,7 @@ def test_in_status_old() -> None:
     del data['status_input_map']
     config = InputFormatConfig(from_json_data_text=json.dumps(data),
                                stderr_file=NO_OUTPUT)
-    assert config.status_input_map == {}
+    assert not config.status_input_map
 
 
 def test_parse_status_map_ok() -> None:

@@ -263,6 +263,11 @@ class TeamConfig(Team, _BridgeConfig):
                                          config_type=MembershipConfig)}
 
     @override
+    def _omit_none_from_json(self) -> list[str]:
+        """Leave out the focus factor while the default one is used."""
+        return ['focus_factor']
+
+    @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
         """Check the team consistency."""
         _ = stderr_file

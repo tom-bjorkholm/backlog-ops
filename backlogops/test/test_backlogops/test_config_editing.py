@@ -17,6 +17,8 @@ this test asks the model about rather than one somebody tried by hand.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import json
+from datetime import timedelta
 from pathlib import Path
 from typing import Optional, TextIO, override
 import pytest
@@ -261,6 +263,36 @@ def test_keeps_old_file(tmp_path: Path) -> None:
     assert model.save().saved
     assert (tmp_path / 'full.cfg.bak').read_text(encoding='utf-8') == before
     assert _teams(source)[0].sprint_length == 5
+
+
+def test_edits_remaining_time(tmp_path: Path) -> None:
+    """Test a remaining time typed in days is saved as hours.
+
+    The editor shows the time as the file holds it, the text typed may
+    start with days as a file may, and the save writes it as hours.
+    """
+    source = tmp_path / 'full.cfg'
+    write_full_config(source)
+    model = _from_file(source)
+    path = ('remaining_time', 'levels', '0', 'remaining_time')
+    model.set_text(path, '1d 0:00:00')
+    assert model.save().saved
+    assert isinstance(model.saved_config, BacklogOpsConfig)
+    level = model.saved_config.remaining_time.levels[0]
+    assert level.remaining_time == timedelta(days=1)
+    data = json.loads(source.read_text(encoding='utf-8'))
+    assert data['remaining_time']['levels'][0]['remaining_time'] == \
+        '24:00:00'
+
+
+def test_refuses_bad_time(tmp_path: Path) -> None:
+    """Test a remaining time that is not in the time format is refused."""
+    source = tmp_path / 'full.cfg'
+    write_full_config(source)
+    model = _from_file(source)
+    model.set_text(('remaining_time', 'levels', '0', 'remaining_time'),
+                   '2 hours')
+    assert not model.validate().valid
 
 
 def test_refuses_bad_value(tmp_path: Path) -> None:

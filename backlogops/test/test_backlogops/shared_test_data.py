@@ -12,14 +12,15 @@ package boundary.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from backlogops import (
-    AvailableTeams, BacklogOpsConfig, DefaultStoryPointLevel,
-    DefaultStoryPoints, ExceptionWorkHours, FteException,
-    InputFormatConfig, JiraAttrPath, JiraAttrType, JiraConnectConfig,
-    JiraPreset, Level, LevelDisplay, Membership, OutputFormatConfig, Person,
-    Status, Team, write_backlog_ops_config)
+    AvailableTeams, BacklogOpsConfig, DefaultRemainingTimeLevel,
+    DefaultStoryPointLevel, DefaultStoryPoints, ExceptionWorkHours,
+    FteException, InputFormatConfig, JiraAttrPath, JiraAttrType,
+    JiraConnectConfig, JiraPreset, Level, LevelDisplay, Membership,
+    OutputFormatConfig, Person, RemainingTimeConfig, Status, Team,
+    write_backlog_ops_config)
 from backlogops.no_text_io import NoTextIO
 
 
@@ -59,7 +60,8 @@ def full_workforce() -> AvailableTeams:
                         start_date=date(2026, 1, 1),
                         end_date=date(2026, 12, 31))
     team = Team(name='Blue', velocity=10.0, sum_fte_at_velocity=1.0,
-                sprint_length=10, aliases=['Bla'], members=[member])
+                sprint_length=10, focus_factor=0.5, aliases=['Bla'],
+                members=[member])
     teams = AvailableTeams(persons={'ada': person}, teams=[team])
     teams.company_work_hours.exceptions = [closed]
     return teams
@@ -142,6 +144,8 @@ def full_config() -> BacklogOpsConfig:
     config.gui_display.backlog_to_external = {'key': 'Key'}
     config.gui_display.release_to_external = {'name': 'Name'}
     config.default_story_points = def_points({1: 2.0, 3: 8.0}, fill=True)
+    config.remaining_time = def_times({1: 2.0, 3: 8.0}, fill=True)
+    config.remaining_time.enable_remaining_time = True
     _full_jira(config)
     return config
 
@@ -149,3 +153,30 @@ def full_config() -> BacklogOpsConfig:
 def write_full_config(path: Path) -> None:
     """Write a configuration where every declared member holds a value."""
     write_backlog_ops_config(full_config(), path, NoTextIO())
+
+
+def def_times(hours: dict[int, float],
+              fill: bool = False) -> RemainingTimeConfig:
+    """Return a remaining time guess giving each level its hours.
+
+    Remaining time is left disabled, as it is by default.
+
+    Args:
+        hours: The remaining time to give each level, in hours, by level
+            number.
+        fill: Whether a level between or beyond the given ones is
+            guessed from them.
+
+    Returns:
+        The validated guess, ready to work out a level with.
+    """
+    config = RemainingTimeConfig(stderr_file=NoTextIO())
+    for number, size in hours.items():
+        level = DefaultRemainingTimeLevel(stderr_file=NoTextIO())
+        level.level = number
+        level.remaining_time = timedelta(hours=size)
+        config.levels.append(level)
+    config.interpolate = fill
+    config.extrapolate = fill
+    config.validate(NoTextIO())
+    return config

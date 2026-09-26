@@ -33,8 +33,13 @@ from backlogops.wizard_helpers import (
     _parse_jira_map)
 from backlogops.wizard_navigator import _Navigator
 
-_PREFIX = [''] * 7 + ['', '0', '0', '0', '0'] + [''] * 6
-"""Default answers for the wizard stages that precede the Jira stage."""
+_PREFIX = [''] + [''] * 7 + ['', '0', '0', '0', '0'] + [''] * 7
+"""Default answers for the wizard stages that precede the Jira stage.
+
+Remaining time is left off, the company work hours are kept, no persons,
+teams or presets are added, and the levels, the default story points, the
+status map, both GUI rename tables and the GUI display form are kept.
+"""
 
 JIRA_FULL = (['1', 'main', 'cloud', 'https://x.atlassian.net', 'me@x.com',
               'clear_internal', 'TOK']

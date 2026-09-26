@@ -102,8 +102,9 @@ B2 = [
     'format.',
     'A wizard to create a backlog-ops configuration file with the '
     'workforce, named input and output presets, level names, status '
-    'name mapping, the guess for unestimated items, how the graphical '
-    'user interface shows the data, and the Jira integration.',
+    'name mapping, the guess for unestimated items, whether remaining '
+    'time estimates are also used, how the graphical user interface shows '
+    'the data, and the Jira integration.',
     'An editor showing a whole configuration file or a stand-alone '
     'preset file at once, folded where it is deep, to change a single '
     'value without stepping through the wizard.',

@@ -81,7 +81,7 @@ def test_writes_output_preset(tmp_path: Path,
     The file reads back as an output config whose level display is the
     numeric one selected in the wizard.
     """
-    answers = ['output', '1'] + CSV_OPTS + ['', ''] + ['numeric']
+    answers = ['output', '1'] + CSV_OPTS + ['', ''] + ['numeric', '']
     monkeypatch.setattr('sys.stdin', io.StringIO('\n'.join(answers) + '\n'))
     assert preset_wizard.main(
         ['-o', str(tmp_path / 'out'), '--no-textual']) == 0

@@ -4,17 +4,19 @@
 The public helpers :func:`available_teams_wizard` and
 :func:`backlog_ops_wizard` ask the user for the company work hours, the
 persons and their personal work-hour exceptions, the teams with their
-members, and, for the full configuration, the named TableIO presets, the
-backlog item levels, the status-name map, the GUI display and the Jira
-integration. They drive any ``WizardUiBridge`` of ``wizard_ui_bridge``,
-so the same wizard logic runs on a console text interface, a Textual
-full-screen interface or a graphical user interface.
+members, and, for the full configuration, whether remaining time
+estimates are also used, the named TableIO presets, the backlog item
+levels, the guess for an unestimated item, the status-name map, the GUI
+display and the Jira integration. They drive any ``WizardUiBridge`` of
+``wizard_ui_bridge``, so the same wizard logic runs on a console text
+interface, a Textual full-screen interface or a graphical user interface.
 
 Each repeated part is asked by first requesting a count and then collecting
 exactly that many items, so there are no open-ended "add another?" prompts.
 The navigation machinery and the per-field readers live in
 :mod:`backlogops.wizard_helpers`; the input and output preset questions live
-in :mod:`backlogops.io_preset_wizard`.
+in :mod:`backlogops.io_preset_wizard`, and the questions about estimates in
+:mod:`backlogops.estimate_wizard`.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -26,7 +28,6 @@ from wizard_ui_bridge import WizardAbort, WizardUiBridge
 from backlogops.available_teams import AvailableTeams
 from backlogops.backlog_ops_config import BacklogOpsConfig, \
     DEF_STATUS_INPUT_MAP
-from backlogops.default_story_points import DefaultStoryPoints
 from backlogops.io_config import GuiDisplayConfig
 from backlogops.levels import DEFAULT_LEVELS, Level
 from backlogops.person import Person
@@ -35,18 +36,15 @@ from backlogops.team import FteException, Membership, Team
 from backlogops.work_hours import CompanyWorkHours, DEFAULT_WORK_WEEK, \
     ExceptionWorkHours, ScheduleWorkHours, WeekDay
 from backlogops.wizard_helpers import _backlog_map_fields
-from backlogops.wizard_navigator import _Navigator, _ask_level_display
+from backlogops.wizard_navigator import _Navigator, _ask_display
 from backlogops.wizard_forms import FormField, FormResult, choice_field, \
     date_field, int_field, number_field, opt_date_field, text_field, \
     unique_name_field, yes_no_field
 from backlogops.io_preset_wizard import _build_input_presets, \
     _build_output_presets
 from backlogops.jira_wizard import _build_jira_config
-
-
-_GUI_LEVEL_QUESTION = \
-    'How to show levels in the GUI (numeric, name or both)'
-"""Wizard prompt for how the GUI shows levels."""
+from backlogops.estimate_wizard import _build_def_points, _build_remaining, \
+    _team_focus, _team_focus_fields, _team_focus_rule, _team_focus_seed
 
 
 _GUI_COLUMN_HEADER = 'Shown column (blank hides it)'
@@ -55,6 +53,10 @@ _GUI_COLUMN_HEADER = 'Shown column (blank hides it)'
 
 _GLOBAL_STATUS_QUESTION = 'Global extra status name mapping (all inputs):'
 """Wizard prompt for the library-wide status-name map."""
+
+
+_REMAINING_HEAD = 'Configure the remaining time estimates.'
+"""Stage heading shown while collecting the remaining time settings."""
 
 
 _WORKFORCE_HEAD = 'Configure the available workforce.'
@@ -124,7 +126,12 @@ def backlog_ops_wizard(ui_bridge: WizardUiBridge, *,
                        backward: bool = False) -> BacklogOpsConfig:
     """Interactively create a backlog-ops configuration.
 
-    The workforce is entered as by :func:`available_teams_wizard`, the
+    The user first says whether backlog items are also estimated in
+    remaining time, beside the story points that are used either way, and
+    if so with which default focus factor and guess for an item that has
+    no remaining time. The workforce is then
+    entered as by :func:`available_teams_wizard`, where each team is also
+    asked for a focus factor of its own when remaining time is used. The
     user may then add any number of named input and output TableIO
     configuration presets, edit the backlog item levels, say what an
     unestimated backlog item is worked with, adjust the global
@@ -162,23 +169,39 @@ def backlog_ops_wizard(ui_bridge: WizardUiBridge, *,
         raise EOFError('Configuration abandoned by the user.') from abort
 
 
-def _collect_teams(nav: _Navigator,
-                   default: Optional[AvailableTeams]) -> AvailableTeams:
-    """Ask for the company, the persons and the teams of a workforce."""
+def _collect_teams(nav: _Navigator, default: Optional[AvailableTeams], *,
+                   focus: Optional[float] = None) -> AvailableTeams:
+    """Ask for the company, the persons and the teams of a workforce.
+
+    ``focus`` is the default focus factor when each team is to be asked
+    for a focus factor of its own, and None when it is not asked. A team
+    that is not asked keeps the focus factor it had.
+    """
     nav.show(_WORKFORCE_HEAD)
     company = _build_company(nav, default)
     persons = nav.level(lambda: _build_persons(nav, default))
     names = [person.name for person in persons.values()]
-    teams = nav.level(lambda: _build_teams(nav, names, default))
+    teams = nav.level(lambda: _build_teams(nav, names, default, focus))
     return AvailableTeams(persons=persons, teams=teams,
                           company_work_hours=company)
 
 
 def _collect_config(nav: _Navigator,
                     default: Optional[BacklogOpsConfig]) -> BacklogOpsConfig:
-    """Ask workforce, presets, levels, story point guess and display."""
-    teams = _collect_teams(nav, default.available_teams if default else None)
+    """Ask remaining time, workforce, presets, levels, guess and display.
+
+    Remaining time is asked first, because a team is asked for a focus
+    factor of its own only when remaining time is used.
+    """
+    nav.show(_REMAINING_HEAD)
+    remaining = _build_remaining(nav, default.remaining_time if default
+                                 else None)
+    focus = remaining.default_focus_factor \
+        if remaining.enable_remaining_time else None
+    teams = _collect_teams(nav, default.available_teams if default else None,
+                           focus=focus)
     config = BacklogOpsConfig(available_teams=teams)
+    config.remaining_time = remaining
     nav.show(_INPUT_PRESETS_HEAD)
     config.input_configs = nav.level(lambda: _build_input_presets(
         nav, default.input_configs if default else None))
@@ -204,59 +227,6 @@ def _collect_config(nav: _Navigator,
     return config
 
 
-_DEF_POINTS_QUESTION = (
-    'A backlog item that nobody has estimated is worked with no story '
-    'points at all unless you give a best guess for its level here. An '
-    'item that has story points of its own, and an item that is only a '
-    'container for its children, takes nothing from that guess.')
-"""Instruction shown above the default story points form."""
-
-
-def _build_def_points(nav: _Navigator, default: Optional[DefaultStoryPoints]
-                      ) -> DefaultStoryPoints:
-    """Ask what an unestimated backlog item is worked with.
-
-    Whether to guess at all, and whether to fill in the levels between
-    and beyond the ones given, are asked on one form; the levels
-    themselves are then one table, which is only asked for when there is
-    a guess to make.
-    """
-    values = nav.ask_form(_DEF_POINTS_QUESTION, _def_points_fields(),
-                          _def_points_rule, seed=_def_points_seed(default))
-    if not values.flag('guess'):
-        return DefaultStoryPoints()
-    return nav.ask_def_points(values.flag('interpolate'),
-                              values.flag('extrapolate'), seed=default)
-
-
-def _def_points_fields() -> list[FormField]:
-    """Return the fields of the default story points form."""
-    return [
-        yes_no_field('guess', 'Guess the size of backlog items that have no '
-                     'story points?', False),
-        yes_no_field('interpolate', 'Also guess a level between the levels '
-                     'you give?', True),
-        yes_no_field('extrapolate', 'Also guess a level above the highest '
-                     'or below the lowest level you give?', True)]
-
-
-def _def_points_rule(values: FormResult) -> tuple[Optional[str], set[str]]:
-    """Disable the filling-in questions when nothing is guessed at all."""
-    if not values.flag('guess'):
-        return None, {'interpolate', 'extrapolate'}
-    return None, set()
-
-
-def _def_points_seed(default: Optional[DefaultStoryPoints]
-                     ) -> Optional[FormResult]:
-    """Return the form values of a stored default story points."""
-    if default is None:
-        return None
-    return FormResult({'guess': bool(default.levels),
-                       'interpolate': default.interpolate,
-                       'extrapolate': default.extrapolate})
-
-
 def _build_gui_display(nav: _Navigator, default: Optional[GuiDisplayConfig]
                        ) -> GuiDisplayConfig:
     """Ask the GUI column renaming and level display, and return it."""
@@ -271,8 +241,8 @@ def _build_gui_display(nav: _Navigator, default: Optional[GuiDisplayConfig]
                                 _GUI_COLUMN_HEADER,
                                 seed=default.release_to_external
                                 if default else None))
-    gui_display.level_display = _ask_level_display(
-        nav, _GUI_LEVEL_QUESTION, default.level_display if default else None)
+    gui_display.level_display, gui_display.omit_none_column = _ask_display(
+        nav, 'shown', default, True)
     return gui_display
 
 
@@ -505,21 +475,25 @@ def _ask_person(nav: _Navigator, persons: dict[str, Person],
 
 
 def _build_teams(nav: _Navigator, person_names: list[str],
-                 default: Optional[AvailableTeams]) -> list[Team]:
+                 default: Optional[AvailableTeams],
+                 focus: Optional[float]) -> list[Team]:
     """Ask for a counted list of teams and their memberships."""
     teams = default.teams if default else []
     count = nav.ask_count('Number of teams', seed=len(teams))
     return [nav.level(partial(_ask_team, nav, person_names,
-                              teams[k] if k < len(teams) else None))
+                              teams[k] if k < len(teams) else None,
+                              focus=focus))
             for k in range(count)]
 
 
-def _team_fields(person_names: list[str],
-                 seed: Optional[Team]) -> list[FormField]:
+def _team_fields(person_names: list[str], seed: Optional[Team],
+                 focus: Optional[float]) -> list[FormField]:
     """Return the fields of the combined team form.
 
     The team name, the number of members and aliases, the velocity and
-    the sprint length are asked together. The member count is capped at
+    the sprint length are asked together, followed by whether the team
+    has a focus factor of its own and which, when ``focus`` is the
+    default focus factor rather than None. The member count is capped at
     the number of persons, since a person joins a team at most once. The
     full-time-equivalent sum is asked later, after the members, so it can
     default to the entered member count.
@@ -535,7 +509,8 @@ def _team_fields(person_names: list[str],
                   minimum=0),
         number_field('velocity', 'Team velocity', default=0.0, minimum=0.0),
         int_field('sprint', 'Sprint length in working days', default=10,
-                  minimum=1)]
+                  minimum=1)] + \
+        ([] if focus is None else _team_focus_fields(focus))
 
 
 def _team_seed(team: Optional[Team]) -> Optional[FormResult]:
@@ -545,30 +520,36 @@ def _team_seed(team: Optional[Team]) -> Optional[FormResult]:
     return FormResult({'name': team.name, 'members': len(team.members),
                        'aliases': len(team.aliases),
                        'velocity': team.velocity,
-                       'sprint': team.sprint_length})
+                       'sprint': team.sprint_length,
+                       **_team_focus_seed(team.focus_factor)})
 
 
 def _ask_team(nav: _Navigator, person_names: list[str],
-              seed: Optional[Team] = None) -> Team:
+              seed: Optional[Team] = None, *,
+              focus: Optional[float] = None) -> Team:
     """Ask for one team on one form, then its members, sum-FTE and aliases.
 
     The name, member and alias counts, velocity and sprint length are one
-    form. The members follow, then the full-time-equivalent sum (which
-    defaults to the number of members entered), then the aliases.
+    form, with the own focus factor when ``focus`` is the default one
+    rather than None. The members follow, then the full-time-equivalent
+    sum (which defaults to the number of members entered), then the
+    aliases. A team not asked for a focus factor keeps the one it had.
     """
     values = nav.ask_form('Configure the team.',
-                          _team_fields(person_names, seed),
-                          seed=_team_seed(seed))
+                          _team_fields(person_names, seed, focus),
+                          _team_focus_rule, seed=_team_seed(seed))
     members = _build_members(nav, person_names, values.whole('members'),
                              seed.members if seed else [])
     sum_fte = _ask_sum_fte(nav, values.number('velocity'), len(members),
                            seed.sum_fte_at_velocity if seed else None)
     aliases = _build_aliases(nav, values.whole('aliases'),
                              seed.aliases if seed else [])
+    kept = seed.focus_factor if seed else None
     return Team(name=values.text('name'), velocity=values.number('velocity'),
                 sum_fte_at_velocity=sum_fte,
-                sprint_length=values.whole('sprint'), aliases=aliases,
-                members=members)
+                sprint_length=values.whole('sprint'),
+                focus_factor=kept if focus is None else _team_focus(values),
+                aliases=aliases, members=members)
 
 
 def _ask_sum_fte(nav: _Navigator, velocity: float, member_count: int,

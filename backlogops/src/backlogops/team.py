@@ -12,6 +12,34 @@ from backlogops.backlog_helpers import check_field_types, report_bad_value
 from backlogops.date_ranges import check_date_range, check_no_overlap
 
 
+FOCUS_FACTOR_RANGE = (0.005, 3.0)
+"""The smallest and the largest focus factor allowed.
+
+A focus factor of zero would mean no progress ever, so the smallest is
+0.5%. Estimates may be pessimistic, so a focus factor may be above 1, up
+to 300%. Common values are from 0.1 to 0.5.
+"""
+
+
+def check_focus_factor(name: str, value: float, stderr_file: TextIO,
+                       subject: str) -> None:
+    """Check that a focus factor is within :data:`FOCUS_FACTOR_RANGE`.
+
+    Args:
+        name: The name of the field that holds the focus factor.
+        value: The focus factor to check.
+        stderr_file: The file to report errors to.
+        subject: What owns the field, used to start error messages.
+
+    Raises:
+        ValueError: If the focus factor is out of range.
+    """
+    lowest, highest = FOCUS_FACTOR_RANGE
+    if not lowest <= value <= highest:
+        report_bad_value(name, value, f'must be from {lowest} to {highest}',
+                         stderr_file, subject)
+
+
 @dataclass
 class FteException:
     """Define a full-time equivalent exception.
@@ -140,6 +168,18 @@ class Team:
                              changes. Must be positive.
         sprint_length: The length of the sprint counted in working days,
                        not calendar days. Must be positive.
+        focus_factor: The fraction of the working time of the team that
+                      counts as focused work on the backlog items. For
+                      example, 0.3 means that 30% of the working time
+                      counts as focused work. The factor also makes up
+                      for optimism, or pessimism, in the estimates, and
+                      common values are from 0.1 to 0.5. It is used only
+                      for remaining time estimates, when they are enabled
+                      in :class:`backlogops.RemainingTimeConfig`, and None
+                      means that the default focus factor of that
+                      configuration is used. It should be None when
+                      remaining time is not used. Must be from 0.005 to
+                      3.0 when given.
         aliases: The aliases for the team. A backlog might refer to the
                  team using the team name or an alias. Compared
                  case-insensitively. Each alias must be unique and not
@@ -151,11 +191,12 @@ class Team:
     velocity: float
     sum_fte_at_velocity: float
     sprint_length: int
+    focus_factor: Optional[float] = None
     aliases: list[str] = field(default_factory=list)
     members: list[Membership] = field(default_factory=list)
 
     def _check_values(self, stderr_file: TextIO) -> None:
-        """Check the name, velocity, capacity and sprint length."""
+        """Check the name, velocity, capacity, sprint and focus factor."""
         if self.name == '':
             report_bad_value('name', self.name, 'must not be empty',
                              stderr_file, 'Team')
@@ -169,6 +210,9 @@ class Team:
             report_bad_value('sprint_length', self.sprint_length,
                              'must be a positive number of working days',
                              stderr_file, 'Team')
+        if self.focus_factor is not None:
+            check_focus_factor('focus_factor', self.focus_factor, stderr_file,
+                               'Team')
 
     def check_consistency(self, stderr_file: TextIO = sys.stderr) -> None:
         """Check the consistency of the team.

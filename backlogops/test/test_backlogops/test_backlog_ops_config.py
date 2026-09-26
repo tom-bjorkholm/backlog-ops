@@ -12,6 +12,7 @@ stored the workforce members at the top level.
 
 import io
 import json
+from datetime import timedelta
 from pathlib import Path
 import pytest
 from config_as_json import MigrateCfgWarnHook
@@ -23,6 +24,7 @@ from backlogops import (
     resolve_output_config, write_backlog_ops_config, DEF_STATUS_INPUT_MAP)
 from backlogops.no_text_io import NoTextIO
 from backlogops.work_hours import WeekDay
+from .shared_test_data import def_times
 
 NO_OUTPUT = NoTextIO()
 
@@ -327,6 +329,40 @@ def test_def_points_stored(tmp_path: Path) -> None:
     write_backlog_ops_config(config, config_file, NO_OUTPUT)
     loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
     assert loaded.default_story_points.get_default_story_points(2) == 4.0
+
+
+def test_remaining_stored(tmp_path: Path) -> None:
+    """Test remaining time in use survives a write and a read."""
+    config = _empty()
+    config.remaining_time = def_times({2: 3.0})
+    config.remaining_time.enable_remaining_time = True
+    config.remaining_time.default_focus_factor = 0.4
+    config_file = tmp_path / 'ops.cfg'
+    write_backlog_ops_config(config, config_file, NO_OUTPUT)
+    loaded = read_backlog_ops_config(config_file, NO_OUTPUT).remaining_time
+    assert loaded.enable_remaining_time is True
+    assert loaded.default_focus_factor == 0.4
+    assert loaded.get_default_time(2) == timedelta(hours=3)
+
+
+def test_old_no_remaining(tmp_path: Path) -> None:
+    """Test a file written before remaining time existed does not use it.
+
+    The file also lacks the omit setting of the GUI display and of an
+    output preset, which get their own defaults.
+    """
+    new = _config_json(_empty())
+    del new['remaining_time']
+    gui = new['gui_display']
+    assert isinstance(gui, dict)
+    del gui['omit_none_column']
+    config_file = tmp_path / 'old.cfg'
+    config_file.write_text(json.dumps(new), encoding='UTF-8')
+    loaded = read_backlog_ops_config(config_file, NO_OUTPUT)
+    assert loaded.remaining_time.enable_remaining_time is False
+    assert not loaded.remaining_time.levels
+    assert loaded.remaining_time.default_focus_factor == 0.3
+    assert loaded.gui_display.omit_none_column is True
 
 
 def test_old_no_def_points(tmp_path: Path) -> None:

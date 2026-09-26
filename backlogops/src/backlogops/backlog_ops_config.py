@@ -18,6 +18,9 @@ item levels:
 * ``default_story_points`` is what a backlog item that nobody has
   estimated counts as, bridged to JSON by
   :class:`backlogops.default_story_points.DefaultStoryPoints`;
+* ``remaining_time`` says whether estimates in remaining time are used
+  beside story points, which are recommended, bridged to JSON by
+  :class:`backlogops.remaining_time_config.RemainingTimeConfig`;
 * ``levels`` is the optional list of backlog item levels. It is omitted
   from the file while it is ``None``; :meth:`BacklogOpsConfig.get_levels`
   then falls back to :data:`backlogops.levels.DEFAULT_LEVELS`. An empty
@@ -54,6 +57,7 @@ from backlogops.io_config import GuiDisplayConfig, InputFormatConfig, \
 from backlogops.jira_io_config import JiraIOConfig
 from backlogops.levels import DEFAULT_LEVELS, Level, Levels, LevelDisplay, \
     levels_from_list
+from backlogops.remaining_time_config import RemainingTimeConfig
 
 
 def _as_int(name: str, value: object, stderr_file: TextIO) -> int:
@@ -170,9 +174,10 @@ class _BacklogOpsReadOldConfig(ReadOldConfiguration):
     """Normalize older backlog-ops configuration files on read.
 
     Two shape changes are accepted. Sections added after a released file,
-    such as the named preset maps and the default story points, are
-    supplied empty when an old file omits them, which for the default
-    story points means guessing nothing. The workforce members were
+    such as the named preset maps, the default story points and the
+    remaining time, are supplied empty when an old file omits them, which
+    for the default story points means guessing nothing and for the
+    remaining time means not using it. The workforce members were
     later moved from the top level into a nested ``available_teams``
     object; the move rules relocate them so old files keep loading.
     """
@@ -191,7 +196,8 @@ class _BacklogOpsReadOldConfig(ReadOldConfiguration):
         """Return defaults for the members old files may omit."""
         return {('input_configs',): {}, ('output_configs',): {},
                 ('gui_display',): {}, ('status_input_map',): {},
-                ('jira',): {}, ('default_story_points',): {}}
+                ('jira',): {}, ('default_story_points',): {},
+                ('remaining_time',): {}}
 
 
 DEF_STATUS_INPUT_MAP: dict[str, Status] = {
@@ -249,6 +255,9 @@ class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
         self.default_story_points: DefaultStoryPoints = DefaultStoryPoints(
             stderr_file=stderr_file,
             member_name=member_path(member_name, 'default_story_points'))
+        self.remaining_time: RemainingTimeConfig = RemainingTimeConfig(
+            stderr_file=stderr_file,
+            member_name=member_path(member_name, 'remaining_time'))
         self._unchecked_dicts = ['status_input_map']
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
@@ -275,9 +284,11 @@ class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
                              config_type=JiraIOConfig)
         points = ConfigNesting(kind=ConfigNestingKind.MEMBER,
                                config_type=DefaultStoryPoints)
+        remaining = ConfigNesting(kind=ConfigNestingKind.MEMBER,
+                                  config_type=RemainingTimeConfig)
         return {'available_teams': member, 'input_configs': in_cfg,
                 'output_configs': out_cfg, 'gui_display': gui, 'jira': jira,
-                'default_story_points': points}
+                'default_story_points': points, 'remaining_time': remaining}
 
     @override
     def _omit_none_from_json(self) -> list[str]:

@@ -6,6 +6,7 @@
 
 from datetime import date
 from io import StringIO
+from typing import Optional
 
 import pytest
 
@@ -92,6 +93,31 @@ def test_team_bad_numbers(field_name: str, value: float) -> None:
     team = _team()
     setattr(team, field_name, value)
     with pytest.raises(ValueError):
+        team.check_consistency(NoTextIO())
+
+
+@pytest.mark.parametrize('focus', [None, 0.005, 0.3, 1.0, 3.0])
+def test_team_focus_ok(focus: Optional[float]) -> None:
+    """Test no focus factor, or one from 0.005 to 3.0, is valid."""
+    team = _team()
+    team.focus_factor = focus
+    team.check_consistency(NoTextIO())
+
+
+@pytest.mark.parametrize('focus', [0.0, 0.0049, -0.5, 3.01])
+def test_team_bad_focus(focus: float) -> None:
+    """Test a focus factor out of range is a ValueError."""
+    team = _team()
+    team.focus_factor = focus
+    with pytest.raises(ValueError):
+        team.check_consistency(NoTextIO())
+
+
+def test_team_focus_type() -> None:
+    """Test a focus factor that is no number is a TypeError."""
+    team = _team()
+    setattr(team, 'focus_factor', '0.3')
+    with pytest.raises(TypeError):
         team.check_consistency(NoTextIO())
 
 

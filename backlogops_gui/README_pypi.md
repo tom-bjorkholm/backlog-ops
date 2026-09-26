@@ -80,8 +80,8 @@ The following functionality is available in all 3 packages:
 
 - A wizard to create a backlog-ops configuration file with the workforce, named
   input and output presets, level names, status name mapping, the guess for
-  unestimated items, how the graphical user interface shows the data, and the
-  Jira integration.
+  unestimated items, whether remaining time estimates are also used, how the
+  graphical user interface shows the data, and the Jira integration.
 
 - An editor showing a whole configuration file or a stand-alone preset file at
   once, folded where it is deep, to change a single value without stepping
@@ -364,7 +364,7 @@ succeeded. When something was refused the pop-up title is marked
 
 ## Test summary
 
-- Test result: 2555 passed, 1 deselected in 61s (0:01:01)
+- Test result: 2685 passed, 1 deselected in 66s (0:01:06)
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.

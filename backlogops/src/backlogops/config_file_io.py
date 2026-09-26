@@ -44,7 +44,7 @@ _INPUT_KEYS = ('backlog_to_internal', 'release_to_internal',
 """Top-level keys that mark a stand-alone input preset file (new or old)."""
 
 _OUTPUT_KEYS = ('backlog_to_external', 'release_to_external',
-                'level_display', 'to_external')
+                'level_display', 'omit_none_column', 'to_external')
 """Top-level keys that mark a stand-alone output preset file (new or old)."""
 
 _COMPLETE_KEYS = ('input_configs', 'output_configs', 'available_teams',
