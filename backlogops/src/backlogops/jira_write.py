@@ -18,7 +18,8 @@ field such as the summary is set directly, a nested field such as the issue
 type is wrapped by its path steps, a list field such as the fix versions is
 wrapped as named objects, and a custom field is set by its resolved field
 id. A field the item has no value for is not written at all, so an item
-nobody has estimated yet is created with its story points left unset. The
+nobody has estimated yet is created with its story points left unset. A
+mapped remaining time is not written to Jira yet; it is only read. The
 issue type written for an item comes from the preset's level-to-issue-type
 map (falling back to the level name), so a Jira that renamed a type (such
 as a Swedish ``Deluppgift`` sub-task) still gets a valid issue type. The
@@ -79,15 +80,24 @@ from backlogops.jira_write_status import StatusMismatch, _jira_status_name, \
 from backlogops.jira_write_types import _TypeInfo, _issue_type, \
     _issue_type_meta, _subtask_types, _validate_issue_types
 from backlogops.levels import DEFAULT_LEVELS, Levels
+from backlogops.table_rows import REMAINING_TIME_COLUMN
+
+_UNWRITTEN_FIELDS = frozenset({REMAINING_TIME_COLUMN})
+"""Mapped internal fields that are read from Jira but never written to it.
+
+The remaining time is read from Jira, but writing it is not supported yet,
+so a backlog map shared by reading and writing may still map it.
+"""
 
 _SKIP_WRITE_FIELDS = frozenset({'key', 'status', 'parent_key'}) | \
-    frozenset(DEPENDENCY_FIELDS)
+    frozenset(DEPENDENCY_FIELDS) | _UNWRITTEN_FIELDS
 """Internal fields not set from the column map when creating an issue.
 
-The key is assigned by Jira, the status needs a workflow transition, and
-the parent and dependency links are updated in a later batch. A
-sub-task's parent is the exception: it is set at create time by a
-dedicated path, because Jira requires it, not from the column map.
+The key is assigned by Jira, the status needs a workflow transition, the
+parent and dependency links are updated in a later batch, and the
+:data:`_UNWRITTEN_FIELDS` are not written at all. A sub-task's parent is
+the exception: it is set at create time by a dedicated path, because Jira
+requires it, not from the column map.
 """
 
 _CREATE_FIELD_NAMES = frozenset({'project', 'summary', 'issuetype', 'parent'})

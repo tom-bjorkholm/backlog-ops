@@ -381,6 +381,7 @@
   * [GUI\_DESCRIPTIONS](#backlogops.config_descriptions.GUI_DESCRIPTIONS)
   * [\_CONNECTION](#backlogops.config_descriptions._CONNECTION)
   * [\_JIRA\_PRESET](#backlogops.config_descriptions._JIRA_PRESET)
+  * [\_SEVERAL\_PATHS](#backlogops.config_descriptions._SEVERAL_PATHS)
   * [JIRA\_DESCRIPTIONS](#backlogops.config_descriptions.JIRA_DESCRIPTIONS)
   * [\_LEVEL](#backlogops.config_descriptions._LEVEL)
   * [\_GUESS\_LEVEL](#backlogops.config_descriptions._GUESS_LEVEL)
@@ -543,6 +544,7 @@
   * [\_row](#backlogops.jira_read._row)
   * [build\_backlog\_releases](#backlogops.jira_read.build_backlog_releases)
   * [resolve\_jql](#backlogops.jira_read.resolve_jql)
+  * [\_read\_map](#backlogops.jira_read._read_map)
   * [read\_backlog\_from\_jira](#backlogops.jira_read.read_backlog_from_jira)
   * [read\_jira\_from\_config](#backlogops.jira_read.read_jira_from_config)
 * [backlogops.table\_rows](#backlogops.table_rows)
@@ -576,6 +578,7 @@
   * [fold\_level\_name](#backlogops.table_rows.fold_level_name)
 * [backlogops.jira\_update\_backlog](#backlogops.jira_update_backlog)
   * [\_IDENTITY\_FIELDS](#backlogops.jira_update_backlog._IDENTITY_FIELDS)
+  * [\_NOT\_UPDATED](#backlogops.jira_update_backlog._NOT_UPDATED)
   * [\_LINK\_FIELDS](#backlogops.jira_update_backlog._LINK_FIELDS)
   * [\_SKIP\_DATA](#backlogops.jira_update_backlog._SKIP_DATA)
   * [\_CLEARABLE\_FIELDS](#backlogops.jira_update_backlog._CLEARABLE_FIELDS)
@@ -863,6 +866,7 @@
   * [\_subtask\_types](#backlogops.jira_write_types._subtask_types)
   * [\_validate\_issue\_types](#backlogops.jira_write_types._validate_issue_types)
 * [backlogops.jira\_write](#backlogops.jira_write)
+  * [\_UNWRITTEN\_FIELDS](#backlogops.jira_write._UNWRITTEN_FIELDS)
   * [\_SKIP\_WRITE\_FIELDS](#backlogops.jira_write._SKIP_WRITE_FIELDS)
   * [\_CREATE\_FIELD\_NAMES](#backlogops.jira_write._CREATE_FIELD_NAMES)
   * [ExistsInJiraError](#backlogops.jira_write.ExistsInJiraError)
@@ -6123,7 +6127,12 @@ Jira Software ``Epic Link`` custom field. The ``depends_on_f2s`` field
 maps Jira issue links of type ``Blocks`` where the current issue is
 blocked by another issue. The ``team`` field maps to a custom field
 named ``Team`` (the Atlassian Teams field); adjust it in the wizard when
-a project names the field otherwise.
+a project names the field otherwise. The ``remaining_time`` field maps to
+the issue's own Jira remaining estimate in raw seconds, both through the
+time tracking object and through the plain ``timeestimate`` field, so a
+user can simply delete the one that does not suit their Jira. Neither
+includes the sub-tasks, so an item and its sub-tasks are not counted
+twice.
 
 <a id="backlogops.jira_io_config.DEF_RELEASE_COLUMN_MAP"></a>
 
@@ -7330,6 +7339,12 @@ Every member of one Jira connection.
 #### \_JIRA\_PRESET
 
 Every member of one Jira preset.
+
+<a id="backlogops.config_descriptions._SEVERAL_PATHS"></a>
+
+#### \_SEVERAL\_PATHS
+
+How several paths for one Jira column-map field are used.
 
 <a id="backlogops.config_descriptions.JIRA_DESCRIPTIONS"></a>
 
@@ -9638,7 +9653,12 @@ so a backlog of many thousands of items is read in full without fetching
 every field of every issue. An issue whose story point field is empty
 reads as a backlog item nobody has estimated yet, carrying no story
 points rather than zero of them, so that a forecast counts it as what
-the configured default story points guess for its level.
+the configured default story points guess for its level. A remaining
+time is read as the raw seconds Jira stores, and an empty remaining
+estimate reads as none. The remaining time is read only while remaining
+time estimates are used, so a backlog estimated in story points alone
+does not pick up Jira time tracking values; its field is then not even
+fetched.
 
 The caller may override the preset's filter for one read. When no filter
 is configured at all, the default filter selects every issue in the
@@ -9938,6 +9958,17 @@ empty filter falls back to the default project filter.
 
 - `ValueError` - If no filter and no default project are configured.
 
+<a id="backlogops.jira_read._read_map"></a>
+
+#### \_read\_map
+
+```python
+def _read_map(column_map: JiraColumnMap,
+              use_remaining_time: bool) -> JiraColumnMap
+```
+
+Return the backlog map to read, without remaining time if unused.
+
 <a id="backlogops.jira_read.read_backlog_from_jira"></a>
 
 #### read\_backlog\_from\_jira
@@ -9950,6 +9981,7 @@ def read_backlog_from_jira(
         filter_override: Optional[str] = None,
         levels: Optional[Levels] = None,
         status_map: Optional[dict[str, Status]] = None,
+        use_remaining_time: bool = False,
         stderr_file: TextIO = sys.stderr) -> BacklogReleases
 ```
 
@@ -9959,7 +9991,8 @@ The preset names the connection and the backlog and release column
 maps, all looked up in the pool's configuration. The client is taken
 from ``connections``, so repeated reads and writes reuse it. The
 issues come from the resolved filter and the releases from the default
-project's versions.
+project's versions. A mapped remaining time is read, and its Jira
+field fetched, only when ``use_remaining_time`` is True.
 
 **Arguments**:
 
@@ -9970,6 +10003,9 @@ project's versions.
 - `levels` - The levels used to resolve a string level, or None for the
   default levels.
 - `status_map` - Extra status names mapped to Status members, or None.
+- `use_remaining_time` - Whether remaining time estimates are used, as
+  ``enable_remaining_time`` in the configuration says. When
+  False the backlog items carry no remaining time.
 - `stderr_file` - Stream used for user-facing diagnostics.
   
 
@@ -9998,6 +10034,9 @@ def read_jira_from_config(config: BacklogOpsConfig,
 ```
 
 Read from Jira using the config's Jira settings, levels and status map.
+
+The remaining time is read when the configuration enables remaining
+time estimates.
 
 A fresh :class:`JiraConnections` pool is opened for the read. A caller
 that reads and writes several times should instead build one pool and
@@ -10396,7 +10435,8 @@ already match is reported as already correct and its issue is not touched.
 An empty internal value is left unset, so an empty value never clears a
 Jira field. The story points are the exception: an item nobody has
 estimated yet clears the story points in Jira, because carrying no
-estimate is as much a fact about the item as a number is.
+estimate is as much a fact about the item as a number is. A mapped
+remaining time is never updated, because it is not written to Jira yet.
 
 The selected fields are written in the same way they are read: a settable
 field (summary, description, story points, team, fix version) through an
@@ -10428,11 +10468,19 @@ modified.
 
 #### \_IDENTITY\_FIELDS
 
-Mapped fields never changed on an issue already in Jira.
+Mapped fields that identify an issue already in Jira.
 
 The key is the identity used to find the issue and the level maps to the
-issue type, which is not changed on an existing issue. These are excluded
-from the selectable fields and from any update.
+issue type, which is not changed on an existing issue.
+
+<a id="backlogops.jira_update_backlog._NOT_UPDATED"></a>
+
+#### \_NOT\_UPDATED
+
+Mapped fields never changed on an issue already in Jira.
+
+These are the identity fields and the fields not written to Jira at all.
+They are excluded from the selectable fields and from any update.
 
 <a id="backlogops.jira_update_backlog._LINK_FIELDS"></a>
 
@@ -10916,7 +10964,8 @@ Return the internal fields a preset can update on an existing issue.
 
 These are the fields mapped in the preset's backlog write map, minus
 the key and the issue type (level), which are never changed on an
-existing issue. The order follows the write map. This is the set the
+existing issue, and the remaining time, which is not written to Jira
+yet. The order follows the write map. This is the set the
 CLI ``all`` value and the GUI checkbox list offer, and the set
 :func:`update_backlog_in_jira` intersects ``fields_to_update`` with.
 
@@ -13360,9 +13409,6 @@ One kind of named Jira column map: its label, fields and default.
 
 The backlog column-map kind, seeded from the backlog default.
 
-The remaining time is not offered, because it cannot be read from or
-written to Jira yet.
-
 <a id="backlogops.jira_wizard._RELEASE_KIND"></a>
 
 #### \_RELEASE\_KIND
@@ -14588,7 +14634,8 @@ field such as the summary is set directly, a nested field such as the issue
 type is wrapped by its path steps, a list field such as the fix versions is
 wrapped as named objects, and a custom field is set by its resolved field
 id. A field the item has no value for is not written at all, so an item
-nobody has estimated yet is created with its story points left unset. The
+nobody has estimated yet is created with its story points left unset. A
+mapped remaining time is not written to Jira yet; it is only read. The
 issue type written for an item comes from the preset's level-to-issue-type
 map (falling back to the level name), so a Jira that renamed a type (such
 as a Swedish ``Deluppgift`` sub-task) still gets a valid issue type. The
@@ -14625,16 +14672,26 @@ path. A link Jira refuses is collected in the result's ``failed_links``
 list with a concise reason, and the remaining links are still written. The
 argument backlog is never modified.
 
+<a id="backlogops.jira_write._UNWRITTEN_FIELDS"></a>
+
+#### \_UNWRITTEN\_FIELDS
+
+Mapped internal fields that are read from Jira but never written to it.
+
+The remaining time is read from Jira, but writing it is not supported yet,
+so a backlog map shared by reading and writing may still map it.
+
 <a id="backlogops.jira_write._SKIP_WRITE_FIELDS"></a>
 
 #### \_SKIP\_WRITE\_FIELDS
 
 Internal fields not set from the column map when creating an issue.
 
-The key is assigned by Jira, the status needs a workflow transition, and
-the parent and dependency links are updated in a later batch. A
-sub-task's parent is the exception: it is set at create time by a
-dedicated path, because Jira requires it, not from the column map.
+The key is assigned by Jira, the status needs a workflow transition, the
+parent and dependency links are updated in a later batch, and the
+:data:`_UNWRITTEN_FIELDS` are not written at all. A sub-task's parent is
+the exception: it is set at create time by a dedicated path, because Jira
+requires it, not from the column map.
 
 <a id="backlogops.jira_write._CREATE_FIELD_NAMES"></a>
 

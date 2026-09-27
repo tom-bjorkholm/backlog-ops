@@ -234,8 +234,10 @@ A backlog item keeps its remaining time in the `remaining_time` column
 written to files and shown in the GUI. While `enable_remaining_time` is
 `false` that column is written and shown only when some item has a
 remaining time, so a backlog estimated in story points gets no empty
-column. Reading remaining time from Jira, writing it to Jira, and ready
-dates estimated from it are not supported yet.
+column. A remaining time is also read from Jira (see
+[column maps](#column-maps-how-a-field-reaches-a-jira-value)), but only
+while `enable_remaining_time` is `true`. Writing remaining time to Jira, and
+ready dates estimated from it, are not supported yet.
 
 ### Status mapping
 
@@ -435,10 +437,14 @@ with a *kind* and then the steps to follow. The kinds are:
 | `CUSTOM_FIELD` | A custom field, looked up **by display name** (e.g. `Story point estimate`). |
 | `FILTERED_FIELD` | A list field filtered by a sub-value (e.g. issue links of type `Blocks`). |
 
-When more than one path is listed for a field, the first one that yields a
-value wins. This is why the default `parent_key` maps to both the modern
-`parent` object **and** the old `Epic Link` custom field. The usable default
-backlog map looks like this:
+When more than one path is listed for a field, every path is read. A path
+that yields no value is skipped, so the later paths are fallbacks, and paths
+that agree give that one value. If they yield *different* values a warning
+is shown and the first one wins — except for an extra field such as the
+description, where the values are joined. Writing uses only the first path.
+This is why the default `parent_key` maps to both the modern `parent` object
+**and** the old `Epic Link` custom field. The usable default backlog map
+looks like this:
 
 ```json
 "default-backlog": {
@@ -451,6 +457,9 @@ backlog map looks like this:
     "release":        ["FIELD", "fixVersions"],
     "team":           ["CUSTOM_FIELD", "Team"],
     "story_points":   ["CUSTOM_FIELD", "Story point estimate"],
+    "remaining_time": [["FIELD", "timetracking",
+                        "remainingEstimateSeconds"],
+                       ["FIELD", "timeestimate"]],
     "depends_on_f2s": ["FILTERED_FIELD", "issuelinks", "type.name",
                        "Blocks", "inwardIssue.key"],
     "description":    ["FIELD", "description"]
@@ -460,6 +469,19 @@ backlog map looks like this:
 Note that `level` maps to the Jira **issue type name** (`Story`, `Epic`, …),
 which is resolved to a level number through your `levels`. So your level
 names/aliases should match your Jira issue type names.
+
+The `remaining_time` field maps to the Jira *Remaining Estimate*, in the raw
+seconds Jira stores. The default offers two paths to the same value, through
+the time tracking object and through the plain `timeestimate` field; they
+agree whenever both are there, so keep both or delete the one that does not
+suit your Jira. Both hold the issue's own estimate without its sub-tasks, so
+an item and its sub-tasks are not counted twice. An issue with no remaining
+estimate reads as an item with no remaining time, while an estimate of zero
+reads as no work left. The remaining time is read only while
+[remaining time estimates](#remaining-time-estimates) are enabled, and it is
+not written to Jira yet: adding and updating items leave it out. A column
+map from an older configuration has no `remaining_time`; add it with the
+wizard or the editor.
 
 ### Finding the correct field mapping in your Jira
 

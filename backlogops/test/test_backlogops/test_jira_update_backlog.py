@@ -15,6 +15,7 @@ full elsewhere.
 # MIT License
 
 import io
+from datetime import timedelta
 from types import SimpleNamespace
 from typing import Callable, Optional, cast
 import pytest
@@ -710,12 +711,27 @@ def test_input_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_updatable_fields(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the updatable fields are the mapped ones minus key and level."""
+    """Test the updatable fields are the mapped ones minus key and level.
+
+    The remaining time is mapped but not written to Jira yet, so it is not
+    offered either.
+    """
     connections = _connections(monkeypatch, _Client({}))
     fields = updatable_backlog_fields(connections, 'w')
     assert 'title' in fields and 'status' in fields
     assert 'depends_on_f2s' in fields
     assert 'key' not in fields and 'level' not in fields
+    assert 'remaining_time' not in fields
+
+
+def test_rt_not_updated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a chosen remaining time leaves the Jira issue untouched."""
+    client = _Client({'A': _issue('A')})
+    connections = _connections(monkeypatch, client)
+    item = _item('A', remaining_time=timedelta(hours=3))
+    result = _upd(connections, [item], ['remaining_time'])
+    assert result.already_correct == ['A']
+    assert client.issues['A'].updates == []
 
 
 def test_ignores_bad_field(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -18,7 +18,7 @@ from wizard_ui_bridge import AskPathField, AskTextField, \
 from backlogops.backlog import Status
 from backlogops.backlog_ops_wizard import backlog_ops_wizard
 from backlogops.jira_io_config import (
-    JiraAttrPath, JiraAttrType, default_jira_filter)
+    DEF_BACKLOG_COLUMN_MAP, JiraAttrPath, JiraAttrType, default_jira_filter)
 from backlogops.jira_io_config import JiraConnectConfig, JiraIssueTypeMap, \
     JiraPreset, TokenStorage
 from backlogops.jira_wizard import (
@@ -29,7 +29,7 @@ from backlogops.jira_wizard import (
 from backlogops.levels import DEFAULT_LEVELS
 from backlogops.wizard_forms import FormResult
 from backlogops.wizard_helpers import (
-    _attr_from_cells, _jira_map_check, _merge_status_defaults,
+    _attr_from_cells, _jira_map_cells, _jira_map_check, _merge_status_defaults,
     _parse_jira_map)
 from backlogops.wizard_navigator import _Navigator
 
@@ -77,10 +77,29 @@ def _console(answers: list[str],
     return WizardUiBridgeConsole(io.StringIO(), io.StringIO(text), sink)
 
 
-def test_no_rt_in_backlog_map() -> None:
-    """Test the backlog map offers no remaining time until Jira has it."""
-    assert 'remaining_time' not in _BACKLOG_KIND.fields
-    assert 'story_points' in _BACKLOG_KIND.fields
+def test_rt_in_backlog_map() -> None:
+    """Test the backlog map offers the remaining time with its two paths.
+
+    The default table shows one row per default path, and the table read
+    back is the default map, so both paths survive the wizard.
+    """
+    assert 'remaining_time' in _BACKLOG_KIND.fields
+    cells = _jira_map_cells(_BACKLOG_KIND.fields, _BACKLOG_KIND.default)
+    table = [[cell.value for cell in row] for row in cells]
+    assert [row[1:] for row in table if row[0] == 'remaining_time'] == [
+        ['FIELD', 'timetracking.remainingEstimateSeconds'],
+        ['FIELD', 'timeestimate']]
+    assert _parse_jira_map(table) == DEF_BACKLOG_COLUMN_MAP
+
+
+def test_old_map_blank_rt() -> None:
+    """Test a stored map without remaining time offers it unmapped."""
+    stored = {name: paths for name, paths in DEF_BACKLOG_COLUMN_MAP.items()
+              if name != 'remaining_time'}
+    cells = _jira_map_cells(_BACKLOG_KIND.fields, stored)
+    table = [[cell.value for cell in row] for row in cells]
+    assert ['remaining_time', '', ''] in table
+    assert _parse_jira_map(table) == stored
 
 
 def test_jira_skip() -> None:

@@ -584,7 +584,9 @@ _JIRA_MAP_INSTRUCTION = (
     'Jira attribute paths (Kind is one of ' + ', '.join(_JIRA_KINDS)
     + '; a FIELD path uses dots like status.name; a FILTERED_FIELD path '
     'uses semicolons like issuelinks;type.name;Blocks;inwardIssue.key; '
-    'blank leaves a field unmapped):')
+    'blank leaves a field unmapped; several rows for one field are read '
+    'together and the value found is used, the first row winning with a '
+    'warning if they differ; writing uses the first row):')
 """Instruction shown above a Jira column-map table."""
 
 _JIRA_MAP_REASON = 'Give each mapped field a valid kind and path.'

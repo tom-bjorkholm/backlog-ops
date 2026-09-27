@@ -79,6 +79,11 @@ estimated yet, not as an item of zero points. A forecast then counts it as
 what your [default story points](01_configuration.md#default-story-points)
 guess for its level, instead of counting it as free.
 
+While [remaining time estimates](01_configuration.md#remaining-time-estimates)
+are enabled, each item's Jira remaining estimate is read into its
+`remaining_time` column, as described under
+[column maps](01_configuration.md#column-maps-how-a-field-reaches-a-jira-value).
+
 **CLI**
 
 ```sh
@@ -149,7 +154,8 @@ your file does not fill cannot wipe Jira. The story points are the one
 exception: an empty `story_points` cell says nobody has estimated the item,
 which is worth knowing, so it clears the story points in Jira. Leave
 `story_points` out of the chosen columns when your file has estimates you do
-not trust.
+not trust. The `remaining_time` column cannot be chosen yet, because remaining
+time is not written to Jira yet; adding items leaves it out too.
 
 **CLI**
 

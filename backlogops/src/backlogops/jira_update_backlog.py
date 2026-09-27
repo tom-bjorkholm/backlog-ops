@@ -12,7 +12,8 @@ already match is reported as already correct and its issue is not touched.
 An empty internal value is left unset, so an empty value never clears a
 Jira field. The story points are the exception: an item nobody has
 estimated yet clears the story points in Jira, because carrying no
-estimate is as much a fact about the item as a number is.
+estimate is as much a fact about the item as a number is. A mapped
+remaining time is never updated, because it is not written to Jira yet.
 
 The selected fields are written in the same way they are read: a settable
 field (summary, description, story points, team, fix version) through an
@@ -59,9 +60,9 @@ from backlogops.jira_rank_backlog import (
 from backlogops.jira_read import _coerce_all, _filtered_values, _row, _walk
 from backlogops.jira_write import (
     AddedToJira, ItemNotInJiraError, OnExistingKey, OnMissingKey,
-    _WriteContext, _build_ctx, _internal_value, _record_refused_fields,
-    _set_edit_fields, _skipped_names, _try_link, _warn_unknown_releases,
-    add_backlog_to_jira)
+    _UNWRITTEN_FIELDS, _WriteContext, _build_ctx, _internal_value,
+    _record_refused_fields, _set_edit_fields, _skipped_names, _try_link,
+    _warn_unknown_releases, add_backlog_to_jira)
 from backlogops.jira_write_status import (
     StatusMismatch, _jira_status_name, _maps_to, _report_status_mismatch,
     _try_transitions)
@@ -74,11 +75,17 @@ from backlogops.jira_write_format import (
 from backlogops.levels import Levels
 
 _IDENTITY_FIELDS = frozenset({'key', 'level'})
-"""Mapped fields never changed on an issue already in Jira.
+"""Mapped fields that identify an issue already in Jira.
 
 The key is the identity used to find the issue and the level maps to the
-issue type, which is not changed on an existing issue. These are excluded
-from the selectable fields and from any update.
+issue type, which is not changed on an existing issue.
+"""
+
+_NOT_UPDATED = _IDENTITY_FIELDS | _UNWRITTEN_FIELDS
+"""Mapped fields never changed on an issue already in Jira.
+
+These are the identity fields and the fields not written to Jira at all.
+They are excluded from the selectable fields and from any update.
 """
 
 _LINK_FIELDS = frozenset({'parent_key', 'depends_on_f2s', 'depends_on_f2f',
@@ -444,7 +451,7 @@ def _make_ctx(base: _WriteContext, fields_to_update: list[str],
     """Build the update context from the write context and the selection."""
     selected = frozenset(name for name in fields_to_update
                          if name in base.column_map
-                         and name not in _IDENTITY_FIELDS)
+                         and name not in _NOT_UPDATED)
     return _UpdateCtx(base=base, selected=selected, key_map=key_map,
                       link_update=link_update,
                       dep_specs=tuple(_dep_link_attrs(base.column_map)),
@@ -607,7 +614,8 @@ def updatable_backlog_fields(connections: JiraConnections,
 
     These are the fields mapped in the preset's backlog write map, minus
     the key and the issue type (level), which are never changed on an
-    existing issue. The order follows the write map. This is the set the
+    existing issue, and the remaining time, which is not written to Jira
+    yet. The order follows the write map. This is the set the
     CLI ``all`` value and the GUI checkbox list offer, and the set
     :func:`update_backlog_in_jira` intersects ``fields_to_update`` with.
 
@@ -625,7 +633,7 @@ def updatable_backlog_fields(connections: JiraConnections,
     preset = jira_config.get_preset(preset_name)
     column_map = jira_config.backlog_column_maps[
         preset.write_backlog_map_name()]
-    return [name for name in column_map if name not in _IDENTITY_FIELDS]
+    return [name for name in column_map if name not in _NOT_UPDATED]
 
 
 def format_backlog_updates(result: UpdatedBacklogInJira) -> str:

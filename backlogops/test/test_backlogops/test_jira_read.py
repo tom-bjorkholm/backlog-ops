@@ -10,7 +10,7 @@ connection and orchestration are tested by replacing the client factory.
 # MIT License
 
 import io
-from datetime import date
+from datetime import date, timedelta
 from types import SimpleNamespace
 from typing import Callable, Optional
 import pytest
@@ -336,6 +336,60 @@ def test_connect_server(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured == {'server': 'https://x', 'token_auth': 'TOK'}
 
 
+def _timed(tracking: Optional[int], plain: Optional[int]) -> SimpleNamespace:
+    """Return a stand-in issue with the two remaining estimate fields.
+
+    ``tracking`` is the time tracking object's remaining seconds and
+    ``plain`` the plain ``timeestimate`` field; None leaves a field empty.
+    """
+    issue = _issue()
+    issue.fields.timetracking = SimpleNamespace(
+        remainingEstimateSeconds=tracking)
+    issue.fields.timeestimate = plain
+    return issue
+
+
+def test_default_rt_paths() -> None:
+    """Test the default map reads remaining time from both Jira paths."""
+    assert DEF_BACKLOG_COLUMN_MAP['remaining_time'] == (
+        JiraAttrPath(JiraAttrType.FIELD,
+                     ('timetracking', 'remainingEstimateSeconds')),
+        JiraAttrPath(JiraAttrType.FIELD, ('timeestimate',)))
+
+
+@pytest.mark.parametrize('tracking, plain, expected', [
+    (5400, 5400, timedelta(hours=1, minutes=30)),
+    (5400, None, timedelta(hours=1, minutes=30)),
+    (None, 7200, timedelta(hours=2)), (0, 0, timedelta(0)),
+    (None, None, None)])
+def test_rt_read(tracking: Optional[int], plain: Optional[int],
+                 expected: Optional[timedelta]) -> None:
+    """Test the raw Jira seconds read as the item's remaining time.
+
+    Either path alone gives the value, two agreeing paths give it without
+    a warning, zero is an estimate of no work left and two empty fields
+    read as no remaining time.
+    """
+    err = io.StringIO()
+    data = build_backlog_releases([_timed(tracking, plain)], [_version()],
+                                  FIELDS, backlog_map=DEF_BACKLOG_COLUMN_MAP,
+                                  release_map=DEF_RELEASE_COLUMN_MAP,
+                                  stderr_file=err)
+    assert data.backlog[0].remaining_time == expected
+    assert err.getvalue() == ''
+
+
+def test_rt_conflict_warn() -> None:
+    """Test differing remaining times warn and the first path wins."""
+    err = io.StringIO()
+    data = build_backlog_releases([_timed(3600, 60)], [_version()], FIELDS,
+                                  backlog_map=DEF_BACKLOG_COLUMN_MAP,
+                                  release_map=DEF_RELEASE_COLUMN_MAP,
+                                  stderr_file=err)
+    assert data.backlog[0].remaining_time == timedelta(hours=1)
+    assert 'remaining_time' in err.getvalue()
+
+
 class _FakeClient:
     """A stand-in Jira client returning canned issues and versions."""
 
@@ -437,7 +491,8 @@ def test_search_fields() -> None:
     assert set(fields) == {
         'issuetype', 'summary', 'status', 'parent', 'fixVersions',
         'issuelinks', 'description', 'customfield_10008',
-        'customfield_10001', 'customfield_10016'}
+        'customfield_10001', 'customfield_10016', 'timetracking',
+        'timeestimate'}
     assert len(fields) == len(set(fields))
 
 
@@ -459,6 +514,46 @@ def test_read_limits_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     assert '*all' not in asked
     assert 'summary' in asked and 'customfield_10016' in asked
     assert 'key' not in asked
+
+
+@pytest.mark.parametrize('use_rt, expected', [
+    (True, timedelta(hours=1)), (False, None)])
+def test_read_rt_flag(monkeypatch: pytest.MonkeyPatch, use_rt: bool,
+                      expected: Optional[timedelta]) -> None:
+    """Test the remaining time is read and fetched only when it is used."""
+    client = _FakeClient([_timed(3600, 3600)], [_version()])
+    monkeypatch.setattr(jc, '_connect', _fake_connect(client))
+    connections = JiraConnections(_io_config(), None)
+    data = read_backlog_from_jira(connections, 'p', use_remaining_time=use_rt)
+    assert data.backlog[0].remaining_time == expected
+    asked = client.fields_asked
+    assert isinstance(asked, list)
+    assert ('timetracking' in asked) is use_rt
+    assert ('timeestimate' in asked) is use_rt
+
+
+def test_read_rt_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a read without the flag leaves the remaining time out."""
+    client = _FakeClient([_timed(3600, 3600)], [_version()])
+    monkeypatch.setattr(jc, '_connect', _fake_connect(client))
+    connections = JiraConnections(_io_config(), None)
+    data = read_backlog_from_jira(connections, 'p')
+    assert data.backlog[0].remaining_time is None
+
+
+@pytest.mark.parametrize('enabled, expected', [
+    (True, timedelta(minutes=30)), (False, None)])
+def test_config_rt_flag(monkeypatch: pytest.MonkeyPatch, enabled: bool,
+                        expected: Optional[timedelta]) -> None:
+    """Test the config read follows enable_remaining_time."""
+    client = _FakeClient([_timed(1800, None)], [_version()])
+    monkeypatch.setattr(jc, '_connect', _fake_connect(client))
+    config = BacklogOpsConfig(
+        available_teams=AvailableTeams(persons={}, teams=[]), stderr_file=NO)
+    config.jira = _io_config()
+    config.remaining_time.enable_remaining_time = enabled
+    data = read_jira_from_config(config, 'p')
+    assert data.backlog[0].remaining_time == expected
 
 
 def test_read_server(monkeypatch: pytest.MonkeyPatch) -> None:

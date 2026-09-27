@@ -305,6 +305,13 @@ _JIRA_PRESET: Descriptions = {
                      'read, such as project = "ABC" ORDER BY rank ASC.'}
 """Every member of one Jira preset."""
 
+_SEVERAL_PATHS = ('A list of several paths is read together: paths '
+                  'with no value are skipped, so a later path is a '
+                  'fallback; if they give different values a warning is '
+                  'shown and the first wins, except that an extra field '
+                  'joins them. Writing uses the first path.')
+"""How several paths for one Jira column-map field are used."""
+
 JIRA_DESCRIPTIONS: Descriptions = {
     ('connections',): 'The Jira servers this configuration can reach, by a '
                       'name of your own. Several presets may share one.',
@@ -317,13 +324,15 @@ JIRA_DESCRIPTIONS: Descriptions = {
     ('backlog_column_maps', EVERY, EVERY): 'Where that field is found: the '
                                            'kind (ATTRIBUTE, FIELD, '
                                            'CUSTOM_FIELD or FILTERED_FIELD) '
-                                           'and then the path steps.',
+                                           'and then the path steps. '
+                                           + _SEVERAL_PATHS,
     ('release_column_maps',): 'The same for the fields of a release, which '
                               'is a version in Jira.',
     ('release_column_maps', EVERY): 'One map, keyed by the internal release '
                                     'field name.',
     ('release_column_maps', EVERY, EVERY): 'Where that field is found: the '
-                                           'kind and then the path steps.',
+                                           'kind and then the path steps. '
+                                           + _SEVERAL_PATHS,
     ('issue_type_maps',): 'Which Jira issue type to create for a level, by '
                           'a name of your own. Used only when writing.',
     ('issue_type_maps', EVERY): 'One map, keyed by the level number as '

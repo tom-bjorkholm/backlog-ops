@@ -3503,7 +3503,12 @@ Jira Software ``Epic Link`` custom field. The ``depends_on_f2s`` field
 maps Jira issue links of type ``Blocks`` where the current issue is
 blocked by another issue. The ``team`` field maps to a custom field
 named ``Team`` (the Atlassian Teams field); adjust it in the wizard when
-a project names the field otherwise.
+a project names the field otherwise. The ``remaining_time`` field maps to
+the issue's own Jira remaining estimate in raw seconds, both through the
+time tracking object and through the plain ``timeestimate`` field, so a
+user can simply delete the one that does not suit their Jira. Neither
+includes the sub-tasks, so an item and its sub-tasks are not counted
+twice.
 
 <a id="backlogops.jira_io_config.DEF_RELEASE_COLUMN_MAP"></a>
 
@@ -5946,7 +5951,12 @@ so a backlog of many thousands of items is read in full without fetching
 every field of every issue. An issue whose story point field is empty
 reads as a backlog item nobody has estimated yet, carrying no story
 points rather than zero of them, so that a forecast counts it as what
-the configured default story points guess for its level.
+the configured default story points guess for its level. A remaining
+time is read as the raw seconds Jira stores, and an empty remaining
+estimate reads as none. The remaining time is read only while remaining
+time estimates are used, so a backlog estimated in story points alone
+does not pick up Jira time tracking values; its field is then not even
+fetched.
 
 The caller may override the preset's filter for one read. When no filter
 is configured at all, the default filter selects every issue in the
@@ -6048,6 +6058,7 @@ def read_backlog_from_jira(
         filter_override: Optional[str] = None,
         levels: Optional[Levels] = None,
         status_map: Optional[dict[str, Status]] = None,
+        use_remaining_time: bool = False,
         stderr_file: TextIO = sys.stderr) -> BacklogReleases
 ```
 
@@ -6057,7 +6068,8 @@ The preset names the connection and the backlog and release column
 maps, all looked up in the pool's configuration. The client is taken
 from ``connections``, so repeated reads and writes reuse it. The
 issues come from the resolved filter and the releases from the default
-project's versions.
+project's versions. A mapped remaining time is read, and its Jira
+field fetched, only when ``use_remaining_time`` is True.
 
 **Arguments**:
 
@@ -6068,6 +6080,9 @@ project's versions.
 - `levels` - The levels used to resolve a string level, or None for the
   default levels.
 - `status_map` - Extra status names mapped to Status members, or None.
+- `use_remaining_time` - Whether remaining time estimates are used, as
+  ``enable_remaining_time`` in the configuration says. When
+  False the backlog items carry no remaining time.
 - `stderr_file` - Stream used for user-facing diagnostics.
   
 
@@ -6096,6 +6111,9 @@ def read_jira_from_config(config: BacklogOpsConfig,
 ```
 
 Read from Jira using the config's Jira settings, levels and status map.
+
+The remaining time is read when the configuration enables remaining
+time estimates.
 
 A fresh :class:`JiraConnections` pool is opened for the read. A caller
 that reads and writes several times should instead build one pool and
@@ -6361,7 +6379,8 @@ already match is reported as already correct and its issue is not touched.
 An empty internal value is left unset, so an empty value never clears a
 Jira field. The story points are the exception: an item nobody has
 estimated yet clears the story points in Jira, because carrying no
-estimate is as much a fact about the item as a number is.
+estimate is as much a fact about the item as a number is. A mapped
+remaining time is never updated, because it is not written to Jira yet.
 
 The selected fields are written in the same way they are read: a settable
 field (summary, description, story points, team, fix version) through an
@@ -6523,7 +6542,8 @@ Return the internal fields a preset can update on an existing issue.
 
 These are the fields mapped in the preset's backlog write map, minus
 the key and the issue type (level), which are never changed on an
-existing issue. The order follows the write map. This is the set the
+existing issue, and the remaining time, which is not written to Jira
+yet. The order follows the write map. This is the set the
 CLI ``all`` value and the GUI checkbox list offer, and the set
 :func:`update_backlog_in_jira` intersects ``fields_to_update`` with.
 
@@ -8133,7 +8153,8 @@ field such as the summary is set directly, a nested field such as the issue
 type is wrapped by its path steps, a list field such as the fix versions is
 wrapped as named objects, and a custom field is set by its resolved field
 id. A field the item has no value for is not written at all, so an item
-nobody has estimated yet is created with its story points left unset. The
+nobody has estimated yet is created with its story points left unset. A
+mapped remaining time is not written to Jira yet; it is only read. The
 issue type written for an item comes from the preset's level-to-issue-type
 map (falling back to the level name), so a Jira that renamed a type (such
 as a Swedish ``Deluppgift`` sub-task) still gets a valid issue type. The

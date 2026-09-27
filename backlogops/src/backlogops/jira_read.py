@@ -16,7 +16,12 @@ so a backlog of many thousands of items is read in full without fetching
 every field of every issue. An issue whose story point field is empty
 reads as a backlog item nobody has estimated yet, carrying no story
 points rather than zero of them, so that a forecast counts it as what
-the configured default story points guess for its level.
+the configured default story points guess for its level. A remaining
+time is read as the raw seconds Jira stores, and an empty remaining
+estimate reads as none. The remaining time is read only while remaining
+time estimates are used, so a backlog estimated in story points alone
+does not pick up Jira time tracking values; its field is then not even
+fetched.
 
 The caller may override the preset's filter for one read. When no filter
 is configured at all, the default filter selects every issue in the
@@ -40,7 +45,8 @@ from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, \
 from backlogops.jira_search import search_all_issues
 from backlogops.levels import Levels
 from backlogops.releases import Release
-from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS
+from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS, \
+    REMAINING_TIME_COLUMN
 from backlogops.table_rows import row_to_item, row_to_release
 
 _SINGLE_VALUE_FIELDS = frozenset(BACKLOG_FIELDS + RELEASE_FIELDS)
@@ -324,11 +330,21 @@ def resolve_jql(preset: JiraPreset, filter_override: Optional[str]) -> str:
     return default_jira_filter(preset.def_project)
 
 
+def _read_map(column_map: JiraColumnMap,
+              use_remaining_time: bool) -> JiraColumnMap:
+    """Return the backlog map to read, without remaining time if unused."""
+    if use_remaining_time:
+        return column_map
+    return {name: attrs for name, attrs in column_map.items()
+            if name != REMAINING_TIME_COLUMN}
+
+
 # pylint: disable-next=too-many-arguments,too-many-locals
 def read_backlog_from_jira(
         connections: JiraConnections, preset_name: str, *,
         filter_override: Optional[str] = None, levels: Optional[Levels] = None,
         status_map: Optional[dict[str, Status]] = None,
+        use_remaining_time: bool = False,
         stderr_file: TextIO = sys.stderr) -> BacklogReleases:
     """Read a backlog and its releases from Jira using a named preset.
 
@@ -336,7 +352,8 @@ def read_backlog_from_jira(
     maps, all looked up in the pool's configuration. The client is taken
     from ``connections``, so repeated reads and writes reuse it. The
     issues come from the resolved filter and the releases from the default
-    project's versions.
+    project's versions. A mapped remaining time is read, and its Jira
+    field fetched, only when ``use_remaining_time`` is True.
 
     Args:
         connections: The pool of live Jira clients and the configuration
@@ -346,6 +363,9 @@ def read_backlog_from_jira(
         levels: The levels used to resolve a string level, or None for the
             default levels.
         status_map: Extra status names mapped to Status members, or None.
+        use_remaining_time: Whether remaining time estimates are used, as
+            ``enable_remaining_time`` in the configuration says. When
+            False the backlog items carry no remaining time.
         stderr_file: Stream used for user-facing diagnostics.
 
     Returns:
@@ -359,8 +379,8 @@ def read_backlog_from_jira(
     jira_config = connections.jira_config
     preset = jira_config.get_preset(preset_name)
     client = connections.client(preset.connection_name)
-    backlog_map = jira_config.backlog_column_maps[
-        preset.backlog_column_map_name]
+    backlog_map = _read_map(jira_config.backlog_column_maps[
+        preset.backlog_column_map_name], use_remaining_time)
     release_map = jira_config.release_column_maps[
         preset.release_column_map_name]
     jql = resolve_jql(preset, filter_override)
@@ -385,6 +405,9 @@ def read_jira_from_config(config: BacklogOpsConfig, preset_name: str, *,
                           stderr_file: TextIO = sys.stderr) -> BacklogReleases:
     """Read from Jira using the config's Jira settings, levels and status map.
 
+    The remaining time is read when the configuration enables remaining
+    time estimates.
+
     A fresh :class:`JiraConnections` pool is opened for the read. A caller
     that reads and writes several times should instead build one pool and
     pass it to :func:`read_backlog_from_jira` and
@@ -407,4 +430,6 @@ def read_jira_from_config(config: BacklogOpsConfig, preset_name: str, *,
                                   filter_override=filter_override,
                                   levels=config.get_levels(),
                                   status_map=config.get_status_input_map(),
+                                  use_remaining_time=config.remaining_time
+                                  .enable_remaining_time,
                                   stderr_file=stderr_file)

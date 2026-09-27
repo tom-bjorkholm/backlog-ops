@@ -137,8 +137,13 @@ type JiraColumnMap = dict[str, tuple[JiraAttrPath, ...]]
 
 The key is the internal backlog or release field name. The value is one
 or more :class:`JiraAttrPath` values that may reach the matching value on
-a Jira issue or version. Internal fields that are not mapped are not
-read.
+a Jira issue or version. When a field has several paths, every path is
+read: the value is the one non-empty value they give, and paths that
+give no value are ignored, so a second path serves as a fallback. When
+the paths give different values a warning is shown, and a field of the
+backlog item or release takes the value of the first such path, while an
+extra field such as the description joins the values. Writing uses the
+first path only. Internal fields that are not mapped are not read.
 """
 
 
@@ -166,6 +171,10 @@ DEF_BACKLOG_COLUMN_MAP: JiraColumnMap = {
     'team': (JiraAttrPath(JiraAttrType.CUSTOM_FIELD, ('Team',)),),
     'story_points': (JiraAttrPath(JiraAttrType.CUSTOM_FIELD,
                                   ('Story point estimate',)),),
+    'remaining_time': (
+        JiraAttrPath(JiraAttrType.FIELD,
+                     ('timetracking', 'remainingEstimateSeconds')),
+        JiraAttrPath(JiraAttrType.FIELD, ('timeestimate',))),
     'depends_on_f2s': (
         JiraAttrPath(JiraAttrType.FILTERED_FIELD,
                      ('issuelinks', 'type.name', 'Blocks',
@@ -182,7 +191,12 @@ Jira Software ``Epic Link`` custom field. The ``depends_on_f2s`` field
 maps Jira issue links of type ``Blocks`` where the current issue is
 blocked by another issue. The ``team`` field maps to a custom field
 named ``Team`` (the Atlassian Teams field); adjust it in the wizard when
-a project names the field otherwise.
+a project names the field otherwise. The ``remaining_time`` field maps to
+the issue's own Jira remaining estimate in raw seconds, both through the
+time tracking object and through the plain ``timeestimate`` field, so a
+user can simply delete the one that does not suit their Jira. Neither
+includes the sub-tasks, so an item and its sub-tasks are not counted
+twice.
 """
 
 
