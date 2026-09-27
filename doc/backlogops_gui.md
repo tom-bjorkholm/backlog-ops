@@ -113,6 +113,7 @@
     * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
     * [levels](#backlogops_gui.application.BacklogApp.levels)
     * [def\_points](#backlogops_gui.application.BacklogApp.def_points)
+    * [use\_rt](#backlogops_gui.application.BacklogApp.use_rt)
     * [status\_map](#backlogops_gui.application.BacklogApp.status_map)
     * [gui\_display](#backlogops_gui.application.BacklogApp.gui_display)
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
@@ -1497,6 +1498,16 @@ def def_points() -> Optional[DefaultStoryPoints]
 
 Return what an unestimated item is worked with, or None.
 
+<a id="backlogops_gui.application.BacklogApp.use_rt"></a>
+
+#### use\_rt
+
+```python
+def use_rt() -> bool
+```
+
+Return whether remaining time estimates are enabled.
+
 <a id="backlogops_gui.application.BacklogApp.status_map"></a>
 
 #### status\_map
@@ -1871,11 +1882,15 @@ here too, so the same reporting pattern is shared.
 #### save\_backlog
 
 ```python
-def save_backlog(parent: tk.Misc, data: BacklogReleases,
+def save_backlog(parent: tk.Misc,
+                 data: BacklogReleases,
                  presets: Optional[dict[str, OutputFormatConfig]],
-                 levels: Optional[Levels], sink: TextIO,
+                 levels: Optional[Levels],
+                 sink: TextIO,
                  on_error: Callable[[str, str], None],
-                 on_info: Callable[[str, str], None]) -> Optional[str]
+                 on_info: Callable[[str, str], None],
+                 *,
+                 use_remaining_time: bool = False) -> Optional[str]
 ```
 
 Ask where and how to save a backlog and write it.
@@ -1890,6 +1905,8 @@ Ask where and how to save a backlog and write it.
 - `sink` - Stream that receives low-level write diagnostics.
 - `on_error` - Callback used to report a write failure.
 - `on_info` - Callback used to report a successful write.
+- `use_remaining_time` - Whether remaining time estimates are used, as
+  documented for :func:`backlogops.write_backlog_releases`.
   
 
 **Returns**:
@@ -2208,6 +2225,7 @@ def __init__(
     jira: Optional[JiraHandlers] = None,
     *,
     def_points: Callable[[], Optional[DefaultStoryPoints]] = lambda: None,
+    use_rt: Callable[[], bool] = lambda: False,
     source: Optional[BacklogSource] = None,
     reload: Optional[Callable[
         [Callable[[BacklogReleases, Optional[str]], None]], None]] = None
@@ -2237,6 +2255,9 @@ Build the window, its menu, its info region and the two tables.
   disables its menu item.
 - `def_points` - Callable returning what the configuration works an
   unestimated backlog item with, or None for none.
+- `use_rt` - Callable returning whether remaining time estimates are
+  used, which decides whether an empty remaining time column
+  is shown and saved.
 - `source` - Where the data came from and when it was read. When
   given, an information region is shown at the top of the
   window; when None no information region is shown.
@@ -2540,7 +2561,9 @@ def write_backlog(data: BacklogReleases,
                   presets: Optional[dict[str, OutputFormatConfig]],
                   releases_first: bool,
                   sink: Optional[TextIO] = None,
-                  levels: Optional[Levels] = None) -> None
+                  levels: Optional[Levels] = None,
+                  *,
+                  use_remaining_time: bool = False) -> None
 ```
 
 Write a backlog and releases to one file.
@@ -2555,6 +2578,8 @@ Write a backlog and releases to one file.
 - `sink` - Stream for diagnostics, or None to discard them.
 - `levels` - The levels used to write level names, or None for the
   default levels.
+- `use_remaining_time` - Whether remaining time estimates are used, as
+  documented for :func:`backlogops.write_backlog_releases`.
 
 <a id="backlogops_gui.table_view"></a>
 
@@ -2571,7 +2596,8 @@ rows, kept in first-seen order, and every cell is rendered as text so the
 table can show any value type; a decimal number loses the trailing zeros
 it does not need, so story points read as ``1`` and ``0.5``. A per-table
 column-name map can rename a column or drop it from the display, as the GUI
-display configuration decides.
+display configuration decides. A column that is empty on every row is left
+out as documented for :func:`backlogops.omittable_columns`.
 
 <a id="backlogops_gui.table_view.backlog_table"></a>
 
@@ -2579,11 +2605,14 @@ display configuration decides.
 
 ```python
 def backlog_table(
-        data: BacklogReleases,
-        levels: Optional[Levels] = None,
-        display: LevelDisplay = LevelDisplay.BOTH,
-        names: Optional[Mapping[str, Optional[str]]] = None,
-        sink: Optional[TextIO] = None
+    data: BacklogReleases,
+    levels: Optional[Levels] = None,
+    display: LevelDisplay = LevelDisplay.BOTH,
+    names: Optional[Mapping[str, Optional[str]]] = None,
+    sink: Optional[TextIO] = None,
+    *,
+    omit_none_column: bool = False,
+    use_remaining_time: bool = False
 ) -> tuple[list[str], list[list[ValueFmt]]]
 ```
 
@@ -2591,8 +2620,10 @@ Return the columns and formatted rows for the backlog table.
 
 The level of each item is shown as its number, its name, or both, as
 ``display`` decides, using ``levels`` to translate a number to a name.
-The ``names`` map then renames or drops columns, as documented for
-:func:`backlogops.apply_column_map`.
+Columns empty on every row are then left out as
+:func:`backlogops.omittable_columns` decides from ``omit_none_column``
+and ``use_remaining_time``. The ``names`` map finally renames or drops
+columns, as documented for :func:`backlogops.apply_column_map`.
 
 <a id="backlogops_gui.table_view.release_table"></a>
 
@@ -2600,15 +2631,18 @@ The ``names`` map then renames or drops columns, as documented for
 
 ```python
 def release_table(
-    data: BacklogReleases,
-    names: Optional[Mapping[str, Optional[str]]] = None
+        data: BacklogReleases,
+        names: Optional[Mapping[str, Optional[str]]] = None,
+        *,
+        omit_none_column: bool = False
 ) -> tuple[list[str], list[list[ValueFmt]]]
 ```
 
 Return the columns and formatted rows for the releases table.
 
-The ``names`` map renames or drops columns, as documented for
-:func:`backlogops.apply_column_map`.
+Columns empty on every row are left out when ``omit_none_column`` is
+True. The ``names`` map then renames or drops columns, as documented
+for :func:`backlogops.apply_column_map`.
 
 <a id="backlogops_gui.table_view.supports_cell_tags"></a>
 

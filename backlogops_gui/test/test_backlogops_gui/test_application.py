@@ -2,7 +2,8 @@
 """Tests for the backlog operations application logic.
 
 The configuration, preset and write menu actions live in
-``test_config_actions``; the fakes and stubs shared with it live in
+``test_config_actions``, the accessors of the loaded configuration in
+``test_app_config_access``; the fakes and stubs shared with them live in
 ``app_test_helpers``.
 """
 
@@ -13,8 +14,7 @@ import tkinter as tk
 from typing import Callable, Optional, TextIO, cast
 import pytest
 from backlogops import (
-    BacklogOpsConfig, BacklogReleases, GuiDisplayConfig, InputFormatConfig,
-    OutputFormatConfig)
+    BacklogOpsConfig, BacklogReleases, InputFormatConfig, OutputFormatConfig)
 from backlogops_gui import application
 from backlogops_gui.application import APP_TITLE, BacklogApp
 from backlogops_gui.backlog_window import BacklogSource
@@ -514,46 +514,6 @@ def test_demo_source(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(source, BacklogSource)
     assert source.kind == 'demo'
     assert opened[0][4] is None
-
-
-def test_presets_from_config() -> None:
-    """Test the presets come from the current configuration."""
-    config = FakeConfig()
-    app = _app(config)
-    assert app.in_presets() == config.input_configs
-    assert app.out_presets() == config.output_configs
-
-
-def test_no_cfg_no_presets() -> None:
-    """Test there are no presets when no configuration is loaded."""
-    app = _app()
-    assert app.in_presets() is None
-    assert app.out_presets() is None
-
-
-def test_available_teams() -> None:
-    """Test the available teams come from the loaded configuration."""
-    config = FakeConfig()
-    assert _app(config).available_teams() is config.available_teams
-    assert _app().available_teams() is None
-
-
-def test_levels_from_config() -> None:
-    """Test the levels come from the loaded configuration, or None."""
-    config = FakeConfig()
-    assert _app(config).levels() == config.get_levels()
-    assert _app().levels() is None
-
-
-def test_gui_display_none() -> None:
-    """Test the GUI display falls back to a fresh default with no config."""
-    assert isinstance(_app().gui_display(), GuiDisplayConfig)
-
-
-def test_gui_display_cfg() -> None:
-    """Test the GUI display comes from the loaded configuration."""
-    config = FakeConfig()
-    assert _app(config).gui_display() is config.gui_display
 
 
 def test_show_messages(monkeypatch: pytest.MonkeyPatch) -> None:

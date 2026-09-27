@@ -63,7 +63,8 @@ def read_backlog(path: str, value: Optional[str],
 def write_backlog(data: BacklogReleases, path: str, value: Optional[str],
                   presets: Optional[dict[str, OutputFormatConfig]],
                   releases_first: bool, sink: Optional[TextIO] = None,
-                  levels: Optional[Levels] = None) -> None:
+                  levels: Optional[Levels] = None, *,
+                  use_remaining_time: bool = False) -> None:
     """Write a backlog and releases to one file.
 
     Args:
@@ -75,6 +76,8 @@ def write_backlog(data: BacklogReleases, path: str, value: Optional[str],
         sink: Stream for diagnostics, or None to discard them.
         levels: The levels used to write level names, or None for the
             default levels.
+        use_remaining_time: Whether remaining time estimates are used, as
+            documented for :func:`backlogops.write_backlog_releases`.
     """
     out = _sink(sink)
     config = resolve_output_config(value, data_file=path, presets=presets,
@@ -83,4 +86,5 @@ def write_backlog(data: BacklogReleases, path: str, value: Optional[str],
     rules = FormatRules(backlog_first=not releases_first)
     write_backlog_releases(data, path, config, rules, levels=levels,
                            stderr_file=out,
-                           file_exists_callback=allow_overwrite)
+                           file_exists_callback=allow_overwrite,
+                           use_remaining_time=use_remaining_time)

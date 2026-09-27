@@ -233,6 +233,20 @@ def io_levels(config: Optional[BacklogOpsConfig]) -> Optional[Levels]:
     return config.get_levels() if config is not None else None
 
 
+def io_remaining_time(config: Optional[BacklogOpsConfig]) -> bool:
+    """Return whether ``config`` enables remaining time estimates.
+
+    Args:
+        config: The resolved backlog-ops configuration, or None for the
+            defaults, which do not use remaining time estimates.
+
+    Returns:
+        True when remaining time estimates are enabled in ``config``.
+    """
+    return config is not None and \
+        config.remaining_time.enable_remaining_time
+
+
 def read_input(parsed: argparse.Namespace,
                config: Optional[BacklogOpsConfig]) -> BacklogReleases:
     """Read and validate the backlog and releases from the input file.
@@ -345,7 +359,8 @@ def _write_output(parsed: argparse.Namespace,
     write_backlog_releases(data, parsed.output, out_config, rules,
                            levels=io_levels(config),
                            file_exists_callback=overwrite_callback(
-                               parsed.force))
+                               parsed.force),
+                           use_remaining_time=io_remaining_time(config))
 
 
 def run_write(parsed: argparse.Namespace,
@@ -407,7 +422,8 @@ def write_result_file(config: BacklogOpsConfig, path: str,
                                        auto_ch_hook=CliPresetMigrateWarnHook())
     write_backlog_releases(data, path, out_config, FormatRules(),
                            levels=config.get_levels(),
-                           file_exists_callback=overwrite_callback(force))
+                           file_exists_callback=overwrite_callback(force),
+                           use_remaining_time=io_remaining_time(config))
     print(f'Wrote {path}')
 
 

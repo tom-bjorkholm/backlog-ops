@@ -40,7 +40,8 @@ def save_backlog(parent: tk.Misc, data: BacklogReleases,
                  presets: Optional[dict[str, OutputFormatConfig]],
                  levels: Optional[Levels], sink: TextIO,
                  on_error: Callable[[str, str], None],
-                 on_info: Callable[[str, str], None]) -> Optional[str]:
+                 on_info: Callable[[str, str], None], *,
+                 use_remaining_time: bool = False) -> Optional[str]:
     """Ask where and how to save a backlog and write it.
 
     Args:
@@ -52,6 +53,8 @@ def save_backlog(parent: tk.Misc, data: BacklogReleases,
         sink: Stream that receives low-level write diagnostics.
         on_error: Callback used to report a write failure.
         on_info: Callback used to report a successful write.
+        use_remaining_time: Whether remaining time estimates are used, as
+            documented for :func:`backlogops.write_backlog_releases`.
 
     Returns:
         The path written, or None when the save was cancelled or failed.
@@ -65,7 +68,8 @@ def save_backlog(parent: tk.Misc, data: BacklogReleases,
         return None
     try:
         write_backlog(data, path, options.config_value, presets,
-                      options.releases_first, sink, levels)
+                      options.releases_first, sink, levels,
+                      use_remaining_time=use_remaining_time)
     except WRITE_ERRORS as error:
         on_error('Could not write file', str(error))
         return None

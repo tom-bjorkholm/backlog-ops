@@ -230,6 +230,17 @@ def test_io_levels_none() -> None:
     assert _command_io.io_levels(None) is None
 
 
+@pytest.mark.parametrize('enabled', [False, True])
+def test_io_remaining_time(enabled: bool) -> None:
+    """Test io_remaining_time follows the config, and is off without."""
+    config = BacklogOpsConfig(
+        available_teams=AvailableTeams(persons={}, teams=[]),
+        stderr_file=NO_OUTPUT)
+    config.remaining_time.enable_remaining_time = enabled
+    assert _command_io.io_remaining_time(config) is enabled
+    assert _command_io.io_remaining_time(None) is False
+
+
 def test_io_levels_config() -> None:
     """Test io_levels returns the configured levels from a config."""
     config = BacklogOpsConfig(

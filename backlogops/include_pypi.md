@@ -24,7 +24,9 @@ from backlogops import (
 ### Reading and writing
 
 - `read_backlog_releases`, `write_backlog_releases`: read and write a
-  backlog and its releases from and to a table file.
+  backlog and its releases from and to a table file, including the
+  remaining time of each item, and leaving out columns that are empty
+  on every row when the output preset asks for it.
 
 - `read_available_teams`, `write_available_teams`: read and write the
   available-teams workforce on its own.

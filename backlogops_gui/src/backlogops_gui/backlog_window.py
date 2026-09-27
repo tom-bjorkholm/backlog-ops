@@ -118,6 +118,7 @@ class BacklogWindow:
                  jira: Optional[JiraHandlers] = None, *,
                  def_points: Callable[
                      [], Optional[DefaultStoryPoints]] = lambda: None,
+                 use_rt: Callable[[], bool] = lambda: False,
                  source: Optional[BacklogSource] = None,
                  reload: Optional[Callable[
                      [Callable[[BacklogReleases, Optional[str]], None]],
@@ -144,6 +145,9 @@ class BacklogWindow:
                 disables its menu item.
             def_points: Callable returning what the configuration works an
                 unestimated backlog item with, or None for none.
+            use_rt: Callable returning whether remaining time estimates are
+                used, which decides whether an empty remaining time column
+                is shown and saved.
             source: Where the data came from and when it was read. When
                 given, an information region is shown at the top of the
                 window; when None no information region is shown.
@@ -151,22 +155,16 @@ class BacklogWindow:
                 fresh data and any warning to the given apply callback. When
                 given, a "Read again" button is offered; None disables it.
         """
-        handlers = jira if jira is not None else JiraHandlers()
+        self._jira = jira if jira is not None else JiraHandlers()
         self._data = data
         self._presets = presets
         self._teams = teams
         self._def_points = def_points
+        self._use_rt = use_rt
         self._sink = sink
         self._levels = levels
         self._gui_display = gui_display
         self._warning = warning
-        self._add_to_jira = handlers.add_backlog
-        self._add_releases = handlers.add_releases
-        self._update_releases = handlers.update_releases
-        self._update_backlog = handlers.update_backlog
-        self._rank_in_jira = handlers.rank
-        self._order_releases = handlers.order_releases
-        self._rename_releases = handlers.rename_releases
         self._source = source
         self._reload = reload
         self._modified = False
@@ -195,10 +193,13 @@ class BacklogWindow:
         display = self._gui_display()
         backlog = backlog_table(self._data, self._levels(),
                                 display.level_display,
-                                display.backlog_to_external, self._sink)
+                                display.backlog_to_external, self._sink,
+                                omit_none_column=display.omit_none_column,
+                                use_remaining_time=self._use_rt())
         table = self._add_table('Backlog', *backlog, narrow=False)
         self._tables.append(table)
-        releases = release_table(self._data, display.release_to_external)
+        releases = release_table(self._data, display.release_to_external,
+                                 omit_none_column=display.omit_none_column)
         self._tables.append(
             self._add_table('Releases', *releases, narrow=True))
 
@@ -361,37 +362,37 @@ class BacklogWindow:
     def _add_jira_actions(self, menu: tk.Menu) -> None:
         """Add the Jira operation items to the menu."""
         jira_state: Literal['normal', 'disabled']
-        jira_state = ('normal' if self._add_to_jira is not None
+        jira_state = ('normal' if self._jira.add_backlog is not None
                       and self._warning is None else 'disabled')
         menu.add_command(label='Add backlog to Jira…', command=self._jira_add,
                          state=jira_state)
         upd_bl_state: Literal['normal', 'disabled']
-        upd_bl_state = ('normal' if self._update_backlog is not None
+        upd_bl_state = ('normal' if self._jira.update_backlog is not None
                         and self._warning is None else 'disabled')
         menu.add_command(label='Update backlog in Jira…',
                          command=self._backlog_update, state=upd_bl_state)
         rel_state: Literal['normal', 'disabled']
-        rel_state = ('normal' if self._add_releases is not None
+        rel_state = ('normal' if self._jira.add_releases is not None
                      and self._warning is None else 'disabled')
         menu.add_command(label='Add releases to Jira…',
                          command=self._releases_add, state=rel_state)
         upd_state: Literal['normal', 'disabled']
-        upd_state = ('normal' if self._update_releases is not None
+        upd_state = ('normal' if self._jira.update_releases is not None
                      and self._warning is None else 'disabled')
         menu.add_command(label='Update releases in Jira…',
                          command=self._releases_update, state=upd_state)
         order_state: Literal['normal', 'disabled']
-        order_state = ('normal' if self._order_releases is not None
+        order_state = ('normal' if self._jira.order_releases is not None
                        and self._warning is None else 'disabled')
         menu.add_command(label='Order releases in Jira…',
                          command=self._releases_order, state=order_state)
         rename_state: Literal['normal', 'disabled']
-        rename_state = ('normal' if self._rename_releases is not None
+        rename_state = ('normal' if self._jira.rename_releases is not None
                         and self._warning is None else 'disabled')
         menu.add_command(label='Rename releases in Jira…',
                          command=self._releases_rename, state=rename_state)
         rank_state: Literal['normal', 'disabled']
-        rank_state = ('normal' if self._rank_in_jira is not None
+        rank_state = ('normal' if self._jira.rank is not None
                       and self._warning is None else 'disabled')
         menu.add_command(label='Rank items in Jira…', command=self._rank_jira,
                          state=rank_state)
@@ -439,7 +440,8 @@ class BacklogWindow:
         """Save the backlog, clearing the mark when the source is rewritten."""
         saved = save_backlog(self._win, self._data, self._presets(),
                              self._levels(), self._sink, self._report_error,
-                             self._report_info)
+                             self._report_info,
+                             use_remaining_time=self._use_rt())
         if saved is not None and self._saved_to_source(saved):
             self._set_modified(False)
 
@@ -503,8 +505,8 @@ class BacklogWindow:
 
     def _jira_add(self) -> None:
         """Add the shown backlog to Jira, adjusting the view on success."""
-        if self._add_to_jira is not None:
-            self._add_to_jira(self._data, self._on_jira_added)
+        if self._jira.add_backlog is not None:
+            self._jira.add_backlog(self._data, self._on_jira_added)
 
     def _on_jira_added(self, result: AddedToJira) -> None:
         """Rekey the shown backlog and show the two result lists."""
@@ -528,8 +530,8 @@ class BacklogWindow:
 
     def _releases_add(self) -> None:
         """Add the shown releases to Jira and show the result lists."""
-        if self._add_releases is not None:
-            self._add_releases(self._data, self._on_releases_added)
+        if self._jira.add_releases is not None:
+            self._jira.add_releases(self._data, self._on_releases_added)
 
     def _on_releases_added(self, result: AddedReleasesToJira) -> None:
         """Show the added, present and failed release lists.
@@ -542,8 +544,8 @@ class BacklogWindow:
 
     def _releases_update(self) -> None:
         """Update the shown releases in Jira and show the result lists."""
-        if self._update_releases is not None:
-            self._update_releases(self._data, self._on_releases_updated)
+        if self._jira.update_releases is not None:
+            self._jira.update_releases(self._data, self._on_releases_updated)
 
     def _on_releases_updated(self, result: UpdatedReleasesInJira) -> None:
         """Show the update outcome per release in a pop-up.
@@ -557,8 +559,8 @@ class BacklogWindow:
 
     def _backlog_update(self) -> None:
         """Update the shown backlog in Jira and show the result lists."""
-        if self._update_backlog is not None:
-            self._update_backlog(self._data, self._on_backlog_updated)
+        if self._jira.update_backlog is not None:
+            self._jira.update_backlog(self._data, self._on_backlog_updated)
 
     def _on_backlog_updated(self, result: UpdatedBacklogInJira) -> None:
         """Rekey any added items, refresh the view and show the outcome.
@@ -576,8 +578,8 @@ class BacklogWindow:
 
     def _rank_jira(self) -> None:
         """Move chosen issues in the Jira rank order and show the result."""
-        if self._rank_in_jira is not None:
-            self._rank_in_jira(self._on_ranked)
+        if self._jira.rank is not None:
+            self._jira.rank(self._on_ranked)
 
     def _on_ranked(self, result: RankedInJira) -> None:
         """Show the ranked and skipped keys in a copy-pasteable pop-up.
@@ -590,8 +592,8 @@ class BacklogWindow:
 
     def _releases_order(self) -> None:
         """Order the releases in Jira and show the result lists."""
-        if self._order_releases is not None:
-            self._order_releases(self._data, self._on_releases_ordered)
+        if self._jira.order_releases is not None:
+            self._jira.order_releases(self._data, self._on_releases_ordered)
 
     def _on_releases_ordered(self, result: OrderedReleasesInJira) -> None:
         """Show the ordered and skipped release names in a pop-up.
@@ -604,8 +606,8 @@ class BacklogWindow:
 
     def _releases_rename(self) -> None:
         """Rename the shown releases in Jira and show the result lists."""
-        if self._rename_releases is not None:
-            self._rename_releases(self._data, self._on_releases_renamed)
+        if self._jira.rename_releases is not None:
+            self._jira.rename_releases(self._data, self._on_releases_renamed)
 
     def _on_releases_renamed(self, result: RenamedReleasesInJira) -> None:
         """Show the rename outcome per release in a pop-up.

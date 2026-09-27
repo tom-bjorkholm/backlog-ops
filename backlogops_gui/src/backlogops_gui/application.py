@@ -203,6 +203,11 @@ class BacklogApp:
         """Return what an unestimated item is worked with, or None."""
         return self.config.default_story_points if self.config else None
 
+    def use_rt(self) -> bool:
+        """Return whether remaining time estimates are enabled."""
+        return self.config is not None and \
+            self.config.remaining_time.enable_remaining_time
+
     def status_map(self) -> Optional[dict[str, Status]]:
         """Return the library-wide status input map, or None when absent."""
         return self.config.get_status_input_map() if self.config else None
@@ -620,7 +625,8 @@ class BacklogApp:
         BacklogWindow(self.root, data, title, self.out_presets,
                       self.available_teams, self.log, self.levels,
                       self.gui_display, warning, handlers,
-                      def_points=self.def_points, source=source, reload=reload)
+                      def_points=self.def_points, use_rt=self.use_rt,
+                      source=source, reload=reload)
 
     def report_versions(self) -> None:
         """Report version information into the log on a worker thread.

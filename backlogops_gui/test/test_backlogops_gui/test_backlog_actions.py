@@ -122,7 +122,8 @@ def _record(store: list[tuple[str, str]]) -> Callable[[str, str], None]:
 
 def _writer(store: list[str]) -> Callable[..., None]:
     """Return a write stub recording the destination path."""
-    def write(_data: object, path: str, *_rest: object) -> None:
+    def write(_data: object, path: str, *_rest: object,
+              **_options: object) -> None:
         store.append(path)
     return write
 
@@ -168,7 +169,7 @@ def _keys(data: BacklogReleases) -> list[str]:
     return [item.key for item in data.backlog]
 
 
-def _write_fail(*_args: object) -> None:
+def _write_fail(*_args: object, **_options: object) -> None:
     """Raise as if writing the file failed."""
     raise OSError('disk full')
 
@@ -206,6 +207,21 @@ def test_save_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert written == ['out.csv']
     assert infos == [('Wrote file', 'Wrote out.csv')]
     assert not errors
+
+
+@pytest.mark.parametrize('use_rt', [False, True])
+def test_save_passes_rt(monkeypatch: pytest.MonkeyPatch, use_rt: bool) -> None:
+    """Test a save passes on whether remaining time estimates are used."""
+    monkeypatch.setattr(backlog_actions, 'choose_output_file', _out_csv)
+    monkeypatch.setattr(backlog_actions, 'ask_write_options', _ok_options)
+    passed: list[object] = []
+
+    def write(*_args: object, use_remaining_time: bool) -> None:
+        passed.append(use_remaining_time)
+    monkeypatch.setattr(backlog_actions, 'write_backlog', write)
+    save_backlog(_parent(), DATA, None, None, SINK, _record([]), _record([]),
+                 use_remaining_time=use_rt)
+    assert passed == [use_rt]
 
 
 def test_save_cancel_file(monkeypatch: pytest.MonkeyPatch) -> None:

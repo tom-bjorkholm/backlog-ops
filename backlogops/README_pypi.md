@@ -239,7 +239,9 @@ from backlogops import (
 ### Reading and writing
 
 - `read_backlog_releases`, `write_backlog_releases`: read and write a
-  backlog and its releases from and to a table file.
+  backlog and its releases from and to a table file, including the
+  remaining time of each item, and leaving out columns that are empty
+  on every row when the output preset asks for it.
 
 - `read_available_teams`, `write_available_teams`: read and write the
   available-teams workforce on its own.
@@ -328,7 +330,7 @@ For the full set of public names see the API documentation linked above.
 
 ## Test summary
 
-- Test result: 2685 passed, 1 deselected in 66s (0:01:06)
+- Test result: 2772 passed, 1 deselected in 69s (0:01:09)
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.

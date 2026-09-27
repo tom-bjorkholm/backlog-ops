@@ -25,6 +25,18 @@ named ``level name`` column, or both, as the output configuration's
 :class:`LevelDisplay` decides. Both columns are recognised when reading;
 when both appear the numeric ``level`` column wins and the ``level name``
 column is ignored.
+
+A remaining time is written as a native duration cell where the format has
+one (Excel and ODS), and otherwise as the text chosen by the TableIO
+configuration's ``timedelta_fallback`` (by default hours, minutes and
+seconds, such as ``25:30:00``). It is read as documented for
+:func:`backlogops.backlog_helpers.convert_to_duration`.
+
+A column that is empty on every row is left out when the output
+configuration's ``omit_none_column`` is True. The ``remaining_time`` column
+is also left out when it is empty on every row and remaining time estimates
+are not used. A table that would then hold a single column and a single
+row, which TableIO cannot write, keeps all its columns.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -32,7 +44,7 @@ column is ignored.
 
 import sys
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional, TextIO
 from config_as_json import PathOrStr
 from tableio import CAP_IGNORABLE, Capabilities, DictData, FileAccess, \
@@ -47,7 +59,8 @@ from backlogops.format_rules import FormatRules
 from backlogops.apply_format_rules import format_backlog, format_releases
 from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS, \
     apply_column_map, display_level_order, display_level_rows, \
-    fold_level_name, map_column_order, row_to_item, row_to_release
+    drop_empty_columns, fold_level_name, map_column_order, \
+    omittable_columns, row_to_item, row_to_release
 
 BACKLOG_HEADING = 'Backlog'
 """Heading written before the backlog table."""
@@ -247,6 +260,22 @@ def _ordered_sections(data: BacklogReleases, rules: FormatRules,
     return [section for section in sections if section.rows]
 
 
+def _without_empty(section: _Section, omit_none_column: bool,
+                   use_remaining_time: bool) -> _Section:
+    """Return a section without the columns left out when empty.
+
+    TableIO cannot write a table of a single column and a single row, so
+    when leaving out the empty columns would give such a table (one
+    release without dates) the section is kept with all its columns.
+    """
+    candidates = omittable_columns(section.order, omit_none_column,
+                                   use_remaining_time)
+    rows, order = drop_empty_columns(section.rows, section.order, candidates)
+    if len(rows) == 1 and len(order) == 1:
+        return section
+    return replace(section, rows=rows, order=order)
+
+
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
                            config: OutputFormatConfig,
@@ -254,7 +283,8 @@ def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
                            levels: Optional[Levels] = None,
                            stderr_file: TextIO = sys.stderr,
                            file_exists_callback: Optional[FileExistsCb]
-                           = None) -> None:
+                           = None, *, use_remaining_time: bool = False
+                           ) -> None:
     """Write a backlog, releases, or both to one file.
 
     Each non-empty table is written with a heading before it, so several
@@ -266,7 +296,8 @@ def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
     output configuration's :class:`LevelDisplay` decides, using ``levels``
     to translate a number to a name. The format rules decide the table
     order, the borders, the filter range and the cell formatting; when
-    omitted the default :class:`FormatRules` apply.
+    omitted the default :class:`FormatRules` apply. Columns that are empty
+    on every row are left out as documented for the module.
 
     Args:
         data: The backlog and releases to write.
@@ -281,12 +312,18 @@ def write_backlog_releases(data: BacklogReleases, data_file: PathOrStr,
         file_exists_callback: Called when the file already exists, as
                               documented for :mod:`backlogops.table_create`.
                               None refuses an existing file.
+        use_remaining_time: Whether remaining time estimates are used.
+                            When False an empty ``remaining_time`` column
+                            is left out even if ``omit_none_column`` is
+                            False.
     """
     rules = FormatRules() if format_rules is None else format_rules
     chosen_levels = DEFAULT_LEVELS if levels is None else levels
     capabilities = _write_capabilities(stderr_file)
-    sections = _ordered_sections(data, rules, chosen_levels, config,
-                                 stderr_file)
+    sections = [_without_empty(section, config.omit_none_column,
+                               use_remaining_time)
+                for section in _ordered_sections(data, rules, chosen_levels,
+                                                 config, stderr_file)]
     with tio_config_create(config=config.tableio, file_name=data_file,
                            file_access=FileAccess.CREATE,
                            capabilities=capabilities,

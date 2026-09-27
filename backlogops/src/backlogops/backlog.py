@@ -5,7 +5,7 @@
 # MIT License
 
 import sys
-from datetime import date
+from datetime import date, timedelta
 from dataclasses import dataclass, field, fields
 from enum import IntEnum, auto
 from typing import Optional, TextIO
@@ -84,6 +84,11 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
               Must not be empty string. Must be a valid team name.
               If None the item can be done by any team. If not None.
               the item can only be done by the specified team.
+        remaining_time: The remaining time to complete the backlog item,
+              as ideal focused working time by one person.
+              Used only if `enable_remaining_time` is set to True in the
+              configuration. Optional. Represented as a timedelta.
+              Must not be negative.
         depends_on_f2s: The list of keys of the backlog items that must
                         have been finished before the current item can
                         start. May be empty.
@@ -110,6 +115,7 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
     parent_key: Optional[str] = None
     release: Optional[str] = None
     team: Optional[str] = None
+    remaining_time: Optional[timedelta] = None
     depends_on_f2s: list[str] = field(default_factory=list)
     depends_on_f2f: list[str] = field(default_factory=list)
     depends_on_s2s: list[str] = field(default_factory=list)
@@ -161,6 +167,14 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
             for index, dep_key in enumerate(getattr(self, dep_field)):
                 check_key_syntax(f'{dep_field}[{index}]', dep_key, stderr_file)
 
+    def _check_remaining_time(self, stderr_file: TextIO) -> None:
+        """Check that the remaining time, when given, is not negative."""
+        if self.remaining_time is not None and \
+                self.remaining_time < timedelta(0):
+            report_bad_value('remaining_time', self.remaining_time,
+                             'remaining time must not be negative',
+                             stderr_file)
+
     def _check_no_field_shadow(self, stderr_file: TextIO) -> None:
         """Check that no extra field shadows a named field."""
         # pylint: disable-next=no-member
@@ -176,8 +190,9 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
 
         The documented constraints are checked on all member variables.
         Field types are verified, the key, release and dependency keys
-        are checked for valid syntax, and the extra fields are checked
-        not to shadow a named field. References between items are not
+        are checked for valid syntax, the remaining time is checked not
+        to be negative, and the extra fields are checked not to shadow a
+        named field. References between items are not
         checked here; that is done by :func:`check_backlog_consistency`.
 
         Args:
@@ -190,6 +205,7 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
         """
         self._check_field_types(stderr_file)
         self._check_key_constraints(stderr_file)
+        self._check_remaining_time(stderr_file)
         self._check_no_field_shadow(stderr_file)
 
 

@@ -307,7 +307,7 @@ backlogops_cli serves 2 purposes:
 
 ## Test summary
 
-- Test result: 2685 passed, 1 deselected in 66s (0:01:06)
+- Test result: 2772 passed, 1 deselected in 69s (0:01:09)
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.

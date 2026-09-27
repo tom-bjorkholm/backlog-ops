@@ -10,7 +10,8 @@ rows, kept in first-seen order, and every cell is rendered as text so the
 table can show any value type; a decimal number loses the trailing zeros
 it does not need, so story points read as ``1`` and ``0.5``. A per-table
 column-name map can rename a column or drop it from the display, as the GUI
-display configuration decides.
+display configuration decides. A column that is empty on every row is left
+out as documented for :func:`backlogops.omittable_columns`.
 """
 
 # Copyright (c) 2026, Tom Björkholm
@@ -18,14 +19,15 @@ display configuration decides.
 
 import tkinter as tk
 from collections.abc import Mapping
+from datetime import timedelta
 from tkinter import font as tkfont
 from tkinter import ttk
 from typing import Optional, Sequence, TextIO
 from tableio import Color, Fmt, Value, ValueFmt
 from backlogops import (
     BacklogReleases, DEFAULT_LEVELS, FormatRules, LevelDisplay, Levels,
-    NoTextIO, apply_column_map, display_level_rows, format_backlog,
-    format_releases)
+    NoTextIO, apply_column_map, display_level_rows, drop_empty_columns,
+    format_backlog, format_duration, format_releases, omittable_columns)
 
 COLUMN_WIDTH = 120
 BLANK_CELL = ValueFmt(value=None, fmt=Fmt())
@@ -50,10 +52,14 @@ def _cell_text(value: Value) -> str:
     need, so half a story point reads as ``0.5`` and a whole one as
     ``1`` rather than ``1.0``. A whole number is already written
     without a decimal point, and a boolean is not a decimal number in
-    Python, so both keep their own text.
+    Python, so both keep their own text. A remaining time is shown as
+    hours, minutes and seconds, as :func:`backlogops.format_duration`
+    writes it, never split into days.
     """
     if isinstance(value, float):
         return f'{value:g}'
+    if isinstance(value, timedelta):
+        return format_duration(value)
     return '' if value is None else str(value)
 
 
@@ -69,35 +75,52 @@ def _table(rows: Sequence[dict[str, ValueFmt]]
     return columns, cells
 
 
+def _without_empty(rows: Sequence[dict[str, ValueFmt]], omit_none_column: bool,
+                   use_remaining_time: bool) -> list[dict[str, ValueFmt]]:
+    """Return the rows without the columns left out when empty."""
+    columns = _columns(rows)
+    candidates = omittable_columns(columns, omit_none_column,
+                                   use_remaining_time)
+    return drop_empty_columns(list(rows), columns, candidates)[0]
+
+
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def backlog_table(data: BacklogReleases, levels: Optional[Levels] = None,
                   display: LevelDisplay = LevelDisplay.BOTH,
                   names: Optional[Mapping[str, Optional[str]]] = None,
-                  sink: Optional[TextIO] = None
+                  sink: Optional[TextIO] = None, *,
+                  omit_none_column: bool = False,
+                  use_remaining_time: bool = False
                   ) -> tuple[list[str], list[list[ValueFmt]]]:
     """Return the columns and formatted rows for the backlog table.
 
     The level of each item is shown as its number, its name, or both, as
     ``display`` decides, using ``levels`` to translate a number to a name.
-    The ``names`` map then renames or drops columns, as documented for
-    :func:`backlogops.apply_column_map`.
+    Columns empty on every row are then left out as
+    :func:`backlogops.omittable_columns` decides from ``omit_none_column``
+    and ``use_remaining_time``. The ``names`` map finally renames or drops
+    columns, as documented for :func:`backlogops.apply_column_map`.
     """
     out = sink if sink is not None else NoTextIO()
     chosen = DEFAULT_LEVELS if levels is None else levels
     rows = display_level_rows(format_backlog(data.backlog, FormatRules()),
                               chosen, display, out)
+    rows = _without_empty(rows, omit_none_column, use_remaining_time)
     return _table([apply_column_map(row, names or {}) for row in rows])
 
 
 def release_table(data: BacklogReleases,
-                  names: Optional[Mapping[str, Optional[str]]] = None
+                  names: Optional[Mapping[str, Optional[str]]] = None, *,
+                  omit_none_column: bool = False
                   ) -> tuple[list[str], list[list[ValueFmt]]]:
     """Return the columns and formatted rows for the releases table.
 
-    The ``names`` map renames or drops columns, as documented for
-    :func:`backlogops.apply_column_map`.
+    Columns empty on every row are left out when ``omit_none_column`` is
+    True. The ``names`` map then renames or drops columns, as documented
+    for :func:`backlogops.apply_column_map`.
     """
     rows = format_releases(data.releases, FormatRules())
+    rows = _without_empty(rows, omit_none_column, use_remaining_time=False)
     return _table([apply_column_map(row, names or {}) for row in rows])
 
 

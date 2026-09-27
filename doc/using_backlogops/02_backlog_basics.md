@@ -38,6 +38,7 @@ untouched):
 | `parent_key` | no | Key of a higher-level parent. Implies dependencies (below). |
 | `release` | no | Release name. Must not contain tabs, newlines or control characters. |
 | `team` | no | If set, only that team can do the item; if empty, any team. |
+| `remaining_time` | no | Only for [remaining time estimates](01_configuration.md#remaining-time-estimates). Ideal focused work time of one person. Excel and ODS files get a duration cell (shown as `25:30:00`); a CSV file gets text chosen by the output preset's `tableio` setting `timedelta_fallback`, by default hours such as `25:30:00`. Every such text is read back, and so are `1d 1:30:00`, spreadsheet duration cells and a plain number, which counts **seconds**. Must not be negative. Leave it empty for an item nobody has estimated in time. |
 | `depends_on_f2s` | no | Keys that must **finish** before this can **start**. |
 | `depends_on_f2f` | no | Keys that must **finish** before this can **finish**. |
 | `depends_on_s2s` | no | Keys that must **start** before this can **start**. |

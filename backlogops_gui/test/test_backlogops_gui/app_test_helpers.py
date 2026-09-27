@@ -14,7 +14,8 @@ recorders and configuration loaders the tests patch in.
 
 import tkinter as tk
 from typing import Callable, Optional, TextIO, cast
-from backlogops import BacklogOpsConfig, GuiDisplayConfig
+from backlogops import BacklogOpsConfig, DefaultStoryPoints, \
+    GuiDisplayConfig, RemainingTimeConfig
 from backlogops_gui.application import BacklogApp
 
 
@@ -28,6 +29,8 @@ class FakeConfig:
         self.output_configs: dict[str, object] = {'out': object()}
         self.available_teams: object = object()
         self.gui_display: GuiDisplayConfig = GuiDisplayConfig()
+        self.remaining_time = RemainingTimeConfig()
+        self.default_story_points = DefaultStoryPoints()
         self.written: Optional[str] = None
 
     def get_levels(self) -> dict[int, object]:

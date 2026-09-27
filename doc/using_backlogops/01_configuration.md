@@ -209,11 +209,15 @@ points.
   read).
 * A remaining time is **ideal focused work time of one person**: `0:30:00`
   means one person working focused on only that item for 30 minutes. It is
-  written as hours, minutes and seconds. When you type or read one, whole
-  weeks and days may come first, such as `1w 1d 2:30:00`, where `1d` is 24
-  hours and `1w` is 7 days; it is always written back as hours, so that
-  becomes `194:30:00`. Showing only hours keeps a remaining time from being
-  mistaken for calendar time.
+  written as hours, minutes and seconds, such as `02:30:00`. When you type
+  or read one, whole weeks and days may come first, such as
+  `1w 1d 2:30:00`, where `1d` is 24 hours and `1w` is 7 days, but the hours,
+  minutes and seconds are always given (`1d` alone is refused, `1d 0:00:00`
+  is fine). It is always written back as hours, so that becomes
+  `194:30:00`. Showing only hours keeps a remaining time from being
+  mistaken for calendar time. A bare number such as `90` is refused, as it
+  does not say whether it means seconds, hours or days, and so is a
+  negative time.
 * `levels`, `interpolate` and `extrapolate` are the guess for an item nobody
   has estimated, and work just as for the [default story
   points](#default-story-points). A level given less than 10 minutes (about
@@ -225,9 +229,13 @@ points.
   from 0.005 to 3.0 (0.5% to 300%): zero would mean no progress ever, and a
   value above 1 makes up for estimates that are too pessimistic.
 
-This version reads, checks, edits and writes the remaining time
-configuration. Remaining time on the backlog items themselves, and ready
-dates estimated from it, are not supported yet.
+A backlog item keeps its remaining time in the `remaining_time` column
+([chapter 2](02_backlog_basics.md#a-backlog-item)), which is read from and
+written to files and shown in the GUI. While `enable_remaining_time` is
+`false` that column is written and shown only when some item has a
+remaining time, so a backlog estimated in story points gets no empty
+column. Reading remaining time from Jira, writing it to Jira, and ready
+dates estimated from it are not supported yet.
 
 ### Status mapping
 
@@ -288,8 +296,11 @@ spreadsheet gets every column, ready for you to fill in and read back in
 under the right column name. The `gui_display` section has the same
 setting, which is `true` by default there, so that no screen width is spent
 on an empty column (such as the story points of a backlog estimated in
-remaining time). In this version the setting is stored and edited, but not
-yet applied when a backlog is written or shown.
+remaining time). An empty string counts as no value, so an empty dependency
+column is left out too. It applies to both the backlog and the releases
+table. One exception: a written releases table that would be left with only
+its `name` column and a single release keeps all its columns, because such
+a one-cell table cannot be written.
 
 ## Jira configuration
 

@@ -98,30 +98,35 @@ def _rank_recorder(store: list[object]) -> Callable[..., None]:
     return handler
 
 
-def test_window_uses_gui_maps(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the window passes the GUI column maps to both tables."""
+@pytest.mark.parametrize('omit, use_rt', [(True, False), (False, True)])
+def test_window_uses_gui_maps(monkeypatch: pytest.MonkeyPatch, omit: bool,
+                              use_rt: bool) -> None:
+    """Test the window passes the GUI display settings to both tables."""
     with gui_root() as root:
         captured: dict[str, object] = {}
 
         def fake_backlog(_data: object, _levels: object, _display: object,
-                         names: object, _sink: object
-                         ) -> tuple[list[str], list[object]]:
-            captured['backlog'] = names
+                         names: object, _sink: object,
+                         **options: bool) -> tuple[list[str], list[object]]:
+            captured['backlog'] = (names, options)
             return ([], [])
 
-        def fake_release(_data: object, names: object
+        def fake_release(_data: object, names: object, **options: bool
                          ) -> tuple[list[str], list[object]]:
-            captured['release'] = names
+            captured['release'] = (names, options)
             return ([], [])
         monkeypatch.setattr(backlog_window, 'backlog_table', fake_backlog)
         monkeypatch.setattr(backlog_window, 'release_table', fake_release)
         gui = GuiDisplayConfig()
         gui.backlog_to_external = {'key': 'Id'}
         gui.release_to_external = {'name': 'Release'}
+        gui.omit_none_column = omit
         BacklogWindow(root, DATA, 'T', _none, _none, SINK,
-                      gui_display=lambda: gui)
-        assert captured['backlog'] == {'key': 'Id'}
-        assert captured['release'] == {'name': 'Release'}
+                      gui_display=lambda: gui, use_rt=lambda: use_rt)
+        assert captured['backlog'] == ({'key': 'Id'}, {
+            'omit_none_column': omit, 'use_remaining_time': use_rt})
+        assert captured['release'] == ({'name': 'Release'},
+                                       {'omit_none_column': omit})
 
 
 def test_window_acts(monkeypatch: pytest.MonkeyPatch) -> None:

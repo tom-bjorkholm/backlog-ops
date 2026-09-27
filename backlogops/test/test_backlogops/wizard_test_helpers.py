@@ -56,8 +56,8 @@ SCHED = [''] * 7
 COMPANY = SCHED + ['']
 """The schedule kept, then a blank that leaves no company-holiday periods."""
 
-CSV_OPTS = [''] * 7
-"""Blank answers for the CSV format encoding and six option cells."""
+CSV_OPTS = [''] * 8
+"""Blank answers for the CSV format encoding and seven option cells."""
 
 CONFIG_HEADS = [
     _REMAINING_HEAD, _WORKFORCE_HEAD, _INPUT_PRESETS_HEAD,

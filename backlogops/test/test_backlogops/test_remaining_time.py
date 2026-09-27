@@ -113,8 +113,8 @@ def test_small_level_usable() -> None:
 def test_days_as_hours(tmp_path: Path) -> None:
     """Test weeks and days in a file are written back as hours."""
     path = tmp_path / 'time.json'
-    read([(1, '1d 1:30:45'), (2, '1w')]).write(to_json_filename=path,
-                                               stderr_file=NO)
+    config = read([(1, '1d 1:30:45'), (2, '1w 0:00:00')])
+    config.write(to_json_filename=path, stderr_file=NO)
     data = json.loads(path.read_text(encoding='UTF-8'))
     assert [level['remaining_time'] for level in data['levels']] == \
         ['25:30:45', '168:00:00']

@@ -109,8 +109,9 @@ from backlogops.remaining_time_config import (
 from backlogops.rename_list_io import read_renames
 from backlogops.table_create import FileExistsCb, allow_overwrite
 from backlogops.table_rows import (
-    LEVEL_COLUMN, LEVEL_NAME_COLUMN, apply_column_map, display_level_order,
-    display_level_rows, fold_level_name, item_to_row, map_column_order,
+    LEVEL_COLUMN, LEVEL_NAME_COLUMN, REMAINING_TIME_COLUMN, apply_column_map,
+    display_level_order, display_level_rows, drop_empty_columns,
+    fold_level_name, item_to_row, map_column_order, omittable_columns,
     release_to_row, row_to_item, row_to_release)
 from backlogops.team import FteException, Membership, Team
 from backlogops.use_story_points import find_keys_with_children, \
@@ -140,7 +141,7 @@ __all__ = [
     'JiraPreset', 'JiraRankAnchor', 'JiraTooManyLoops', 'JiraType',
     'LEVEL_COLUMN', 'LEVEL_NAME_COLUMN', 'Level', 'LevelDisplay', 'Levels',
     'LinkUpdate', 'Membership', 'NoTextIO', 'OUTPUT_DESCRIPTIONS',
-    'OnExistingKey', 'OnMissingKey',
+    'OnExistingKey', 'OnMissingKey', 'REMAINING_TIME_COLUMN',
     'OrderedReleasesInJira', 'OutputFormatConfig', 'Person', 'RankedInJira',
     'Release', 'ReleaseChange', 'ReleaseChanges', 'ReleaseDateChange',
     'ReleaseDateChanges', 'ReleaseExistsError', 'ReleaseRename', 'Releases',
@@ -156,7 +157,7 @@ __all__ = [
     'check_backlog_consistency', 'check_date_range',
     'check_levels_consistency', 'check_no_overlap',
     'default_jira_filter', 'descriptions_for',
-    'display_level_order', 'display_level_rows',
+    'display_level_order', 'display_level_rows', 'drop_empty_columns',
     'encrypt_token_file',
     'encrypt_token_to_file', 'estimate_ready_date', 'estimate_release_dates',
     'event_finish', 'event_start', 'find_cycle', 'find_keys_with_children',
@@ -173,7 +174,8 @@ __all__ = [
     'jira_editable_fields', 'jira_rank_backlog', 'jira_rank_by_keys_raw',
     'jira_rank_move_keys', 'level_name', 'level_number_from_name',
     'levels_from_list', 'make_input_config', 'make_output_config',
-    'map_column_order', 'move_keys_first', 'order_by_dependencies',
+    'map_column_order', 'move_keys_first', 'omittable_columns',
+    'order_by_dependencies',
     'order_jira_rel_by_date', 'order_releases_in_jira', 'parse_duration',
     'precedence_relations',
     'preset_wizard', 'read_available_teams', 'read_backlog_from_jira',

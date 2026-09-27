@@ -32,7 +32,8 @@ from backlogops.duration_text import format_duration, parse_duration
 from backlogops.level_defaults import LevelDefaults, level_validator
 from backlogops.team import check_focus_factor
 
-_TIME_FORMAT = 'hours:minutes:seconds, optionally after weeks and days'
+_TIME_FORMAT = ('hours:minutes:seconds, optionally after weeks and days, '
+                'not a bare number and not negative')
 """How a remaining time is written, used in an error message."""
 
 
@@ -111,10 +112,11 @@ class DefaultRemainingTimeLevel(Config):
                 focused person work time. (``0:30:00`` means one person
                 working focused on only this item for 30 minutes.) In the
                 file it is hours, minutes and seconds, such as
-                ``2:30:00``. When read it may start with whole weeks and
+                ``02:30:00``. When read it may start with whole weeks and
                 days, such as ``1w 1d 2:30:00``, where ``1d`` is 24 hours
-                and ``1w`` is 7 days; it is always written as hours, so
-                that is written as ``194:30:00``.
+                and ``1w`` is 7 days, but the hours, minutes and seconds
+                are always given; it is always written as hours, so that
+                is written as ``194:30:00``. A bare number is refused.
         """
         self.level: int = 0
         self.remaining_time: timedelta = timedelta(hours=1, minutes=30)

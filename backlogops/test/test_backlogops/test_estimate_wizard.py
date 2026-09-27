@@ -64,7 +64,9 @@ def test_parse_points(text: Optional[str], expected: Optional[float]) -> None:
 
 @pytest.mark.parametrize('text, expected', [
     ('1:30:00', timedelta(hours=1, minutes=30)),
-    (' 1d ', timedelta(days=1)),
+    (' 1d 00:00:00 ', timedelta(days=1)),
+    ('1d', None),
+    ('90', None),
     ('1:30', None),
     ('', None),
     (None, None)])
@@ -193,7 +195,8 @@ def test_remaining_table() -> None:
     at one day, which is written back as hours, and both filling-in
     questions are left at yes, so level 2 is guessed at between.
     """
-    fill = ['y', '', 'y', '', '', '1', '1', '2:00:00', '2', '3', '1d', '']
+    fill = ['y', '', 'y', '', '', '1', '1', '2:00:00', '2', '3', '1d 0:00:00',
+            '']
     remaining = backlog_ops_wizard(bridge(fill + NO_TEAMS)).remaining_time
     assert remaining.enable_remaining_time is True
     assert remaining.default_focus_factor == 0.3

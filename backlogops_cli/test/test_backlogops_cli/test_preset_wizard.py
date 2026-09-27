@@ -16,8 +16,8 @@ from backlogops import (
 from backlogops_cli.list import command_modules
 from backlogops_cli import preset_wizard
 
-CSV_OPTS = [''] * 7
-"""Blank answers for the CSV format encoding and six option cells."""
+CSV_OPTS = [''] * 8
+"""Blank answers for the CSV format encoding and seven option cells."""
 
 _Cfg = TypeVar('_Cfg')
 

@@ -6,8 +6,8 @@
 
 import tkinter as tk
 from tkinter import ttk
-from datetime import date
-from typing import cast
+from datetime import date, timedelta
+from typing import Optional, cast
 import pytest
 from tableio import Color, Fmt, Value, ValueFmt
 from backlogops import (
@@ -113,6 +113,54 @@ def test_whole_point_shown() -> None:
     columns, rows = backlog_table(data)
     cell = rows[0][columns.index('story_points')]
     assert _cell_text(cell.value) == '3'
+
+
+def _rt_data(remaining: Optional[timedelta]) -> BacklogReleases:
+    """Return a one-item backlog with a remaining time and one release."""
+    item = BacklogItem(key='A1', level=1, title='T', story_points=3,
+                       status=Status.TODO, remaining_time=remaining)
+    return BacklogReleases(backlog=[item], releases=[Release(name='R1')])
+
+
+@pytest.mark.parametrize('omit, use_rt, remaining, shown', [
+    (False, True, None, True),
+    (False, False, None, False),
+    (False, False, timedelta(hours=2), True),
+    (True, True, None, False),
+    (True, False, timedelta(hours=2), True)])
+def test_rt_column(omit: bool, use_rt: bool, remaining: Optional[timedelta],
+                   shown: bool) -> None:
+    """Test when the remaining time column is shown."""
+    columns, _rows = backlog_table(_rt_data(remaining), omit_none_column=omit,
+                                   use_remaining_time=use_rt)
+    assert ('remaining_time' in columns) == shown
+
+
+def test_rt_cell_text() -> None:
+    """Test a remaining time is shown as hours, minutes and seconds."""
+    columns, rows = backlog_table(_rt_data(timedelta(days=1, minutes=5)),
+                                  names={'remaining_time': 'Left'})
+    assert _cell_text(rows[0][columns.index('Left')].value) == '24:05:00'
+
+
+@pytest.mark.parametrize('omit', [False, True])
+def test_omit_columns(omit: bool) -> None:
+    """Test omit_none_column hides empty columns in both tables."""
+    data = _rt_data(None)
+    columns, _rows = backlog_table(data, omit_none_column=omit,
+                                   use_remaining_time=True)
+    assert ('planned_ready_date' in columns) != omit
+    assert 'key' in columns
+    columns, _rows = release_table(data, omit_none_column=omit)
+    assert columns == (['name'] if omit else
+                       ['name', 'planned_date', 'estimated_date'])
+
+
+def test_omit_before_rename() -> None:
+    """Test an empty column is hidden by its internal name, then renamed."""
+    columns, _rows = backlog_table(_rt_data(None), names={'release': 'Rel'},
+                                   omit_none_column=True)
+    assert 'Rel' not in columns and 'release' not in columns
 
 
 def test_empty_tables() -> None:

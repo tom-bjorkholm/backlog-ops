@@ -15,12 +15,13 @@ import sys
 import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import MISSING, Field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import Enum
 from types import NoneType, UnionType
 from typing import NoReturn, Optional, TextIO, TypeVar, Union
 from typing import get_args, get_origin, get_type_hints
 from config_as_json import string_to_enum_best_match
+from tableio import parse_timedelta
 
 T = TypeVar('T')
 
@@ -184,8 +185,8 @@ def value_matches_type(value: object, data_type: object) -> bool:
     """Return True if a value matches a supported type hint.
 
     Supported hints are ``object``, optional and union types, enums, and
-    the ``str``, ``int``, ``date``, ``list[...]`` and ``dict[..., ...]``
-    forms used by backlog items.
+    the ``str``, ``int``, ``date``, ``timedelta``, ``list[...]`` and
+    ``dict[..., ...]`` forms used by backlog items.
 
     Args:
         value: The runtime value to check.
@@ -455,6 +456,45 @@ def convert_to_float(field_name: str, value: object,
     return float(value)
 
 
+def convert_to_duration(field_name: str, value: object,
+                        stderr_file: TextIO = sys.stderr) -> timedelta:
+    """Convert a value to a ``datetime.timedelta``.
+
+    The value is converted by TableIO's ``parse_timedelta``, so what
+    TableIO writes for a duration reads back whatever the file format:
+    a ``timedelta`` (a native duration cell) is kept, a number counts
+    seconds, and a string may be any TableIO duration text, such as
+    ``25:30:00``, ``1d 1:30:00`` or ``1 day, 1:30:00``. A negative value
+    is converted too, and
+    :meth:`backlogops.backlog.BacklogItem.check_consistency` refuses it.
+
+    Args:
+        field_name: The name of the field being converted.
+        value: The timedelta, number of seconds or duration text.
+        stderr_file: The file to report errors to.
+
+    Returns:
+        The converted duration.
+
+    Raises:
+        TypeError: If the value is not a timedelta, a number or duration
+            text (a boolean is refused).
+    """
+    if isinstance(value, bool) or \
+            not isinstance(value, (str, int, float, timedelta)):
+        report_wrong_type(field_name, value, timedelta, stderr_file)
+    try:
+        return parse_timedelta(value)
+    except ValueError:
+        report_wrong_type(field_name, value, timedelta, stderr_file)
+
+
+_CONVERTERS: dict[object, Callable[[str, object, TextIO], object]] = {
+    date: convert_to_date, str: convert_to_str, float: convert_to_float,
+    timedelta: convert_to_duration}
+"""The converter of each field type that is converted, not only checked."""
+
+
 def convert_field_value(field_name: str, value: object, data_type: object,
                         stderr_file: TextIO = sys.stderr) -> object:
     """Convert and validate a single field value against its type hint.
@@ -462,7 +502,8 @@ def convert_field_value(field_name: str, value: object, data_type: object,
     ``None`` is accepted for optional fields. Enum fields are converted
     with :func:`convert_to_enum`, date fields with :func:`convert_to_date`,
     string fields with :func:`convert_to_str`, float fields with
-    :func:`convert_to_float`, and all other fields are checked with
+    :func:`convert_to_float`, timedelta fields with
+    :func:`convert_to_duration`, and all other fields are checked with
     :func:`value_matches_type`.
 
     Args:
@@ -483,12 +524,9 @@ def convert_field_value(field_name: str, value: object, data_type: object,
     enum_class = enum_class_of(inner_type)
     if enum_class is not None:
         return convert_to_enum(field_name, value, enum_class, stderr_file)
-    if inner_type is date:
-        return convert_to_date(field_name, value, stderr_file)
-    if inner_type is str:
-        return convert_to_str(field_name, value, stderr_file)
-    if inner_type is float:
-        return convert_to_float(field_name, value, stderr_file)
+    converter = _CONVERTERS.get(inner_type)
+    if converter is not None:
+        return converter(field_name, value, stderr_file)
     if not value_matches_type(value, data_type):
         report_wrong_type(field_name, value, data_type, stderr_file)
     return value

@@ -57,6 +57,7 @@
   * [required\_config](#backlogops_cli._command_io.required_config)
   * [optional\_config](#backlogops_cli._command_io.optional_config)
   * [io\_levels](#backlogops_cli._command_io.io_levels)
+  * [io\_remaining\_time](#backlogops_cli._command_io.io_remaining_time)
   * [read\_input](#backlogops_cli._command_io.read_input)
   * [add\_force\_arg](#backlogops_cli._command_io.add_force_arg)
   * [add\_output\_args](#backlogops_cli._command_io.add_output_args)
@@ -891,6 +892,26 @@ Return the configured levels from ``config``, or None.
 
   The levels configured in ``config``, or None when no configuration
   is given.
+
+<a id="backlogops_cli._command_io.io_remaining_time"></a>
+
+#### io\_remaining\_time
+
+```python
+def io_remaining_time(config: Optional[BacklogOpsConfig]) -> bool
+```
+
+Return whether ``config`` enables remaining time estimates.
+
+**Arguments**:
+
+- `config` - The resolved backlog-ops configuration, or None for the
+  defaults, which do not use remaining time estimates.
+  
+
+**Returns**:
+
+  True when remaining time estimates are enabled in ``config``.
 
 <a id="backlogops_cli._command_io.read_input"></a>
 

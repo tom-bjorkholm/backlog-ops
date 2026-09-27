@@ -40,6 +40,7 @@
   * [convert\_to\_date](#backlogops.backlog_helpers.convert_to_date)
   * [convert\_to\_str](#backlogops.backlog_helpers.convert_to_str)
   * [convert\_to\_float](#backlogops.backlog_helpers.convert_to_float)
+  * [convert\_to\_duration](#backlogops.backlog_helpers.convert_to_duration)
   * [convert\_field\_value](#backlogops.backlog_helpers.convert_field_value)
   * [is\_extra\_field\_map](#backlogops.backlog_helpers.is_extra_field_map)
   * [extra\_field\_name](#backlogops.backlog_helpers.extra_field_name)
@@ -278,8 +279,11 @@
   * [RELEASE\_FIELDS](#backlogops.table_rows.RELEASE_FIELDS)
   * [LEVEL\_COLUMN](#backlogops.table_rows.LEVEL_COLUMN)
   * [LEVEL\_NAME\_COLUMN](#backlogops.table_rows.LEVEL_NAME_COLUMN)
+  * [REMAINING\_TIME\_COLUMN](#backlogops.table_rows.REMAINING_TIME_COLUMN)
   * [apply\_column\_map](#backlogops.table_rows.apply_column_map)
   * [map\_column\_order](#backlogops.table_rows.map_column_order)
+  * [omittable\_columns](#backlogops.table_rows.omittable_columns)
+  * [drop\_empty\_columns](#backlogops.table_rows.drop_empty_columns)
   * [item\_to\_row](#backlogops.table_rows.item_to_row)
   * [release\_to\_row](#backlogops.table_rows.release_to_row)
   * [row\_to\_item](#backlogops.table_rows.row_to_item)
@@ -1076,8 +1080,8 @@ def value_matches_type(value: object, data_type: object) -> bool
 Return True if a value matches a supported type hint.
 
 Supported hints are ``object``, optional and union types, enums, and
-the ``str``, ``int``, ``date``, ``list[...]`` and ``dict[..., ...]``
-forms used by backlog items.
+the ``str``, ``int``, ``date``, ``timedelta``, ``list[...]`` and
+``dict[..., ...]`` forms used by backlog items.
 
 **Arguments**:
 
@@ -1363,6 +1367,43 @@ turned into a number.
 
 - `TypeError` - If the value is not a whole or decimal number.
 
+<a id="backlogops.backlog_helpers.convert_to_duration"></a>
+
+#### convert\_to\_duration
+
+```python
+def convert_to_duration(field_name: str,
+                        value: object,
+                        stderr_file: TextIO = sys.stderr) -> timedelta
+```
+
+Convert a value to a ``datetime.timedelta``.
+
+The value is converted by TableIO's ``parse_timedelta``, so what
+TableIO writes for a duration reads back whatever the file format:
+a ``timedelta`` (a native duration cell) is kept, a number counts
+seconds, and a string may be any TableIO duration text, such as
+``25:30:00``, ``1d 1:30:00`` or ``1 day, 1:30:00``. A negative value
+is converted too, and
+:meth:`backlogops.backlog.BacklogItem.check_consistency` refuses it.
+
+**Arguments**:
+
+- `field_name` - The name of the field being converted.
+- `value` - The timedelta, number of seconds or duration text.
+- `stderr_file` - The file to report errors to.
+  
+
+**Returns**:
+
+  The converted duration.
+  
+
+**Raises**:
+
+- `TypeError` - If the value is not a timedelta, a number or duration
+  text (a boolean is refused).
+
 <a id="backlogops.backlog_helpers.convert_field_value"></a>
 
 #### convert\_field\_value
@@ -1379,7 +1420,8 @@ Convert and validate a single field value against its type hint.
 ``None`` is accepted for optional fields. Enum fields are converted
 with :func:`convert_to_enum`, date fields with :func:`convert_to_date`,
 string fields with :func:`convert_to_str`, float fields with
-:func:`convert_to_float`, and all other fields are checked with
+:func:`convert_to_float`, timedelta fields with
+:func:`convert_to_duration`, and all other fields are checked with
 :func:`value_matches_type`.
 
 **Arguments**:
@@ -4450,6 +4492,11 @@ Fields:
           Must not be empty string. Must be a valid team name.
           If None the item can be done by any team. If not None.
           the item can only be done by the specified team.
+    remaining_time: The remaining time to complete the backlog item,
+          as ideal focused working time by one person.
+          Used only if `enable_remaining_time` is set to True in the
+          configuration. Optional. Represented as a timedelta.
+          Must not be negative.
     depends_on_f2s: The list of keys of the backlog items that must
                     have been finished before the current item can
                     start. May be empty.
@@ -4489,8 +4536,9 @@ Check the internal consistency of the backlog item.
 
 The documented constraints are checked on all member variables.
 Field types are verified, the key, release and dependency keys
-are checked for valid syntax, and the extra fields are checked
-not to shadow a named field. References between items are not
+are checked for valid syntax, the remaining time is checked not
+to be negative, and the extra fields are checked not to shadow a
+named field. References between items are not
 checked here; that is done by :func:`check_backlog_consistency`.
 
 **Arguments**:
@@ -5815,8 +5863,13 @@ A remaining time is ideal focused person work time, which is easy to
 confuse with calendar time. What is written is therefore always hours,
 minutes and seconds, such as ``102:30:00``, so that nobody has to guess
 what a day or a week means. What is read may also start with whole weeks
-and days, such as ``1w 1d 2:30:00``, where a day is 24 hours and a week
+and days, such as ``1w 1d 02:30:00``, where a day is 24 hours and a week
 is 7 days, so that a large value is quick to type.
+
+Both directions use the duration text of TableIO (``parse_timedelta`` and
+``format_timedelta`` with ``HMS_STRING``), so a remaining time looks the
+same in a configuration file, in the GUI and in a CSV file written with
+TableIO's default duration fallback.
 
 <a id="backlogops.duration_text.parse_duration"></a>
 
@@ -5828,10 +5881,13 @@ def parse_duration(text: str) -> Optional[timedelta]
 
 Return the remaining time a text says, or None when it says none.
 
-The text is whole weeks (``1w``), whole days (``1d``) and hours,
-minutes and seconds (``2:30:00``), in that order and each of them
-optional, but at least one of them given. A day is 24 hours and a
-week is 7 days. Space around and between the parts is allowed.
+The text is read by TableIO's ``parse_timedelta``: hours, minutes and
+seconds (``2:30:00``, ``25:30:00``, ``00:00:01.5``), optionally after
+whole weeks and days (``1w 1d 2:30:00``, ``1 week 2 days 00:00:00``),
+or the ``str(timedelta)`` form (``1 day, 1:30:00``). A day is 24 hours
+and a week is 7 days. A bare number is refused, because it does not
+say whether it counts seconds, hours or days, and so is a negative
+remaining time.
 
 **Arguments**:
 
@@ -5840,8 +5896,9 @@ week is 7 days. Space around and between the parts is allowed.
 
 **Returns**:
 
-  The remaining time, or None when the text is empty, not in the
-  format above, or too large for a ``timedelta``.
+  The remaining time, or None when the text is empty, a bare
+  number, not a duration TableIO can read, too large for a
+  ``timedelta``, or negative.
 
 <a id="backlogops.duration_text.format_duration"></a>
 
@@ -5854,16 +5911,19 @@ def format_duration(duration: timedelta) -> str
 Return a remaining time as hours, minutes and seconds.
 
 The hours are not split into days, so 1 day and 1.5 hours is written
-as ``25:30:00``. A fraction of a second is dropped.
+as ``25:30:00``. The hours have at least two digits, and a fraction of
+a second is kept (``00:00:01.5``), as TableIO's ``HMS_STRING`` writes
+it.
 
 **Arguments**:
 
-- `duration` - The remaining time to write, not negative.
+- `duration` - The remaining time to write. A negative one, which a
+  valid remaining time never is, gets a leading ``-``.
   
 
 **Returns**:
 
-  The text ``H:MM:SS``, with as many hour digits as needed.
+  The text ``HH:MM:SS``, with as many hour digits as needed.
 
 <a id="backlogops.jira_read"></a>
 
@@ -6092,6 +6152,12 @@ Default column name carrying the numeric backlog item level.
 
 Default column name carrying the named backlog item level.
 
+<a id="backlogops.table_rows.REMAINING_TIME_COLUMN"></a>
+
+#### REMAINING\_TIME\_COLUMN
+
+Internal column name carrying the remaining time of a backlog item.
+
 <a id="backlogops.table_rows.apply_column_map"></a>
 
 #### apply\_column\_map
@@ -6120,6 +6186,63 @@ Return a column order with names renamed or dropped by a name map.
 
 The same three cases as :func:`apply_column_map` are honoured, so the
 order stays consistent with rows passed through that function.
+
+<a id="backlogops.table_rows.omittable_columns"></a>
+
+#### omittable\_columns
+
+```python
+def omittable_columns(order: list[str], omit_none_column: bool,
+                      use_remaining_time: bool) -> list[str]
+```
+
+Return the columns to leave out when they are empty on every row.
+
+With ``omit_none_column`` every column may be left out. Otherwise only
+the remaining time column may, and only while remaining time estimates
+are not used, so that a backlog estimated in story points gets no
+empty remaining time column, while a remaining time read from a file
+is still written back.
+
+**Arguments**:
+
+- `order` - The column names of the table.
+- `omit_none_column` - Whether any column that is empty on every row
+  is left out.
+- `use_remaining_time` - Whether remaining time estimates are used.
+  
+
+**Returns**:
+
+  The column names, from ``order``, that may be left out.
+
+<a id="backlogops.table_rows.drop_empty_columns"></a>
+
+#### drop\_empty\_columns
+
+```python
+def drop_empty_columns(
+        rows: DictData[ValueFmt], order: list[str],
+        candidates: Collection[str]) -> tuple[DictData[ValueFmt], list[str]]
+```
+
+Return rows and order without the candidates empty on every row.
+
+A cell counts as empty when its value is None or an empty string, so
+an empty dependency list is empty too. A row without the column
+counts as empty. With no rows every candidate is empty.
+
+**Arguments**:
+
+- `rows` - The formatted rows of the table.
+- `order` - The column order of the table.
+- `candidates` - The columns that may be left out, as returned by
+  :func:`omittable_columns`.
+  
+
+**Returns**:
+
+  The rows and the column order without the dropped columns.
 
 <a id="backlogops.table_rows.item_to_row"></a>
 
@@ -6683,10 +6806,11 @@ Create the default of one level, or read it from JSON.
   focused person work time. (``0:30:00`` means one person
   working focused on only this item for 30 minutes.) In the
   file it is hours, minutes and seconds, such as
-  ``2:30:00``. When read it may start with whole weeks and
+  ``02:30:00``. When read it may start with whole weeks and
   days, such as ``1w 1d 2:30:00``, where ``1d`` is 24 hours
-  and ``1w`` is 7 days; it is always written as hours, so
-  that is written as ``194:30:00``.
+  and ``1w`` is 7 days, but the hours, minutes and seconds
+  are always given; it is always written as hours, so that
+  is written as ``194:30:00``. A bare number is refused.
 
 <a id="backlogops.remaining_time_config.DefaultRemainingTimeLevel.as_float"></a>
 
@@ -8430,6 +8554,18 @@ named ``level name`` column, or both, as the output configuration's
 when both appear the numeric ``level`` column wins and the ``level name``
 column is ignored.
 
+A remaining time is written as a native duration cell where the format has
+one (Excel and ODS), and otherwise as the text chosen by the TableIO
+configuration's ``timedelta_fallback`` (by default hours, minutes and
+seconds, such as ``25:30:00``). It is read as documented for
+:func:`backlogops.backlog_helpers.convert_to_duration`.
+
+A column that is empty on every row is left out when the output
+configuration's ``omit_none_column`` is True. The ``remaining_time`` column
+is also left out when it is empty on every row and remaining time estimates
+are not used. A table that would then hold a single column and a single
+row, which TableIO cannot write, keeps all its columns.
+
 <a id="backlogops.backlog_releases_io.BACKLOG_HEADING"></a>
 
 #### BACKLOG\_HEADING
@@ -8495,14 +8631,15 @@ types; consistency across items is not checked here.
 #### write\_backlog\_releases
 
 ```python
-def write_backlog_releases(
-        data: BacklogReleases,
-        data_file: PathOrStr,
-        config: OutputFormatConfig,
-        format_rules: Optional[FormatRules] = None,
-        levels: Optional[Levels] = None,
-        stderr_file: TextIO = sys.stderr,
-        file_exists_callback: Optional[FileExistsCb] = None) -> None
+def write_backlog_releases(data: BacklogReleases,
+                           data_file: PathOrStr,
+                           config: OutputFormatConfig,
+                           format_rules: Optional[FormatRules] = None,
+                           levels: Optional[Levels] = None,
+                           stderr_file: TextIO = sys.stderr,
+                           file_exists_callback: Optional[FileExistsCb] = None,
+                           *,
+                           use_remaining_time: bool = False) -> None
 ```
 
 Write a backlog, releases, or both to one file.
@@ -8516,7 +8653,8 @@ a backlog item is written as its number, its name, or both, as the
 output configuration's :class:`LevelDisplay` decides, using ``levels``
 to translate a number to a name. The format rules decide the table
 order, the borders, the filter range and the cell formatting; when
-omitted the default :class:`FormatRules` apply.
+omitted the default :class:`FormatRules` apply. Columns that are empty
+on every row are left out as documented for the module.
 
 **Arguments**:
 
@@ -8532,6 +8670,10 @@ omitted the default :class:`FormatRules` apply.
 - `file_exists_callback` - Called when the file already exists, as
   documented for :mod:`backlogops.table_create`.
   None refuses an existing file.
+- `use_remaining_time` - Whether remaining time estimates are used.
+  When False an empty ``remaining_time`` column
+  is left out even if ``omit_none_column`` is
+  False.
 
 <a id="backlogops.wizard_forms"></a>
 

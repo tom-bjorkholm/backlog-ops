@@ -11,9 +11,9 @@ the dependency order between those parts simple.
 # MIT License
 
 import sys
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import fields
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional, TextIO, TypeVar
 from tableio import DictData, Value, ValueFmt
 from backlogops.backlog import BacklogItem, DEPENDENCY_FIELDS, Status, \
@@ -33,6 +33,9 @@ LEVEL_COLUMN = 'level'
 
 LEVEL_NAME_COLUMN = 'level name'
 """Default column name carrying the named backlog item level."""
+
+REMAINING_TIME_COLUMN = 'remaining_time'
+"""Internal column name carrying the remaining time of a backlog item."""
 
 _Cell = TypeVar('_Cell')
 
@@ -79,13 +82,69 @@ def _is_empty(value: object) -> bool:
     return value is None or value == ''
 
 
+def omittable_columns(order: list[str], omit_none_column: bool,
+                      use_remaining_time: bool) -> list[str]:
+    """Return the columns to leave out when they are empty on every row.
+
+    With ``omit_none_column`` every column may be left out. Otherwise only
+    the remaining time column may, and only while remaining time estimates
+    are not used, so that a backlog estimated in story points gets no
+    empty remaining time column, while a remaining time read from a file
+    is still written back.
+
+    Args:
+        order: The column names of the table.
+        omit_none_column: Whether any column that is empty on every row
+            is left out.
+        use_remaining_time: Whether remaining time estimates are used.
+
+    Returns:
+        The column names, from ``order``, that may be left out.
+    """
+    if omit_none_column:
+        return list(order)
+    if use_remaining_time or REMAINING_TIME_COLUMN not in order:
+        return []
+    return [REMAINING_TIME_COLUMN]
+
+
+def drop_empty_columns(rows: DictData[ValueFmt], order: list[str],
+                       candidates: Collection[str]
+                       ) -> tuple[DictData[ValueFmt], list[str]]:
+    """Return rows and order without the candidates empty on every row.
+
+    A cell counts as empty when its value is None or an empty string, so
+    an empty dependency list is empty too. A row without the column
+    counts as empty. With no rows every candidate is empty.
+
+    Args:
+        rows: The formatted rows of the table.
+        order: The column order of the table.
+        candidates: The columns that may be left out, as returned by
+            :func:`omittable_columns`.
+
+    Returns:
+        The rows and the column order without the dropped columns.
+    """
+    dropped: dict[str, Optional[str]] = {
+        name: None for name in candidates
+        if all(name not in row or _is_empty(row[name].value)
+               for row in rows)}
+    return ([apply_column_map(row, dropped) for row in rows],
+            map_column_order(order, dropped))
+
+
 def _date_cell(value: Optional[date]) -> Value:
     """Return a date as an ISO string cell, or None when absent."""
     return value.isoformat() if value is not None else None
 
 
 def _cell_from_field(name: str, value: object) -> Value:
-    """Return the cell value for one named backlog item field."""
+    """Return the cell value for one named backlog item field.
+
+    A remaining time stays a ``timedelta``, which TableIO writes as a
+    native duration cell or as the text its duration fallback says.
+    """
     if name == 'status':
         assert isinstance(value, Status)
         return value.name
@@ -94,7 +153,8 @@ def _cell_from_field(name: str, value: object) -> Value:
         return ' '.join(value)
     if isinstance(value, date):
         return value.isoformat()
-    assert value is None or isinstance(value, (str, int, float, bool))
+    assert value is None or \
+        isinstance(value, (str, int, float, bool, timedelta))
     return value
 
 
@@ -102,7 +162,8 @@ def _extra_cell(value: object) -> Value:
     """Return an extra field value as a cell value."""
     if isinstance(value, date):
         return value.isoformat()
-    if value is None or isinstance(value, (str, int, float, bool)):
+    if value is None or \
+            isinstance(value, (str, int, float, bool, timedelta)):
         return value
     return str(value)
 

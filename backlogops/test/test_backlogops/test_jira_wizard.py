@@ -22,7 +22,7 @@ from backlogops.jira_io_config import (
 from backlogops.jira_io_config import JiraConnectConfig, JiraIssueTypeMap, \
     JiraPreset, TokenStorage
 from backlogops.jira_wizard import (
-    _FilterPrefill, _PresetChoices, _build_connections,
+    _BACKLOG_KIND, _FilterPrefill, _PresetChoices, _build_connections,
     _build_issue_type_maps, _build_preset_list, _connection_disabled,
     _connection_fields, _connection_rule, _preset_filter, _preset_rule,
     _preset_seed, _store_token)
@@ -75,6 +75,12 @@ def _console(answers: list[str],
     text = '\n'.join(answers) + '\n'
     sink = errors if errors is not None else io.StringIO()
     return WizardUiBridgeConsole(io.StringIO(), io.StringIO(text), sink)
+
+
+def test_no_rt_in_backlog_map() -> None:
+    """Test the backlog map offers no remaining time until Jira has it."""
+    assert 'remaining_time' not in _BACKLOG_KIND.fields
+    assert 'story_points' in _BACKLOG_KIND.fields
 
 
 def test_jira_skip() -> None:

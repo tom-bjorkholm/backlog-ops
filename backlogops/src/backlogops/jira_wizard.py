@@ -31,7 +31,8 @@ from backlogops.jira_io_config import DEF_BACKLOG_COLUMN_MAP, \
     JiraIssueTypeMap, JiraPreset, JiraType, TokenStorage, _FILE_MODES, \
     default_jira_filter
 from backlogops.levels import Levels
-from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS
+from backlogops.table_rows import BACKLOG_FIELDS, RELEASE_FIELDS, \
+    REMAINING_TIME_COLUMN
 from backlogops.wizard_forms import FormField, FormResult, choice_field, \
     name_field, opt_text_field, path_field, secret_field, text_field, \
     yes_no_field
@@ -311,9 +312,14 @@ class _MapKind:
     default: JiraColumnMap
 
 
-_BACKLOG_KIND = _MapKind('Backlog', list(BACKLOG_FIELDS),
+_BACKLOG_KIND = _MapKind('Backlog', [name for name in BACKLOG_FIELDS
+                                     if name != REMAINING_TIME_COLUMN],
                          DEF_BACKLOG_COLUMN_MAP)
-"""The backlog column-map kind, seeded from the backlog default."""
+"""The backlog column-map kind, seeded from the backlog default.
+
+The remaining time is not offered, because it cannot be read from or
+written to Jira yet.
+"""
 
 _RELEASE_KIND = _MapKind('Release', list(RELEASE_FIELDS),
                          DEF_RELEASE_COLUMN_MAP)
