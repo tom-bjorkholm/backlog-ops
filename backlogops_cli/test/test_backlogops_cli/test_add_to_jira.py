@@ -15,8 +15,10 @@ from pathlib import Path
 from typing import Callable
 import pytest
 from backlogops import (
-    AddedToJira, BacklogItem, ExistsInJiraError, JiraRankAnchor,
-    OnExistingKey, Status)
+    AddedToJira, AvailableTeams, BacklogItem, BacklogOpsConfig,
+    ExistsInJiraError, JiraRankAnchor, OnExistingKey, Status,
+    write_backlog_ops_config)
+from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import add_to_jira
 from .cli_test_helpers import (
@@ -39,10 +41,11 @@ def _fake_add(captured: dict[str, object],
     """Return a stand-in add that records the mode and returns ``result``."""
     def add(connections: object, preset_name: str, backlog: object, *,
             on_existing_key: OnExistingKey, **kwargs: object) -> AddedToJira:
-        """Record the on-existing mode and rank anchor, return the result."""
+        """Record the mode, rank anchor and remaining time use."""
         _ = (connections, preset_name, backlog)
         captured['mode'] = on_existing_key
         captured['rank'] = kwargs.get('rank_anchor')
+        captured['use_rt'] = kwargs.get('use_remaining_time')
         return result
     return add
 
@@ -80,6 +83,21 @@ def test_adds_and_prints(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     assert 'Added to Jira (1):' in out
     assert 'PROJ-1  First' in out
     assert 'Already in Jira (1):' in out
+
+
+@pytest.mark.parametrize('use_rt', [False, True])
+def test_passes_rt_use(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                       use_rt: bool) -> None:
+    """Test the configured use of remaining time is passed to the add."""
+    captured = _patch(monkeypatch, _result())
+    prepare_input(tmp_path)
+    config = BacklogOpsConfig(
+        available_teams=AvailableTeams(persons={}, teams=[]),
+        stderr_file=NoTextIO())
+    config.remaining_time.enable_remaining_time = use_rt
+    write_backlog_ops_config(config, tmp_path / 'ops.cfg', NoTextIO())
+    assert add_to_jira.main(base_args(tmp_path)) == 0
+    assert captured['use_rt'] is use_rt
 
 
 def test_skip_existing(tmp_path: Path,

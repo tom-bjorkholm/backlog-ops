@@ -330,9 +330,14 @@ def resolve_jql(preset: JiraPreset, filter_override: Optional[str]) -> str:
     return default_jira_filter(preset.def_project)
 
 
-def _read_map(column_map: JiraColumnMap,
-              use_remaining_time: bool) -> JiraColumnMap:
-    """Return the backlog map to read, without remaining time if unused."""
+def _backlog_map(column_map: JiraColumnMap,
+                 use_remaining_time: bool) -> JiraColumnMap:
+    """Return the backlog map to use, without remaining time if unused.
+
+    It is shared by reading and writing, so a remaining time is neither
+    read from nor written to Jira while remaining time estimates are not
+    used.
+    """
     if use_remaining_time:
         return column_map
     return {name: attrs for name, attrs in column_map.items()
@@ -379,7 +384,7 @@ def read_backlog_from_jira(
     jira_config = connections.jira_config
     preset = jira_config.get_preset(preset_name)
     client = connections.client(preset.connection_name)
-    backlog_map = _read_map(jira_config.backlog_column_maps[
+    backlog_map = _backlog_map(jira_config.backlog_column_maps[
         preset.backlog_column_map_name], use_remaining_time)
     release_map = jira_config.release_column_maps[
         preset.release_column_map_name]

@@ -48,6 +48,7 @@ from backlogops.io_config import (
     make_output_config, resolve_input_config, resolve_output_config)
 from backlogops.io_preset_wizard import preset_wizard
 from backlogops.jira_connect import JiraConnections
+from backlogops.jira_field_json import JiraFieldJson, jira_field_json
 from backlogops.jira_io_config import (
     CLEAR_TOKEN_WARNING, DEF_BACKLOG_COLUMN_MAP, DEF_RELEASE_COLUMN_MAP,
     JiraAttrPath, JiraAttrType, JiraColumnMap, JiraConnectConfig, JiraIOConfig,
@@ -137,7 +138,8 @@ __all__ = [
     'GUI_DESCRIPTIONS', 'GuiDisplayConfig', 'INPUT_DESCRIPTIONS',
     'InputFormatConfig', 'ItemNotInJiraError', 'JIRA_DESCRIPTIONS',
     'JiraAttrPath', 'JiraAttrType', 'JiraColumnMap', 'JiraConnectConfig',
-    'JiraConnections', 'JiraIOConfig', 'JiraIssueTypeMap', 'JiraKeyError',
+    'JiraConnections', 'JiraFieldJson', 'JiraIOConfig', 'JiraIssueTypeMap',
+    'JiraKeyError',
     'JiraPreset', 'JiraRankAnchor', 'JiraTooManyLoops', 'JiraType',
     'LEVEL_COLUMN', 'LEVEL_NAME_COLUMN', 'Level', 'LevelDisplay', 'Levels',
     'LinkUpdate', 'Membership', 'NoTextIO', 'OUTPUT_DESCRIPTIONS',
@@ -171,7 +173,8 @@ __all__ = [
     'get_keys_in_order', 'get_release', 'get_releases',
     'io_preset_class', 'item_dependency_edges', 'item_to_row',
     'jira_custom_fields',
-    'jira_editable_fields', 'jira_rank_backlog', 'jira_rank_by_keys_raw',
+    'jira_editable_fields', 'jira_field_json', 'jira_rank_backlog',
+    'jira_rank_by_keys_raw',
     'jira_rank_move_keys', 'level_name', 'level_number_from_name',
     'levels_from_list', 'make_input_config', 'make_output_config',
     'map_column_order', 'move_keys_first', 'omittable_columns',

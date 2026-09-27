@@ -234,10 +234,10 @@ A backlog item keeps its remaining time in the `remaining_time` column
 written to files and shown in the GUI. While `enable_remaining_time` is
 `false` that column is written and shown only when some item has a
 remaining time, so a backlog estimated in story points gets no empty
-column. A remaining time is also read from Jira (see
+column. A remaining time is also read from and written to Jira (see
 [column maps](#column-maps-how-a-field-reaches-a-jira-value)), but only
-while `enable_remaining_time` is `true`. Writing remaining time to Jira, and
-ready dates estimated from it, are not supported yet.
+while `enable_remaining_time` is `true`. Ready dates estimated from it are
+not supported yet.
 
 ### Status mapping
 
@@ -477,11 +477,32 @@ agree whenever both are there, so keep both or delete the one that does not
 suit your Jira. Both hold the issue's own estimate without its sub-tasks, so
 an item and its sub-tasks are not counted twice. An issue with no remaining
 estimate reads as an item with no remaining time, while an estimate of zero
-reads as no work left. The remaining time is read only while
-[remaining time estimates](#remaining-time-estimates) are enabled, and it is
-not written to Jira yet: adding and updating items leave it out. A column
+reads as no work left. The remaining time is read and written only while
+[remaining time estimates](#remaining-time-estimates) are enabled. A column
 map from an older configuration has no `remaining_time`; add it with the
 wizard or the editor.
+
+Writing the remaining time works differently from reading it, because Jira
+treats both raw-seconds paths as read-only: a write of them is accepted and
+silently ignored. When the first `remaining_time` path is one of these time
+tracking paths, the estimate is instead written as Jira's *Remaining
+Estimate* text in whole minutes, such as `62m`:
+
+* A remaining time that is not a whole number of minutes is **rounded up**,
+  so writing never lowers an estimate: `1:01:01` is written as `62m`. Zero is
+  written as `0m`, meaning no work left.
+* The estimate is written as an *edit* of the time tracking, which leaves
+  the issue's original estimate as it is. Jira itself sets the original
+  estimate from the first remaining estimate of an issue that has none.
+* After writing, the remaining estimate is read back from Jira. An estimate
+  Jira did not store is reported under *Fields not set* as `timetracking`,
+  instead of passing as written.
+* The issue's edit screen must offer *Time tracking* (it does when time
+  tracking is enabled in Jira); otherwise the estimate is skipped with a
+  warning, like any field the edit screen does not offer.
+
+A `remaining_time` mapped to any other path, such as a numeric custom field,
+is written there as the whole number of seconds, rounded up.
 
 ### Finding the correct field mapping in your Jira
 
@@ -490,7 +511,12 @@ are Jira defaults, but **every Jira instance is different** — story points in
 particular hide behind different custom fields in different sites. The
 `jira_fields` command exists precisely to remove the guesswork. It prints the
 custom fields your reader can see, and — with `--issue` — the fields an
-individual issue's edit screen will actually accept.
+individual issue's edit screen will actually accept. With `--issue`, each
+`--field NAME` (repeatable) also prints the raw JSON Jira holds for that
+issue at a field or a dotted path, and the field's edit screen entry with the
+operations Jira allows (such as `set` and `edit`). The name is a field id, a
+custom field display name, or a dotted path into the field's JSON; a step
+into a list is its index, as in `fixVersions.0.name`.
 
 ```sh
 # List the custom-field ids and their display names for a preset.
@@ -498,6 +524,10 @@ python3 -m backlogops_cli.jira_fields -c my.cfg -p scrum
 
 # Also show which fields SCRUM-15's edit screen allows to be set.
 python3 -m backlogops_cli.jira_fields -c my.cfg -p scrum --issue SCRUM-15
+
+# Also show the JSON of SCRUM-15's time tracking, and one path within it.
+python3 -m backlogops_cli.jira_fields -c my.cfg -p scrum --issue SCRUM-15 \
+    --field timetracking --field timetracking.remainingEstimateSeconds
 ```
 
 Use it two ways:
@@ -510,6 +540,10 @@ Use it two ways:
   nothing, run with `--issue`: a field that is missing from that issue type's
   edit screen simply cannot be set through the Jira edit endpoint, no matter
   how it is mapped. The output tells you which is which.
+- **To check a path.** Run with `--field` and the path a column map reads
+  from, such as `timetracking.remainingEstimateSeconds`: the output shows
+  whether the issue holds a value there and what it looks like, and whether
+  the edit screen offers the field for writing.
 
 Behind these two listings are
 [`jira_custom_fields`](../backlogops_api.md#backlogops.jira_write.jira_custom_fields)

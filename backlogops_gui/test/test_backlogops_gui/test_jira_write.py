@@ -60,17 +60,30 @@ def test_write_action_absent() -> None:
     assert make_app(config()).jira.writer.backlog_action() is not None
 
 
-def test_write_runs(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the handler adds the backlog and hands back the result."""
+@pytest.mark.parametrize('use_rt', [False, True])
+def test_write_runs(monkeypatch: pytest.MonkeyPatch, use_rt: bool) -> None:
+    """Test the handler adds the backlog and hands back the result.
+
+    The configured use of remaining time estimates is passed on to the add.
+    """
     result = _add_result()
+    captured: dict[str, object] = {}
+
+    def add(*_args: object, **kwargs: object) -> AddedToJira:
+        """Record the remaining time use and return the canned result."""
+        captured['use_rt'] = kwargs.get('use_remaining_time')
+        return result
     monkeypatch.setattr(ASK_WRITE, _write_opts)
-    monkeypatch.setattr(ADD_BACKLOG, _fake_write(result))
+    monkeypatch.setattr(ADD_BACKLOG, add)
     monkeypatch.setattr(THREAD, make_immediate)
-    app = make_app(config())
+    top = config()
+    top.remaining_time.enable_remaining_time = use_rt
+    app = make_app(top)
     got: list[AddedToJira] = []
     # pylint: disable-next=protected-access
     app.jira.writer._add_backlog(DATA, got.append)
     assert got == [result]
+    assert captured['use_rt'] is use_rt
 
 
 def test_write_logs_failures(monkeypatch: pytest.MonkeyPatch) -> None:

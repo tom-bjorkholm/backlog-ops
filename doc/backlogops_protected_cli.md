@@ -3,6 +3,9 @@
 * [backlogops\_cli.jira\_fields](#backlogops_cli.jira_fields)
   * [build\_parser](#backlogops_cli.jira_fields.build_parser)
   * [\_print\_pairs](#backlogops_cli.jira_fields._print_pairs)
+  * [\_print\_json](#backlogops_cli.jira_fields._print_json)
+  * [\_print\_field](#backlogops_cli.jira_fields._print_field)
+  * [\_read\_all](#backlogops_cli.jira_fields._read_all)
   * [\_run](#backlogops_cli.jira_fields._run)
   * [main](#backlogops_cli.jira_fields.main)
 * [backlogops\_cli.update\_backlog\_in\_jira](#backlogops_cli.update_backlog_in_jira)
@@ -194,7 +197,11 @@ fetches from Jira, so a column-map name such as 'Story point estimate' can
 be matched to its field id. With ``--issue`` it also prints the fields the
 given issue's edit screen offers, which explains why a mapped field cannot
 be set on that issue's type: a field missing from the edit screen cannot be
-set through the issue edit REST endpoint.
+set through the issue edit REST endpoint. Each ``--field`` (which needs
+``--issue``) prints the raw Jira JSON at a field id or dotted path of that
+issue, such as ``timetracking.remainingEstimateSeconds``, and the field's
+edit screen entry, so a column map path can be checked against what Jira
+really holds and how it may be written.
 
 An encrypted Jira token is unlocked by a pass phrase asked on the terminal
 only when it is needed.
@@ -219,6 +226,39 @@ def _print_pairs(heading: str, pairs: list[tuple[str, str]]) -> None
 
 Print a heading and each field id and display name pair.
 
+<a id="backlogops_cli.jira_fields._print_json"></a>
+
+#### \_print\_json
+
+```python
+def _print_json(heading: str, value: object) -> None
+```
+
+Print a heading and the value as indented JSON below it.
+
+<a id="backlogops_cli.jira_fields._print_field"></a>
+
+#### \_print\_field
+
+```python
+def _print_field(issue: str, found: JiraFieldJson) -> None
+```
+
+Print one field path's JSON value and its edit screen entry.
+
+<a id="backlogops_cli.jira_fields._read_all"></a>
+
+#### \_read\_all
+
+```python
+def _read_all(
+    parsed: argparse.Namespace
+) -> tuple[list[tuple[str, str]], Optional[list[tuple[str, str]]],
+           list[JiraFieldJson]]
+```
+
+Read the custom fields, edit screen fields and field JSON asked for.
+
 <a id="backlogops_cli.jira_fields._run"></a>
 
 #### \_run
@@ -227,7 +267,7 @@ Print a heading and each field id and display name pair.
 def _run(parsed: argparse.Namespace) -> int
 ```
 
-Print the custom field map and, optionally, editable fields.
+Print the custom field map and, optionally, the issue's fields.
 
 <a id="backlogops_cli.jira_fields.main"></a>
 
@@ -247,6 +287,12 @@ Print Jira field information for a preset.
 **Returns**:
 
   ``0`` on success, ``1`` when the fields cannot be read.
+  
+
+**Raises**:
+
+- `SystemExit` - With status ``2`` when ``--field`` is given without
+  ``--issue``, as for any other command line usage error.
 
 <a id="backlogops_cli.update_backlog_in_jira"></a>
 
@@ -304,15 +350,17 @@ Add the mutually exclusive, required column-selection flags.
 #### \_resolve\_fields
 
 ```python
-def _resolve_fields(parsed: argparse.Namespace,
-                    connections: JiraConnections) -> list[str]
+def _resolve_fields(parsed: argparse.Namespace, connections: JiraConnections,
+                    use_remaining_time: bool) -> list[str]
 ```
 
 Return the internal field names to update from the -s/-e flags.
 
 ``-s all`` and ``-e`` are resolved against the preset's updatable
 columns. A ``-s`` name that is not an updatable column is reported and
-dropped, so a typo does not silently update nothing.
+dropped, so a typo does not silently update nothing. The remaining
+time is an updatable column only while remaining time estimates are
+used.
 
 <a id="backlogops_cli.update_backlog_in_jira._update"></a>
 

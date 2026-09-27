@@ -13,7 +13,9 @@ An empty internal value is left unset, so an empty value never clears a
 Jira field. The story points are the exception: an item nobody has
 estimated yet clears the story points in Jira, because carrying no
 estimate is as much a fact about the item as a number is. A mapped
-remaining time is never updated, because it is not written to Jira yet.
+remaining time is updated only while remaining time estimates are used,
+and it is compared and written as the whole minutes Jira keeps; an item
+with no remaining time leaves Jira's estimate as it is.
 
 The selected fields are written in the same way they are read: a settable
 field (summary, description, story points, team, fix version) through an
@@ -50,17 +52,18 @@ import sys
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import partial
-from typing import NamedTuple, Optional, TextIO
+from typing import Callable, NamedTuple, Optional, TextIO
 from jira import JIRA, Issue, JIRAError
 from backlogops.backlog import Backlog, BacklogItem, Status
 from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraAttrPath
 from backlogops.jira_rank_backlog import (
     JiraRankAnchor, RankEnv, rank_backlog_or_warn)
-from backlogops.jira_read import _coerce_all, _filtered_values, _row, _walk
+from backlogops.jira_read import (
+    _backlog_map, _coerce_all, _filtered_values, _row, _walk)
 from backlogops.jira_write import (
     AddedToJira, ItemNotInJiraError, OnExistingKey, OnMissingKey,
-    _UNWRITTEN_FIELDS, _WriteContext, _build_ctx, _internal_value,
+    _WriteContext, _build_ctx, _internal_value,
     _record_refused_fields, _set_edit_fields, _skipped_names, _try_link,
     _warn_unknown_releases, add_backlog_to_jira)
 from backlogops.jira_write_status import (
@@ -72,6 +75,7 @@ from backlogops.jira_write_fields import (
 from backlogops.jira_write_format import (
     _build_report, _failed_section, _field_section, _key_section,
     _link_section, _result_section, _status_section)
+from backlogops.jira_write_time import _jira_value
 from backlogops.levels import Levels
 
 _IDENTITY_FIELDS = frozenset({'key', 'level'})
@@ -79,13 +83,6 @@ _IDENTITY_FIELDS = frozenset({'key', 'level'})
 
 The key is the identity used to find the issue and the level maps to the
 issue type, which is not changed on an existing issue.
-"""
-
-_NOT_UPDATED = _IDENTITY_FIELDS | _UNWRITTEN_FIELDS
-"""Mapped fields never changed on an issue already in Jira.
-
-These are the identity fields and the fields not written to Jira at all.
-They are excluded from the selectable fields and from any update.
 """
 
 _LINK_FIELDS = frozenset({'parent_key', 'depends_on_f2s', 'depends_on_f2f',
@@ -228,15 +225,17 @@ def _field_diff(work: _Work) -> dict[str, object]:
     current Jira value is skipped, which also leaves an already empty
     Jira field alone. An empty internal value is otherwise left unset,
     except for the fields of :data:`_CLEARABLE_FIELDS`, which clear the
-    Jira field they are mapped to.
+    Jira field they are mapped to. A remaining time is compared as the
+    whole minutes Jira keeps, so an estimate that is not a whole number of
+    minutes is not rewritten on every update.
     """
     base = work.ctx.base
     fields: dict[str, object] = {}
     for name, attrs in base.column_map.items():
         if name not in work.ctx.selected or name in _SKIP_DATA or not attrs:
             continue
-        desired = _internal_value(name, work.item, base.types.levels,
-                                  base.types.issue_type_map)
+        desired = _jira_value(attrs[0], _internal_value(
+            name, work.item, base.types.levels, base.types.issue_type_map))
         if work.current.get(name) == desired:
             continue
         if desired not in (None, ''):
@@ -451,7 +450,7 @@ def _make_ctx(base: _WriteContext, fields_to_update: list[str],
     """Build the update context from the write context and the selection."""
     selected = frozenset(name for name in fields_to_update
                          if name in base.column_map
-                         and name not in _NOT_UPDATED)
+                         and name not in _IDENTITY_FIELDS)
     return _UpdateCtx(base=base, selected=selected, key_map=key_map,
                       link_update=link_update,
                       dep_specs=tuple(_dep_link_attrs(base.column_map)),
@@ -463,26 +462,21 @@ def _empty_added() -> AddedToJira:
     return AddedToJira([], [], [], {}, [], [], [])
 
 
-# pylint: disable-next=too-many-arguments,too-many-positional-arguments
-def _add_or_raise(connections: JiraConnections, preset_name: str,
-                  backlog: Backlog, existing: dict[str, Issue],
-                  mode: OnMissingKey, levels: Optional[Levels],
-                  status_map: Optional[dict[str, Status]],
+def _add_or_raise(backlog: Backlog, existing: dict[str, Issue],
+                  mode: OnMissingKey, add: Callable[[Backlog], AddedToJira],
                   stderr_file: TextIO) -> AddedToJira:
     """Handle the items not present in Jira per the missing-key policy.
 
     ``RAISE`` raises before anything is changed, ``ADD`` creates the
-    missing items with all of their fields as :func:`add_backlog_to_jira`
-    does, and any other policy leaves them alone with an empty add result.
+    missing items with all of their fields through ``add``, which is
+    :func:`add_backlog_to_jira` bound to the update's options, and any
+    other policy leaves them alone with an empty add result.
     """
     missing = [item for item in backlog if item.key not in existing]
     if mode is OnMissingKey.RAISE and missing:
         _raise_missing([item.key for item in missing], stderr_file)
     if mode is OnMissingKey.ADD and missing:
-        return add_backlog_to_jira(connections, preset_name, missing,
-                                   on_existing_key=OnExistingKey.SKIP,
-                                   levels=levels, status_map=status_map,
-                                   stderr_file=stderr_file)
+        return add(missing)
     return _empty_added()
 
 
@@ -536,6 +530,7 @@ def update_backlog_in_jira(connections: JiraConnections, preset_name: str,
                            rank_anchor: Optional[JiraRankAnchor] = None,
                            levels: Optional[Levels] = None,
                            status_map: Optional[dict[str, Status]] = None,
+                           use_remaining_time: bool = False,
                            stderr_file: TextIO = sys.stderr
                            ) -> UpdatedBacklogInJira:
     """Update the backlog items in Jira, matching a Jira issue by its key.
@@ -577,6 +572,10 @@ def update_backlog_in_jira(connections: JiraConnections, preset_name: str,
             missing item, or None for the default levels.
         status_map: Extra Jira status names mapped to internal statuses,
             used to reconcile a status, or None for the built-in matching.
+        use_remaining_time: Whether remaining time estimates are used, as
+            ``enable_remaining_time`` in the configuration says. When
+            False (the default) a mapped remaining time is not updated,
+            and not written for an added item either.
         stderr_file: Stream used for user-facing diagnostics.
 
     Returns:
@@ -592,10 +591,14 @@ def update_backlog_in_jira(connections: JiraConnections, preset_name: str,
         ItemNotInJiraError: In ``RAISE`` mode, if any key is not present in
             Jira.
     """
-    ctx, _ = _build_ctx(connections, preset_name, levels, status_map)
+    ctx, _ = _build_ctx(connections, preset_name, levels, status_map,
+                        use_remaining_time)
     existing = _existing_issues(ctx.client, backlog)
-    added = _add_or_raise(connections, preset_name, backlog, existing,
-                          on_missing_key, levels, status_map, stderr_file)
+    add = partial(add_backlog_to_jira, connections, preset_name,
+                  on_existing_key=OnExistingKey.SKIP, levels=levels,
+                  status_map=status_map, use_remaining_time=use_remaining_time,
+                  stderr_file=stderr_file)
+    added = _add_or_raise(backlog, existing, on_missing_key, add, stderr_file)
     update_ctx = _make_ctx(ctx, fields_to_update, added.key_map, link_update,
                            stderr_file)
     _warn_updated_releases(update_ctx, backlog, existing, stderr_file)
@@ -608,20 +611,22 @@ def update_backlog_in_jira(connections: JiraConnections, preset_name: str,
     return result
 
 
-def updatable_backlog_fields(connections: JiraConnections,
-                             preset_name: str) -> list[str]:
+def updatable_backlog_fields(connections: JiraConnections, preset_name: str, *,
+                             use_remaining_time: bool = False) -> list[str]:
     """Return the internal fields a preset can update on an existing issue.
 
     These are the fields mapped in the preset's backlog write map, minus
     the key and the issue type (level), which are never changed on an
-    existing issue, and the remaining time, which is not written to Jira
-    yet. The order follows the write map. This is the set the
+    existing issue, and minus the remaining time unless remaining time
+    estimates are used. The order follows the write map. This is the set the
     CLI ``all`` value and the GUI checkbox list offer, and the set
     :func:`update_backlog_in_jira` intersects ``fields_to_update`` with.
 
     Args:
         connections: The pool holding the configuration with the preset.
         preset_name: The name of the Jira preset to use.
+        use_remaining_time: Whether remaining time estimates are used, as
+            ``enable_remaining_time`` in the configuration says.
 
     Returns:
         The updatable internal field names, in write-map order.
@@ -631,9 +636,9 @@ def updatable_backlog_fields(connections: JiraConnections,
     """
     jira_config = connections.jira_config
     preset = jira_config.get_preset(preset_name)
-    column_map = jira_config.backlog_column_maps[
-        preset.write_backlog_map_name()]
-    return [name for name in column_map if name not in _NOT_UPDATED]
+    column_map = _backlog_map(jira_config.backlog_column_maps[
+        preset.write_backlog_map_name()], use_remaining_time)
+    return [name for name in column_map if name not in _IDENTITY_FIELDS]
 
 
 def format_backlog_updates(result: UpdatedBacklogInJira) -> str:

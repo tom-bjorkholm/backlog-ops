@@ -19,10 +19,13 @@ type is wrapped by its path steps, a list field such as the fix versions is
 wrapped as named objects, and a custom field is set by its resolved field
 id. A field the item has no value for is not written at all, so an item
 nobody has estimated yet is created with its story points left unset. A
-mapped remaining time is not written to Jira yet; it is only read. The
-issue type written for an item comes from the preset's level-to-issue-type
-map (falling back to the level name), so a Jira that renamed a type (such
-as a Swedish ``Deluppgift`` sub-task) still gets a valid issue type. The
+mapped remaining time is written only while remaining time estimates are
+used, as Jira's time tracking remaining estimate in whole minutes (see
+:mod:`backlogops.jira_write_time`), and read back to confirm Jira stored
+it. The issue type written for an item comes from the preset's
+level-to-issue-type map (falling back to the level name), so a Jira that
+renamed a type (such as a Swedish ``Deluppgift`` sub-task) still gets a
+valid issue type. The
 issue is first created with the fields a create screen accepts (project,
 summary, issue type) and the remaining fields are then set through an
 update, because a create screen often omits fields such as the story
@@ -72,32 +75,25 @@ from backlogops.jira_connect import JiraConnections
 from backlogops.jira_io_config import JiraColumnMap, JiraIssueTypeMap
 from backlogops.jira_rank_backlog import (
     JiraRankAnchor, RankEnv, rank_backlog_or_warn)
-from backlogops.jira_read import _custom_ids
+from backlogops.jira_read import _backlog_map, _custom_ids
 from backlogops.jira_write_fields import FailedField, FailedLink, _LinkSpec, \
     _link_specs, _parent_fields, _place_value
 from backlogops.jira_write_status import StatusMismatch, _jira_status_name, \
     _maps_to, _report_status_mismatch, _try_transitions
 from backlogops.jira_write_types import _TypeInfo, _issue_type, \
     _issue_type_meta, _subtask_types, _validate_issue_types
+from backlogops.jira_write_time import (
+    _jira_value, _split_edits, _unstored_time)
 from backlogops.levels import DEFAULT_LEVELS, Levels
-from backlogops.table_rows import REMAINING_TIME_COLUMN
-
-_UNWRITTEN_FIELDS = frozenset({REMAINING_TIME_COLUMN})
-"""Mapped internal fields that are read from Jira but never written to it.
-
-The remaining time is read from Jira, but writing it is not supported yet,
-so a backlog map shared by reading and writing may still map it.
-"""
 
 _SKIP_WRITE_FIELDS = frozenset({'key', 'status', 'parent_key'}) | \
-    frozenset(DEPENDENCY_FIELDS) | _UNWRITTEN_FIELDS
+    frozenset(DEPENDENCY_FIELDS)
 """Internal fields not set from the column map when creating an issue.
 
 The key is assigned by Jira, the status needs a workflow transition, the
-parent and dependency links are updated in a later batch, and the
-:data:`_UNWRITTEN_FIELDS` are not written at all. A sub-task's parent is
-the exception: it is set at create time by a dedicated path, because Jira
-requires it, not from the column map.
+parent and dependency links are updated in a later batch. A sub-task's
+parent is the exception: it is set at create time by a dedicated path,
+because Jira requires it, not from the column map.
 """
 
 _CREATE_FIELD_NAMES = frozenset({'project', 'summary', 'issuetype', 'parent'})
@@ -237,8 +233,8 @@ def _create_fields(ctx: _WriteContext, item: BacklogItem) -> dict[str, object]:
     for name, attrs in ctx.column_map.items():
         if name in _SKIP_WRITE_FIELDS or not attrs:
             continue
-        value = _internal_value(name, item, ctx.types.levels,
-                                ctx.types.issue_type_map)
+        value = _jira_value(attrs[0], _internal_value(
+            name, item, ctx.types.levels, ctx.types.issue_type_map))
         if value not in (None, ''):
             _place_value(fields, attrs[0], value, ctx.custom_ids)
     return fields
@@ -343,9 +339,14 @@ class _Created(NamedTuple):
 
 
 def _refusal(issue: Issue, fields: dict[str, object]) -> Optional[str]:
-    """Return Jira's reason for refusing this update, or None on success."""
+    """Return Jira's reason for refusing this update, or None on success.
+
+    A time tracking estimate is sent as an edit operation and every other
+    field as a plain field value, in one update.
+    """
+    plain, edits = _split_edits(fields)
     try:
-        issue.update(fields=fields)
+        issue.update(fields=plain, update=edits)
     except JIRAError as error:
         return _jira_reason(error)
     return None
@@ -411,7 +412,10 @@ def _set_edit_fields(client: JIRA, issue: Issue, key: str,
     reported rather than allowed to cost the caller the issue or the rest
     of the run. An edit screen that cannot be read leaves every field
     refused, and a refused update is retried one field at a time by
-    :func:`_set_fields`. It is shared by the create and the update paths.
+    :func:`_set_fields`. A written remaining estimate is read back, and
+    one Jira did not store is refused too, because Jira acknowledges an
+    ignored write as a success. It is shared by the create and the update
+    paths.
     """
     try:
         editable = _editable_field_ids(client, key)
@@ -420,8 +424,9 @@ def _set_edit_fields(client: JIRA, issue: Issue, key: str,
                            True)
     allowed = {name: value for name, value in payload.items()
                if name in editable}
-    return _FieldWrite(sorted(set(payload) - editable),
-                       _set_fields(issue, allowed), bool(allowed))
+    refused = _set_fields(issue, allowed)
+    refused += _unstored_time(client, key, allowed, refused)
+    return _FieldWrite(sorted(set(payload) - editable), refused, bool(allowed))
 
 
 def _create_issue(ctx: _WriteContext, item: BacklogItem,
@@ -741,6 +746,7 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
                         rank_anchor: Optional[JiraRankAnchor] = None,
                         levels: Optional[Levels] = None,
                         status_map: Optional[dict[str, Status]] = None,
+                        use_remaining_time: bool = False,
                         stderr_file: TextIO = sys.stderr) -> AddedToJira:
     """Add the backlog items to Jira, one created issue per new item.
 
@@ -785,6 +791,9 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
         status_map: Extra Jira status names mapped to internal statuses,
             used to reconcile a created issue's status, or None for the
             built-in status-name matching only.
+        use_remaining_time: Whether remaining time estimates are used, as
+            ``enable_remaining_time`` in the configuration says. When
+            False (the default) a mapped remaining time is not written.
         stderr_file: Stream used for user-facing diagnostics.
 
     Returns:
@@ -803,7 +812,8 @@ def add_backlog_to_jira(connections: JiraConnections, preset_name: str,
         ExistsInJiraError: In ``RAISE`` mode, if any key already exists in
             Jira.
     """
-    ctx, valid_types = _build_ctx(connections, preset_name, levels, status_map)
+    ctx, valid_types = _build_ctx(connections, preset_name, levels, status_map,
+                                  use_remaining_time)
     _validate_issue_types(valid_types, backlog, ctx.types.levels,
                           ctx.types.issue_type_map)
     existing = _existing_keys(ctx.client, backlog)
@@ -828,21 +838,22 @@ def _present_after_add(result: AddedToJira, backlog: Backlog) -> Backlog:
 
 def _build_ctx(connections: JiraConnections, preset_name: str,
                levels: Optional[Levels],
-               status_map: Optional[dict[str, Status]]
-               ) -> tuple[_WriteContext, set[str]]:
+               status_map: Optional[dict[str, Status]],
+               use_remaining_time: bool) -> tuple[_WriteContext, set[str]]:
     """Return the write context and the project's valid issue-type names.
 
     The preset names the connection, the backlog write map, the default
     project and an optional level-to-issue-type map, all looked up in the
-    pool's configuration. The valid issue-type names come from the
-    project's create metadata and are used to validate the items before
-    anything is created.
+    pool's configuration. The write map leaves out the remaining time
+    unless remaining time estimates are used, exactly as reading does. The
+    valid issue-type names come from the project's create metadata and are
+    used to validate the items before anything is created.
     """
     jira_config = connections.jira_config
     preset = jira_config.get_preset(preset_name)
     client = connections.client(preset.connection_name)
-    column_map = jira_config.backlog_column_maps[
-        preset.write_backlog_map_name()]
+    column_map = _backlog_map(jira_config.backlog_column_maps[
+        preset.write_backlog_map_name()], use_remaining_time)
     issue_type_map: JiraIssueTypeMap = jira_config.issue_type_maps.get(
         preset.issue_type_map_name, {})
     type_meta = _issue_type_meta(client, preset.def_project)

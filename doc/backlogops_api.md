@@ -130,6 +130,11 @@
   * [get\_backlog\_ops\_config](#backlogops.backlog_ops_config.get_backlog_ops_config)
 * [backlogops.name\_list\_io](#backlogops.name_list_io)
   * [read\_name\_list](#backlogops.name_list_io.read_name_list)
+* [backlogops.jira\_write\_time](#backlogops.jira_write_time)
+  * [TIME\_TRACKING](#backlogops.jira_write_time.TIME_TRACKING)
+* [backlogops.jira\_field\_json](#backlogops.jira_field_json)
+  * [JiraFieldJson](#backlogops.jira_field_json.JiraFieldJson)
+  * [jira\_field\_json](#backlogops.jira_field_json.jira_field_json)
 * [backlogops.table\_create](#backlogops.table_create)
   * [allow\_overwrite](#backlogops.table_create.allow_overwrite)
   * [open\_input\_table](#backlogops.table_create.open_input_table)
@@ -3290,6 +3295,111 @@ cell is a name.
 - `ValueError` - If a table has more than one column, or if the
   extension is not a supported table format.
 
+<a id="backlogops.jira_write_time"></a>
+
+# backlogops.jira\_write\_time
+
+Write a remaining time estimate to Jira.
+
+Jira reports an issue's remaining estimate as raw seconds, through
+``timetracking.remainingEstimateSeconds`` and the plain ``timeestimate``
+field, but both are read-only: Jira silently ignores a write of them. It
+accepts a remaining estimate only as a duration text in the
+``remainingEstimate`` of the ``timetracking`` field, and it keeps the
+estimate in whole minutes. A remaining time mapped to such a time tracking
+path is therefore rounded up to whole minutes, so an estimate is never
+lowered, and written as ``'<minutes>m'``. It is written through an
+``edit`` operation of the issue update rather than as a plain field value,
+because an edit leaves the issue's original estimate as it is. Jira still
+sets the original estimate from the first remaining estimate of an issue
+that has none. A remaining time mapped to any other path, such as a
+numeric custom field, is written as its whole number of seconds.
+
+Because Jira acknowledges an ignored write as a success, the remaining
+estimate is read back after it is written and a value Jira did not store
+is reported as a refused field.
+
+<a id="backlogops.jira_write_time.TIME_TRACKING"></a>
+
+#### TIME\_TRACKING
+
+The Jira field a remaining estimate is written to.
+
+<a id="backlogops.jira_field_json"></a>
+
+# backlogops.jira\_field\_json
+
+Look up the raw Jira JSON of an issue's fields, to help map columns.
+
+A backlog column map names a Jira attribute path such as
+``timetracking.remainingEstimateSeconds``. :func:`jira_field_json` shows
+what Jira really holds at such a path of one issue, as the JSON Jira
+returned, together with the field's entry on the issue's edit screen,
+which lists the operations Jira allows for writing it. A name is a field
+id, optionally followed by dotted path steps into the field's JSON; a
+step into a list is its index, as in ``fixVersions.0.name``. The first
+step may also be a custom field display name, such as ``Story point
+estimate``, which is resolved to its field id the way a column map's
+custom field is; a whole name that is a display name is not split at its
+dots.
+
+<a id="backlogops.jira_field_json.JiraFieldJson"></a>
+
+## JiraFieldJson Objects
+
+```python
+class JiraFieldJson(NamedTuple)
+```
+
+The raw Jira JSON found for one requested field path of an issue.
+
+Fields:
+    name: The field or dotted path as requested, such as
+        ``timetracking.remainingEstimateSeconds``.
+    field_id: The Jira field id the first step resolved to, such as
+        ``customfield_10016`` for ``Story point estimate``.
+    present: Whether the issue holds a value at the path; False when a
+        step names no key of an object or no index of a list.
+    value: The JSON value at the path; None when it is not present, or
+        when Jira holds null there.
+    edit_entry: The field's entry on the issue's edit screen, with the
+        operations Jira allows, or None when the edit screen does not
+        offer the field, which then cannot be written by an edit.
+
+<a id="backlogops.jira_field_json.jira_field_json"></a>
+
+#### jira\_field\_json
+
+```python
+def jira_field_json(connections: JiraConnections, preset_name: str,
+                    issue_key: str, names: list[str]) -> list[JiraFieldJson]
+```
+
+Return the raw Jira JSON of the named field paths of one issue.
+
+The issue's fields are read once as the JSON Jira returns, so every
+field is present, including read-only ones that a column map may read
+from but never write to. Each name is looked up as described in the
+module docstring. No names need no Jira calls.
+
+**Arguments**:
+
+- `connections` - The pool holding the configuration with the preset.
+- `preset_name` - The name of the Jira preset whose connection to use.
+- `issue_key` - The key of the issue to read, such as ``SCRUM-15``.
+- `names` - The field ids or dotted paths to look up, in output order.
+  
+
+**Returns**:
+
+  One result per name, in the order of ``names``.
+  
+
+**Raises**:
+
+- `KeyError` - If the preset or its connection is missing.
+- `JIRAError` - If Jira refuses to return the issue or its edit screen.
+
 <a id="backlogops.table_create"></a>
 
 # backlogops.table\_create
@@ -3508,7 +3618,9 @@ the issue's own Jira remaining estimate in raw seconds, both through the
 time tracking object and through the plain ``timeestimate`` field, so a
 user can simply delete the one that does not suit their Jira. Neither
 includes the sub-tasks, so an item and its sub-tasks are not counted
-twice.
+twice. Both paths are read-only in Jira, so a remaining time is written as
+the time tracking remaining estimate in whole minutes instead (see
+:mod:`backlogops.jira_write_time`).
 
 <a id="backlogops.jira_io_config.DEF_RELEASE_COLUMN_MAP"></a>
 
@@ -6380,7 +6492,9 @@ An empty internal value is left unset, so an empty value never clears a
 Jira field. The story points are the exception: an item nobody has
 estimated yet clears the story points in Jira, because carrying no
 estimate is as much a fact about the item as a number is. A mapped
-remaining time is never updated, because it is not written to Jira yet.
+remaining time is updated only while remaining time estimates are used,
+and it is compared and written as the whole minutes Jira keeps; an item
+with no remaining time leaves Jira's estimate as it is.
 
 The selected fields are written in the same way they are read: a settable
 field (summary, description, story points, team, fix version) through an
@@ -6467,6 +6581,7 @@ def update_backlog_in_jira(
         rank_anchor: Optional[JiraRankAnchor] = None,
         levels: Optional[Levels] = None,
         status_map: Optional[dict[str, Status]] = None,
+        use_remaining_time: bool = False,
         stderr_file: TextIO = sys.stderr) -> UpdatedBacklogInJira
 ```
 
@@ -6510,6 +6625,10 @@ processed. The argument backlog is never modified.
   missing item, or None for the default levels.
 - `status_map` - Extra Jira status names mapped to internal statuses,
   used to reconcile a status, or None for the built-in matching.
+- `use_remaining_time` - Whether remaining time estimates are used, as
+  ``enable_remaining_time`` in the configuration says. When
+  False (the default) a mapped remaining time is not updated,
+  and not written for an added item either.
 - `stderr_file` - Stream used for user-facing diagnostics.
   
 
@@ -6535,15 +6654,17 @@ processed. The argument backlog is never modified.
 
 ```python
 def updatable_backlog_fields(connections: JiraConnections,
-                             preset_name: str) -> list[str]
+                             preset_name: str,
+                             *,
+                             use_remaining_time: bool = False) -> list[str]
 ```
 
 Return the internal fields a preset can update on an existing issue.
 
 These are the fields mapped in the preset's backlog write map, minus
 the key and the issue type (level), which are never changed on an
-existing issue, and the remaining time, which is not written to Jira
-yet. The order follows the write map. This is the set the
+existing issue, and minus the remaining time unless remaining time
+estimates are used. The order follows the write map. This is the set the
 CLI ``all`` value and the GUI checkbox list offer, and the set
 :func:`update_backlog_in_jira` intersects ``fields_to_update`` with.
 
@@ -6551,6 +6672,8 @@ CLI ``all`` value and the GUI checkbox list offer, and the set
 
 - `connections` - The pool holding the configuration with the preset.
 - `preset_name` - The name of the Jira preset to use.
+- `use_remaining_time` - Whether remaining time estimates are used, as
+  ``enable_remaining_time`` in the configuration says.
   
 
 **Returns**:
@@ -8154,10 +8277,13 @@ type is wrapped by its path steps, a list field such as the fix versions is
 wrapped as named objects, and a custom field is set by its resolved field
 id. A field the item has no value for is not written at all, so an item
 nobody has estimated yet is created with its story points left unset. A
-mapped remaining time is not written to Jira yet; it is only read. The
-issue type written for an item comes from the preset's level-to-issue-type
-map (falling back to the level name), so a Jira that renamed a type (such
-as a Swedish ``Deluppgift`` sub-task) still gets a valid issue type. The
+mapped remaining time is written only while remaining time estimates are
+used, as Jira's time tracking remaining estimate in whole minutes (see
+:mod:`backlogops.jira_write_time`), and read back to confirm Jira stored
+it. The issue type written for an item comes from the preset's
+level-to-issue-type map (falling back to the level name), so a Jira that
+renamed a type (such as a Swedish ``Deluppgift`` sub-task) still gets a
+valid issue type. The
 issue is first created with the fields a create screen accepts (project,
 summary, issue type) and the remaining fields are then set through an
 update, because a create screen often omits fields such as the story
@@ -8312,6 +8438,7 @@ def add_backlog_to_jira(connections: JiraConnections,
                         rank_anchor: Optional[JiraRankAnchor] = None,
                         levels: Optional[Levels] = None,
                         status_map: Optional[dict[str, Status]] = None,
+                        use_remaining_time: bool = False,
                         stderr_file: TextIO = sys.stderr) -> AddedToJira
 ```
 
@@ -8359,6 +8486,9 @@ argument backlog is never modified.
 - `status_map` - Extra Jira status names mapped to internal statuses,
   used to reconcile a created issue's status, or None for the
   built-in status-name matching only.
+- `use_remaining_time` - Whether remaining time estimates are used, as
+  ``enable_remaining_time`` in the configuration says. When
+  False (the default) a mapped remaining time is not written.
 - `stderr_file` - Stream used for user-facing diagnostics.
   
 
@@ -9732,7 +9862,10 @@ pure helpers that set or clear one Jira field from a mapped path
 (:func:`_place_value` and :func:`_clear_value`, and the parent update
 fields from :func:`_parent_fields` and :func:`_clear_parent_fields`) and
 that derive how a dependency field is written as a Jira issue link
-(:func:`_link_specs`). It also defines :class:`FailedField` and
+(:func:`_link_specs`). Writing is the exact inverse except for a remaining
+time read from a read-only time tracking path, which is placed as Jira's
+writable remaining estimate by the helpers of
+:mod:`backlogops.jira_write_time`. It also defines :class:`FailedField` and
 :class:`FailedLink`, the results of a field value and of a link that Jira
 refused. The orchestration that creates issues and writes the links lives
 in :mod:`backlogops.jira_write`, which imports these helpers.

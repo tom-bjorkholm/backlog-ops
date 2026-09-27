@@ -13,7 +13,6 @@ closed.
 # MIT License
 
 import io
-from datetime import timedelta
 from typing import Optional, cast
 import pytest
 from jira import JIRA, JIRAError
@@ -147,23 +146,6 @@ def test_add_unestimated(monkeypatch: pytest.MonkeyPatch) -> None:
                         on_existing_key=OnExistingKey.SKIP)
     assert 'customfield_10016' not in client.created[0]
     assert client.created[0]['summary'] == 'T'
-
-
-def test_add_no_rt(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a mapped remaining time is left out of a created issue.
-
-    Remaining time is read from Jira but not written to it yet, so neither
-    of its default paths may reach the payload.
-    """
-    client = _WriteClient()
-    connections = _connections(monkeypatch, client)
-    item = _item('A')
-    item.remaining_time = timedelta(hours=2)
-    add_backlog_to_jira(connections, 'w', [item],
-                        on_existing_key=OnExistingKey.SKIP)
-    fields = client.created[0]
-    assert 'timetracking' not in fields and 'timeestimate' not in fields
-    assert fields['summary'] == 'T'
 
 
 @pytest.mark.parametrize('points', [0.0, 0.5])

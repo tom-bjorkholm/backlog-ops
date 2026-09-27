@@ -82,15 +82,18 @@ def _add_column_flags(parser: argparse.ArgumentParser) -> None:
                        help='Update every mapped writable column but these.')
 
 
-def _resolve_fields(parsed: argparse.Namespace,
-                    connections: JiraConnections) -> list[str]:
+def _resolve_fields(parsed: argparse.Namespace, connections: JiraConnections,
+                    use_remaining_time: bool) -> list[str]:
     """Return the internal field names to update from the -s/-e flags.
 
     ``-s all`` and ``-e`` are resolved against the preset's updatable
     columns. A ``-s`` name that is not an updatable column is reported and
-    dropped, so a typo does not silently update nothing.
+    dropped, so a typo does not silently update nothing. The remaining
+    time is an updatable column only while remaining time estimates are
+    used.
     """
-    updatable = updatable_backlog_fields(connections, parsed.preset)
+    updatable = updatable_backlog_fields(connections, parsed.preset,
+                                         use_remaining_time=use_remaining_time)
     if parsed.store is not None:
         if parsed.store == [_STORE_ALL]:
             return updatable
@@ -109,7 +112,8 @@ def _update(parsed: argparse.Namespace, config: BacklogOpsConfig,
     print(f"Updating backlog in Jira using preset '{parsed.preset}'...",
           file=sys.stderr)
     connections = JiraConnections(config.get_jira_config(), jira_passphrase)
-    fields = _resolve_fields(parsed, connections)
+    use_rt = config.remaining_time.enable_remaining_time
+    fields = _resolve_fields(parsed, connections, use_rt)
     mode = _MISSING_MODES[parsed.on_missing]
     link_update = _LINK_MODES[parsed.links]
     assert isinstance(data_backlog, list)
@@ -119,7 +123,8 @@ def _update(parsed: argparse.Namespace, config: BacklogOpsConfig,
                                     link_update=link_update,
                                     rank_anchor=rank_anchor(parsed.rank),
                                     levels=config.get_levels(),
-                                    status_map=config.get_status_input_map())
+                                    status_map=config.get_status_input_map(),
+                                    use_remaining_time=use_rt)
     _report_summary(result)
     return result
 

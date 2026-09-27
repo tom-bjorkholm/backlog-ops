@@ -15,7 +15,6 @@ full elsewhere.
 # MIT License
 
 import io
-from datetime import timedelta
 from types import SimpleNamespace
 from typing import Callable, Optional, cast
 import pytest
@@ -35,8 +34,8 @@ from backlogops.jira_update_backlog import (
     LinkUpdate, UpdatedBacklogInJira, format_backlog_updates,
     updatable_backlog_fields, update_backlog_in_jira, _find_link_id)
 from .jira_write_helpers import (
-    attr_parent_config, connections_for as _connections, NO, RankCall,
-    capture_rank)
+    attr_parent_config, connections_for as _connections, edit_seconds, NO,
+    RankCall, capture_rank)
 
 FIELDS: list[dict[str, str]] = [
     {'id': 'customfield_10016', 'name': 'Story point estimate'},
@@ -63,9 +62,13 @@ def _issue(key: str, *, summary: str = 'T', description: str = 'D',
            points: Optional[float] = 5.0, team: Optional[str] = None,
            status: str = 'To Do', parent: Optional[str] = None,
            release: Optional[str] = None,
-           links: Optional[list[SimpleNamespace]] = None,
-           fail: bool = False) -> '_Issue':
-    """Return a fake issue whose fields hold the given current values."""
+           links: Optional[list[SimpleNamespace]] = None, fail: bool = False,
+           remaining: Optional[int] = None) -> '_Issue':
+    """Return a fake issue whose fields hold the given current values.
+
+    ``remaining`` is the issue's remaining estimate in seconds, held under
+    both paths the default map reads it from; None means no estimate.
+    """
     fields = SimpleNamespace(
         summary=summary, description=description, customfield_10016=points,
         customfield_10001=team, status=SimpleNamespace(name=status),
@@ -73,7 +76,15 @@ def _issue(key: str, *, summary: str = 'T', description: str = 'D',
         fixVersions=([SimpleNamespace(name=release)]
                      if release is not None else []),
         issuelinks=(links or []))
+    _set_remaining(fields, remaining)
     return _Issue(key, fields, fail)
+
+
+def _set_remaining(fields: SimpleNamespace, seconds: Optional[int]) -> None:
+    """Set the remaining estimate seconds under both of its Jira paths."""
+    fields.timetracking = (SimpleNamespace(remainingEstimateSeconds=seconds)
+                           if seconds is not None else None)
+    fields.timeestimate = seconds
 
 
 # pylint: disable-next=too-few-public-methods
@@ -84,6 +95,9 @@ class _Issue:
     update carrying one of the named fields, as Jira does for a value it
     cannot accept. A refused update is recorded in ``refused`` and none of
     its fields is merged, so a retry one field at a time is observable.
+    Edit operations are recorded merged into the fields; a time tracking
+    edit sets the remaining estimate, unless ``ignore_time`` makes Jira
+    accept it without storing it.
     """
 
     def __init__(self, key: str, fields: SimpleNamespace, fail: bool) -> None:
@@ -94,15 +108,21 @@ class _Issue:
         self.fail_fields: set[str] = set()
         self.updates: list[dict[str, object]] = []
         self.refused: list[dict[str, object]] = []
+        self.ignore_time = False
 
-    def update(self, fields: dict[str, object]) -> None:
+    def update(self, fields: dict[str, object],
+               update: Optional[dict[str, object]] = None) -> None:
         """Record the update and merge it, or raise when set to fail."""
-        if self.fail or self.fail_fields & set(fields):
-            self.refused.append(dict(fields))
+        merged = {**fields, **(update or {})}
+        if self.fail or self.fail_fields & set(merged):
+            self.refused.append(merged)
             raise JIRAError(status_code=400, text='update rejected')
-        self.updates.append(dict(fields))
+        self.updates.append(merged)
         for name, value in fields.items():
             setattr(self.fields, name, value)
+        edits = (update or {}).get('timetracking')
+        if edits is not None and not self.ignore_time:
+            _set_remaining(self.fields, edit_seconds(edits))
 
 
 # pylint: disable-next=too-many-instance-attributes
@@ -133,8 +153,9 @@ class _Client:
         """Return the canned field descriptors."""
         return FIELDS
 
-    def issue(self, key: str) -> _Issue:
+    def issue(self, key: str, fields: object = None) -> _Issue:
         """Return the issue for a present key, or raise for an absent one."""
+        _ = fields
         if key in self.issues:
             return self.issues[key]
         raise JIRAError(status_code=404, text='not found')
@@ -710,28 +731,21 @@ def test_input_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
     assert item.depends_on_f2s == ['B']
 
 
-def test_updatable_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize('use_rt', [False, True])
+def test_updatable_fields(monkeypatch: pytest.MonkeyPatch,
+                          use_rt: bool) -> None:
     """Test the updatable fields are the mapped ones minus key and level.
 
-    The remaining time is mapped but not written to Jira yet, so it is not
-    offered either.
+    The remaining time is mapped, and offered only while remaining time
+    estimates are used.
     """
     connections = _connections(monkeypatch, _Client({}))
-    fields = updatable_backlog_fields(connections, 'w')
+    fields = updatable_backlog_fields(connections, 'w',
+                                      use_remaining_time=use_rt)
     assert 'title' in fields and 'status' in fields
     assert 'depends_on_f2s' in fields
     assert 'key' not in fields and 'level' not in fields
-    assert 'remaining_time' not in fields
-
-
-def test_rt_not_updated(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a chosen remaining time leaves the Jira issue untouched."""
-    client = _Client({'A': _issue('A')})
-    connections = _connections(monkeypatch, client)
-    item = _item('A', remaining_time=timedelta(hours=3))
-    result = _upd(connections, [item], ['remaining_time'])
-    assert result.already_correct == ['A']
-    assert client.issues['A'].updates == []
+    assert ('remaining_time' in fields) is use_rt
 
 
 def test_ignores_bad_field(monkeypatch: pytest.MonkeyPatch) -> None:

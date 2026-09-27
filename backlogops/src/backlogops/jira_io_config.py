@@ -196,7 +196,9 @@ the issue's own Jira remaining estimate in raw seconds, both through the
 time tracking object and through the plain ``timeestimate`` field, so a
 user can simply delete the one that does not suit their Jira. Neither
 includes the sub-tasks, so an item and its sub-tasks are not counted
-twice.
+twice. Both paths are read-only in Jira, so a remaining time is written as
+the time tracking remaining estimate in whole minutes instead (see
+:mod:`backlogops.jira_write_time`).
 """
 
 

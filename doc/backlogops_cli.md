@@ -96,7 +96,11 @@ fetches from Jira, so a column-map name such as 'Story point estimate' can
 be matched to its field id. With ``--issue`` it also prints the fields the
 given issue's edit screen offers, which explains why a mapped field cannot
 be set on that issue's type: a field missing from the edit screen cannot be
-set through the issue edit REST endpoint.
+set through the issue edit REST endpoint. Each ``--field`` (which needs
+``--issue``) prints the raw Jira JSON at a field id or dotted path of that
+issue, such as ``timetracking.remainingEstimateSeconds``, and the field's
+edit screen entry, so a column map path can be checked against what Jira
+really holds and how it may be written.
 
 An encrypted Jira token is unlocked by a pass phrase asked on the terminal
 only when it is needed.
@@ -129,6 +133,12 @@ Print Jira field information for a preset.
 **Returns**:
 
   ``0`` on success, ``1`` when the fields cannot be read.
+  
+
+**Raises**:
+
+- `SystemExit` - With status ``2`` when ``--field`` is given without
+  ``--issue``, as for any other command line usage error.
 
 <a id="backlogops_cli.update_backlog_in_jira"></a>
 

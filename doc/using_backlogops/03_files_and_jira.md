@@ -154,8 +154,13 @@ your file does not fill cannot wipe Jira. The story points are the one
 exception: an empty `story_points` cell says nobody has estimated the item,
 which is worth knowing, so it clears the story points in Jira. Leave
 `story_points` out of the chosen columns when your file has estimates you do
-not trust. The `remaining_time` column cannot be chosen yet, because remaining
-time is not written to Jira yet; adding items leaves it out too.
+not trust. The `remaining_time` column can be chosen only while
+[remaining time estimates](01_configuration.md#remaining-time-estimates) are
+enabled, and adding items writes it only then too. An empty `remaining_time`
+cell leaves the Jira estimate as it is. The estimate is written as Jira's
+remaining estimate in whole minutes, rounded up, and read back to confirm
+Jira stored it, as described under
+[column maps](01_configuration.md#column-maps-how-a-field-reaches-a-jira-value).
 
 **CLI**
 
@@ -220,7 +225,8 @@ scrolling. Each section is a heading with its count and one line per entry, or
 - **Status not set in Jira** — no workflow transition reached the item's
   status;
 - **Fields not set** — a value Jira refused, with the issue key, the field
-  and Jira's own reason;
+  and Jira's own reason, or a remaining estimate (`timetracking`) that Jira
+  accepted but did not store;
 - **Links not written** — a parent or dependency link Jira refused.
 
 An item that appears under *Fields not set* is still listed under *Updated in

@@ -98,9 +98,15 @@ def test_upd_failed(monkeypatch: pytest.MonkeyPatch) -> None:
     assert errors
 
 
-def _fields_stub(_connections: object, _name: str) -> list[str]:
-    """Return a fixed updatable field list as the library would."""
-    return ['title', 'status']
+def _fields_stub(_connections: object, _name: str, *,
+                 use_remaining_time: bool = False) -> list[str]:
+    """Return a fixed updatable field list as the library would.
+
+    The remaining time is listed only while remaining time estimates are
+    used, as the library does.
+    """
+    return ['title', 'status'] + (['remaining_time'] if use_remaining_time
+                                  else [])
 
 
 def _bl_upd_opts(_parent: object, _fields: object) -> JiraBacklogUpdateOptions:
@@ -128,10 +134,11 @@ def _fake_bl_update(captured: dict[str, object], result: UpdatedBacklogInJira
     def update(connections: object, preset: str, backlog: object, *,
                fields_to_update: list[str], link_update: LinkUpdate,
                **kwargs: object) -> UpdatedBacklogInJira:
-        """Record the resolved fields and the link policy."""
-        _ = (connections, preset, backlog, kwargs)
+        """Record the resolved fields, link policy and remaining time use."""
+        _ = (connections, preset, backlog)
         captured['fields'] = fields_to_update
         captured['link'] = link_update
+        captured['use_rt'] = kwargs.get('use_remaining_time')
         return result
     return update
 
@@ -143,15 +150,26 @@ def test_bl_upd_action_absent() -> None:
     assert make_app(config()).jira.updater.backlog_action() is not None
 
 
-def test_bl_preset_fields(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the preset-to-fields map is built from the library helper."""
+@pytest.mark.parametrize('use_rt, expected', [
+    (False, ['title', 'status']),
+    (True, ['title', 'status', 'remaining_time'])])
+def test_bl_preset_fields(monkeypatch: pytest.MonkeyPatch, use_rt: bool,
+                          expected: list[str]) -> None:
+    """Test the preset-to-fields map is built from the library helper.
+
+    The configured use of remaining time estimates is passed on, so the
+    remaining time is offered only while it is used.
+    """
     monkeypatch.setattr(FIELDS, _fields_stub)
-    app = make_app(config())
+    top = config()
+    top.remaining_time.enable_remaining_time = use_rt
+    app = make_app(top)
     # pylint: disable-next=protected-access
-    assert app.jira.updater._preset_fields() == {'scrum': ['title', 'status']}
+    assert app.jira.updater._preset_fields() == {'scrum': expected}
 
 
-def test_bl_upd_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize('use_rt', [False, True])
+def test_bl_upd_runs(monkeypatch: pytest.MonkeyPatch, use_rt: bool) -> None:
     """Test the handler updates the backlog and hands back the result."""
     captured: dict[str, object] = {}
     result = _bl_update_result()
@@ -159,13 +177,16 @@ def test_bl_upd_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ASK_BL, _bl_upd_opts)
     monkeypatch.setattr(UPD_BL, _fake_bl_update(captured, result))
     monkeypatch.setattr(THREAD, make_immediate)
-    app = make_app(config())
+    top = config()
+    top.remaining_time.enable_remaining_time = use_rt
+    app = make_app(top)
     got: list[UpdatedBacklogInJira] = []
     # pylint: disable-next=protected-access
     app.jira.updater._update_backlog(DATA, got.append)
     assert got == [result]
     assert captured['fields'] == ['title', 'status']
     assert captured['link'] is LinkUpdate.RECONCILE
+    assert captured['use_rt'] is use_rt
     assert 'already correct' in app.log.text()
 
 

@@ -4,13 +4,16 @@
 A stand-in Jira client returns canned field descriptors and edit-screen
 metadata, so the command can be tested without a server: the tests check
 it prints the custom field id-to-name map, prints an issue's editable
-fields when asked, and is discovered by the list command.
+fields when asked, prints the raw JSON of the ``--field`` paths of that
+issue, refuses ``--field`` without ``--issue``, and is discovered by the
+list command.
 """
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
 from pathlib import Path
+from types import SimpleNamespace
 import pytest
 from test_backlogops.jira_write_helpers import jira_conn_preset
 from backlogops import (
@@ -40,7 +43,14 @@ class _FieldClient:
         """Return the canned edit-screen field metadata."""
         _ = issue
         return {'fields': {'customfield_10016': {'name': 'Story point est'},
-                           'summary': {'name': 'Summary'}}}
+                           'summary': {'name': 'Summary'},
+                           'timetracking': {'operations': ['set', 'edit']}}}
+
+    def issue(self, key: str) -> SimpleNamespace:
+        """Return the issue carrying canned raw fields."""
+        return SimpleNamespace(raw={'key': key, 'fields': {
+            'timetracking': {'remainingEstimateSeconds': 22020},
+            'timeestimate': 22020}})
 
     def close(self) -> None:
         """Close the stand-in client (nothing to release)."""
@@ -113,3 +123,49 @@ def test_prints_editable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     out = capsys.readouterr().out
     assert 'edit screen of SCRUM-1' in out
     assert 'customfield_10016' in out
+
+
+def _field_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+               *fields: str) -> int:
+    """Run the command for issue SCRUM-1 with a --field per name."""
+    _config_file(tmp_path / 'ops.cfg')
+    monkeypatch.setattr(jc, '_connect', _connect_fake)
+    args = ['-p', 'a', '-c', str(tmp_path / 'ops.cfg'), '--issue', 'SCRUM-1']
+    for name in fields:
+        args += ['--field', name]
+    return jira_fields.main(args)
+
+
+def test_prints_field_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                           capsys: pytest.CaptureFixture[str]) -> None:
+    """Test --field prints the JSON value and the edit screen entry."""
+    code = _field_run(tmp_path, monkeypatch, 'timetracking')
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "Field 'timetracking' of SCRUM-1 (Jira field timetracking):" in out
+    assert '"remainingEstimateSeconds": 22020' in out
+    assert '"edit"' in out
+
+
+def test_prints_field_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                           capsys: pytest.CaptureFixture[str]) -> None:
+    """Test a dotted path, a read-only field and a missing path print."""
+    code = _field_run(tmp_path, monkeypatch,
+                      'timetracking.remainingEstimateSeconds', 'timeestimate',
+                      'timetracking.raw')
+    assert code == 0
+    out = capsys.readouterr().out
+    assert 'value:\n    22020' in out
+    assert 'edit screen: (not offered, so not writable by an edit)' in out
+    assert "Field 'timetracking.raw'" in out
+    assert 'value: (no such path in the issue)' in out
+
+
+def test_field_needs_issue(tmp_path: Path,
+                           capsys: pytest.CaptureFixture[str]) -> None:
+    """Test --field without --issue is a usage error."""
+    with pytest.raises(SystemExit) as raised:
+        jira_fields.main(['-p', 'a', '-c', str(tmp_path / 'ops.cfg'),
+                          '--field', 'timetracking'])
+    assert raised.value.code == 2
+    assert '--field needs --issue' in capsys.readouterr().err

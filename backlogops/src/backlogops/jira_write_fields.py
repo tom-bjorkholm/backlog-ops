@@ -7,7 +7,10 @@ pure helpers that set or clear one Jira field from a mapped path
 (:func:`_place_value` and :func:`_clear_value`, and the parent update
 fields from :func:`_parent_fields` and :func:`_clear_parent_fields`) and
 that derive how a dependency field is written as a Jira issue link
-(:func:`_link_specs`). It also defines :class:`FailedField` and
+(:func:`_link_specs`). Writing is the exact inverse except for a remaining
+time read from a read-only time tracking path, which is placed as Jira's
+writable remaining estimate by the helpers of
+:mod:`backlogops.jira_write_time`. It also defines :class:`FailedField` and
 :class:`FailedLink`, the results of a field value and of a link that Jira
 refused. The orchestration that creates issues and writes the links lives
 in :mod:`backlogops.jira_write`, which imports these helpers.
@@ -21,6 +24,7 @@ from typing import NamedTuple, Optional
 from backlogops.backlog import BacklogItem, DEPENDENCY_FIELDS
 from backlogops.jira_io_config import JiraAttrPath, JiraAttrType, JiraColumnMap
 from backlogops.jira_read import _field_id
+from backlogops.jira_write_time import _is_time_tracking, _time_payload
 
 _JIRA_LIST_FIELDS = frozenset({'fixVersions', 'versions', 'components'})
 """Jira issue fields whose create value is a list of named objects."""
@@ -82,8 +86,16 @@ def _field_payload(path: tuple[str, ...], value: object) -> dict[str, object]:
 
 def _place_value(fields: dict[str, object], attr: JiraAttrPath, value: object,
                  custom_ids: dict[str, str]) -> None:
-    """Place one field value into the Jira create-fields dict by kind."""
-    if attr.kind is JiraAttrType.CUSTOM_FIELD:
+    """Place one field value into the Jira create-fields dict by kind.
+
+    A remaining time for a time tracking path, given as the whole seconds
+    :func:`backlogops.jira_write_time._jira_value` returns, is placed as
+    the writable ``timetracking`` remaining estimate rather than at the
+    read-only path it is read from.
+    """
+    if _is_time_tracking(attr) and isinstance(value, int):
+        fields.update(_time_payload(value))
+    elif attr.kind is JiraAttrType.CUSTOM_FIELD:
         field_id = _field_id(attr.path[0], custom_ids)
         if field_id is not None:
             fields[field_id] = value

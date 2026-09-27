@@ -28,11 +28,15 @@ from .cli_test_helpers import write_item_input
 NO = NoTextIO()
 
 
-def _config_file(path: Path) -> None:
-    """Write a backlog-ops configuration with a Jira preset to a file."""
+def _config_file(path: Path, use_rt: bool = False) -> None:
+    """Write a backlog-ops configuration with a Jira preset to a file.
+
+    ``use_rt`` sets whether remaining time estimates are used.
+    """
     config = BacklogOpsConfig(
         available_teams=AvailableTeams(persons={}, teams=[]), stderr_file=NO)
     config.jira = jira_write_config()
+    config.remaining_time.enable_remaining_time = use_rt
     write_backlog_ops_config(config, path, NO)
 
 
@@ -58,6 +62,7 @@ def _fake_update(captured: dict[str, object], result: UpdatedBacklogInJira
         captured['mode'] = on_missing_key
         captured['link'] = link_update
         captured['rank'] = kwargs.get('rank_anchor')
+        captured['use_rt'] = kwargs.get('use_remaining_time')
         return result
     return update
 
@@ -77,9 +82,9 @@ def _args(tmp_path: Path, *extra: str) -> list[str]:
             str(tmp_path / 'ops.cfg'), *extra]
 
 
-def _prepare(tmp_path: Path) -> None:
+def _prepare(tmp_path: Path, use_rt: bool = False) -> None:
     """Write the configuration and the input file used by the tests."""
-    _config_file(tmp_path / 'ops.cfg')
+    _config_file(tmp_path / 'ops.cfg', use_rt)
     write_item_input(tmp_path / 'in.csv')
 
 
@@ -108,16 +113,25 @@ def test_store_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured['fields'] == ['title', 'status']
 
 
-def test_store_all(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test -s all stores every mapped writable column."""
+@pytest.mark.parametrize('use_rt', [False, True])
+def test_store_all(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                   use_rt: bool) -> None:
+    """Test -s all stores every mapped writable column.
+
+    The remaining time is a writable column, and its use is passed on,
+    only while remaining time estimates are used.
+    """
     captured = _patch(monkeypatch, _result())
-    _prepare(tmp_path)
+    _prepare(tmp_path, use_rt)
     code = update_backlog_in_jira.main(_args(tmp_path, '-s', 'all'))
     assert code == 0
     fields = captured['fields']
     assert isinstance(fields, list)
-    assert set(fields) == {'title', 'status', 'parent_key', 'release', 'team',
-                           'story_points', 'depends_on_f2s', 'description'}
+    expected = {'title', 'status', 'parent_key', 'release', 'team',
+                'story_points', 'depends_on_f2s', 'description'}
+    assert set(fields) == (expected | {'remaining_time'} if use_rt
+                           else expected)
+    assert captured['use_rt'] is use_rt
 
 
 def test_exclude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -65,6 +65,7 @@ class JiraWriter(JiraAction):
                 self._connections(), name, data.backlog, on_existing_key=mode,
                 rank_anchor=options.rank_anchor, levels=config.get_levels(),
                 status_map=config.get_status_input_map(),
+                use_remaining_time=config.remaining_time.enable_remaining_time,
                 stderr_file=self._app.log)
 
         def done(result: AddedToJira) -> None:

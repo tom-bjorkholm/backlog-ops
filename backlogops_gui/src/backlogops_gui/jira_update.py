@@ -76,8 +76,11 @@ class JiraUpdater(JiraAction):
     def _preset_fields(self) -> dict[str, list[str]]:
         """Return each preset name mapped to its updatable backlog fields."""
         connections = self._connections()
-        return {name: updatable_backlog_fields(connections, name)
-                for name in self._config().get_jira_config().presets}
+        config = self._config()
+        use_rt = config.remaining_time.enable_remaining_time
+        return {name: updatable_backlog_fields(connections, name,
+                                               use_remaining_time=use_rt)
+                for name in config.get_jira_config().presets}
 
     def _update_backlog(
             self, data: BacklogReleases,
@@ -106,6 +109,7 @@ class JiraUpdater(JiraAction):
                 fields_to_update=options.fields, link_update=link_update,
                 rank_anchor=options.rank_anchor, levels=config.get_levels(),
                 status_map=config.get_status_input_map(),
+                use_remaining_time=config.remaining_time.enable_remaining_time,
                 stderr_file=self._app.log)
 
         def done(result: UpdatedBacklogInJira) -> None:

@@ -66,7 +66,9 @@ def _add(parsed: argparse.Namespace, config: BacklogOpsConfig,
                                  on_existing_key=mode,
                                  rank_anchor=rank_anchor(parsed.rank),
                                  levels=config.get_levels(),
-                                 status_map=config.get_status_input_map())
+                                 status_map=config.get_status_input_map(),
+                                 use_remaining_time=config.remaining_time
+                                 .enable_remaining_time)
     print(f'Added {len(result.stored)} items to Jira; '
           f'{len(result.already_present)} already present; '
           f'{len(result.failed)} failed; '

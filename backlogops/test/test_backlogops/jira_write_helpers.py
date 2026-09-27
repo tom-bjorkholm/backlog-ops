@@ -285,12 +285,16 @@ class WriteBehavior:
 class WriteLinkLog:
     """Recorded update and link calls, and the link failure knobs.
 
-    ``updates`` records each accepted ``update`` call as (key, fields) and
-    ``refused`` each rejected one, so a retry of a refused update one field
-    at a time is visible. ``links``
-    records each created issue link as (type, inward, outward),
-    ``fail_parent`` makes a parent update fail, and ``fail_link_to`` names
-    the endpoint keys whose link creation should fail.
+    ``updates`` records each accepted ``update`` call as (key, fields),
+    with any edit operations merged into the fields, and ``refused`` each
+    rejected one, so a retry of a refused update one field at a time is
+    visible. ``links`` records each created issue link as (type, inward,
+    outward), ``fail_parent`` makes a parent update fail, and
+    ``fail_link_to`` names the endpoint keys whose link creation should
+    fail. ``time_seconds`` holds each issue's stored remaining estimate
+    seconds, as a time tracking edit sets it, and ``ignore_time`` makes
+    Jira accept such an edit without storing it, as Jira does for a
+    read-only estimate.
     """
 
     updates: list[tuple[str, dict[str, object]]] = field(default_factory=list)
@@ -298,6 +302,8 @@ class WriteLinkLog:
     links: list[tuple[str, str, str]] = field(default_factory=list)
     fail_parent: bool = False
     fail_link_to: set[str] = field(default_factory=set)
+    time_seconds: dict[str, Optional[int]] = field(default_factory=dict)
+    ignore_time: bool = False
 
 
 class WriteClient:
@@ -341,10 +347,20 @@ class WriteClient:
         """Return the canned field descriptors."""
         return WRITE_FIELDS
 
-    def issue(self, key: str) -> SimpleNamespace:
-        """Return the issue for a present key, or raise for an absent one."""
+    def issue(self, key: str, fields: object = None) -> SimpleNamespace:
+        """Return the issue for a present key, or raise for an absent one.
+
+        An issue given a remaining estimate by a time tracking edit is
+        present too, carrying the stored seconds for the read-back.
+        """
+        _ = fields
         if key in self.existing:
             return SimpleNamespace(key=key)
+        if key in self.link_log.time_seconds:
+            tracking = SimpleNamespace(
+                remainingEstimateSeconds=self.link_log.time_seconds[key])
+            return SimpleNamespace(
+                key=key, fields=SimpleNamespace(timetracking=tracking))
         raise JIRAError(status_code=404, text='not found')
 
     def _issue_type_values(self) -> list[dict[str, object]]:
@@ -392,20 +408,33 @@ class WriteClient:
 
         Jira applies an update as a whole, so an update carrying any field
         of ``fail_fields`` raises and none of its fields is recorded, which
-        is what makes the one-field-at-a-time retry observable.
+        is what makes the one-field-at-a-time retry observable. The edit
+        operations are merged into the recorded fields, and a time tracking
+        edit stores its remaining estimate seconds.
         """
-        def update(fields: dict[str, object]) -> None:
+        def update(fields: dict[str, object],
+                   update: Optional[dict[str, object]] = None) -> None:
             """Record the update, refusing a parent or a refused field."""
-            if self.link_log.fail_parent and 'parent' in fields:
+            merged = {**fields, **(update or {})}
+            if self.link_log.fail_parent and 'parent' in merged:
                 raise JIRAError(status_code=400, text='parent rejected')
-            bad = sorted(self.behavior.fail_fields & set(fields))
+            bad = sorted(self.behavior.fail_fields & set(merged))
             if bad:
-                self.link_log.refused.append((key, dict(fields)))
+                self.link_log.refused.append((key, merged))
                 raise JIRAError(status_code=400,
                                 text=f'value rejected for {bad[0]}')
-            record.update(fields)
-            self.link_log.updates.append((key, dict(fields)))
+            record.update(merged)
+            self.link_log.updates.append((key, merged))
+            if 'timetracking' in merged:
+                self._store_time(key, merged['timetracking'])
         return update
+
+    def _store_time(self, key: str, edits: object) -> None:
+        """Store the seconds of a time tracking edit, unless ignoring it."""
+        if self.link_log.ignore_time:
+            self.link_log.time_seconds[key] = None
+            return
+        self.link_log.time_seconds[key] = edit_seconds(edits)
 
     def project_versions(self, project: str) -> list[SimpleNamespace]:
         """Return the project's versions, each carrying its name."""
@@ -459,6 +488,18 @@ class WriteClient:
         self.closed += 1
         if self.fail_close:
             raise JIRAError(status_code=401, text='already closed')
+
+
+def edit_seconds(edits: object) -> int:
+    """Return the seconds a time tracking edit operation list sets.
+
+    The edit is ``[{'edit': {'remainingEstimate': '<minutes>m'}}]``, the
+    only form the write code sends, so a stand-in Jira can store it.
+    """
+    assert isinstance(edits, list)
+    text = edits[0]['edit']['remainingEstimate']
+    assert isinstance(text, str) and text.endswith('m')
+    return int(text[:-1]) * 60
 
 
 def connect_each(clients: list[WriteClient]
