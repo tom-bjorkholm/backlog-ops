@@ -13,24 +13,12 @@ from backlogops import (
     ExceptionWorkHours, Membership, Person, Status, Team,
     estimate_ready_date, set_plan_from_estimate)
 from backlogops.no_text_io import NoTextIO
+from .estimate_helpers import MON, member, person, workforce
 from .shared_test_data import def_points
 
-MON = date(2026, 6, 15)
-"""A Monday used as the start date in the tests."""
 NO = NoTextIO()
 NO_GUESS = DefaultStoryPoints(stderr_file=NO)
 """Defaults that guess nothing, which most of these tests estimate with."""
-
-
-def person(name: str,
-           exceptions: Optional[list[ExceptionWorkHours]] = None) -> Person:
-    """Build a person, optionally with work-hours exceptions."""
-    return Person(name=name, exceptions=exceptions or [])
-
-
-def member(name: str, fte: float = 1.0) -> Membership:
-    """Build a full-membership for a person by name."""
-    return Membership(person_name=name, fte=fte)
 
 
 def team(name: str, members: list[Membership], sum_fte: float = 1.0,
@@ -43,16 +31,6 @@ def team(name: str, members: list[Membership], sum_fte: float = 1.0,
     """
     return Team(name=name, velocity=10.0, sum_fte_at_velocity=sum_fte,
                 sprint_length=10, aliases=aliases or [], members=members)
-
-
-def workforce(team_list: list[Team], persons: list[Person],
-              company: Optional[CompanyWorkHours] = None) -> AvailableTeams:
-    """Build the available workforce from teams and persons."""
-    registry = {p.name.lower(): p for p in persons}
-    if company is None:
-        return AvailableTeams(persons=registry, teams=team_list)
-    return AvailableTeams(persons=registry, teams=team_list,
-                          company_work_hours=company)
 
 
 def one_team(company: Optional[CompanyWorkHours] = None,

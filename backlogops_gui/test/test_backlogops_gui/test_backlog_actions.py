@@ -12,12 +12,14 @@ import pytest
 from backlogops import (
     AddedToJira, AvailableTeams, BacklogItem, BacklogReleases,
     DefaultStoryPoints, DependencyMode,
-    NoTextIO, Release, ReleaseChange, ReleaseDateChange, Status,
+    NoTextIO, Release, RemainingTimeConfig, ReleaseChange, ReleaseDateChange,
+    Status,
     UpdatedBacklogInJira)
 from backlogops_gui import backlog_actions
 from backlogops_gui.backlog_actions import (
     adjust_content, apply_add_result, apply_update_result, estimate_date,
-    extract_keys, order_by_deps, order_by_keys, order_by_release, order_dates,
+    estimate_rt_date, extract_keys, order_by_deps, order_by_keys,
+    order_by_release, order_dates,
     plan_dates, save_backlog, save_changes, set_plan, show_changes)
 from backlogops_gui.backlog_actions import _content_report, _date_report
 from backlogops_gui.backlog_dialogs import (
@@ -29,6 +31,16 @@ SINK = NoTextIO()
 PARENT = cast(tk.Misc, object())
 TEAMS = cast(AvailableTeams, object())
 POINTS = DefaultStoryPoints(stderr_file=NoTextIO())
+
+
+def _rt_on() -> RemainingTimeConfig:
+    """Return a remaining time configuration that enables it."""
+    config = RemainingTimeConfig(stderr_file=NoTextIO())
+    config.enable_remaining_time = True
+    return config
+
+
+RT_ON = _rt_on()
 
 
 def _key_write_fail(keys: object, path: object, **_kw: object) -> None:
@@ -72,6 +84,14 @@ class _FakeData:
         """Record an estimate-ready-date call and return no changes."""
         self._record(f'estimate:{start_date}:'
                      f'{type(default_story_points).__name__}')
+        return []
+
+    def estimate_rt_ready_date(self, _teams: object,
+                               rt_config: RemainingTimeConfig,
+                               start_date: object,
+                               _sink: TextIO) -> list[object]:
+        """Record an estimate from remaining time and return no changes."""
+        self._record(f'rt:{start_date}:{rt_config.enable_remaining_time}')
         return []
 
     def set_plan_from_estimate(self, _sink: TextIO) -> None:
@@ -460,13 +480,14 @@ def test_order_dates_error(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not done
 
 
-def test_estimate_no_teams() -> None:
+@pytest.mark.parametrize('estimate', [estimate_date, estimate_rt_date])
+def test_estimate_no_teams(estimate: Callable[..., None]) -> None:
     """Test estimating without a configuration reports an error."""
     done: list[bool] = []
     data = _FakeData()
     errors: list[tuple[str, str]] = []
-    estimate_date(PARENT, _as_data(data), None, None, SINK, _refresher(done),
-                  _record(errors), _record([]))
+    estimate(PARENT, _as_data(data), None, None, SINK, _refresher(done),
+             _record(errors), _record([]))
     assert errors == [('No configuration',
                        'There is no teams configuration to estimate from.')]
     assert not data.calls
@@ -490,15 +511,61 @@ def test_estimate_success(monkeypatch: pytest.MonkeyPatch) -> None:
                       None)]
 
 
-def test_estimate_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize('estimate, config', [
+    (estimate_date, POINTS), (estimate_rt_date, RT_ON)])
+def test_estimate_cancel(monkeypatch: pytest.MonkeyPatch,
+                         estimate: Callable[..., None],
+                         config: object) -> None:
     """Test cancelling the start date dialog changes nothing."""
     monkeypatch.setattr(backlog_actions, 'ask_start_date', lambda _p: None)
     monkeypatch.setattr(backlog_actions, 'show_changes', _no_write)
     done: list[bool] = []
     data = _FakeData()
-    estimate_date(PARENT, _as_data(data), TEAMS, POINTS, SINK,
-                  _refresher(done), _record([]), _record([]))
+    estimate(PARENT, _as_data(data), TEAMS, config, SINK, _refresher(done),
+             _record([]), _record([]))
     assert not data.calls
+    assert not done
+
+
+@pytest.mark.parametrize('config, call', [
+    (RT_ON, 'rt:2026-06-15:True'), (None, 'rt:2026-06-15:False')])
+def test_rt_estimate_runs(monkeypatch: pytest.MonkeyPatch,
+                          config: Optional[RemainingTimeConfig],
+                          call: str) -> None:
+    """Test a remaining time estimate is passed the loaded configuration.
+
+    Without a loaded configuration a default one is passed, which has
+    remaining time disabled, so the real estimate refuses it.
+    """
+    choice = StartChoice(date(2026, 6, 15))
+    monkeypatch.setattr(backlog_actions, 'ask_start_date', lambda _p: choice)
+    shown: list[tuple[str, str, object]] = []
+    monkeypatch.setattr(backlog_actions, 'show_changes',
+                        _changes_recorder(shown))
+    done: list[bool] = []
+    data = _FakeData()
+    estimate_rt_date(PARENT, _as_data(data), TEAMS, config, SINK,
+                     _refresher(done), _record([]), _record([]))
+    assert data.calls == [call]
+    assert done == [True]
+    assert shown == [('Release date changes', 'No release date changes.',
+                      None)]
+
+
+def test_rt_estimate_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a refused remaining time estimate shows how to enable it."""
+    choice = StartChoice(date(2026, 6, 15))
+    monkeypatch.setattr(backlog_actions, 'ask_start_date', lambda _p: choice)
+    monkeypatch.setattr(backlog_actions, 'show_changes', _no_write)
+    done: list[bool] = []
+    errors: list[tuple[str, str]] = []
+    data = BacklogReleases(backlog=[], releases=[])
+    teams = AvailableTeams(persons={}, teams=[])
+    config = RemainingTimeConfig(stderr_file=SINK)
+    estimate_rt_date(PARENT, data, teams, config, SINK, _refresher(done),
+                     _record(errors), _record([]))
+    assert [title for title, _ in errors] == ['Could not estimate ready date']
+    assert 'enable_remaining_time' in errors[0][1]
     assert not done
 
 

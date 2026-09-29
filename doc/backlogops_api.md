@@ -21,6 +21,9 @@
   * [JiraTooManyLoops](#backlogops.jira_rank_by_keys.JiraTooManyLoops)
     * [\_\_init\_\_](#backlogops.jira_rank_by_keys.JiraTooManyLoops.__init__)
   * [jira\_rank\_by\_keys\_raw](#backlogops.jira_rank_by_keys.jira_rank_by_keys_raw)
+* [backlogops.estimate\_rt\_ready\_date](#backlogops.estimate_rt_ready_date)
+  * [FeatureDisabled](#backlogops.estimate_rt_ready_date.FeatureDisabled)
+  * [estimate\_rt\_ready\_date](#backlogops.estimate_rt_ready_date.estimate_rt_ready_date)
 * [backlogops.backlog\_helpers](#backlogops.backlog_helpers)
   * [FORBIDDEN\_KEY\_CHARS](#backlogops.backlog_helpers.FORBIDDEN_KEY_CHARS)
   * [CONTROL\_CHAR\_NAMES](#backlogops.backlog_helpers.CONTROL_CHAR_NAMES)
@@ -81,6 +84,7 @@
     * [move\_keys\_first](#backlogops.backlog_releases.BacklogReleases.move_keys_first)
     * [order\_by\_dependencies](#backlogops.backlog_releases.BacklogReleases.order_by_dependencies)
     * [estimate\_ready\_date](#backlogops.backlog_releases.BacklogReleases.estimate_ready_date)
+    * [estimate\_rt\_ready\_date](#backlogops.backlog_releases.BacklogReleases.estimate_rt_ready_date)
     * [set\_plan\_from\_estimate](#backlogops.backlog_releases.BacklogReleases.set_plan_from_estimate)
     * [adjust\_release\_content](#backlogops.backlog_releases.BacklogReleases.adjust_release_content)
     * [release\_plan\_on\_estimate](#backlogops.backlog_releases.BacklogReleases.release_plan_on_estimate)
@@ -309,6 +313,10 @@
 * [backlogops.jira\_write\_format](#backlogops.jira_write_format)
   * [report\_has\_problems](#backlogops.jira_write_format.report_has_problems)
   * [format\_add\_result](#backlogops.jira_write_format.format_add_result)
+* [backlogops.ready\_date\_schedule](#backlogops.ready_date_schedule)
+  * [team\_hours](#backlogops.ready_date_schedule.team_hours)
+  * [WorkModel](#backlogops.ready_date_schedule.WorkModel)
+  * [schedule\_ready\_dates](#backlogops.ready_date_schedule.schedule_ready_dates)
 * [backlogops.remaining\_time\_config](#backlogops.remaining_time_config)
   * [DefaultRemainingTimeLevel](#backlogops.remaining_time_config.DefaultRemainingTimeLevel)
     * [\_\_init\_\_](#backlogops.remaining_time_config.DefaultRemainingTimeLevel.__init__)
@@ -924,6 +932,106 @@ than two keys needs no ranking and returns at once.
 - `JiraTooManyLoops` - If the ranking does not converge within the loop
   limit.
 - `JIRAError` - If a Jira ranking call fails.
+
+<a id="backlogops.estimate_rt_ready_date"></a>
+
+# backlogops.estimate\_rt\_ready\_date
+
+Estimate the ready date of backlog items from remaining time.
+
+Estimating in story points is recommended, but some development efforts
+are required to estimate in remaining time. :func:`estimate_rt_ready_date`
+is for them: it dates the backlog items like
+:func:`backlogops.estimate_ready_date` does, but from the remaining time
+of the items and the focused work hours of the teams instead of from
+story points and velocity.
+
+<a id="backlogops.estimate_rt_ready_date.FeatureDisabled"></a>
+
+## FeatureDisabled Objects
+
+```python
+class FeatureDisabled(ValueError)
+```
+
+An operation was asked for that the configuration switches off.
+
+It is a ``ValueError``, so that code that reports bad input also
+reports asking for a feature that is not enabled.
+
+<a id="backlogops.estimate_rt_ready_date.estimate_rt_ready_date"></a>
+
+#### estimate\_rt\_ready\_date
+
+```python
+def estimate_rt_ready_date(backlog: Backlog,
+                           available_teams: AvailableTeams,
+                           remaining_time_config: RemainingTimeConfig,
+                           start_date: Optional[date] = None,
+                           stderr_file: TextIO = sys.stderr) -> Backlog
+```
+
+Estimate the ready date of backlog items from remaining time.
+
+The items are scheduled like :func:`backlogops.estimate_ready_date`
+does: the teams start working on the start date, which defaults to
+today when None is given, and work the items in backlog order. Each
+item is worked by its assigned team, or, when it names no team, by
+the team that becomes free earliest. Only one team works an item, and
+a team works one item at a time. When a team's capacity on a day
+covers more than one item, several items finish on the same day. A
+parent's date is lifted to be no earlier than its latest child's,
+and a finished child does not delay its parent. Dependencies between
+items are not considered.
+
+What differs is how much work an item is and how fast a team does
+it. An item is worked with its remaining time, which is ideal focused
+work time of one person. A team does, on each day, the work hours of
+its members that day, scaled by each member's full-time equivalent in
+the team and by the team's focus factor. That follows weekends,
+company holidays, personal vacation, part-time and learning periods
+and ordered over-time. The focus factor is the team's own
+``focus_factor``, or the ``default_focus_factor`` of the remaining
+time configuration for a team that has none. The velocity and the
+sprint length of a team are not used.
+
+The remaining time of TODO and IN_PROGRESS items is all treated as
+still left to do; DONE and REJECTED items need no work and get no
+estimated date. An item that has no remaining time of its own is a
+container for its children and is no work of its own when it has
+children, and is otherwise guessed at from its level by the remaining
+time configuration, or is no work when nothing is guessed for its
+level. Story points are not used at all.
+
+When an item names a team that is not in the workforce, when no team
+is available, or when the chosen team has no capacity for the item,
+the item gets no estimated date and a warning is reported.
+
+**Arguments**:
+
+- `backlog` - The backlog to estimate the ready date of. The argument
+  is not modified. The backlog must be ordered so that the
+  teams can work the items in order.
+- `available_teams` - The available teams used to estimate the ready
+  date, including absence, focus factor and work
+  hours.
+- `remaining_time_config` - The remaining time configuration, which
+  must enable remaining time estimates. It gives the default
+  focus factor and what an item nobody has estimated counts as.
+- `start_date` - The day the teams start working, or None for today.
+- `stderr_file` - The file to report warnings to.
+  
+
+**Returns**:
+
+  A new backlog whose items carry the estimated ready date. The
+  other fields are copied unchanged from the given items.
+  
+
+**Raises**:
+
+- `FeatureDisabled` - Remaining time estimates are not enabled in the
+  remaining time configuration.
 
 <a id="backlogops.backlog_helpers"></a>
 
@@ -2346,6 +2454,47 @@ one documented for :func:`backlogops.estimate_ready_date`.
   estimated is worked with. None is deprecated and only
   kept for backward compatibility, as documented for
   :func:`backlogops.estimate_ready_date`.
+
+<a id="backlogops.backlog_releases.BacklogReleases.estimate_rt_ready_date"></a>
+
+#### estimate\_rt\_ready\_date
+
+```python
+def estimate_rt_ready_date(
+        available_teams: AvailableTeams,
+        remaining_time_config: RemainingTimeConfig,
+        start_date: Optional[date] = None,
+        stderr_file: TextIO = sys.stderr) -> ReleaseDateChanges
+```
+
+Estimate the ready date of the member items from remaining time.
+
+The member backlog is replaced by a backlog whose items carry the
+estimated ready date, and the estimated release dates follow. The
+teams start working on the start date, which defaults to today
+when None is given. The behavior is the one documented for
+:func:`backlogops.estimate_rt_ready_date`.
+
+**Arguments**:
+
+- `available_teams` - The available teams used to estimate the
+  ready date, including absence, focus factor and work
+  hours.
+- `remaining_time_config` - The remaining time configuration, which
+  must enable remaining time estimates.
+- `start_date` - The day the teams start working, or None for today.
+- `stderr_file` - The file to report warnings to.
+  
+
+**Returns**:
+
+  A record of how the estimated release dates were changed.
+  
+
+**Raises**:
+
+- `FeatureDisabled` - Remaining time estimates are not enabled. The
+  backlog and the releases are then left unchanged.
 
 <a id="backlogops.backlog_releases.BacklogReleases.set_plan_from_estimate"></a>
 
@@ -6884,6 +7033,98 @@ when the section is empty. An item whose issue was created but whose
 field value or link Jira refused is in ``Added to Jira`` and again in
 the section naming what was refused. The CLI prints this text and the
 GUI shows it in a copy-pasteable pop-up.
+
+<a id="backlogops.ready_date_schedule"></a>
+
+# backlogops.ready\_date\_schedule
+
+Schedule the work on backlog items onto the teams, day by day.
+
+The ready date of a backlog item can be estimated from story points or
+from remaining time. Both are the same schedule: the items are worked in
+backlog order, each by one team, and a team completes a certain amount
+of work on each calendar day. Only the unit of the work differs, so the
+estimators describe it with a :class:`WorkModel` and share
+:func:`schedule_ready_dates`.
+
+<a id="backlogops.ready_date_schedule.team_hours"></a>
+
+#### team\_hours
+
+```python
+def team_hours(teams: AvailableTeams, team: Team, day: date) -> float
+```
+
+Return the person work hours a team has on one day.
+
+Each member contributes the hours the person works that day, scaled
+by the full-time equivalent the person gives the team that day.
+Weekends, holidays and vacation make a member contribute nothing, and
+a member who is not a known person contributes nothing either.
+
+**Arguments**:
+
+- `teams` - The workforce holding the persons and the company hours.
+- `team` - The team to sum the hours of.
+- `day` - The calendar day.
+  
+
+**Returns**:
+
+  The summed person work hours, which is never negative.
+
+<a id="backlogops.ready_date_schedule.WorkModel"></a>
+
+## WorkModel Objects
+
+```python
+@dataclass(frozen=True)
+class WorkModel()
+```
+
+How much work each backlog item is and how fast the teams work.
+
+Fields:
+    work: The work still to do on each backlog item, by item key, in
+        the unit of the capacity. It is never negative, and an item
+        whose key is missing is no work.
+    capacity: Return the work a team completes on one calendar day,
+        in the unit of the work. It is never negative.
+
+<a id="backlogops.ready_date_schedule.schedule_ready_dates"></a>
+
+#### schedule\_ready\_dates
+
+```python
+def schedule_ready_dates(backlog: Backlog, available_teams: AvailableTeams,
+                         start: date, stderr_file: TextIO,
+                         model: WorkModel) -> Backlog
+```
+
+Return the backlog with ready dates from scheduling its work.
+
+The backlog items are worked in their given order, from the start
+date. Each item is worked by its assigned team, or, when it names no
+team, by the team that becomes free earliest. Only one team works an
+item, and a team works one item at a time. When a team's capacity on
+a day covers more than one item, several items finish on the same
+day. A parent's date is lifted to be no earlier than its latest
+child's, and done and rejected items get no date. An item that
+cannot be dated gets no date and a warning.
+
+**Arguments**:
+
+- `backlog` - The backlog to date. The argument is not modified.
+- `available_teams` - The teams that work the backlog.
+- `start` - The day the teams start working.
+- `stderr_file` - The file to report warnings to.
+- `model` - The work of each item and the daily capacity of a team.
+  
+
+**Returns**:
+
+  A new backlog whose items carry the estimated ready date. The
+  other fields are copied unchanged from the given items.
 
 <a id="backlogops.remaining_time_config"></a>
 

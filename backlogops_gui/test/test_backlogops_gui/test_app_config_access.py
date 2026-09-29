@@ -8,7 +8,6 @@ when no configuration is loaded.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
-import pytest
 from backlogops import GuiDisplayConfig
 from .app_test_helpers import FakeConfig, make_app as _app
 
@@ -49,13 +48,11 @@ def test_def_points() -> None:
     assert _app().def_points() is None
 
 
-@pytest.mark.parametrize('enabled', [False, True])
-def test_use_rt(enabled: bool) -> None:
-    """Test remaining time use follows the configuration, off without."""
+def test_rt_config() -> None:
+    """Test the remaining time configuration comes from the config."""
     config = FakeConfig()
-    config.remaining_time.enable_remaining_time = enabled
-    assert _app(config).use_rt() is enabled
-    assert _app().use_rt() is False
+    assert _app(config).rt_config() is config.remaining_time
+    assert _app().rt_config() is None
 
 
 def test_gui_display_none() -> None:

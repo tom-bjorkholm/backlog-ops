@@ -4,25 +4,54 @@
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 import pytest
 from backlogops import (
-    AvailableTeams, BacklogItem, Membership, Person, Release, Status, Team,
-    write_available_teams)
+    AvailableTeams, BacklogItem, BacklogOpsConfig, Membership, Person,
+    Release, Status, Team, write_available_teams, write_backlog_ops_config)
 from backlogops.no_text_io import NoTextIO
 from backlogops_cli.list import command_modules
 from backlogops_cli import estimate_ready_date
 from .cli_test_helpers import read_data_file, write_data_file
 
 
-def _write_teams(path: Path) -> None:
-    """Write a teams config with one full-time member at one point a day."""
+def _teams() -> AvailableTeams:
+    """Return one full-time member at one point a day, 8 hours a day."""
     ann = Person(name='Ann')
     one = Team(name='T', velocity=10.0, sum_fte_at_velocity=1.0,
                sprint_length=10, members=[Membership(person_name='Ann')])
-    teams = AvailableTeams(persons={'ann': ann}, teams=[one])
-    write_available_teams(teams, path, NoTextIO())
+    return AvailableTeams(persons={'ann': ann}, teams=[one])
+
+
+def _write_teams(path: Path) -> None:
+    """Write a teams config with one full-time member at one point a day."""
+    write_available_teams(_teams(), path, NoTextIO())
+
+
+def _write_rt_config(path: Path, enabled: bool) -> None:
+    """Write a configuration of the one team, at a focus factor of 0.5."""
+    config = BacklogOpsConfig(available_teams=_teams(), stderr_file=NoTextIO())
+    config.remaining_time.enable_remaining_time = enabled
+    config.remaining_time.default_focus_factor = 0.5
+    write_backlog_ops_config(config, path, NoTextIO())
+
+
+def _rt_sources(tmp_path: Path, enabled: bool) -> list[str]:
+    """Write a three point, eight hour item and return the arguments.
+
+    The team does one story point or four hours of remaining time a day,
+    so the item is ready on Wednesday from story points and on Tuesday
+    from remaining time.
+    """
+    source, config = tmp_path / 'in.ods', tmp_path / 'rt.cfg'
+    backlog = [BacklogItem(key='a', level=1, title='a', story_points=3,
+                           status=Status.TODO,
+                           remaining_time=timedelta(hours=8))]
+    write_data_file(source, backlog, [])
+    _write_rt_config(config, enabled)
+    return ['-i', str(source), '-o', str(tmp_path / 'out.csv'), '-c',
+            str(config), '-d', '2026-06-15']
 
 
 def _write_backlog(path: Path) -> None:
@@ -149,3 +178,31 @@ def test_changes_empty(tmp_path: Path) -> None:
         ['-i', str(source), '-o', str(target), '-c', str(config),
          '-d', '2026-06-15', '--changes-file', str(changes)]) == 0
     assert not changes.exists()
+
+
+@pytest.mark.parametrize('extra, ready', [
+    ([], date(2026, 6, 17)), (['--remaining-time'], date(2026, 6, 16))])
+def test_rt_estimates(tmp_path: Path, extra: list[str], ready: date) -> None:
+    """Test the remaining time flag estimates from remaining time."""
+    args = _rt_sources(tmp_path, enabled=True)
+    assert estimate_ready_date.main(args + extra) == 0
+    assert _read_item(tmp_path / 'out.csv').estimated_ready_date == ready
+
+
+def test_rt_disabled(tmp_path: Path, capsys: pytest.CaptureFixture[str]
+                     ) -> None:
+    """Test the flag fails, saying how to enable it, when it is off."""
+    args = _rt_sources(tmp_path, enabled=False)
+    assert estimate_ready_date.main(args + ['--remaining-time']) == 1
+    error = capsys.readouterr().err
+    assert 'Remaining time estimates are not enabled' in error
+    assert '"enable_remaining_time" to true' in error
+    assert not (tmp_path / 'out.csv').exists()
+
+
+def test_rt_help() -> None:
+    """Test the help of the flag says remaining time must be enabled."""
+    text = ' '.join(estimate_ready_date.build_parser().format_help().split())
+    assert '--remaining-time' in text
+    assert 'Requires remaining time estimates to be enabled' in text
+    assert '"enable_remaining_time": true' in text

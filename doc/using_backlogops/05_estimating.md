@@ -29,9 +29,9 @@ nobody has estimated is worked with the guess configured under
 `default_story_points`
 ([chapter 1](01_configuration.md#default-story-points)); without that guess
 such an item costs nothing and every date after it is too optimistic.
-The estimate works in story points; estimating also in [remaining
-time](01_configuration.md#remaining-time-estimates) can be configured, but
-ready dates are not yet estimated from it.
+The estimate works in story points; to estimate from [remaining
+time](01_configuration.md#remaining-time-estimates) instead, see [the next
+section](#estimate-ready-dates-from-remaining-time).
 
 **CLI**
 
@@ -48,6 +48,7 @@ python3 -m backlogops_cli.estimate_ready_date -c my.cfg \
 | Flag | Meaning |
 | --- | --- |
 | `-d` / `--start-date` | ISO date the teams start working (default: today). |
+| `--remaining-time` | Estimate from remaining time instead of story points (see [below](#estimate-ready-dates-from-remaining-time)); requires remaining time estimates to be enabled. |
 | `--set-plan` | Also copy each estimated item date to its planned date. |
 | `--changes-file` | Also save the list of release-date changes to a file. |
 
@@ -58,6 +59,59 @@ The list of release-date changes is printed to stdout (and saved with
 
 **Library** —
 [`estimate_ready_date`](../backlogops_api.md#backlogops.estimate_ready_date.estimate_ready_date).
+
+## Estimate ready dates from remaining time
+
+We recommend story points (see [why](01_configuration.md#remaining-time-estimates)),
+but a development effort that is required to estimate in remaining time can
+estimate the ready dates from it instead. This needs `enable_remaining_time`
+set to `true` in the `remaining_time` section of the configuration
+([chapter 1](01_configuration.md#remaining-time-estimates)); while it is
+`false` the estimate is refused with a message saying so, and nothing is
+changed or written.
+
+The items are scheduled exactly as for story points — in backlog order, one
+team per item, the earliest free team for an item without a team, several
+small items on one day, a parent no earlier than its latest child — but the
+amount of work and the pace are measured differently:
+
+* An item is worked with its `remaining_time`, the **ideal focused work time
+  of one person**. Story points are not used at all. An item without a
+  remaining time is no work of its own when it has children, and is
+  otherwise worked with the guess configured for its level under
+  `remaining_time` (or as no work when nothing is guessed for its level).
+  The guess is used only for the estimate; it is never written to the item.
+* A team does, each day, the work hours of its members that day — scaled
+  by each member's full-time equivalent in the team — times its **focus
+  factor**: the team's own `focus_factor`, or the configured
+  `default_focus_factor` for a team without one. Weekends, holidays,
+  vacation, part-time periods and over-time all change the pace. The
+  velocity and sprint length of the team are not used.
+
+For example, one full-time member working 8-hour days at a focus factor of
+0.3 does 2.4 hours of remaining time a day, so an item with a remaining
+time of `12:00:00` takes five working days.
+
+Both estimates fill in the same estimated ready dates (and estimated release
+dates), so *set the plan*, *adjust release content* and the other steps
+below work the same whichever estimate you ran last.
+
+**CLI** — add `--remaining-time` to the estimate command:
+
+```sh
+python3 -m backlogops_cli.estimate_ready_date -c my.cfg \
+    -i ordered.xlsx -o estimated.xlsx -d 2026-08-01 --remaining-time
+```
+
+**GUI** — *Backlog → Estimate ready date from remaining time…* (greyed out
+unless the configuration loaded when the backlog window was opened enables
+remaining time estimates).
+
+**Library** —
+[`estimate_rt_ready_date`](../backlogops_api.md#backlogops.estimate_rt_ready_date.estimate_rt_ready_date),
+which raises
+[`FeatureDisabled`](../backlogops_api.md#backlogops.estimate_rt_ready_date.FeatureDisabled)
+(a `ValueError`) when remaining time estimates are not enabled.
 
 ## Set the planned dates from the estimate
 

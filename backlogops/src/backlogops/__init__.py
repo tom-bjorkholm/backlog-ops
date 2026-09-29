@@ -42,6 +42,8 @@ from backlogops.demo_backlog import get_demo_backlog
 from backlogops.duration_text import format_duration, parse_duration
 from backlogops.estimate_ready_date import (
     estimate_ready_date, set_plan_from_estimate)
+from backlogops.estimate_rt_ready_date import (
+    FeatureDisabled, estimate_rt_ready_date)
 from backlogops.format_rules import FormatRules
 from backlogops.io_config import (
     GuiDisplayConfig, InputFormatConfig, OutputFormatConfig, make_input_config,
@@ -134,7 +136,8 @@ __all__ = [
     'ExceptionWorkHours',
     'ExistsInJiraError', 'FailedField', 'FailedItem', 'FailedLink',
     'FailedRelease',
-    'FailedRename', 'FileExistsCb', 'FormatRules', 'FteException',
+    'FailedRename', 'FeatureDisabled', 'FileExistsCb', 'FormatRules',
+    'FteException',
     'GUI_DESCRIPTIONS', 'GuiDisplayConfig', 'INPUT_DESCRIPTIONS',
     'InputFormatConfig', 'ItemNotInJiraError', 'JIRA_DESCRIPTIONS',
     'JiraAttrPath', 'JiraAttrType', 'JiraColumnMap', 'JiraConnectConfig',
@@ -162,6 +165,7 @@ __all__ = [
     'display_level_order', 'display_level_rows', 'drop_empty_columns',
     'encrypt_token_file',
     'encrypt_token_to_file', 'estimate_ready_date', 'estimate_release_dates',
+    'estimate_rt_ready_date',
     'event_finish', 'event_start', 'find_cycle', 'find_keys_with_children',
     'fold_level_name',
     'format_add_result', 'format_backlog', 'format_backlog_updates',

@@ -217,7 +217,7 @@
     * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
     * [levels](#backlogops_gui.application.BacklogApp.levels)
     * [def\_points](#backlogops_gui.application.BacklogApp.def_points)
-    * [use\_rt](#backlogops_gui.application.BacklogApp.use_rt)
+    * [rt\_config](#backlogops_gui.application.BacklogApp.rt_config)
     * [status\_map](#backlogops_gui.application.BacklogApp.status_map)
     * [gui\_display](#backlogops_gui.application.BacklogApp.gui_display)
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
@@ -299,7 +299,9 @@
   * [\_date\_report](#backlogops_gui.backlog_actions._date_report)
   * [\_content\_report](#backlogops_gui.backlog_actions._content_report)
   * [\_run\_change](#backlogops_gui.backlog_actions._run_change)
+  * [\_estimate\_from](#backlogops_gui.backlog_actions._estimate_from)
   * [estimate\_date](#backlogops_gui.backlog_actions.estimate_date)
+  * [estimate\_rt\_date](#backlogops_gui.backlog_actions.estimate_rt_date)
   * [set\_plan](#backlogops_gui.backlog_actions.set_plan)
   * [adjust\_content](#backlogops_gui.backlog_actions.adjust_content)
   * [plan\_dates](#backlogops_gui.backlog_actions.plan_dates)
@@ -317,6 +319,7 @@
   * [JiraHandlers](#backlogops_gui.backlog_window.JiraHandlers)
   * [BacklogWindow](#backlogops_gui.backlog_window.BacklogWindow)
     * [\_\_init\_\_](#backlogops_gui.backlog_window.BacklogWindow.__init__)
+    * [\_rt\_enabled](#backlogops_gui.backlog_window.BacklogWindow._rt_enabled)
     * [\_report\_error](#backlogops_gui.backlog_window.BacklogWindow._report_error)
     * [\_report\_info](#backlogops_gui.backlog_window.BacklogWindow._report_info)
     * [\_build\_tables](#backlogops_gui.backlog_window.BacklogWindow._build_tables)
@@ -345,6 +348,7 @@
     * [\_order\_by\_deps](#backlogops_gui.backlog_window.BacklogWindow._order_by_deps)
     * [\_order\_by\_release](#backlogops_gui.backlog_window.BacklogWindow._order_by_release)
     * [\_estimate\_date](#backlogops_gui.backlog_window.BacklogWindow._estimate_date)
+    * [\_estimate\_rt\_date](#backlogops_gui.backlog_window.BacklogWindow._estimate_rt_date)
     * [\_set\_plan](#backlogops_gui.backlog_window.BacklogWindow._set_plan)
     * [\_adjust\_content](#backlogops_gui.backlog_window.BacklogWindow._adjust_content)
     * [\_plan\_dates](#backlogops_gui.backlog_window.BacklogWindow._plan_dates)
@@ -2811,15 +2815,15 @@ def def_points() -> Optional[DefaultStoryPoints]
 
 Return what an unestimated item is worked with, or None.
 
-<a id="backlogops_gui.application.BacklogApp.use_rt"></a>
+<a id="backlogops_gui.application.BacklogApp.rt_config"></a>
 
-#### use\_rt
+#### rt\_config
 
 ```python
-def use_rt() -> bool
+def rt_config() -> Optional[RemainingTimeConfig]
 ```
 
-Return whether remaining time estimates are enabled.
+Return the remaining time configuration, or None when absent.
 
 <a id="backlogops_gui.application.BacklogApp.status_map"></a>
 
@@ -3830,6 +3834,24 @@ A change that raises one of the known data errors is reported and
 leaves the view unchanged. A successful change refreshes the view and
 shows the change listing in a pop-up that can save it to a file.
 
+<a id="backlogops_gui.backlog_actions._estimate_from"></a>
+
+#### \_estimate\_from
+
+```python
+def _estimate_from(parent: tk.Misc, teams: Optional[AvailableTeams],
+                   estimate: Callable[[AvailableTeams, Optional[date]],
+                                      ReleaseDateChanges], sink: TextIO,
+                   refresh: Callable[[], None], on_error: Callable[[str, str],
+                                                                   None],
+                   on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for the start date and run one kind of ready date estimate.
+
+The estimate is given the workforce and the start date, and returns
+the release date changes that the pop-up then lists.
+
 <a id="backlogops_gui.backlog_actions.estimate_date"></a>
 
 #### estimate\_date
@@ -3848,6 +3870,27 @@ Ask for the start date and estimate the ready dates.
 An unestimated backlog item is worked with what the configuration
 guesses for its level, so the guess of the loaded configuration is
 passed on with the workforce.
+
+<a id="backlogops_gui.backlog_actions.estimate_rt_date"></a>
+
+#### estimate\_rt\_date
+
+```python
+def estimate_rt_date(parent: tk.Misc, data: BacklogReleases,
+                     teams: Optional[AvailableTeams],
+                     rt_config: Optional[RemainingTimeConfig], sink: TextIO,
+                     refresh: Callable[[],
+                                       None], on_error: Callable[[str, str],
+                                                                 None],
+                     on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for the start date and estimate the ready dates from remaining time.
+
+The remaining time configuration gives the default focus factor and
+what an unestimated backlog item is worked with. When remaining time
+estimates are not enabled the estimate is refused with an error
+pop-up that says how to enable them, and the data is left unchanged.
 
 <a id="backlogops_gui.backlog_actions.set_plan"></a>
 
@@ -4072,7 +4115,7 @@ def __init__(
     jira: Optional[JiraHandlers] = None,
     *,
     def_points: Callable[[], Optional[DefaultStoryPoints]] = lambda: None,
-    use_rt: Callable[[], bool] = lambda: False,
+    rt_config: Callable[[], Optional[RemainingTimeConfig]] = lambda: None,
     source: Optional[BacklogSource] = None,
     reload: Optional[Callable[
         [Callable[[BacklogReleases, Optional[str]], None]], None]] = None
@@ -4102,15 +4145,27 @@ Build the window, its menu, its info region and the two tables.
   disables its menu item.
 - `def_points` - Callable returning what the configuration works an
   unestimated backlog item with, or None for none.
-- `use_rt` - Callable returning whether remaining time estimates are
-  used, which decides whether an empty remaining time column
-  is shown and saved.
+- `rt_config` - Callable returning the remaining time configuration,
+  or None for none. Whether it enables remaining time
+  estimates decides whether an empty remaining time column
+  is shown and saved, and whether the ready date can be
+  estimated from remaining time.
 - `source` - Where the data came from and when it was read. When
   given, an information region is shown at the top of the
   window; when None no information region is shown.
 - `reload` - Callback that re-reads the same source and delivers the
   fresh data and any warning to the given apply callback. When
   given, a "Read again" button is offered; None disables it.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._rt_enabled"></a>
+
+#### \_rt\_enabled
+
+```python
+def _rt_enabled() -> bool
+```
+
+Return whether remaining time estimates are enabled.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._report_error"></a>
 
@@ -4400,6 +4455,16 @@ def _estimate_date() -> None
 ```
 
 Estimate the ready dates and refresh the tables.
+
+<a id="backlogops_gui.backlog_window.BacklogWindow._estimate_rt_date"></a>
+
+#### \_estimate\_rt\_date
+
+```python
+def _estimate_rt_date() -> None
+```
+
+Estimate the ready dates from remaining time and refresh.
 
 <a id="backlogops_gui.backlog_window.BacklogWindow._set_plan"></a>
 

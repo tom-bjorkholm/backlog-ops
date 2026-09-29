@@ -39,6 +39,13 @@
   * [\_order\_in\_jira](#backlogops.jira_rank_by_keys._order_in_jira)
   * [\_chain\_pass](#backlogops.jira_rank_by_keys._chain_pass)
   * [jira\_rank\_by\_keys\_raw](#backlogops.jira_rank_by_keys.jira_rank_by_keys_raw)
+* [backlogops.estimate\_rt\_ready\_date](#backlogops.estimate_rt_ready_date)
+  * [\_SECONDS\_PER\_HOUR](#backlogops.estimate_rt_ready_date._SECONDS_PER_HOUR)
+  * [\_RT\_DISABLED](#backlogops.estimate_rt_ready_date._RT_DISABLED)
+  * [FeatureDisabled](#backlogops.estimate_rt_ready_date.FeatureDisabled)
+  * [\_seconds\_of](#backlogops.estimate_rt_ready_date._seconds_of)
+  * [\_focused\_seconds](#backlogops.estimate_rt_ready_date._focused_seconds)
+  * [estimate\_rt\_ready\_date](#backlogops.estimate_rt_ready_date.estimate_rt_ready_date)
 * [backlogops.backlog\_helpers](#backlogops.backlog_helpers)
   * [FORBIDDEN\_KEY\_CHARS](#backlogops.backlog_helpers.FORBIDDEN_KEY_CHARS)
   * [CONTROL\_CHAR\_NAMES](#backlogops.backlog_helpers.CONTROL_CHAR_NAMES)
@@ -141,6 +148,7 @@
     * [move\_keys\_first](#backlogops.backlog_releases.BacklogReleases.move_keys_first)
     * [order\_by\_dependencies](#backlogops.backlog_releases.BacklogReleases.order_by_dependencies)
     * [estimate\_ready\_date](#backlogops.backlog_releases.BacklogReleases.estimate_ready_date)
+    * [estimate\_rt\_ready\_date](#backlogops.backlog_releases.BacklogReleases.estimate_rt_ready_date)
     * [set\_plan\_from\_estimate](#backlogops.backlog_releases.BacklogReleases.set_plan_from_estimate)
     * [adjust\_release\_content](#backlogops.backlog_releases.BacklogReleases.adjust_release_content)
     * [release\_plan\_on\_estimate](#backlogops.backlog_releases.BacklogReleases.release_plan_on_estimate)
@@ -660,6 +668,29 @@
   * [\_field\_section](#backlogops.jira_write_format._field_section)
   * [\_link\_section](#backlogops.jira_write_format._link_section)
   * [format\_add\_result](#backlogops.jira_write_format.format_add_result)
+* [backlogops.ready\_date\_schedule](#backlogops.ready_date_schedule)
+  * [\_ONE\_DAY](#backlogops.ready_date_schedule._ONE_DAY)
+  * [\_HORIZON](#backlogops.ready_date_schedule._HORIZON)
+  * [\_EPSILON](#backlogops.ready_date_schedule._EPSILON)
+  * [\_week\_day](#backlogops.ready_date_schedule._week_day)
+  * [\_exception\_on](#backlogops.ready_date_schedule._exception_on)
+  * [\_apply\_exception](#backlogops.ready_date_schedule._apply_exception)
+  * [\_scheduled\_hours](#backlogops.ready_date_schedule._scheduled_hours)
+  * [\_person\_hours](#backlogops.ready_date_schedule._person_hours)
+  * [team\_hours](#backlogops.ready_date_schedule.team_hours)
+  * [WorkModel](#backlogops.ready_date_schedule.WorkModel)
+  * [\_Cursor](#backlogops.ready_date_schedule._Cursor)
+  * [\_Estimator](#backlogops.ready_date_schedule._Estimator)
+    * [create](#backlogops.ready_date_schedule._Estimator.create)
+    * [\_warn](#backlogops.ready_date_schedule._Estimator._warn)
+    * [\_earliest\_team](#backlogops.ready_date_schedule._Estimator._earliest_team)
+    * [\_team\_for](#backlogops.ready_date_schedule._Estimator._team_for)
+    * [\_advance](#backlogops.ready_date_schedule._Estimator._advance)
+    * [own\_date](#backlogops.ready_date_schedule._Estimator.own_date)
+  * [\_ParentRollup](#backlogops.ready_date_schedule._ParentRollup)
+    * [create](#backlogops.ready_date_schedule._ParentRollup.create)
+    * [effective](#backlogops.ready_date_schedule._ParentRollup.effective)
+  * [schedule\_ready\_dates](#backlogops.ready_date_schedule.schedule_ready_dates)
 * [backlogops.estimate\_wizard](#backlogops.estimate_wizard)
   * [\_GuessKind](#backlogops.estimate_wizard._GuessKind)
   * [\_guess\_check](#backlogops.estimate_wizard._guess_check)
@@ -1162,29 +1193,7 @@
   * [\_parse\_jira\_map](#backlogops.wizard_helpers._parse_jira_map)
   * [\_read\_jira\_map](#backlogops.wizard_helpers._read_jira_map)
 * [backlogops.estimate\_ready\_date](#backlogops.estimate_ready_date)
-  * [\_ONE\_DAY](#backlogops.estimate_ready_date._ONE_DAY)
-  * [\_HORIZON](#backlogops.estimate_ready_date._HORIZON)
-  * [\_EPSILON](#backlogops.estimate_ready_date._EPSILON)
-  * [\_week\_day](#backlogops.estimate_ready_date._week_day)
-  * [\_exception\_on](#backlogops.estimate_ready_date._exception_on)
-  * [\_apply\_exception](#backlogops.estimate_ready_date._apply_exception)
-  * [\_scheduled\_hours](#backlogops.estimate_ready_date._scheduled_hours)
-  * [\_person\_hours](#backlogops.estimate_ready_date._person_hours)
-  * [\_Cursor](#backlogops.estimate_ready_date._Cursor)
-  * [\_Workforce](#backlogops.estimate_ready_date._Workforce)
-    * [create](#backlogops.estimate_ready_date._Workforce.create)
-    * [\_team\_fte](#backlogops.estimate_ready_date._Workforce._team_fte)
-    * [points\_on](#backlogops.estimate_ready_date._Workforce.points_on)
-    * [advance](#backlogops.estimate_ready_date._Workforce.advance)
-  * [\_Estimator](#backlogops.estimate_ready_date._Estimator)
-    * [create](#backlogops.estimate_ready_date._Estimator.create)
-    * [\_warn](#backlogops.estimate_ready_date._Estimator._warn)
-    * [\_earliest\_team](#backlogops.estimate_ready_date._Estimator._earliest_team)
-    * [\_team\_for](#backlogops.estimate_ready_date._Estimator._team_for)
-    * [own\_date](#backlogops.estimate_ready_date._Estimator.own_date)
-  * [\_ParentRollup](#backlogops.estimate_ready_date._ParentRollup)
-    * [create](#backlogops.estimate_ready_date._ParentRollup.create)
-    * [effective](#backlogops.estimate_ready_date._ParentRollup.effective)
+  * [\_points\_per\_day](#backlogops.estimate_ready_date._points_per_day)
   * [\_NO\_DEFAULTS](#backlogops.estimate_ready_date._NO_DEFAULTS)
   * [\_defaults\_or\_warn](#backlogops.estimate_ready_date._defaults_or_warn)
   * [\_points\_of](#backlogops.estimate_ready_date._points_of)
@@ -1898,6 +1907,155 @@ than two keys needs no ranking and returns at once.
 - `JiraTooManyLoops` - If the ranking does not converge within the loop
   limit.
 - `JIRAError` - If a Jira ranking call fails.
+
+<a id="backlogops.estimate_rt_ready_date"></a>
+
+# backlogops.estimate\_rt\_ready\_date
+
+Estimate the ready date of backlog items from remaining time.
+
+Estimating in story points is recommended, but some development efforts
+are required to estimate in remaining time. :func:`estimate_rt_ready_date`
+is for them: it dates the backlog items like
+:func:`backlogops.estimate_ready_date` does, but from the remaining time
+of the items and the focused work hours of the teams instead of from
+story points and velocity.
+
+<a id="backlogops.estimate_rt_ready_date._SECONDS_PER_HOUR"></a>
+
+#### \_SECONDS\_PER\_HOUR
+
+Seconds in one hour, the unit remaining time is scheduled in.
+
+<a id="backlogops.estimate_rt_ready_date._RT_DISABLED"></a>
+
+#### \_RT\_DISABLED
+
+Why estimating from remaining time is refused while it is disabled.
+
+<a id="backlogops.estimate_rt_ready_date.FeatureDisabled"></a>
+
+## FeatureDisabled Objects
+
+```python
+class FeatureDisabled(ValueError)
+```
+
+An operation was asked for that the configuration switches off.
+
+It is a ``ValueError``, so that code that reports bad input also
+reports asking for a feature that is not enabled.
+
+<a id="backlogops.estimate_rt_ready_date._seconds_of"></a>
+
+#### \_seconds\_of
+
+```python
+def _seconds_of(item: BacklogItem, config: RemainingTimeConfig,
+                with_children: set[str]) -> float
+```
+
+Return the remaining time to work one backlog item with, in seconds.
+
+A done or rejected item is no work left to do. An item that has a
+remaining time of its own is worked with it, whether or not it has
+children, because that is the work on the item itself beside the work
+in its children. An item without a remaining time that has children
+is a container for them and is no work of its own. Any other item is
+worked with what the configuration guesses for its level, or with no
+time when it guesses nothing. Like the default story points, the
+guess is used only here and is never stored on the item.
+
+<a id="backlogops.estimate_rt_ready_date._focused_seconds"></a>
+
+#### \_focused\_seconds
+
+```python
+def _focused_seconds(
+        teams: AvailableTeams,
+        config: RemainingTimeConfig) -> Callable[[Team, date], float]
+```
+
+Return how many seconds of remaining time a team does on one day.
+
+A remaining time is ideal focused work time of one person, so a team
+does its person work hours of the day scaled by its focus factor. The
+focus factor is the team's own, or the default focus factor of the
+configuration for a team that has none.
+
+<a id="backlogops.estimate_rt_ready_date.estimate_rt_ready_date"></a>
+
+#### estimate\_rt\_ready\_date
+
+```python
+def estimate_rt_ready_date(backlog: Backlog,
+                           available_teams: AvailableTeams,
+                           remaining_time_config: RemainingTimeConfig,
+                           start_date: Optional[date] = None,
+                           stderr_file: TextIO = sys.stderr) -> Backlog
+```
+
+Estimate the ready date of backlog items from remaining time.
+
+The items are scheduled like :func:`backlogops.estimate_ready_date`
+does: the teams start working on the start date, which defaults to
+today when None is given, and work the items in backlog order. Each
+item is worked by its assigned team, or, when it names no team, by
+the team that becomes free earliest. Only one team works an item, and
+a team works one item at a time. When a team's capacity on a day
+covers more than one item, several items finish on the same day. A
+parent's date is lifted to be no earlier than its latest child's,
+and a finished child does not delay its parent. Dependencies between
+items are not considered.
+
+What differs is how much work an item is and how fast a team does
+it. An item is worked with its remaining time, which is ideal focused
+work time of one person. A team does, on each day, the work hours of
+its members that day, scaled by each member's full-time equivalent in
+the team and by the team's focus factor. That follows weekends,
+company holidays, personal vacation, part-time and learning periods
+and ordered over-time. The focus factor is the team's own
+``focus_factor``, or the ``default_focus_factor`` of the remaining
+time configuration for a team that has none. The velocity and the
+sprint length of a team are not used.
+
+The remaining time of TODO and IN_PROGRESS items is all treated as
+still left to do; DONE and REJECTED items need no work and get no
+estimated date. An item that has no remaining time of its own is a
+container for its children and is no work of its own when it has
+children, and is otherwise guessed at from its level by the remaining
+time configuration, or is no work when nothing is guessed for its
+level. Story points are not used at all.
+
+When an item names a team that is not in the workforce, when no team
+is available, or when the chosen team has no capacity for the item,
+the item gets no estimated date and a warning is reported.
+
+**Arguments**:
+
+- `backlog` - The backlog to estimate the ready date of. The argument
+  is not modified. The backlog must be ordered so that the
+  teams can work the items in order.
+- `available_teams` - The available teams used to estimate the ready
+  date, including absence, focus factor and work
+  hours.
+- `remaining_time_config` - The remaining time configuration, which
+  must enable remaining time estimates. It gives the default
+  focus factor and what an item nobody has estimated counts as.
+- `start_date` - The day the teams start working, or None for today.
+- `stderr_file` - The file to report warnings to.
+  
+
+**Returns**:
+
+  A new backlog whose items carry the estimated ready date. The
+  other fields are copied unchanged from the given items.
+  
+
+**Raises**:
+
+- `FeatureDisabled` - Remaining time estimates are not enabled in the
+  remaining time configuration.
 
 <a id="backlogops.backlog_helpers"></a>
 
@@ -3841,6 +3999,47 @@ one documented for :func:`backlogops.estimate_ready_date`.
   estimated is worked with. None is deprecated and only
   kept for backward compatibility, as documented for
   :func:`backlogops.estimate_ready_date`.
+
+<a id="backlogops.backlog_releases.BacklogReleases.estimate_rt_ready_date"></a>
+
+#### estimate\_rt\_ready\_date
+
+```python
+def estimate_rt_ready_date(
+        available_teams: AvailableTeams,
+        remaining_time_config: RemainingTimeConfig,
+        start_date: Optional[date] = None,
+        stderr_file: TextIO = sys.stderr) -> ReleaseDateChanges
+```
+
+Estimate the ready date of the member items from remaining time.
+
+The member backlog is replaced by a backlog whose items carry the
+estimated ready date, and the estimated release dates follow. The
+teams start working on the start date, which defaults to today
+when None is given. The behavior is the one documented for
+:func:`backlogops.estimate_rt_ready_date`.
+
+**Arguments**:
+
+- `available_teams` - The available teams used to estimate the
+  ready date, including absence, focus factor and work
+  hours.
+- `remaining_time_config` - The remaining time configuration, which
+  must enable remaining time estimates.
+- `start_date` - The day the teams start working, or None for today.
+- `stderr_file` - The file to report warnings to.
+  
+
+**Returns**:
+
+  A record of how the estimated release dates were changed.
+  
+
+**Raises**:
+
+- `FeatureDisabled` - Remaining time estimates are not enabled. The
+  backlog and the releases are then left unchanged.
 
 <a id="backlogops.backlog_releases.BacklogReleases.set_plan_from_estimate"></a>
 
@@ -11742,6 +11941,328 @@ field value or link Jira refused is in ``Added to Jira`` and again in
 the section naming what was refused. The CLI prints this text and the
 GUI shows it in a copy-pasteable pop-up.
 
+<a id="backlogops.ready_date_schedule"></a>
+
+# backlogops.ready\_date\_schedule
+
+Schedule the work on backlog items onto the teams, day by day.
+
+The ready date of a backlog item can be estimated from story points or
+from remaining time. Both are the same schedule: the items are worked in
+backlog order, each by one team, and a team completes a certain amount
+of work on each calendar day. Only the unit of the work differs, so the
+estimators describe it with a :class:`WorkModel` and share
+:func:`schedule_ready_dates`.
+
+<a id="backlogops.ready_date_schedule._ONE_DAY"></a>
+
+#### \_ONE\_DAY
+
+One calendar day, the step used when working through a schedule.
+
+<a id="backlogops.ready_date_schedule._HORIZON"></a>
+
+#### \_HORIZON
+
+How far ahead work is followed before it counts as never finished.
+
+<a id="backlogops.ready_date_schedule._EPSILON"></a>
+
+#### \_EPSILON
+
+Tolerance for treating accumulated work as fully done.
+
+<a id="backlogops.ready_date_schedule._week_day"></a>
+
+#### \_week\_day
+
+```python
+def _week_day(day: date) -> WeekDay
+```
+
+Return the WeekDay value of a calendar day (Monday is first).
+
+<a id="backlogops.ready_date_schedule._exception_on"></a>
+
+#### \_exception\_on
+
+```python
+def _exception_on(exceptions: list[ExceptionWorkHours],
+                  day: date) -> Optional[ExceptionWorkHours]
+```
+
+Return the work-hours exception covering a day, or None.
+
+The exceptions in one list do not overlap, so at most one of them
+covers any given day.
+
+<a id="backlogops.ready_date_schedule._apply_exception"></a>
+
+#### \_apply\_exception
+
+```python
+def _apply_exception(base: float, exception: ExceptionWorkHours) -> float
+```
+
+Return the work hours after applying an exception to a baseline.
+
+On a day that is closed in the baseline the exception only adds
+hours when its new_work_days flag is set; otherwise the closed day
+stays closed.
+
+<a id="backlogops.ready_date_schedule._scheduled_hours"></a>
+
+#### \_scheduled\_hours
+
+```python
+def _scheduled_hours(company: CompanyWorkHours, day: date) -> float
+```
+
+Return the company work hours on a day, with company exceptions.
+
+<a id="backlogops.ready_date_schedule._person_hours"></a>
+
+#### \_person\_hours
+
+```python
+def _person_hours(person: Person, company: CompanyWorkHours,
+                  day: date) -> float
+```
+
+Return the work hours of one person on a day.
+
+The company schedule, including the company exceptions, is the
+person's baseline. A personal work-hours exception overrides that
+baseline, modelling vacation, part-time or ordered over-time.
+
+<a id="backlogops.ready_date_schedule.team_hours"></a>
+
+#### team\_hours
+
+```python
+def team_hours(teams: AvailableTeams, team: Team, day: date) -> float
+```
+
+Return the person work hours a team has on one day.
+
+Each member contributes the hours the person works that day, scaled
+by the full-time equivalent the person gives the team that day.
+Weekends, holidays and vacation make a member contribute nothing, and
+a member who is not a known person contributes nothing either.
+
+**Arguments**:
+
+- `teams` - The workforce holding the persons and the company hours.
+- `team` - The team to sum the hours of.
+- `day` - The calendar day.
+  
+
+**Returns**:
+
+  The summed person work hours, which is never negative.
+
+<a id="backlogops.ready_date_schedule.WorkModel"></a>
+
+## WorkModel Objects
+
+```python
+@dataclass(frozen=True)
+class WorkModel()
+```
+
+How much work each backlog item is and how fast the teams work.
+
+Fields:
+    work: The work still to do on each backlog item, by item key, in
+        the unit of the capacity. It is never negative, and an item
+        whose key is missing is no work.
+    capacity: Return the work a team completes on one calendar day,
+        in the unit of the work. It is never negative.
+
+<a id="backlogops.ready_date_schedule._Cursor"></a>
+
+## \_Cursor Objects
+
+```python
+@dataclass(frozen=True, order=True)
+class _Cursor()
+```
+
+A team's progress: the day it works and the work done that day.
+
+Keeping the work already done on the current day lets a team finish
+several small items on the same day instead of losing the rest of the
+day to one item. Cursors order by day and then by the work done, so a
+smaller cursor is the team that is free earlier.
+
+<a id="backlogops.ready_date_schedule._Estimator"></a>
+
+## \_Estimator Objects
+
+```python
+@dataclass
+class _Estimator()
+```
+
+Assign teams to backlog items and date the team's own work.
+
+The estimator keeps, for each team, a cursor with the day and the
+work done that day. It dates the work a team itself does on an item;
+lifting a parent's date to its children is done afterwards by
+:class:`_ParentRollup`.
+
+<a id="backlogops.ready_date_schedule._Estimator.create"></a>
+
+#### create
+
+```python
+@staticmethod
+def create(teams: AvailableTeams, start: date, stderr_file: TextIO,
+           model: WorkModel) -> '_Estimator'
+```
+
+Create an estimator with every team free on the start date.
+
+<a id="backlogops.ready_date_schedule._Estimator._warn"></a>
+
+#### \_warn
+
+```python
+def _warn(item: BacklogItem, reason: str) -> None
+```
+
+Report that an item cannot be dated and why.
+
+<a id="backlogops.ready_date_schedule._Estimator._earliest_team"></a>
+
+#### \_earliest\_team
+
+```python
+def _earliest_team() -> Optional[Team]
+```
+
+Return the team that becomes free earliest, or None.
+
+<a id="backlogops.ready_date_schedule._Estimator._team_for"></a>
+
+#### \_team\_for
+
+```python
+def _team_for(item: BacklogItem) -> Optional[Team]
+```
+
+Return the team that works the item, or None when unknown.
+
+<a id="backlogops.ready_date_schedule._Estimator._advance"></a>
+
+#### \_advance
+
+```python
+def _advance(team: Team, work: float,
+             cursor: _Cursor) -> Optional[tuple[date, _Cursor]]
+```
+
+Return the ready date and new cursor after doing some work.
+
+The team works from the cursor, which is the day it is on and
+the work already done on that day, so the day's leftover capacity
+carries to the next item and several small items can finish on
+the same day. The ready date is the day the work is finished. No
+work is ready at the cursor day and leaves the cursor unchanged.
+None is returned when the work does not finish within the
+horizon, which means the team has no capacity for it.
+
+<a id="backlogops.ready_date_schedule._Estimator.own_date"></a>
+
+#### own\_date
+
+```python
+def own_date(item: BacklogItem) -> Optional[date]
+```
+
+Return the date the team finishes the item's own work.
+
+Done and rejected items consume no team time and get no date.
+Other items are worked by their assigned team, or by the team
+that is free earliest, from where that team's cursor stands, for
+the work the work model gives the item. When the team has no
+capacity for the item, or no team is available, the item gets no
+date and a warning is reported.
+
+<a id="backlogops.ready_date_schedule._ParentRollup"></a>
+
+## \_ParentRollup Objects
+
+```python
+@dataclass
+class _ParentRollup()
+```
+
+Lift each parent's date to be no earlier than its children.
+
+A parent cannot be ready before its latest child, even though the
+work on the parent itself may be scheduled earlier. The effective
+date of an item is therefore the latest of its own date and the
+effective dates of its children, found recursively. Done and
+rejected items keep no date and never delay their parent.
+
+<a id="backlogops.ready_date_schedule._ParentRollup.create"></a>
+
+#### create
+
+```python
+@staticmethod
+def create(backlog: Backlog, own: dict[str, Optional[date]],
+           status: dict[str, Status]) -> '_ParentRollup'
+```
+
+Create a rollup, grouping the item keys by their parent key.
+
+<a id="backlogops.ready_date_schedule._ParentRollup.effective"></a>
+
+#### effective
+
+```python
+def effective(key: str) -> Optional[date]
+```
+
+Return the effective ready date of one item key.
+
+<a id="backlogops.ready_date_schedule.schedule_ready_dates"></a>
+
+#### schedule\_ready\_dates
+
+```python
+def schedule_ready_dates(backlog: Backlog, available_teams: AvailableTeams,
+                         start: date, stderr_file: TextIO,
+                         model: WorkModel) -> Backlog
+```
+
+Return the backlog with ready dates from scheduling its work.
+
+The backlog items are worked in their given order, from the start
+date. Each item is worked by its assigned team, or, when it names no
+team, by the team that becomes free earliest. Only one team works an
+item, and a team works one item at a time. When a team's capacity on
+a day covers more than one item, several items finish on the same
+day. A parent's date is lifted to be no earlier than its latest
+child's, and done and rejected items get no date. An item that
+cannot be dated gets no date and a warning.
+
+**Arguments**:
+
+- `backlog` - The backlog to date. The argument is not modified.
+- `available_teams` - The teams that work the backlog.
+- `start` - The day the teams start working.
+- `stderr_file` - The file to report warnings to.
+- `model` - The work of each item and the daily capacity of a team.
+  
+
+**Returns**:
+
+  A new backlog whose items carry the estimated ready date. The
+  other fields are copied unchanged from the given items.
+
 <a id="backlogops.estimate_wizard"></a>
 
 # backlogops.estimate\_wizard
@@ -18998,296 +19519,26 @@ mapped. An invalid table is re-asked with the user's own rows kept.
 
 Estimate the ready date of backlog items.
 
-<a id="backlogops.estimate_ready_date._ONE_DAY"></a>
+<a id="backlogops.estimate_ready_date._points_per_day"></a>
 
-#### \_ONE\_DAY
-
-One calendar day, the step used when working through a schedule.
-
-<a id="backlogops.estimate_ready_date._HORIZON"></a>
-
-#### \_HORIZON
-
-How far ahead work is followed before it counts as never finished.
-
-<a id="backlogops.estimate_ready_date._EPSILON"></a>
-
-#### \_EPSILON
-
-Tolerance for treating accumulated story points as fully done.
-
-<a id="backlogops.estimate_ready_date._week_day"></a>
-
-#### \_week\_day
+#### \_points\_per\_day
 
 ```python
-def _week_day(day: date) -> WeekDay
+def _points_per_day(teams: AvailableTeams) -> Callable[[Team, date], float]
 ```
 
-Return the WeekDay value of a calendar day (Monday is first).
-
-<a id="backlogops.estimate_ready_date._exception_on"></a>
-
-#### \_exception\_on
-
-```python
-def _exception_on(exceptions: list[ExceptionWorkHours],
-                  day: date) -> Optional[ExceptionWorkHours]
-```
-
-Return the work-hours exception covering a day, or None.
-
-The exceptions in one list do not overlap, so at most one of them
-covers any given day.
-
-<a id="backlogops.estimate_ready_date._apply_exception"></a>
-
-#### \_apply\_exception
-
-```python
-def _apply_exception(base: float, exception: ExceptionWorkHours) -> float
-```
-
-Return the work hours after applying an exception to a baseline.
-
-On a day that is closed in the baseline the exception only adds
-hours when its new_work_days flag is set; otherwise the closed day
-stays closed.
-
-<a id="backlogops.estimate_ready_date._scheduled_hours"></a>
-
-#### \_scheduled\_hours
-
-```python
-def _scheduled_hours(company: CompanyWorkHours, day: date) -> float
-```
-
-Return the company work hours on a day, with company exceptions.
-
-<a id="backlogops.estimate_ready_date._person_hours"></a>
-
-#### \_person\_hours
-
-```python
-def _person_hours(person: Person, company: CompanyWorkHours,
-                  day: date) -> float
-```
-
-Return the work hours of one person on a day.
-
-The company schedule, including the company exceptions, is the
-person's baseline. A personal work-hours exception overrides that
-baseline, modelling vacation, part-time or ordered over-time.
-
-<a id="backlogops.estimate_ready_date._Cursor"></a>
-
-## \_Cursor Objects
-
-```python
-@dataclass(frozen=True, order=True)
-class _Cursor()
-```
-
-A team's progress: the day it works and points spent that day.
-
-Keeping the points already spent on the current day lets a team
-finish several small items on the same day instead of losing the
-rest of the day to one item. Cursors order by day and then by spent
-points, so a smaller cursor is the team that is free earlier.
-
-<a id="backlogops.estimate_ready_date._Workforce"></a>
-
-## \_Workforce Objects
-
-```python
-@dataclass(frozen=True)
-class _Workforce()
-```
-
-The workforce together with the length of a full work day.
-
-The standard work day is the longest day in the company weekly
-schedule. It is the reference a person's actual work hours are
-measured against, so that a normal full day counts as one full-time
-equivalent, a half day as one half, and ordered over-time as more.
-
-<a id="backlogops.estimate_ready_date._Workforce.create"></a>
-
-#### create
-
-```python
-@staticmethod
-def create(teams: AvailableTeams) -> '_Workforce'
-```
-
-Create a workforce, deriving the standard full work day.
-
-<a id="backlogops.estimate_ready_date._Workforce._team_fte"></a>
-
-#### \_team\_fte
-
-```python
-def _team_fte(team: Team, day: date) -> float
-```
-
-Return the team's effective full-time equivalent on a day.
-
-Each member contributes the full-time equivalent it gives the
-team that day, scaled by how much of a standard work day the
-person actually works. Weekends, holidays and vacation make a
-member contribute nothing.
-
-<a id="backlogops.estimate_ready_date._Workforce.points_on"></a>
-
-#### points\_on
-
-```python
-def points_on(team: Team, day: date) -> float
-```
-
-Return the story points the team completes on one day.
+Return how many story points a team completes on one day.
 
 The team velocity is the story points done in one sprint at the
 recorded summed full-time equivalent. Because sprint_length is a
 count of working days (not calendar days) and a non-working day
-contributes no capacity, dividing the velocity by sprint_length
-gives the story points per working day. That daily rate is
-rescaled by the team's effective full-time equivalent on the day.
-
-<a id="backlogops.estimate_ready_date._Workforce.advance"></a>
-
-#### advance
-
-```python
-def advance(team: Team, points: float,
-            cursor: _Cursor) -> Optional[tuple[date, _Cursor]]
-```
-
-Return the ready date and new cursor after doing some work.
-
-The team works from the cursor, which is the day it is on and
-the story points already spent on that day, so the day's leftover
-capacity carries to the next item and several small items can
-finish on the same day. The ready date is the day the work is
-finished. Work with no story points is ready at the cursor day
-and leaves the cursor unchanged. None is returned when the work
-does not finish within the horizon, which means the team has no
-capacity for it.
-
-<a id="backlogops.estimate_ready_date._Estimator"></a>
-
-## \_Estimator Objects
-
-```python
-@dataclass
-class _Estimator()
-```
-
-Assign teams to backlog items and date the team's own work.
-
-The estimator keeps, for each team, a cursor with the day and the
-points spent that day. It dates the work a team itself does on an
-item; lifting a parent's date to its children is done afterwards by
-:class:`_ParentRollup`.
-
-<a id="backlogops.estimate_ready_date._Estimator.create"></a>
-
-#### create
-
-```python
-@staticmethod
-def create(teams: AvailableTeams, start: date, stderr_file: TextIO,
-           points: dict[str, float]) -> '_Estimator'
-```
-
-Create an estimator with every team free on the start date.
-
-<a id="backlogops.estimate_ready_date._Estimator._warn"></a>
-
-#### \_warn
-
-```python
-def _warn(item: BacklogItem, reason: str) -> None
-```
-
-Report that an item cannot be dated and why.
-
-<a id="backlogops.estimate_ready_date._Estimator._earliest_team"></a>
-
-#### \_earliest\_team
-
-```python
-def _earliest_team() -> Optional[Team]
-```
-
-Return the team that becomes free earliest, or None.
-
-<a id="backlogops.estimate_ready_date._Estimator._team_for"></a>
-
-#### \_team\_for
-
-```python
-def _team_for(item: BacklogItem) -> Optional[Team]
-```
-
-Return the team that works the item, or None when unknown.
-
-<a id="backlogops.estimate_ready_date._Estimator.own_date"></a>
-
-#### own\_date
-
-```python
-def own_date(item: BacklogItem) -> Optional[date]
-```
-
-Return the date the team finishes the item's own work.
-
-Done and rejected items consume no team time and get no date.
-Other items are worked by their assigned team, or by the team
-that is free earliest, from where that team's cursor stands, for
-the story points the item is worked with as decided by
-:func:`backlogops.use_story_points`. When the team has no
-capacity for the item, or no team is available, the item gets no
-date and a warning is reported.
-
-<a id="backlogops.estimate_ready_date._ParentRollup"></a>
-
-## \_ParentRollup Objects
-
-```python
-@dataclass
-class _ParentRollup()
-```
-
-Lift each parent's date to be no earlier than its children.
-
-A parent cannot be ready before its latest child, even though the
-work on the parent itself may be scheduled earlier. The effective
-date of an item is therefore the latest of its own date and the
-effective dates of its children, found recursively. Done and
-rejected items keep no date and never delay their parent.
-
-<a id="backlogops.estimate_ready_date._ParentRollup.create"></a>
-
-#### create
-
-```python
-@staticmethod
-def create(backlog: Backlog, own: dict[str, Optional[date]],
-           status: dict[str, Status]) -> '_ParentRollup'
-```
-
-Create a rollup, grouping the item keys by their parent key.
-
-<a id="backlogops.estimate_ready_date._ParentRollup.effective"></a>
-
-#### effective
-
-```python
-def effective(key: str) -> Optional[date]
-```
-
-Return the effective ready date of one item key.
+contributes no capacity, dividing the velocity by sprint_length gives
+the story points per working day. That daily rate is rescaled by the
+team's effective full-time equivalent on the day: its person work
+hours measured in standard work days. The standard work day is the
+longest day in the company weekly schedule, so that a normal full day
+counts as one full-time equivalent, a half day as one half, and
+ordered over-time as more.
 
 <a id="backlogops.estimate_ready_date._NO_DEFAULTS"></a>
 

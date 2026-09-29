@@ -17,8 +17,10 @@ from backlogops.order_by_dependencies import order_by_dependencies, \
     DependencyMode
 from backlogops.estimate_ready_date import estimate_ready_date, \
     set_plan_from_estimate
+from backlogops.estimate_rt_ready_date import estimate_rt_ready_date
 from backlogops.available_teams import AvailableTeams
 from backlogops.default_story_points import DefaultStoryPoints
+from backlogops.remaining_time_config import RemainingTimeConfig
 from backlogops.release_backlog_updates import estimate_release_dates, \
     release_plan_on_estimate, adjust_release_content, ReleaseChanges, \
     ReleaseDateChanges
@@ -241,6 +243,42 @@ class BacklogReleases:
         self.backlog = estimate_ready_date(
             self.backlog, available_teams, start_date, stderr_file,
             default_story_points=default_story_points)
+        self.releases, changes = estimate_release_dates(self.releases,
+                                                        self.backlog)
+        return changes
+
+    def estimate_rt_ready_date(self, available_teams: AvailableTeams,
+                               remaining_time_config: RemainingTimeConfig,
+                               start_date: Optional[date] = None,
+                               stderr_file: TextIO = sys.stderr
+                               ) -> ReleaseDateChanges:
+        """Estimate the ready date of the member items from remaining time.
+
+        The member backlog is replaced by a backlog whose items carry the
+        estimated ready date, and the estimated release dates follow. The
+        teams start working on the start date, which defaults to today
+        when None is given. The behavior is the one documented for
+        :func:`backlogops.estimate_rt_ready_date`.
+
+        Args:
+            available_teams: The available teams used to estimate the
+                ready date, including absence, focus factor and work
+                hours.
+            remaining_time_config: The remaining time configuration, which
+                must enable remaining time estimates.
+            start_date: The day the teams start working, or None for today.
+            stderr_file: The file to report warnings to.
+
+        Returns:
+            A record of how the estimated release dates were changed.
+
+        Raises:
+            FeatureDisabled: Remaining time estimates are not enabled. The
+                backlog and the releases are then left unchanged.
+        """
+        self.backlog = estimate_rt_ready_date(self.backlog, available_teams,
+                                              remaining_time_config,
+                                              start_date, stderr_file)
         self.releases, changes = estimate_release_dates(self.releases,
                                                         self.backlog)
         return changes

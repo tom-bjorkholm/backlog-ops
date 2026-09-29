@@ -236,8 +236,9 @@ written to files and shown in the GUI. While `enable_remaining_time` is
 remaining time, so a backlog estimated in story points gets no empty
 column. A remaining time is also read from and written to Jira (see
 [column maps](#column-maps-how-a-field-reaches-a-jira-value)), but only
-while `enable_remaining_time` is `true`. Ready dates estimated from it are
-not supported yet.
+while `enable_remaining_time` is `true`. Ready dates can then also be
+estimated from remaining time, see [estimate ready dates from remaining
+time](05_estimating.md#estimate-ready-dates-from-remaining-time).
 
 ### Status mapping
 

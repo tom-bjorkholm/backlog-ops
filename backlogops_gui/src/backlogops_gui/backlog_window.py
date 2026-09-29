@@ -28,13 +28,15 @@ from backlogops import (
     AddedReleasesToJira, AddedToJira, AvailableTeams, BacklogReleases,
     DefaultStoryPoints,
     GuiDisplayConfig, Levels, OrderedReleasesInJira, OutputFormatConfig,
-    RankedInJira, RenamedReleasesInJira, UpdatedBacklogInJira,
+    RankedInJira, RemainingTimeConfig, RenamedReleasesInJira,
+    UpdatedBacklogInJira,
     UpdatedReleasesInJira, format_order_result, format_rank_result,
     format_release_result, format_release_updates, format_rename_result,
     report_has_problems)
 from backlogops_gui.backlog_actions import (
     adjust_content, apply_add_result, apply_update_result, estimate_date,
-    extract_keys, order_by_deps, order_by_keys, order_by_release, order_dates,
+    estimate_rt_date, extract_keys, order_by_deps, order_by_keys,
+    order_by_release, order_dates,
     plan_dates, save_backlog, set_plan)
 from backlogops_gui.report_windows import show_text_report
 from backlogops_gui.table_view import (
@@ -118,7 +120,8 @@ class BacklogWindow:
                  jira: Optional[JiraHandlers] = None, *,
                  def_points: Callable[
                      [], Optional[DefaultStoryPoints]] = lambda: None,
-                 use_rt: Callable[[], bool] = lambda: False,
+                 rt_config: Callable[
+                     [], Optional[RemainingTimeConfig]] = lambda: None,
                  source: Optional[BacklogSource] = None,
                  reload: Optional[Callable[
                      [Callable[[BacklogReleases, Optional[str]], None]],
@@ -145,9 +148,11 @@ class BacklogWindow:
                 disables its menu item.
             def_points: Callable returning what the configuration works an
                 unestimated backlog item with, or None for none.
-            use_rt: Callable returning whether remaining time estimates are
-                used, which decides whether an empty remaining time column
-                is shown and saved.
+            rt_config: Callable returning the remaining time configuration,
+                or None for none. Whether it enables remaining time
+                estimates decides whether an empty remaining time column
+                is shown and saved, and whether the ready date can be
+                estimated from remaining time.
             source: Where the data came from and when it was read. When
                 given, an information region is shown at the top of the
                 window; when None no information region is shown.
@@ -160,7 +165,7 @@ class BacklogWindow:
         self._presets = presets
         self._teams = teams
         self._def_points = def_points
-        self._use_rt = use_rt
+        self._rt_config = rt_config
         self._sink = sink
         self._levels = levels
         self._gui_display = gui_display
@@ -180,6 +185,11 @@ class BacklogWindow:
         self._render_warning()
         self._build_tables()
 
+    def _rt_enabled(self) -> bool:
+        """Return whether remaining time estimates are enabled."""
+        config = self._rt_config()
+        return config is not None and config.enable_remaining_time
+
     def _report_error(self, title: str, message: str) -> None:
         """Show an error message over this backlog window."""
         messagebox.showerror(title, message, parent=self._win)
@@ -195,7 +205,7 @@ class BacklogWindow:
                                 display.level_display,
                                 display.backlog_to_external, self._sink,
                                 omit_none_column=display.omit_none_column,
-                                use_remaining_time=self._use_rt())
+                                use_remaining_time=self._rt_enabled())
         table = self._add_table('Backlog', *backlog, narrow=False)
         self._tables.append(table)
         releases = release_table(self._data, display.release_to_external,
@@ -348,6 +358,9 @@ class BacklogWindow:
                          command=self._order_by_release, state=state)
         menu.add_command(label='Estimate ready date…',
                          command=self._estimate_date, state=state)
+        menu.add_command(label='Estimate ready date from remaining time…',
+                         command=self._estimate_rt_date,
+                         state=state if self._rt_enabled() else 'disabled')
         menu.add_command(label='Set planned date from estimated',
                          command=self._set_plan, state=state)
         menu.add_command(label='Adjust release content…',
@@ -441,7 +454,7 @@ class BacklogWindow:
         saved = save_backlog(self._win, self._data, self._presets(),
                              self._levels(), self._sink, self._report_error,
                              self._report_info,
-                             use_remaining_time=self._use_rt())
+                             use_remaining_time=self._rt_enabled())
         if saved is not None and self._saved_to_source(saved):
             self._set_modified(False)
 
@@ -476,6 +489,12 @@ class BacklogWindow:
         estimate_date(self._win, self._data, self._teams(), self._def_points(),
                       self._sink, self._changed_refresh, self._report_error,
                       self._report_info)
+
+    def _estimate_rt_date(self) -> None:
+        """Estimate the ready dates from remaining time and refresh."""
+        estimate_rt_date(self._win, self._data, self._teams(),
+                         self._rt_config(), self._sink, self._changed_refresh,
+                         self._report_error, self._report_info)
 
     def _set_plan(self) -> None:
         """Copy the estimated dates to the planned dates and refresh."""

@@ -13,11 +13,11 @@ here too, so the same reporting pattern is shared.
 # MIT License
 
 import tkinter as tk
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Callable, Optional, TextIO
 from backlogops import (
     AddedToJira, AvailableTeams, BacklogReleases, DefaultStoryPoints, Levels,
-    OutputFormatConfig,
+    OutputFormatConfig, RemainingTimeConfig,
     ReleaseChanges, ReleaseDateChanges, UpdatedBacklogInJira, allow_overwrite,
     apply_jira_keys, format_add_result, format_backlog_updates,
     format_content_changes, format_date_changes, get_keys_in_order,
@@ -252,6 +252,34 @@ def _run_change(parent: tk.Misc,
 
 
 # pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def _estimate_from(parent: tk.Misc, teams: Optional[AvailableTeams],
+                   estimate: Callable[[AvailableTeams, Optional[date]],
+                                      ReleaseDateChanges], sink: TextIO,
+                   refresh: Callable[[], None],
+                   on_error: Callable[[str, str], None],
+                   on_info: Callable[[str, str], None]) -> None:
+    """Ask for the start date and run one kind of ready date estimate.
+
+    The estimate is given the workforce and the start date, and returns
+    the release date changes that the pop-up then lists.
+    """
+    if teams is None:
+        on_error('No configuration',
+                 'There is no teams configuration to estimate from.')
+        return
+    choice = ask_start_date(parent)
+    if choice is None:
+        return
+    ready_teams, start = teams, choice.start_date
+
+    def change() -> tuple[str, Optional[Callable[[str], None]]]:
+        """Estimate the dates and return the release date change report."""
+        return _date_report(estimate(ready_teams, start), sink)
+    _run_change(parent, change, refresh, on_error, on_info,
+                'Could not estimate ready date', 'Release date changes')
+
+
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def estimate_date(parent: tk.Misc, data: BacklogReleases,
                   teams: Optional[AvailableTeams],
                   points: Optional[DefaultStoryPoints], sink: TextIO,
@@ -264,23 +292,38 @@ def estimate_date(parent: tk.Misc, data: BacklogReleases,
     guesses for its level, so the guess of the loaded configuration is
     passed on with the workforce.
     """
-    if teams is None:
-        on_error('No configuration',
-                 'There is no teams configuration to estimate from.')
-        return
-    choice = ask_start_date(parent)
-    if choice is None:
-        return
-    ready_teams, start = teams, choice.start_date
     guess = DefaultStoryPoints() if points is None else points
 
-    def change() -> tuple[str, Optional[Callable[[str], None]]]:
-        """Estimate the dates and return the release date change report."""
-        changes = data.estimate_ready_date(ready_teams, start, sink,
-                                           default_story_points=guess)
-        return _date_report(changes, sink)
-    _run_change(parent, change, refresh, on_error, on_info,
-                'Could not estimate ready date', 'Release date changes')
+    def estimate(ready: AvailableTeams,
+                 start: Optional[date]) -> ReleaseDateChanges:
+        """Estimate the ready dates from story points."""
+        return data.estimate_ready_date(ready, start, sink,
+                                        default_story_points=guess)
+    _estimate_from(parent, teams, estimate, sink, refresh, on_error, on_info)
+
+
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def estimate_rt_date(parent: tk.Misc, data: BacklogReleases,
+                     teams: Optional[AvailableTeams],
+                     rt_config: Optional[RemainingTimeConfig], sink: TextIO,
+                     refresh: Callable[[], None],
+                     on_error: Callable[[str, str], None],
+                     on_info: Callable[[str, str], None]) -> None:
+    """Ask for the start date and estimate the ready dates from remaining time.
+
+    The remaining time configuration gives the default focus factor and
+    what an unestimated backlog item is worked with. When remaining time
+    estimates are not enabled the estimate is refused with an error
+    pop-up that says how to enable them, and the data is left unchanged.
+    """
+    config = (RemainingTimeConfig(stderr_file=sink) if rt_config is None
+              else rt_config)
+
+    def estimate(ready: AvailableTeams,
+                 start: Optional[date]) -> ReleaseDateChanges:
+        """Estimate the ready dates from remaining time."""
+        return data.estimate_rt_ready_date(ready, config, start, sink)
+    _estimate_from(parent, teams, estimate, sink, refresh, on_error, on_info)
 
 
 def set_plan(data: BacklogReleases, sink: TextIO, refresh: Callable[[], None],

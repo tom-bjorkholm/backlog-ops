@@ -1299,10 +1299,15 @@ as documented for :func:`backlogops.estimate_ready_date`. The teams
 configuration (velocity, work hours, vacations and so on) is taken from
 the file given by ``--config`` or, when that is absent, from the
 configured backlog-ops file, and so is what a backlog item that nobody
-has estimated is worked with. The backlog with the estimated dates and the
-releases are written to the output file. The input and output formats are
-inferred from the file name extensions, but can be overridden by a
-configuration file or by a named preset.
+has estimated is worked with. With ``--remaining-time`` the ready dates
+are instead estimated from the remaining time of the items and the focus
+factor of the teams, as documented for
+:func:`backlogops.estimate_rt_ready_date`; that needs remaining time
+estimates to be enabled in the configuration, and the command fails
+without writing anything when they are not. The backlog with the
+estimated dates and the releases are written to the output file. The
+input and output formats are inferred from the file name extensions, but
+can be overridden by a configuration file or by a named preset.
 
 <a id="backlogops_cli.estimate_ready_date.build_parser"></a>
 
@@ -1325,9 +1330,12 @@ def main(args: Optional[list[str]] = None) -> int
 Estimate the ready dates and write the output file.
 
 The backlog with the estimated dates and the releases are written to
-the output file. The estimated release dates are updated as well, and
-the list of release date changes is printed to stdout, or also saved
-to a file when ``--changes-file`` is given.
+the output file. The ready dates are estimated from story points, or
+from remaining time with ``--remaining-time``, which fails when the
+configuration does not enable remaining time estimates. The estimated
+release dates are updated as well, and the list of release date
+changes is printed to stdout, or also saved to a file when
+``--changes-file`` is given.
 
 **Arguments**:
 

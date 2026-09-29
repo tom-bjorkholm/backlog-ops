@@ -11,7 +11,8 @@ from tkinter import ttk
 from typing import Callable, Optional, cast
 import pytest
 from backlogops import (
-    AddedToJira, BacklogReleases, GuiDisplayConfig, NoTextIO, get_demo_backlog)
+    AddedToJira, BacklogReleases, GuiDisplayConfig, NoTextIO,
+    RemainingTimeConfig, get_demo_backlog)
 from backlogops_gui import backlog_window
 from backlogops_gui.backlog_window import (
     BacklogSource, BacklogWindow, JiraHandlers, MODIFIED_MARK, PROBLEM_MARK)
@@ -22,14 +23,14 @@ SINK = NoTextIO()
 
 _ACTION_METHODS = [
     '_save', '_order_by_keys', '_order_by_deps', '_order_by_release',
-    '_estimate_date', '_set_plan', '_adjust_content', '_plan_dates',
-    '_order_dates', '_extract_keys']
+    '_estimate_date', '_estimate_rt_date', '_set_plan', '_adjust_content',
+    '_plan_dates', '_order_dates', '_extract_keys']
 """The window action methods that delegate to a module helper."""
 
 _DELEGATES = [
     'save_backlog', 'order_by_keys', 'order_by_deps', 'order_by_release',
-    'estimate_date', 'set_plan', 'adjust_content', 'plan_dates',
-    'order_dates', 'extract_keys']
+    'estimate_date', 'estimate_rt_date', 'set_plan', 'adjust_content',
+    'plan_dates', 'order_dates', 'extract_keys']
 """The module helpers each action method delegates to, in the same order."""
 
 
@@ -121,8 +122,10 @@ def test_window_uses_gui_maps(monkeypatch: pytest.MonkeyPatch, omit: bool,
         gui.backlog_to_external = {'key': 'Id'}
         gui.release_to_external = {'name': 'Release'}
         gui.omit_none_column = omit
+        config = RemainingTimeConfig(stderr_file=SINK)
+        config.enable_remaining_time = use_rt
         BacklogWindow(root, DATA, 'T', _none, _none, SINK,
-                      gui_display=lambda: gui, use_rt=lambda: use_rt)
+                      gui_display=lambda: gui, rt_config=lambda: config)
         assert captured['backlog'] == ({'key': 'Id'}, {
             'omit_none_column': omit, 'use_remaining_time': use_rt})
         assert captured['release'] == ({'name': 'Release'},
@@ -166,6 +169,35 @@ def test_warning_disables_ops() -> None:
         labels = [w for w in window._win.winfo_children()
                   if isinstance(w, tk.Label)]
         assert labels and labels[0].cget('text') == 'Broken Jira data'
+
+
+_RT_ITEM = 'Estimate ready date from remaining time…'
+"""The label of the menu item estimating from remaining time."""
+
+
+def _rt(enabled: Optional[bool]) -> Optional[RemainingTimeConfig]:
+    """Return remaining time enabled or not, or None for no config."""
+    if enabled is None:
+        return None
+    config = RemainingTimeConfig(stderr_file=SINK)
+    config.enable_remaining_time = enabled
+    return config
+
+
+@pytest.mark.parametrize('enabled, warning, state', [
+    (None, None, 'disabled'), (False, None, 'disabled'),
+    (True, None, 'normal'), (True, 'Broken Jira data', 'disabled')])
+def test_rt_estimate_menu(enabled: Optional[bool], warning: Optional[str],
+                          state: str) -> None:
+    """Test estimating from remaining time is greyed out unless enabled."""
+    with gui_root() as root:
+        config = _rt(enabled)
+        window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK,
+                               warning=warning, rt_config=lambda: config)
+        states = _states_of(_backlog_menu(window))
+        assert states[_RT_ITEM] == state
+        assert list(states).index(_RT_ITEM) == \
+            list(states).index('Estimate ready date…') + 1
 
 
 def test_backlog_update_menu() -> None:

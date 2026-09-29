@@ -332,6 +332,9 @@ succeeded. When something was refused the pop-up title is marked
 
     - Estimate ready date...
 
+    - Estimate ready date from remaining time... (greyed out unless
+      remaining time estimates are enabled in the configuration)
+
     - Set planned date from estimated
 
     - Adjust release content...
@@ -364,7 +367,7 @@ succeeded. When something was refused the pop-up title is marked
 
 ## Test summary
 
-- Test result: 2857 passed, 1 deselected in 69s (0:01:09)
+- Test result: 2901 passed, 1 deselected in 70s (0:01:10)
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.

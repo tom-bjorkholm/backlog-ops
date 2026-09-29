@@ -283,6 +283,11 @@ from backlogops import (
 - `estimate_ready_date`, `set_plan_from_estimate`: estimate ready dates
   and set planned dates from the estimate.
 
+- `estimate_rt_ready_date`, `FeatureDisabled`: estimate ready dates from
+  remaining time and the focus factor of the teams instead of from story
+  points, refused with `FeatureDisabled` unless remaining time estimates
+  are enabled.
+
 - `DefaultStoryPoints`, `use_story_points`: what a backlog item that
   nobody has estimated counts as, and the story points to work any one
   item with. The estimate uses them, so an unestimated item does not
@@ -330,7 +335,7 @@ For the full set of public names see the API documentation linked above.
 
 ## Test summary
 
-- Test result: 2857 passed, 1 deselected in 69s (0:01:09)
+- Test result: 2901 passed, 1 deselected in 70s (0:01:10)
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.

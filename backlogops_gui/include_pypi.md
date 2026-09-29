@@ -117,6 +117,9 @@ succeeded. When something was refused the pop-up title is marked
 
     - Estimate ready date...
 
+    - Estimate ready date from remaining time... (greyed out unless
+      remaining time estimates are enabled in the configuration)
+
     - Set planned date from estimated
 
     - Adjust release content...

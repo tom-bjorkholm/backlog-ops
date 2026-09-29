@@ -45,8 +45,9 @@ from wizard_tk_bridge import WizardUiBridgeTk
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, BacklogReleases, CONFIG_EXTENSION,
     DefaultStoryPoints,
-    GuiDisplayConfig, InputFormatConfig, Levels, OutputFormatConfig, Status,
-    get_demo_backlog, get_backlog_ops_config, backlog_ops_wizard,
+    GuiDisplayConfig, InputFormatConfig, Levels, OutputFormatConfig,
+    RemainingTimeConfig, Status, get_demo_backlog, get_backlog_ops_config,
+    backlog_ops_wizard,
     preset_wizard, read_backlog_ops_config, read_io_preset, safe_write_config,
     encrypt_token_file, encrypt_token_to_file)
 from backlogops_gui.backlog_io import read_backlog
@@ -203,10 +204,9 @@ class BacklogApp:
         """Return what an unestimated item is worked with, or None."""
         return self.config.default_story_points if self.config else None
 
-    def use_rt(self) -> bool:
-        """Return whether remaining time estimates are enabled."""
-        return self.config is not None and \
-            self.config.remaining_time.enable_remaining_time
+    def rt_config(self) -> Optional[RemainingTimeConfig]:
+        """Return the remaining time configuration, or None when absent."""
+        return self.config.remaining_time if self.config else None
 
     def status_map(self) -> Optional[dict[str, Status]]:
         """Return the library-wide status input map, or None when absent."""
@@ -625,7 +625,7 @@ class BacklogApp:
         BacklogWindow(self.root, data, title, self.out_presets,
                       self.available_teams, self.log, self.levels,
                       self.gui_display, warning, handlers,
-                      def_points=self.def_points, use_rt=self.use_rt,
+                      def_points=self.def_points, rt_config=self.rt_config,
                       source=source, reload=reload)
 
     def report_versions(self) -> None:

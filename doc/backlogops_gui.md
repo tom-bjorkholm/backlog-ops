@@ -113,7 +113,7 @@
     * [available\_teams](#backlogops_gui.application.BacklogApp.available_teams)
     * [levels](#backlogops_gui.application.BacklogApp.levels)
     * [def\_points](#backlogops_gui.application.BacklogApp.def_points)
-    * [use\_rt](#backlogops_gui.application.BacklogApp.use_rt)
+    * [rt\_config](#backlogops_gui.application.BacklogApp.rt_config)
     * [status\_map](#backlogops_gui.application.BacklogApp.status_map)
     * [gui\_display](#backlogops_gui.application.BacklogApp.gui_display)
     * [show\_error](#backlogops_gui.application.BacklogApp.show_error)
@@ -152,6 +152,7 @@
   * [save\_changes](#backlogops_gui.backlog_actions.save_changes)
   * [show\_changes](#backlogops_gui.backlog_actions.show_changes)
   * [estimate\_date](#backlogops_gui.backlog_actions.estimate_date)
+  * [estimate\_rt\_date](#backlogops_gui.backlog_actions.estimate_rt_date)
   * [set\_plan](#backlogops_gui.backlog_actions.set_plan)
   * [adjust\_content](#backlogops_gui.backlog_actions.adjust_content)
   * [plan\_dates](#backlogops_gui.backlog_actions.plan_dates)
@@ -1498,15 +1499,15 @@ def def_points() -> Optional[DefaultStoryPoints]
 
 Return what an unestimated item is worked with, or None.
 
-<a id="backlogops_gui.application.BacklogApp.use_rt"></a>
+<a id="backlogops_gui.application.BacklogApp.rt_config"></a>
 
-#### use\_rt
+#### rt\_config
 
 ```python
-def use_rt() -> bool
+def rt_config() -> Optional[RemainingTimeConfig]
 ```
 
-Return whether remaining time estimates are enabled.
+Return the remaining time configuration, or None when absent.
 
 <a id="backlogops_gui.application.BacklogApp.status_map"></a>
 
@@ -2002,6 +2003,27 @@ An unestimated backlog item is worked with what the configuration
 guesses for its level, so the guess of the loaded configuration is
 passed on with the workforce.
 
+<a id="backlogops_gui.backlog_actions.estimate_rt_date"></a>
+
+#### estimate\_rt\_date
+
+```python
+def estimate_rt_date(parent: tk.Misc, data: BacklogReleases,
+                     teams: Optional[AvailableTeams],
+                     rt_config: Optional[RemainingTimeConfig], sink: TextIO,
+                     refresh: Callable[[],
+                                       None], on_error: Callable[[str, str],
+                                                                 None],
+                     on_info: Callable[[str, str], None]) -> None
+```
+
+Ask for the start date and estimate the ready dates from remaining time.
+
+The remaining time configuration gives the default focus factor and
+what an unestimated backlog item is worked with. When remaining time
+estimates are not enabled the estimate is refused with an error
+pop-up that says how to enable them, and the data is left unchanged.
+
 <a id="backlogops_gui.backlog_actions.set_plan"></a>
 
 #### set\_plan
@@ -2225,7 +2247,7 @@ def __init__(
     jira: Optional[JiraHandlers] = None,
     *,
     def_points: Callable[[], Optional[DefaultStoryPoints]] = lambda: None,
-    use_rt: Callable[[], bool] = lambda: False,
+    rt_config: Callable[[], Optional[RemainingTimeConfig]] = lambda: None,
     source: Optional[BacklogSource] = None,
     reload: Optional[Callable[
         [Callable[[BacklogReleases, Optional[str]], None]], None]] = None
@@ -2255,9 +2277,11 @@ Build the window, its menu, its info region and the two tables.
   disables its menu item.
 - `def_points` - Callable returning what the configuration works an
   unestimated backlog item with, or None for none.
-- `use_rt` - Callable returning whether remaining time estimates are
-  used, which decides whether an empty remaining time column
-  is shown and saved.
+- `rt_config` - Callable returning the remaining time configuration,
+  or None for none. Whether it enables remaining time
+  estimates decides whether an empty remaining time column
+  is shown and saved, and whether the ready date can be
+  estimated from remaining time.
 - `source` - Where the data came from and when it was read. When
   given, an information region is shown at the top of the
   window; when None no information region is shown.
