@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
   name='backlogops',
-  version='1.3.1',
+  version='1.4',
   description='Library with backlog operations.',
   author='Tom Björkholm',
   author_email='klausuler_linnet0q@icloud.com',
@@ -15,7 +15,7 @@ setup(
   package_data={'backlogops': ['src/py.typed']},
   install_requires=[
     'config-as-json >= 1.7',
-    'cryptography >= 50.0.1',
+    'cryptography >= 50.0.2',
     'jira[cli,opt] >= 3.10.5',
     'tableio >= 1.2',
     'tableio-cfg-json >= 1.5',

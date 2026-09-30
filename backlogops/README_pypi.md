@@ -350,10 +350,10 @@ For the full set of public names see the API documentation linked above.
 
 ## Test summary
 
-- Test result: 2902 passed, 1 deselected in 70s (0:01:10)
+- Test result: 2902 passed, 1 deselected in 67s (0:01:07)
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
-- Built version(s): 1.3.1
+- Built version(s): 1.4
 - Build and test using Python 3.14.7
