@@ -328,4 +328,4 @@ backlogops_cli serves 2 purposes:
 - No pylint warnings.
 - No python layout warnings.
 - Built version(s): 1.4
-- Build and test using Python 3.12.10
+- Build and test using Python 3.13.15
