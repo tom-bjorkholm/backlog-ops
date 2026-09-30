@@ -147,15 +147,24 @@ def test_exclude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert 'title' in fields and 'status' in fields
 
 
+@pytest.mark.parametrize('column, noted', [('bogus', False),
+                                           ('remaining_time', True)])
 def test_store_unknown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                       capsys: pytest.CaptureFixture[str]) -> None:
-    """Test a -s column that is not updatable is dropped and reported."""
+                       capsys: pytest.CaptureFixture[str], column: str,
+                       noted: bool) -> None:
+    """Test a -s column that is not updatable is dropped and reported.
+
+    A remaining time dropped because remaining time estimates are not used
+    is reported with a note saying so.
+    """
     captured = _patch(monkeypatch, _result())
     _prepare(tmp_path)
-    code = update_backlog_in_jira.main(_args(tmp_path, '-s', 'title', 'bogus'))
+    code = update_backlog_in_jira.main(_args(tmp_path, '-s', 'title', column))
     assert code == 0
     assert captured['fields'] == ['title']
-    assert 'bogus' in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert column in err
+    assert ('enable_remaining_time' in err) is noted
 
 
 @pytest.mark.parametrize('flag, mode', [

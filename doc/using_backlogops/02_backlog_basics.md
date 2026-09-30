@@ -18,7 +18,9 @@ release:
 - the **planned ready date** — the date you have communicated to the
   customer;
 - the **estimated ready date** — the date the current backlog implies, given
-  team velocity and availability.
+  team velocity (or, for [remaining time
+  estimates](01_configuration.md#remaining-time-estimates), the focus factor)
+  and availability.
 
 Most operations exist to compute the estimate, or to keep the plan and the
 estimate consistent with each other and with the order of the backlog.

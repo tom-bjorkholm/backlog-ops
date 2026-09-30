@@ -9,7 +9,8 @@ the file given by ``--config`` or, when that is absent, from the
 configured backlog-ops file, and so is what a backlog item that nobody
 has estimated is worked with. With ``--remaining-time`` the ready dates
 are instead estimated from the remaining time of the items and the focus
-factor of the teams, as documented for
+factor of the teams (or the configured default focus factor), as
+documented for
 :func:`backlogops.estimate_rt_ready_date`; that needs remaining time
 estimates to be enabled in the configuration, and the command fails
 without writing anything when they are not. The backlog with the
@@ -44,7 +45,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--remaining-time', dest='remaining_time',
                         action='store_true',
                         help='Estimate from the remaining time of the items '
-                        'and the focus factor of the teams instead of from '
+                        'and the focus factor of the teams (or the default '
+                        'focus factor) instead of from '
                         'story points and velocity. Requires remaining time '
                         'estimates to be enabled in the configuration '
                         '("enable_remaining_time": true in its '

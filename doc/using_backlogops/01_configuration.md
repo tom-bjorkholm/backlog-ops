@@ -18,7 +18,8 @@ the correct field mapping**.
    column renaming happens. This is enough for quick jobs.
 2. **A backlog-ops configuration file** (usually named `backlogops.cfg`).
    This is the main configuration object. It holds the workforce, the named
-   file presets, the levels, the status mapping and the whole Jira setup.
+   file presets, the levels, the guess for unestimated items, the status
+   mapping and the whole Jira setup.
    Any command reaches it with `-c file.cfg`, or by discovery (see below).
 3. **Stand-alone preset files.** A single input or output preset saved in
    its own file, handed to a command wherever an input or output format is
@@ -531,7 +532,7 @@ python3 -m backlogops_cli.jira_fields -c my.cfg -p scrum --issue SCRUM-15 \
     --field timetracking --field timetracking.remainingEstimateSeconds
 ```
 
-Use it two ways:
+Use it three ways:
 
 - **To pick the right name.** Find the row whose display name is the field
   you want (say `Story point estimate` → `customfield_10016`) and use that
@@ -546,10 +547,11 @@ Use it two ways:
   whether the issue holds a value there and what it looks like, and whether
   the edit screen offers the field for writing.
 
-Behind these two listings are
-[`jira_custom_fields`](../backlogops_api.md#backlogops.jira_write.jira_custom_fields)
-and
-[`jira_editable_fields`](../backlogops_api.md#backlogops.jira_write.jira_editable_fields).
+Behind these listings are
+[`jira_custom_fields`](../backlogops_api.md#backlogops.jira_write.jira_custom_fields),
+[`jira_editable_fields`](../backlogops_api.md#backlogops.jira_write.jira_editable_fields)
+and, for `--field`,
+[`jira_field_json`](../backlogops_api.md#backlogops.jira_field_json.jira_field_json).
 
 ## Creating and maintaining configuration
 
@@ -561,7 +563,8 @@ configuration at once, and a migration for an older file.
 
 Builds a complete backlog-ops file interactively: whether remaining time
 estimates are also used, the workforce, the company calendar, named presets, levels,
-the guess for unestimated items and the status map. Related questions are
+the guess for unestimated items, the status map, how the GUI shows the data,
+and the Jira connections, column maps and presets. Related questions are
 grouped onto single forms — the company's weekly work hours together with its
 first holiday period, a team's velocity and sprint length (in working days), a
 work-hour exception's dates and hours, a team membership, and each Jira

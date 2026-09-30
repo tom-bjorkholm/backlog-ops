@@ -19,7 +19,9 @@ with no remaining time leaves Jira's estimate as it is.
 
 The selected fields are written in the same way they are read: a settable
 field (summary, description, story points, team, fix version) through an
-issue update, the status through a workflow transition, the parent through
+issue update, the remaining time as a time tracking edit (see
+:mod:`backlogops.jira_write_time`, as the paths it is read from are
+read-only), the status through a workflow transition, the parent through
 the mapped parent field, and each dependency through Jira issue links. How
 links are reconciled is chosen by :class:`LinkUpdate`: ``ADD_MISSING``
 only creates the links that are missing, while ``RECONCILE`` also removes

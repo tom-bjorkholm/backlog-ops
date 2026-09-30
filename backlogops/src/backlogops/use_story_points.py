@@ -21,8 +21,9 @@ from backlogops.default_story_points import DefaultStoryPoints
 def find_keys_with_children(backlog: Backlog) -> set[str]:
     """Return the keys of the backlog items that have children.
 
-    Working this out once and handing it to :func:`use_story_points` is
-    what keeps pricing a whole backlog a matter of one pass over it.
+    Working this out once and handing it to :func:`use_story_points`, or
+    to the estimate from remaining time, is what keeps pricing a whole
+    backlog a matter of one pass over it.
 
     Args:
         backlog: The backlog to take the parent references from.

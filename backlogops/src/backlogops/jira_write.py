@@ -90,8 +90,8 @@ _SKIP_WRITE_FIELDS = frozenset({'key', 'status', 'parent_key'}) | \
     frozenset(DEPENDENCY_FIELDS)
 """Internal fields not set from the column map when creating an issue.
 
-The key is assigned by Jira, the status needs a workflow transition, the
-parent and dependency links are updated in a later batch. A sub-task's
+The key is assigned by Jira, the status needs a workflow transition, and
+the parent and dependency links are updated in a later batch. A sub-task's
 parent is the exception: it is set at create time by a dedicated path,
 because Jira requires it, not from the column map.
 """
@@ -227,7 +227,9 @@ def _create_fields(ctx: _WriteContext, item: BacklogItem) -> dict[str, object]:
 
     An empty internal value is not written, because a new issue has no
     value to clear: an item nobody has estimated yet is created with its
-    story points left unset, as an item with no team or release is.
+    story points left unset, as an item with no team or release is. A
+    remaining time is written in the form
+    :func:`backlogops.jira_write_time._jira_value` gives it.
     """
     fields: dict[str, object] = {'project': {'key': ctx.project}}
     for name, attrs in ctx.column_map.items():

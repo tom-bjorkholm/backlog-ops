@@ -67,9 +67,9 @@ opens a **backlog window** with a `Backlog` menu and a `Jira` menu.
 ## Where the configuration comes from
 
 Almost every task can use a **backlog-ops configuration file** that holds the
-workforce, named file presets, the levels, the status mapping and the Jira
-connections. When you do not pass one explicitly, both the CLI (`-c`) and the
-GUI look for it in the same order:
+workforce, named file presets, the levels, the guess for unestimated items,
+the status mapping and the Jira connections. When you do not pass one
+explicitly, both the CLI (`-c`) and the GUI look for it in the same order:
 
 1. the file named by the `$BACKLOGOPS_CFG` environment variable;
 2. `backlogops.cfg` inside the directory named by `$BACKLOGOPS_DIR`;
@@ -85,7 +85,9 @@ Items are ordered by priority and dependencies so a team can simply take the
 next item. Each backlog item and each release can carry a **planned ready
 date** (what you have promised the customer) and an **estimated ready date**
 (what the current backlog, the team velocity, and the team's availability
-imply). Most operations exist to keep those two in a sensible relationship.
+imply; teams that must estimate in remaining time can use a focus factor
+instead of the velocity). Most operations exist to keep those two in a
+sensible relationship.
 
 ## Chapters
 

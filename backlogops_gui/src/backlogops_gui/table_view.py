@@ -10,8 +10,8 @@ rows, kept in first-seen order, and every cell is rendered as text so the
 table can show any value type; a decimal number loses the trailing zeros
 it does not need, so story points read as ``1`` and ``0.5``. A per-table
 column-name map can rename a column or drop it from the display, as the GUI
-display configuration decides. A column that is empty on every row is left
-out as documented for :func:`backlogops.omittable_columns`.
+display configuration decides. A column that is empty on every row may be
+left out, as :func:`backlogops.omittable_columns` decides.
 """
 
 # Copyright (c) 2026, Tom Björkholm

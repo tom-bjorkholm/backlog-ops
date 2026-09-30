@@ -9,7 +9,9 @@ by that position and offered again as the default when the question is
 re-asked, whether the user went back to it or forward into it once more.
 
 The field-reading and parsing helpers the navigator calls live in
-:mod:`backlogops.wizard_helpers`; the one-screen form toolkit lives in
+:mod:`backlogops.wizard_helpers`, except the guess-by-level table readers,
+which live in :mod:`backlogops.estimate_wizard` and are handed to
+:meth:`_Navigator.ask_guess`; the one-screen form toolkit lives in
 :mod:`backlogops.wizard_forms`. The small domain helper
 :func:`_ask_display` is shared by the configuration and preset wizards.
 """

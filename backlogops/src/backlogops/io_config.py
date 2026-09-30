@@ -94,7 +94,7 @@ class _DisplayMapReadOldConfig(ReadOldConfiguration):
                             new_path=('backlog_to_external',))]
 
     def get_missing_path_values(self) -> dict[ConfigPath, object]:
-        """Supply default maps and level display for an older file."""
+        """Supply default maps, level display and omission for old files."""
         return {('backlog_to_external',): {}, ('release_to_external',): {},
                 ('level_display',): LevelDisplay.BOTH,
                 ('omit_none_column',): self._omit_none_column}
@@ -398,10 +398,10 @@ class OutputFormatConfig(_FormatConfig):
     is written as its number, its name, or both. The maps default to empty
     and the display defaults to :data:`LevelDisplay.BOTH`; any of them may
     be absent from an older file, in which case the default applies.
-    A column that is None on every row is left out of the written file
-    when :attr:`omit_none_column` is True. It defaults to False, so that a
-    spreadsheet gets every column, ready for the user to fill in and read
-    back.
+    A column that is empty (None or an empty string) on every row is left
+    out of the written file when :attr:`omit_none_column` is True. It
+    defaults to False, so that a spreadsheet gets every column, ready for
+    the user to fill in and read back.
     """
 
     _FILE_ACCESS = FileAccess.CREATE
@@ -491,8 +491,9 @@ class GuiDisplayConfig(Config):
     :class:`LevelDisplay`. The maps default to empty and the display
     defaults to :data:`LevelDisplay.BOTH`; any of them may be absent from
     an older file, in which case the default applies. A column that is
-    None on every row is not shown when :attr:`omit_none_column` is True,
-    which it defaults to, so that no screen width is spent on it.
+    empty (None or an empty string) on every row is not shown when
+    :attr:`omit_none_column` is True, which it defaults to, so that no
+    screen width is spent on it.
     """
 
     backlog_to_external: dict[str, Optional[str]]

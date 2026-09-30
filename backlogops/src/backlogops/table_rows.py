@@ -240,7 +240,8 @@ def row_to_item(row: Mapping[str, object], levels: Optional[Levels] = None,
     before the built-in status-name matching, as documented for
     :func:`backlogops.backlog.get_backlog_item`. A row with no story
     points cell, or with an empty one, makes an item nobody has
-    estimated yet rather than an item of no size.
+    estimated yet rather than an item of no size. The same holds for the
+    remaining time cell.
     """
     prepared = _present_cells(row)
     for name in DEPENDENCY_FIELDS:

@@ -18,8 +18,9 @@ customer-friendly.
 
 The `customer-report` output preset from [chapter 1](01_configuration.md)
 does the presentation work. It renames internal fields to words a customer
-understands and drops the columns they should not see. Recall its column
-maps:
+understands and drops the columns they should not see. Here is a variant of
+it, which shows level names only, drops the story points and also names the
+estimated release date:
 
 ```json
 "customer-report": {
@@ -68,7 +69,9 @@ read as exactly that. Unless your configuration says what such an item counts
 as, it counts as **free**, and every date after it — including the release
 date you are about to send the customer — comes out too early. Set
 `default_story_points` ([chapter 1](01_configuration.md#default-story-points))
-before you promise anything on the strength of this forecast.
+before you promise anything on the strength of this forecast. (If you
+estimate from remaining time instead, the same goes for the levels of the
+`remaining_time` section.)
 
 ## Do it from the GUI
 

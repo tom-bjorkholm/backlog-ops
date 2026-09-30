@@ -4,22 +4,24 @@
 The :class:`BacklogOpsConfig` is the single configuration object an
 application reads and writes. It groups together the available workforce,
 the named TableIO input and output presets, the status-name map, the GUI
-display settings, the Jira configuration, and an optional set of backlog
-item levels:
+display settings, the Jira configuration, an optional set of backlog item
+levels, the default story points and the remaining time settings:
 
 * ``available_teams`` is the workforce (persons, teams and company work
   hours), bridged to JSON by :class:`AvailableTeamsConfig`;
 * ``input_configs`` and ``output_configs`` are named TableIO presets;
 * ``status_input_map`` maps the status names in files and Jira to the
   internal statuses;
-* ``gui_display`` holds the GUI column-rename and level-display settings;
+* ``gui_display`` holds the GUI column-rename, level-display and
+  empty-column settings;
 * ``jira`` is the Jira input and output configuration, bridged to JSON by
   :class:`backlogops.jira_io_config.JiraIOConfig`;
 * ``default_story_points`` is what a backlog item that nobody has
   estimated counts as, bridged to JSON by
   :class:`backlogops.default_story_points.DefaultStoryPoints`;
 * ``remaining_time`` says whether estimates in remaining time are used
-  beside story points, which are recommended, bridged to JSON by
+  beside story points, which are recommended, with the guess for an
+  unestimated item and the default focus factor, bridged to JSON by
   :class:`backlogops.remaining_time_config.RemainingTimeConfig`;
 * ``levels`` is the optional list of backlog item levels. It is omitted
   from the file while it is ``None``; :meth:`BacklogOpsConfig.get_levels`

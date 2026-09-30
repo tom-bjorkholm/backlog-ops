@@ -77,6 +77,9 @@ B2 = [
     '(for exploring the features).',
     'Estimate ready date for the backlog items based on available teams, '
     'team velocity, vacation dates, periods with half time work, etc.',
+    'Alternatively, where remaining time estimates are required, estimate '
+    'ready dates from the remaining time of the backlog items and the '
+    'focus factor of the teams (story points are recommended).',
     'Configure what a backlog item that nobody has estimated counts as, '
     'per backlog item level, so that an unestimated item does not make '
     'the estimated dates too optimistic.',
@@ -94,6 +97,8 @@ B2 = [
     'Convert a backlog and releases between table file formats.',
     'Order the releases by their planned or estimated date.',
     'Rename columns when reading a file and when writing a file.',
+    'Leave out columns that are empty on every row, when writing a file '
+    'and when showing the backlog in the GUI.',
     'Map custom status names in input files to backlog item statuses.',
     'Choose how backlog item levels are written: by number, by name, or '
     'both, and configure custom level names.',
@@ -126,7 +131,10 @@ B2 = [
     'following a key list.',
     'Report what a Jira operation did not do. Every Jira result opens '
     'with what Jira refused or what was skipped, so a value that was '
-    'not written is visible without reading the whole listing.'
+    'not written is visible without reading the whole listing.',
+    "Show the custom fields of Jira, the fields an issue's edit screen "
+    'accepts, and the raw JSON Jira holds for a field of an issue, to '
+    'find the correct Jira field mapping.'
 ]
 P3 = 'The operating model that most of the functionality is designed for ' \
      'is that the teams work off a single backlog in the order of the ' \
@@ -135,7 +143,8 @@ P3 = 'The operating model that most of the functionality is designed for ' \
      'Each backlog item and each release may have a planned ready date, ' \
      'that records what has been communicated to the customer. ' \
      'Each backlog item and each release may have an estimated ready date, ' \
-     'that is calculated from the current backlog state, the team velocity, ' \
+     'that is calculated from the current backlog state, the team velocity ' \
+     '(or, for remaining time estimates, the focus factor), ' \
      'and what we know about the availability of the team members.'
 P4 = 'Each backlog item has the following fields that are used by the ' \
      'algorithms in the library:'
@@ -163,8 +172,12 @@ B4 = {'key': 'The key of the backlog item. Required. Must be unique. '
       'characters.',
       'team': 'The team responsible for the backlog item. Optional. '
       'Must not be empty string. Must be a valid team name. '
-      'If None the item can be done by any team. If not None. '
+      'If None the item can be done by any team. If not None, '
       'the item can only be done by the specified team.',
+      'remaining_time': 'The remaining time of the backlog item, as ideal '
+      'focused work time of one person. Optional. Only used by the '
+      'alternative remaining time estimates; story points are '
+      'recommended. Must not be negative.',
       'depends_on_f2s': 'The list of keys of the backlog items that must '
       'have been finished before the current item can start. May be empty.',
       'depends_on_f2f': 'The list of keys of the backlog items that must '
@@ -227,7 +240,7 @@ UC1 = DOCS_ROOT + 'backlogops_cli.md'
 UC2 = DOCS_ROOT + 'backlogops_protected_cli.md'
 UG1 = DOCS_ROOT + 'backlogops_gui.md'
 UG2 = DOCS_ROOT + 'backlogops_protected_gui.md'
-UB1 = DOCS_ROOT + '/using_backlogops/README.md'
+UB1 = DOCS_ROOT + 'using_backlogops/README.md'
 
 
 def _write_api_docs(mft: MultiFormat) -> None:

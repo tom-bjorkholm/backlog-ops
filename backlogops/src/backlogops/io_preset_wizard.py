@@ -5,7 +5,8 @@ The public :func:`preset_wizard` asks whether to build an input or an
 output preset and then the same questions the full configuration wizard
 asks for one preset of that direction: the TableIO endpoint format and
 options, how the backlog and releases file columns relate to the internal
-fields, and, for an output preset, how levels are written. A stand-alone
+fields, and, for an output preset, how levels are written and whether a
+column that is empty on every row is left out. A stand-alone
 preset has no name of its own; the file it is written to is the preset.
 
 The ``_build_input_presets`` and ``_build_output_presets`` collectors ask a

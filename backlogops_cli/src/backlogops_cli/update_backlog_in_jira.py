@@ -7,11 +7,13 @@ backlog-ops configuration, changing only a chosen subset of the mapped
 fields. The subset is chosen with exactly one of two flags: ``-s``/``--store``
 lists the columns to update (or the single word ``all`` for every mapped
 writable column), while ``-e``/``--exclude`` updates every mapped writable
-column except the listed ones.
+column except the listed ones. The remaining time is a writable column only
+while remaining time estimates are enabled.
 
 ``--on-missing`` chooses what to do with an item whose key is not present in
 Jira: ``raise`` (the default) stops with an error, ``ignore`` leaves it
-alone, and ``add`` creates it with all of its fields. ``--links`` chooses how
+alone, and ``add`` creates it with all of its mapped fields (the remaining
+time only while remaining time estimates are enabled). ``--links`` chooses how
 the parent and dependency links are updated: ``reconcile`` (the default) makes
 the Jira links match the backlog exactly, removing a Jira link the backlog no
 longer has and clearing a dropped parent, while ``add`` only adds the missing
@@ -49,6 +51,9 @@ _MISSING_MODES = {'raise': OnMissingKey.RAISE, 'ignore': OnMissingKey.IGNORE,
 _LINK_MODES = {'reconcile': LinkUpdate.RECONCILE,
                'add': LinkUpdate.ADD_MISSING}
 _STORE_ALL = 'all'
+_RT_WRITABLE = ('remaining_time is writable only while '
+                '"enable_remaining_time" is true in the configuration.')
+"""Help and message note on when the remaining time can be updated."""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -76,10 +81,11 @@ def _add_column_flags(parser: argparse.ArgumentParser) -> None:
     group.add_argument('-s', '--store', dest='store', nargs='+',
                        metavar='COLUMN',
                        help='Columns to update, or the single word "all" for '
-                       'every mapped writable column.')
+                       'every mapped writable column. ' + _RT_WRITABLE)
     group.add_argument('-e', '--exclude', dest='exclude', nargs='+',
                        metavar='COLUMN',
-                       help='Update every mapped writable column but these.')
+                       help='Update every mapped writable column but these. '
+                       + _RT_WRITABLE)
 
 
 def _resolve_fields(parsed: argparse.Namespace, connections: JiraConnections,
@@ -99,11 +105,23 @@ def _resolve_fields(parsed: argparse.Namespace, connections: JiraConnections,
             return updatable
         unknown = [name for name in parsed.store if name not in updatable]
         if unknown:
-            print('Ignoring columns not updatable in this preset: '
-                  + ', '.join(unknown), file=sys.stderr)
+            _report_ignored(unknown, use_remaining_time)
         return [name for name in parsed.store if name in updatable]
     excluded = set(parsed.exclude)
     return [name for name in updatable if name not in excluded]
+
+
+def _report_ignored(unknown: list[str], use_remaining_time: bool) -> None:
+    """Report the ``-s`` columns dropped as not updatable to stderr.
+
+    A dropped ``remaining_time`` while remaining time estimates are not
+    used gets a note saying why, because the preset may well map it.
+    """
+    note = ''
+    if 'remaining_time' in unknown and not use_remaining_time:
+        note = ' (' + _RT_WRITABLE + ')'
+    print('Ignoring columns not updatable in this preset: '
+          + ', '.join(unknown) + note, file=sys.stderr)
 
 
 def _update(parsed: argparse.Namespace, config: BacklogOpsConfig,

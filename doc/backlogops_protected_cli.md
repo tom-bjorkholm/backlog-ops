@@ -9,9 +9,11 @@
   * [\_run](#backlogops_cli.jira_fields._run)
   * [main](#backlogops_cli.jira_fields.main)
 * [backlogops\_cli.update\_backlog\_in\_jira](#backlogops_cli.update_backlog_in_jira)
+  * [\_RT\_WRITABLE](#backlogops_cli.update_backlog_in_jira._RT_WRITABLE)
   * [build\_parser](#backlogops_cli.update_backlog_in_jira.build_parser)
   * [\_add\_column\_flags](#backlogops_cli.update_backlog_in_jira._add_column_flags)
   * [\_resolve\_fields](#backlogops_cli.update_backlog_in_jira._resolve_fields)
+  * [\_report\_ignored](#backlogops_cli.update_backlog_in_jira._report_ignored)
   * [\_update](#backlogops_cli.update_backlog_in_jira._update)
   * [\_report\_summary](#backlogops_cli.update_backlog_in_jira._report_summary)
   * [\_run](#backlogops_cli.update_backlog_in_jira._run)
@@ -306,11 +308,13 @@ backlog-ops configuration, changing only a chosen subset of the mapped
 fields. The subset is chosen with exactly one of two flags: ``-s``/``--store``
 lists the columns to update (or the single word ``all`` for every mapped
 writable column), while ``-e``/``--exclude`` updates every mapped writable
-column except the listed ones.
+column except the listed ones. The remaining time is a writable column only
+while remaining time estimates are enabled.
 
 ``--on-missing`` chooses what to do with an item whose key is not present in
 Jira: ``raise`` (the default) stops with an error, ``ignore`` leaves it
-alone, and ``add`` creates it with all of its fields. ``--links`` chooses how
+alone, and ``add`` creates it with all of its mapped fields (the remaining
+time only while remaining time estimates are enabled). ``--links`` chooses how
 the parent and dependency links are updated: ``reconcile`` (the default) makes
 the Jira links match the backlog exactly, removing a Jira link the backlog no
 longer has and clearing a dropped parent, while ``add`` only adds the missing
@@ -324,6 +328,12 @@ refused to add, to set or to link, are printed to stdout as labelled
 lists, unless ``-q``/``--quiet`` is given. An
 encrypted Jira token is unlocked by a pass phrase asked on the terminal
 only when it is needed.
+
+<a id="backlogops_cli.update_backlog_in_jira._RT_WRITABLE"></a>
+
+#### \_RT\_WRITABLE
+
+Help and message note on when the remaining time can be updated.
 
 <a id="backlogops_cli.update_backlog_in_jira.build_parser"></a>
 
@@ -361,6 +371,19 @@ columns. A ``-s`` name that is not an updatable column is reported and
 dropped, so a typo does not silently update nothing. The remaining
 time is an updatable column only while remaining time estimates are
 used.
+
+<a id="backlogops_cli.update_backlog_in_jira._report_ignored"></a>
+
+#### \_report\_ignored
+
+```python
+def _report_ignored(unknown: list[str], use_remaining_time: bool) -> None
+```
+
+Report the ``-s`` columns dropped as not updatable to stderr.
+
+A dropped ``remaining_time`` while remaining time estimates are not
+used gets a note saying why, because the preset may well map it.
 
 <a id="backlogops_cli.update_backlog_in_jira._update"></a>
 
@@ -850,7 +873,8 @@ Add the ``-c``/``--config`` backlog-ops configuration argument.
 
 The configuration file holds the workforce, the named input and output
 presets, the levels, the global status map, the guess for unestimated
-items, the GUI display settings and the Jira configuration. Without
+items, the remaining time settings, the GUI display settings and the
+Jira configuration. Without
 ``-c`` the file is discovered the same way as the GUI.
 
 <a id="backlogops_cli._command_io.add_preset_arg"></a>
@@ -1150,7 +1174,8 @@ def run_added_to_jira(parsed: argparse.Namespace, add: Callable[
 Read the input, add it to Jira, and print the added lists.
 
 ``add`` receives the parsed args, the config and the input data, adds
-to Jira, writes any ``--added``/``--existing`` files, and returns the
+to Jira, writes any ``--added-file``/``--existing-file`` files, and
+returns the
 result. ``report`` formats that result for stdout, printed unless
 ``-q``/``--quiet`` was given. ``exists_error`` is the key-exists error
 meaning nothing was added; other value or OS errors are reported with
@@ -2075,8 +2100,9 @@ Order the backlog by release order and write the output file.
 Run the IO preset wizard and store the created preset file.
 
 The created file holds a single input or output TableIO preset (a format
-configuration with its column-name maps, and a level display for an output
-preset). Such a stand-alone file is used wherever an input or output
+configuration with its column-name maps, and a level display and whether
+to leave out empty columns for an output preset). Such a stand-alone file
+is used wherever an input or output
 configuration is taken, by giving its file name.
 
 <a id="backlogops_cli.preset_wizard.build_parser"></a>
@@ -2734,7 +2760,8 @@ the file given by ``--config`` or, when that is absent, from the
 configured backlog-ops file, and so is what a backlog item that nobody
 has estimated is worked with. With ``--remaining-time`` the ready dates
 are instead estimated from the remaining time of the items and the focus
-factor of the teams, as documented for
+factor of the teams (or the configured default focus factor), as
+documented for
 :func:`backlogops.estimate_rt_ready_date`; that needs remaining time
 estimates to be enabled in the configuration, and the command fails
 without writing anything when they are not. The backlog with the

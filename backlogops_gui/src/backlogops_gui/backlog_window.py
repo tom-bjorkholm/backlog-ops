@@ -139,7 +139,8 @@ class BacklogWindow:
             levels: Callable returning the configured levels, or None for
                 the default levels.
             gui_display: Callable returning the GUI display configuration,
-                which decides the level display and the per-table column
+                which decides the level display, whether a column that is
+                empty on every row is left out, and the per-table column
                 renaming for the tables.
             warning: Warning text to show over the tables. When present,
                 backlog operations are disabled and only saving remains.
@@ -151,8 +152,9 @@ class BacklogWindow:
             rt_config: Callable returning the remaining time configuration,
                 or None for none. Whether it enables remaining time
                 estimates decides whether an empty remaining time column
-                is shown and saved, and whether the ready date can be
-                estimated from remaining time.
+                is kept when empty columns are not left out anyway, and
+                whether the ready date can be estimated from remaining
+                time.
             source: Where the data came from and when it was read. When
                 given, an information region is shown at the top of the
                 window; when None no information region is shown.

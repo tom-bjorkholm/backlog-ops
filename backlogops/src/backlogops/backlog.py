@@ -38,6 +38,9 @@ class Status(IntEnum):
             decision not to do the work.
             The story points on the item will not consume any more
             FTE time.
+
+    The same holds for the remaining time of an item when the ready
+    date is estimated from remaining time.
     """
 
     TODO = auto()
@@ -82,12 +85,14 @@ class BacklogItem:  # pylint: disable=too-many-instance-attributes
                  control characters.
         team: The team responsible for the backlog item. Optional.
               Must not be empty string. Must be a valid team name.
-              If None the item can be done by any team. If not None.
+              If None the item can be done by any team. If not None,
               the item can only be done by the specified team.
         remaining_time: The remaining time to complete the backlog item,
               as ideal focused working time by one person.
-              Used only if `enable_remaining_time` is set to True in the
-              configuration. Optional. Represented as a timedelta.
+              Estimated from, and read from or written to Jira, only if
+              `enable_remaining_time` is set to True in the
+              configuration; files carry it either way. Optional.
+              Represented as a timedelta.
               Must not be negative.
         depends_on_f2s: The list of keys of the backlog items that must
                         have been finished before the current item can

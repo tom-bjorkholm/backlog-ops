@@ -146,13 +146,15 @@ def add_config_arg(parser: argparse.ArgumentParser) -> None:
 
     The configuration file holds the workforce, the named input and output
     presets, the levels, the global status map, the guess for unestimated
-    items, the GUI display settings and the Jira configuration. Without
+    items, the remaining time settings, the GUI display settings and the
+    Jira configuration. Without
     ``-c`` the file is discovered the same way as the GUI.
     """
     parser.add_argument('-c', '--config', dest='config',
                         help='Backlog-ops configuration file (workforce, '
                         'named presets, levels, status map, default story '
-                        'points, Jira configuration). Without -c the '
+                        'points, remaining time settings, Jira '
+                        'configuration). Without -c the '
                         'file is found from $BACKLOGOPS_CFG, else '
                         'backlogops.cfg in $BACKLOGOPS_DIR, else '
                         '$HOME/.backlogops.cfg.')
@@ -436,7 +438,8 @@ def run_added_to_jira(
     """Read the input, add it to Jira, and print the added lists.
 
     ``add`` receives the parsed args, the config and the input data, adds
-    to Jira, writes any ``--added``/``--existing`` files, and returns the
+    to Jira, writes any ``--added-file``/``--existing-file`` files, and
+    returns the
     result. ``report`` formats that result for stdout, printed unless
     ``-q``/``--quiet`` was given. ``exists_error`` is the key-exists error
     meaning nothing was added; other value or OS errors are reported with

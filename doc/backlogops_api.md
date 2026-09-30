@@ -3109,22 +3109,24 @@ Top-level backlog-ops configuration stored as config-as-json.
 The :class:`BacklogOpsConfig` is the single configuration object an
 application reads and writes. It groups together the available workforce,
 the named TableIO input and output presets, the status-name map, the GUI
-display settings, the Jira configuration, and an optional set of backlog
-item levels:
+display settings, the Jira configuration, an optional set of backlog item
+levels, the default story points and the remaining time settings:
 
 * ``available_teams`` is the workforce (persons, teams and company work
   hours), bridged to JSON by :class:`AvailableTeamsConfig`;
 * ``input_configs`` and ``output_configs`` are named TableIO presets;
 * ``status_input_map`` maps the status names in files and Jira to the
   internal statuses;
-* ``gui_display`` holds the GUI column-rename and level-display settings;
+* ``gui_display`` holds the GUI column-rename, level-display and
+  empty-column settings;
 * ``jira`` is the Jira input and output configuration, bridged to JSON by
   :class:`backlogops.jira_io_config.JiraIOConfig`;
 * ``default_story_points`` is what a backlog item that nobody has
   estimated counts as, bridged to JSON by
   :class:`backlogops.default_story_points.DefaultStoryPoints`;
 * ``remaining_time`` says whether estimates in remaining time are used
-  beside story points, which are recommended, bridged to JSON by
+  beside story points, which are recommended, with the guess for an
+  unestimated item and the default focus factor, bridged to JSON by
   :class:`backlogops.remaining_time_config.RemainingTimeConfig`;
 * ``levels`` is the optional list of backlog item levels. It is omitted
   from the file while it is ``None``; :meth:`BacklogOpsConfig.get_levels`
@@ -4283,8 +4285,9 @@ def find_keys_with_children(backlog: Backlog) -> set[str]
 
 Return the keys of the backlog items that have children.
 
-Working this out once and handing it to :func:`use_story_points` is
-what keeps pricing a whole backlog a matter of one pass over it.
+Working this out once and handing it to :func:`use_story_points`, or
+to the estimate from remaining time, is what keeps pricing a whole
+backlog a matter of one pass over it.
 
 **Arguments**:
 
@@ -4713,6 +4716,9 @@ The meaning of each status is:
         The story points on the item will not consume any more
         FTE time.
 
+The same holds for the remaining time of an item when the ready
+date is estimated from remaining time.
+
 <a id="backlogops.backlog.BacklogItem"></a>
 
 ## BacklogItem Objects
@@ -4756,12 +4762,14 @@ Fields:
              control characters.
     team: The team responsible for the backlog item. Optional.
           Must not be empty string. Must be a valid team name.
-          If None the item can be done by any team. If not None.
+          If None the item can be done by any team. If not None,
           the item can only be done by the specified team.
     remaining_time: The remaining time to complete the backlog item,
           as ideal focused working time by one person.
-          Used only if `enable_remaining_time` is set to True in the
-          configuration. Optional. Represented as a timedelta.
+          Estimated from, and read from or written to Jira, only if
+          `enable_remaining_time` is set to True in the
+          configuration; files carry it either way. Optional.
+          Represented as a timedelta.
           Must not be negative.
     depends_on_f2s: The list of keys of the backlog items that must
                     have been finished before the current item can
@@ -6560,7 +6568,8 @@ A string status is matched case-insensitively against ``status_map``
 before the built-in status-name matching, as documented for
 :func:`backlogops.backlog.get_backlog_item`. A row with no story
 points cell, or with an empty one, makes an item nobody has
-estimated yet rather than an item of no size.
+estimated yet rather than an item of no size. The same holds for the
+remaining time cell.
 
 <a id="backlogops.table_rows.row_to_release"></a>
 
@@ -6647,7 +6656,9 @@ with no remaining time leaves Jira's estimate as it is.
 
 The selected fields are written in the same way they are read: a settable
 field (summary, description, story points, team, fix version) through an
-issue update, the status through a workflow transition, the parent through
+issue update, the remaining time as a time tracking edit (see
+:mod:`backlogops.jira_write_time`, as the paths it is read from are
+read-only), the status through a workflow transition, the parent through
 the mapped parent field, and each dependency through Jira issue links. How
 links are reconciled is chosen by :class:`LinkUpdate`: ``ADD_MISSING``
 only creates the links that are missing, while ``RECONCILE`` also removes
@@ -7268,9 +7279,13 @@ Create the remaining time configuration, or read it from JSON.
 **Attributes**:
 
 - `enable_remaining_time` - Whether remaining time estimates are
-  handled at all in backlog operations. If False, the other
-  settings are ignored, although they are still validated,
-  and no completion is estimated from remaining time. Story
+  used in backlog operations. If False, the remaining time
+  is neither read from nor written to Jira, an empty
+  remaining time column is left out of tables, and no
+  completion is estimated from remaining time; a remaining
+  time read from a file is still written back. The other
+  settings are then ignored, although they are still
+  validated. Story
   points are used either way, so True means that both kinds
   of estimates are used. Most development efforts are
   better off estimating in story points than in remaining
@@ -7512,10 +7527,10 @@ carries a :class:`LevelDisplay`, deciding whether a backlog item level
 is written as its number, its name, or both. The maps default to empty
 and the display defaults to :data:`LevelDisplay.BOTH`; any of them may
 be absent from an older file, in which case the default applies.
-A column that is None on every row is left out of the written file
-when :attr:`omit_none_column` is True. It defaults to False, so that a
-spreadsheet gets every column, ready for the user to fill in and read
-back.
+A column that is empty (None or an empty string) on every row is left
+out of the written file when :attr:`omit_none_column` is True. It
+defaults to False, so that a spreadsheet gets every column, ready for
+the user to fill in and read back.
 
 <a id="backlogops.io_config.OutputFormatConfig.__init__"></a>
 
@@ -7605,8 +7620,9 @@ column-name maps ``backlog_to_external`` and ``release_to_external``
 :class:`LevelDisplay`. The maps default to empty and the display
 defaults to :data:`LevelDisplay.BOTH`; any of them may be absent from
 an older file, in which case the default applies. A column that is
-None on every row is not shown when :attr:`omit_none_column` is True,
-which it defaults to, so that no screen width is spent on it.
+empty (None or an empty string) on every row is not shown when
+:attr:`omit_none_column` is True, which it defaults to, so that no
+screen width is spent on it.
 
 <a id="backlogops.io_config.GuiDisplayConfig.__init__"></a>
 
@@ -9525,11 +9541,12 @@ asked for a focus factor of its own when remaining time is used. The
 user may then add any number of named input and output TableIO
 configuration presets, edit the backlog item levels, say what an
 unestimated backlog item is worked with, adjust the global
-status-name map, and finally choose how the GUI renames columns and
-shows levels. Each input preset
+status-name map, and finally choose how the GUI renames columns,
+shows levels and whether it leaves out empty columns. Each input preset
 asks how it reads the backlog and releases file columns into the
 internal fields, and each output preset asks how it renames those
-columns and how levels are written; the column tables start pre-filled
+columns, how levels are written and whether a column that is empty on
+every row is left out; the column tables start pre-filled
 with the internal field names so leaving them unchanged renames
 nothing. The levels start filled in with the default levels; when the
 user leaves them at the defaults they are stored as "use the defaults"
@@ -9991,7 +10008,10 @@ None). A level number is used as is and need not be one of ``levels``.
 
 # backlogops.estimate\_ready\_date
 
-Estimate the ready date of backlog items.
+Estimate the ready date of backlog items from story points.
+
+The estimate from remaining time is in
+:mod:`backlogops.estimate_rt_ready_date`.
 
 <a id="backlogops.estimate_ready_date.estimate_ready_date"></a>
 
@@ -10548,7 +10568,8 @@ The public :func:`preset_wizard` asks whether to build an input or an
 output preset and then the same questions the full configuration wizard
 asks for one preset of that direction: the TableIO endpoint format and
 options, how the backlog and releases file columns relate to the internal
-fields, and, for an output preset, how levels are written. A stand-alone
+fields, and, for an output preset, how levels are written and whether a
+column that is empty on every row is left out. A stand-alone
 preset has no name of its own; the file it is written to is the preset.
 
 The ``_build_input_presets`` and ``_build_output_presets`` collectors ask a

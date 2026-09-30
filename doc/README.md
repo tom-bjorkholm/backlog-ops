@@ -21,4 +21,4 @@ For more detailed code documentation, see the API documentation:
 
 - [GUI public code documentation](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_gui.md)
 
-- [GUI protected code documentaton](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_protected_gui.md)
+- [GUI protected code documentation](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/backlogops_protected_gui.md)

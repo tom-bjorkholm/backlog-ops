@@ -152,11 +152,13 @@ backlog-ops configuration, changing only a chosen subset of the mapped
 fields. The subset is chosen with exactly one of two flags: ``-s``/``--store``
 lists the columns to update (or the single word ``all`` for every mapped
 writable column), while ``-e``/``--exclude`` updates every mapped writable
-column except the listed ones.
+column except the listed ones. The remaining time is a writable column only
+while remaining time estimates are enabled.
 
 ``--on-missing`` chooses what to do with an item whose key is not present in
 Jira: ``raise`` (the default) stops with an error, ``ignore`` leaves it
-alone, and ``add`` creates it with all of its fields. ``--links`` chooses how
+alone, and ``add`` creates it with all of its mapped fields (the remaining
+time only while remaining time estimates are enabled). ``--links`` chooses how
 the parent and dependency links are updated: ``reconcile`` (the default) makes
 the Jira links match the backlog exactly, removing a Jira link the backlog no
 longer has and clearing a dropped parent, while ``add`` only adds the missing
@@ -890,8 +892,9 @@ Order the backlog by release order and write the output file.
 Run the IO preset wizard and store the created preset file.
 
 The created file holds a single input or output TableIO preset (a format
-configuration with its column-name maps, and a level display for an output
-preset). Such a stand-alone file is used wherever an input or output
+configuration with its column-name maps, and a level display and whether
+to leave out empty columns for an output preset). Such a stand-alone file
+is used wherever an input or output
 configuration is taken, by giving its file name.
 
 <a id="backlogops_cli.preset_wizard.build_parser"></a>
@@ -1301,7 +1304,8 @@ the file given by ``--config`` or, when that is absent, from the
 configured backlog-ops file, and so is what a backlog item that nobody
 has estimated is worked with. With ``--remaining-time`` the ready dates
 are instead estimated from the remaining time of the items and the focus
-factor of the teams, as documented for
+factor of the teams (or the configured default focus factor), as
+documented for
 :func:`backlogops.estimate_rt_ready_date`; that needs remaining time
 estimates to be enabled in the configuration, and the command fails
 without writing anything when they are not. The backlog with the

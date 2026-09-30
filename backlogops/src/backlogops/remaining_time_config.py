@@ -185,9 +185,13 @@ class RemainingTimeConfig(LevelDefaults[DefaultRemainingTimeLevel]):
 
         Attributes:
             enable_remaining_time: Whether remaining time estimates are
-                handled at all in backlog operations. If False, the other
-                settings are ignored, although they are still validated,
-                and no completion is estimated from remaining time. Story
+                used in backlog operations. If False, the remaining time
+                is neither read from nor written to Jira, an empty
+                remaining time column is left out of tables, and no
+                completion is estimated from remaining time; a remaining
+                time read from a file is still written back. The other
+                settings are then ignored, although they are still
+                validated. Story
                 points are used either way, so True means that both kinds
                 of estimates are used. Most development efforts are
                 better off estimating in story points than in remaining

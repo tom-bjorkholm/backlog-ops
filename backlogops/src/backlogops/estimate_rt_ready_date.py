@@ -24,7 +24,7 @@ from backlogops.team import Team
 from backlogops.use_story_points import find_keys_with_children
 
 _SECONDS_PER_HOUR = 3600.0
-"""Seconds in one hour, the unit remaining time is scheduled in."""
+"""Seconds in one hour, to turn work hours into scheduled seconds."""
 
 _RT_DISABLED = (
     'Remaining time estimates are not enabled in the configuration, so no '

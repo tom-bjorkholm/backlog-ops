@@ -23,8 +23,7 @@ when no configuration is found a startup dialog offers to run the wizard,
 load a configuration file, or exit. Cancelling the wizard or a dialog
 returns to that choice, so the application ends only when the user exits.
 The Jira menu actions of a backlog window are delegated to the collaborator
-objects in :mod:`backlogops_gui.jira_read`, :mod:`backlogops_gui.jira_write`
-and :mod:`backlogops_gui.jira_update`.
+objects grouped in :mod:`backlogops_gui.jira_actions`.
 """
 
 # PYTHON_ARGCOMPLETE_OK
@@ -76,8 +75,8 @@ LOG_REFRESH_MS = 800
 HEADING_FONT = ('TkDefaultFont', 14, 'bold')
 INSTRUCTIONS = (
     'Use the menus to read a backlog from a file or from Jira, load a '
-    'configuration file, run the teams wizard, edit a configuration or a '
-    'preset file, create a stand-alone input or output preset file, '
+    'configuration file, run the configuration wizard, edit a configuration '
+    'or a preset file, create a stand-alone input or output preset file, '
     'migrate a preset file to the current format, write the current '
     'configuration to a file, or create a demonstration backlog. Each '
     'backlog opens in its own window. On macOS the menu bar is at the top '
@@ -213,7 +212,7 @@ class BacklogApp:
         return self.config.get_status_input_map() if self.config else None
 
     def gui_display(self) -> GuiDisplayConfig:
-        """Return the GUI display configuration (level display and maps)."""
+        """Return the GUI display configuration (levels, omission, maps)."""
         if self.config is None:
             return GuiDisplayConfig()
         return self.config.gui_display

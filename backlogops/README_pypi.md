@@ -41,6 +41,10 @@ The following functionality is available in all 3 packages:
 - Estimate ready date for the backlog items based on available teams, team
   velocity, vacation dates, periods with half time work, etc.
 
+- Alternatively, where remaining time estimates are required, estimate ready
+  dates from the remaining time of the backlog items and the focus factor of the
+  teams (story points are recommended).
+
 - Configure what a backlog item that nobody has estimated counts as, per backlog
   item level, so that an unestimated item does not make the estimated dates too
   optimistic.
@@ -68,6 +72,9 @@ The following functionality is available in all 3 packages:
 - Order the releases by their planned or estimated date.
 
 - Rename columns when reading a file and when writing a file.
+
+- Leave out columns that are empty on every row, when writing a file and when
+  showing the backlog in the GUI.
 
 - Map custom status names in input files to backlog item statuses.
 
@@ -111,6 +118,10 @@ The following functionality is available in all 3 packages:
   Jira refused or what was skipped, so a value that was not written is visible
   without reading the whole listing.
 
+- Show the custom fields of Jira, the fields an issue's edit screen accepts, and
+  the raw JSON Jira holds for a field of an issue, to find the correct Jira
+  field mapping.
+
 ## The operating model
 
 The operating model that most of the functionality is designed for is that the
@@ -119,8 +130,8 @@ are ordered by priority and dependencies to allow the teams to work in the
 backlog order. Each backlog item and each release may have a planned ready date,
 that records what has been communicated to the customer. Each backlog item and
 each release may have an estimated ready date, that is calculated from the
-current backlog state, the team velocity, and what we know about the
-availability of the team members.
+current backlog state, the team velocity (or, for remaining time estimates, the
+focus factor), and what we know about the availability of the team members.
 
 ## The backlog item fields
 
@@ -155,7 +166,11 @@ the library:
 
 - `team` The team responsible for the backlog item. Optional. Must not be empty
   string. Must be a valid team name. If None the item can be done by any team.
-  If not None. the item can only be done by the specified team.
+  If not None, the item can only be done by the specified team.
+
+- `remaining_time` The remaining time of the backlog item, as ideal focused work
+  time of one person. Optional. Only used by the alternative remaining time
+  estimates; story points are recommended. Must not be negative.
 
 - `depends_on_f2s` The list of keys of the backlog items that must have been
   finished before the current item can start. May be empty.
@@ -195,7 +210,7 @@ pip install --upgrade backlogops
 
 For a better understanding of how to use the library, CLI or GUI, see the user
 documentation:
-[Using backlogops](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc//using_backlogops/README.md)
+[Using backlogops](https://github.com/tom-bjorkholm/backlog-ops/blob/master/doc/using_backlogops/README.md)
 
 ## API documentation
 
@@ -335,7 +350,7 @@ For the full set of public names see the API documentation linked above.
 
 ## Test summary
 
-- Test result: 2901 passed, 1 deselected in 70s (0:01:10)
+- Test result: 2902 passed, 1 deselected in 70s (0:01:10)
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.

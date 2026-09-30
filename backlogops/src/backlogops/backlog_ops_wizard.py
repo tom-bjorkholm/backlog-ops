@@ -135,11 +135,12 @@ def backlog_ops_wizard(ui_bridge: WizardUiBridge, *,
     user may then add any number of named input and output TableIO
     configuration presets, edit the backlog item levels, say what an
     unestimated backlog item is worked with, adjust the global
-    status-name map, and finally choose how the GUI renames columns and
-    shows levels. Each input preset
+    status-name map, and finally choose how the GUI renames columns,
+    shows levels and whether it leaves out empty columns. Each input preset
     asks how it reads the backlog and releases file columns into the
     internal fields, and each output preset asks how it renames those
-    columns and how levels are written; the column tables start pre-filled
+    columns, how levels are written and whether a column that is empty on
+    every row is left out; the column tables start pre-filled
     with the internal field names so leaving them unchanged renames
     nothing. The levels start filled in with the default levels; when the
     user leaves them at the defaults they are stored as "use the defaults"
@@ -229,7 +230,7 @@ def _collect_config(nav: _Navigator,
 
 def _build_gui_display(nav: _Navigator, default: Optional[GuiDisplayConfig]
                        ) -> GuiDisplayConfig:
-    """Ask the GUI column renaming and level display, and return it."""
+    """Ask the GUI renaming, level display and omission, and return it."""
     gui_display = GuiDisplayConfig()
     gui_display.backlog_to_external = nav.level(
         lambda: nav.ask_renames(_backlog_map_fields(), True,

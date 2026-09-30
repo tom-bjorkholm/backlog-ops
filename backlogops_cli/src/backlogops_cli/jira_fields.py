@@ -31,7 +31,7 @@ from backlogops import (
 from backlogops_cli._command_io import (
     build_jira_parser, jira_passphrase, parsed_args, required_config)
 
-DESCRIPTION = "Print Jira custom fields and an issue's editable fields"
+DESCRIPTION = "Print Jira custom fields, an issue's editable fields and JSON"
 
 
 def build_parser() -> argparse.ArgumentParser:

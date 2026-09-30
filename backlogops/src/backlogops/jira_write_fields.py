@@ -86,7 +86,7 @@ def _field_payload(path: tuple[str, ...], value: object) -> dict[str, object]:
 
 def _place_value(fields: dict[str, object], attr: JiraAttrPath, value: object,
                  custom_ids: dict[str, str]) -> None:
-    """Place one field value into the Jira create-fields dict by kind.
+    """Place one field value into a Jira create or update dict by kind.
 
     A remaining time for a time tracking path, given as the whole seconds
     :func:`backlogops.jira_write_time._jira_value` returns, is placed as

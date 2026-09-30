@@ -586,7 +586,8 @@ _JIRA_MAP_INSTRUCTION = (
     'uses semicolons like issuelinks;type.name;Blocks;inwardIssue.key; '
     'blank leaves a field unmapped; several rows for one field are read '
     'together and the value found is used, the first row winning with a '
-    'warning if they differ; writing uses the first row):')
+    'warning if they differ (the values of an extra field such as the '
+    'description are joined instead); writing uses the first row):')
 """Instruction shown above a Jira column-map table."""
 
 _JIRA_MAP_REASON = 'Give each mapped field a valid kind and path.'

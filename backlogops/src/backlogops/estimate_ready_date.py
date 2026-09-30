@@ -1,5 +1,9 @@
 #! /usr/local/bin/python3
-"""Estimate the ready date of backlog items."""
+"""Estimate the ready date of backlog items from story points.
+
+The estimate from remaining time is in
+:mod:`backlogops.estimate_rt_ready_date`.
+"""
 
 # Copyright (c) 2026, Tom Björkholm
 # MIT License

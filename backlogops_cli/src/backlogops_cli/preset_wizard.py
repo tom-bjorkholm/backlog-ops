@@ -2,8 +2,9 @@
 """Run the IO preset wizard and store the created preset file.
 
 The created file holds a single input or output TableIO preset (a format
-configuration with its column-name maps, and a level display for an output
-preset). Such a stand-alone file is used wherever an input or output
+configuration with its column-name maps, and a level display and whether
+to leave out empty columns for an output preset). Such a stand-alone file
+is used wherever an input or output
 configuration is taken, by giving its file name.
 """
 

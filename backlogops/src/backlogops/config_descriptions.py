@@ -223,7 +223,7 @@ INPUT_DESCRIPTIONS: Descriptions = {
 
 
 def _display_members(action: str) -> Descriptions:
-    """Return what the column maps and the level display say about a part.
+    """Return what the column maps, level display and omission say.
 
     An output preset writes these columns to a file and the display shows
     them on a screen, so the one word that differs between the two is a
@@ -398,7 +398,7 @@ _DEF_TIME_LEVEL: Descriptions = {
                          'always written as hours. Zero says such an item '
                          'is no work at all, and anything under 0:10:00 '
                          'is left out of the growth the two settings '
-                         'above work with.'}
+                         'below the levels work with.'}
 """Every member of one default remaining time level."""
 
 _REMAINING_TIME: Descriptions = {
@@ -460,9 +460,10 @@ _TOP_LEVEL: Descriptions = {
                                'an item that has children is a container '
                                'for them and no work of its own.',
     ('remaining_time',): 'Whether estimates in remaining time are used '
-                         'beside story points, and what a backlog item '
+                         'beside story points, what a backlog item '
                          'that nobody has estimated in remaining time is '
-                         'worked with then.'}
+                         'worked with then, and the default focus factor '
+                         'of a team.'}
 """What every member of the top-level configuration is for."""
 
 CONFIG_DESCRIPTIONS: Descriptions = {

@@ -1376,8 +1376,7 @@ when no configuration is found a startup dialog offers to run the wizard,
 load a configuration file, or exit. Cancelling the wizard or a dialog
 returns to that choice, so the application ends only when the user exits.
 The Jira menu actions of a backlog window are delegated to the collaborator
-objects in :mod:`backlogops_gui.jira_read`, :mod:`backlogops_gui.jira_write`
-and :mod:`backlogops_gui.jira_update`.
+objects grouped in :mod:`backlogops_gui.jira_actions`.
 
 <a id="backlogops_gui.application.initial_config"></a>
 
@@ -1527,7 +1526,7 @@ Return the library-wide status input map, or None when absent.
 def gui_display() -> GuiDisplayConfig
 ```
 
-Return the GUI display configuration (level display and maps).
+Return the GUI display configuration (levels, omission, maps).
 
 <a id="backlogops_gui.application.BacklogApp.show_error"></a>
 
@@ -2268,7 +2267,8 @@ Build the window, its menu, its info region and the two tables.
 - `levels` - Callable returning the configured levels, or None for
   the default levels.
 - `gui_display` - Callable returning the GUI display configuration,
-  which decides the level display and the per-table column
+  which decides the level display, whether a column that is
+  empty on every row is left out, and the per-table column
   renaming for the tables.
 - `warning` - Warning text to show over the tables. When present,
   backlog operations are disabled and only saving remains.
@@ -2280,8 +2280,9 @@ Build the window, its menu, its info region and the two tables.
 - `rt_config` - Callable returning the remaining time configuration,
   or None for none. Whether it enables remaining time
   estimates decides whether an empty remaining time column
-  is shown and saved, and whether the ready date can be
-  estimated from remaining time.
+  is kept when empty columns are not left out anyway, and
+  whether the ready date can be estimated from remaining
+  time.
 - `source` - Where the data came from and when it was read. When
   given, an information region is shown at the top of the
   window; when None no information region is shown.
@@ -2620,8 +2621,8 @@ rows, kept in first-seen order, and every cell is rendered as text so the
 table can show any value type; a decimal number loses the trailing zeros
 it does not need, so story points read as ``1`` and ``0.5``. A per-table
 column-name map can rename a column or drop it from the display, as the GUI
-display configuration decides. A column that is empty on every row is left
-out as documented for :func:`backlogops.omittable_columns`.
+display configuration decides. A column that is empty on every row may be
+left out, as :func:`backlogops.omittable_columns` decides.
 
 <a id="backlogops_gui.table_view.backlog_table"></a>
 
