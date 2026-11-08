@@ -9763,7 +9763,7 @@ wizard:
   level is not a class the editor can make, and which is not what leaving
   the levels out means and is refused as such. Choosing ``None`` puts the
   member back to holding nothing, which is the built-in levels. Writing
-  the levels the first time is the wizard's.
+  the levels the first time is done using the wizard.
 * A person is keyed by their own name in lower case, so renaming one means
   adding an entry under the new key and removing the old one; editing the
   name alone leaves a configuration the class refuses.
