@@ -382,10 +382,10 @@ succeeded. When something was refused the pop-up title is marked
 
 ## Test summary
 
-- Test result: 2963 passed, 1 deselected in 136s (0:02:16)
+- Test result: 2963 passed, 1 deselected in 78s (0:01:18)
 - No flake8 warnings.
 - No mypy errors found.
 - No pylint warnings.
 - No python layout warnings.
 - Built version(s): 1.5
-- Build and test using Python 3.13.17
+- Build and test using Python 3.14.9
