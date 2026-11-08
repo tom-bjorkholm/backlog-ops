@@ -724,16 +724,18 @@ work-hour exception, a level, and an entry of any of the maps — the status
 map, the column maps of a preset and of the GUI display, the Jira column maps
 and the issue-type maps — can each be added beside the ones that are there,
 taken out again, and, in a list, moved up or down. A new one is never
-invented: it is a new one of the kind that belongs there, or a copy of one
-the container already holds — so a new status name starts out reading as a
-status this library knows, and you edit it from there. Adding an entry to a
-map asks you what to call it first.
+invented: it is a new one of the kind that belongs there, a copy of one
+the container already holds, or, failing both, an empty one of the kind the
+container takes — so a new status name starts out reading as a status this
+library knows, and you edit it from there. Adding an entry to a map asks you
+what to call it first.
 
 A member that is allowed to hold nothing — a Jira token file path, a stored
-token, the levels — is not a field you empty by typing. Its line offers
-taking the value away, and a line that holds nothing offers giving it one.
-`no value` and empty text are different things, and the editor keeps them
-apart because the file does.
+token, a team's focus factor, the levels — is not a field you empty by
+typing. `None` is one of the types in the pull-down of its type: choose it
+to take the value away, and choose the other type to give a member that
+holds nothing a value again. Holding nothing and holding empty text are
+different things, and the editor keeps them apart because the file does.
 
 Finding one member in a long configuration is `Ctrl+F`, then `F3` for the
 next match: the search looks in the member paths and in the values, and opens
@@ -757,19 +759,23 @@ be opened, and you correct it in a text editor first.
 Editing is not a complete replacement for the wizard, and four things are
 worth knowing before you reach for it:
 
-- **The Jira column maps and issue-type maps need their first entry from the
-  wizard.** One entry of those is a whole map of its own, and the editor has
-  no pattern for one until the file holds one to copy: an empty
-  `backlog_column_maps` or `issue_type_maps` therefore offers nothing and
-  says why below itself (`F1` shows it). Every other container, the status
-  map and the other column maps included, can be given its first entry here,
-  because the configuration class says what one looks like.
+- **The first field of a Jira column map comes from the wizard.** A new
+  backlog or release column map can be added here, even where the
+  configuration holds none, but it starts out empty, and one field of it is a
+  list of Jira attribute paths that the editor cannot make on its own. An
+  empty column map therefore offers no **Add** and says why below itself
+  (`F1` shows it). Write its first field with the wizard; once the map holds
+  one, the editor adds more by copying it. Every other container, the
+  issue-type maps, the status map and the other column maps included, can be
+  given its first entry here.
 - **The levels want their first level from the wizard.** A configuration that
   leaves `levels` out uses the built-in ones, and that member still has a
-  line. What the line offers is an empty list, which is not the same as
-  leaving the levels out and is refused as such. Take the value away again to
-  go back to the built-in levels, and write the levels the first time with
-  the wizard; the editor changes them freely afterwards.
+  line, with `None` as its type. Choosing `list[Level]` there gives an empty
+  list, which offers no **Add**, because a level is not something the editor
+  can make on its own, and which is refused when you validate, because no
+  levels at all is not the same as leaving the levels out. Choose `None`
+  again to go back to the built-in levels, and write the levels the first
+  time with the wizard; the editor changes them freely afterwards.
 - **Renaming a person takes two steps.** A person is stored under their own
   name in lower case, and that key is not editable. Changing only the name
   leaves a configuration the library refuses, and it says so. Add the person

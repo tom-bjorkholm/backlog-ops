@@ -14,7 +14,7 @@ class BloCliVersionReporter(BloVersionReporter):
     @override
     def package_names(self) -> list[str]:
         """Return the package names that this package reports."""
-        ret = ['backlogops-cli']
+        ret = ['backlogops-cli', 'edit-cfg-json-textual']
         ret += super().package_names()
         return ret
 

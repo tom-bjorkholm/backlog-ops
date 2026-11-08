@@ -10,7 +10,8 @@ from backlogops_gui.blog_version_reporter import BloGuiVersionReporter
 def test_package_names() -> None:
     """Test the GUI package leads the inherited reported packages."""
     names = BloGuiVersionReporter().package_names()
-    assert names[0] == 'backlogops-gui'
+    assert names[:3] == ['backlogops-gui', 'edit-cfg-json-tk',
+                         'wizard-tk-bridge']
     for expected in ('backlogops', 'versionreporter', 'tableio'):
         assert expected in names
 

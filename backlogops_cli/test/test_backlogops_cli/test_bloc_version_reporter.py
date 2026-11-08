@@ -8,13 +8,14 @@ import io
 from datetime import date
 import pytest
 from packaging.version import Version
+from backlogops.blo_version_reporter import BloVersionReporter
 from backlogops_cli.bloc_version_reporter import BloCliVersionReporter
 
 
 def test_package_names() -> None:
     """Test the CLI package leads the inherited reported packages."""
     names = BloCliVersionReporter().package_names()
-    assert names[0] == 'backlogops-cli'
+    assert names[:2] == ['backlogops-cli', 'edit-cfg-json-textual']
     for inherited in ('backlogops', 'tableio', 'versionreporter'):
         assert inherited in names
 
@@ -28,9 +29,10 @@ def test_main_package() -> None:
 def test_inherits_cutoffs() -> None:
     """Test the CLI reporter inherits the support cutoffs and Python."""
     reporter = BloCliVersionReporter()
-    assert reporter.recommended_python() == Version('3.14')
-    expires = reporter.get_app_support_expires()
-    assert expires == {date(2026, 1, 1): '3.11', date(2027, 10, 1): '3.12'}
+    base = BloVersionReporter()
+    assert reporter.recommended_python() == base.recommended_python()
+    assert reporter.get_app_support_expires() == \
+        base.get_app_support_expires()
 
 
 def test_warns_names_cli(monkeypatch: pytest.MonkeyPatch) -> None:

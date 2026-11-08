@@ -353,7 +353,7 @@ GROWING_CONTAINERS = [
 The maps are here beside the lists, because an entry of a map is copied
 from one the map holds and each of these holds one in a configuration that
 uses it. What a container holding none of them does instead is
-:data:`FIRST_ENTRY_CONTAINERS` and :data:`NO_FIRST_ENTRY_MAPS`.
+:data:`FIRST_ENTRY_CONTAINERS` and :data:`NEW_JIRA_MAPS`.
 """
 
 FIRST_ENTRY_CONTAINERS = [
@@ -363,19 +363,28 @@ FIRST_ENTRY_CONTAINERS = [
     ('output_configs',),
     ('gui_display', 'backlog_to_external'),
     ('jira', 'connections'),
-    ('jira', 'presets')]
+    ('jira', 'presets'),
+    ('jira', 'backlog_column_maps'),
+    ('jira', 'release_column_maps'),
+    ('jira', 'issue_type_maps')]
 """Containers a fresh configuration holds none of, that can still grow.
 
 The class names the type of what belongs in each of these, or its declared
 type says what an element is, so the editor makes the first one without
-having one to copy.
+having one to copy. A first Jira map is an empty map, and whether that one
+can grow in turn is :data:`NEW_JIRA_MAPS`.
 """
 
-NO_FIRST_ENTRY_MAPS = [
-    ('jira', 'backlog_column_maps'),
-    ('jira', 'release_column_maps'),
-    ('jira', 'issue_type_maps')]
-"""The maps whose entry is a map of its own, so nothing says what one is."""
+NEW_JIRA_MAPS = [
+    (('jira', 'backlog_column_maps'), False),
+    (('jira', 'release_column_maps'), False),
+    (('jira', 'issue_type_maps'), True)]
+"""Each Jira map of maps, and whether a new empty map in it can grow.
+
+A field of a column map is a tuple of Jira attribute paths, which the
+editor cannot make, so the user guide sends the first field of a column map
+to the wizard. An issue type is a text, so an issue-type map grows here.
+"""
 
 
 @pytest.mark.parametrize('path', GROWING_CONTAINERS)
@@ -391,17 +400,35 @@ def test_first_entry_offered(path: tuple[str, ...]) -> None:
     assert _row(model, path).offer.extend
 
 
-@pytest.mark.parametrize('path', NO_FIRST_ENTRY_MAPS)
-def test_first_entry_refused(path: tuple[str, ...]) -> None:
-    """Test a map of maps says why it cannot be given a first entry.
+@pytest.mark.parametrize('path,grows', NEW_JIRA_MAPS)
+def test_new_jira_map(path: tuple[str, ...], grows: bool) -> None:
+    """Test whether a new Jira map can be given its first entry.
 
-    A container that can be given nothing explains itself below its own
-    row rather than offering a control that would refuse every press, and
-    the user guide says the wizard writes that first entry.
+    One that cannot says why below its own row rather than offering a
+    control that would refuse every press.
     """
-    row = _row(_model(default_config(BacklogOpsConfig)), path)
-    assert not row.offer.extend
-    assert row.offer.refusal
+    model = _model(default_config(BacklogOpsConfig))
+    model.add_element(path, 'new')
+    offer = _row(model, (*path, 'new')).offer
+    assert offer.extend == grows
+    assert bool(offer.refusal) != grows
+
+
+def test_levels_refused() -> None:
+    """Test giving the levels an empty list is refused at the levels.
+
+    A configuration that leaves the levels out keeps a row for them, whose
+    type can be chosen as a list. That list is empty and cannot be given a
+    first level, which is why the user guide sends that one to the wizard,
+    and an empty list is no configuration of the levels at all. The refusal
+    is said at that member, so a user who meant to add a level is told where
+    to look.
+    """
+    model = _model(default_config(BacklogOpsConfig))
+    model.set_type(('levels',), 'list[Level]')
+    assert not _row(model, ('levels',)).offer.extend
+    assert not model.validate().valid
+    assert 'levels' in row_diagnostic(model, _row(model, ('levels',)))
 
 
 def test_empty_status_map() -> None:
@@ -436,20 +463,6 @@ def test_entry_removed() -> None:
     assert model.validate().valid
     assert ('status_input_map', 'Closed') not in \
         [row.path for row in model.rows]
-
-
-def test_levels_add_refused() -> None:
-    """Test the levels member is refused while it holds an empty list.
-
-    A configuration that leaves the levels out keeps a row for them, and
-    what that row offers is an empty list, which is no configuration of
-    the levels at all. The refusal is said at that member, so a user who
-    meant to add a level is told where to look.
-    """
-    model = _model(default_config(BacklogOpsConfig))
-    model.add_element(('levels',))
-    assert not model.validate().valid
-    assert 'levels' in row_diagnostic(model, _row(model, ('levels',)))
 
 
 def test_missing_day_refused() -> None:

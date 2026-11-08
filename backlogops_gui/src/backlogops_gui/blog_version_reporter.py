@@ -14,7 +14,7 @@ class BloGuiVersionReporter(BloVersionReporter):
     @override
     def package_names(self) -> list[str]:
         """Return the package names that this package reports."""
-        ret = ['backlogops-gui']
+        ret = ['backlogops-gui', 'edit-cfg-json-tk', 'wizard-tk-bridge']
         ret += super().package_names()
         return ret
 

@@ -9749,18 +9749,21 @@ the notes below follows from.
 Four things are worth knowing before the editor is offered instead of the
 wizard:
 
-* One entry of the Jira column maps and of the issue-type maps is a map of
-  its own, which the class does not name a type for, so there is no pattern
-  for one until the file holds one to copy: an empty map of those offers
-  nothing and says why below itself. Every other container can be given its
-  first element, because the class names the type of one or its declared
-  type says what an element is.
+* One entry of the Jira column maps is a map of its own, and a new one is
+  the empty map. A field of it is a tuple of Jira attribute paths, which
+  the editor cannot make, so there is no pattern for one until the map
+  holds one to copy: an empty column map offers nothing and says why below
+  itself, and writing its first field is the wizard's. Every other
+  container, an issue-type map included, can be given its first element,
+  because the class names the type of one or its declared type says what
+  an element is.
 * The levels keep a row in a configuration that leaves them out, because a
-  member the class omits is still a member. What that row offers is an
-  empty list, which is not what leaving the levels out means and is
-  refused as such: the row's other control puts the member back to holding
-  nothing, which is the built-in levels. Writing the levels the first time
-  is the wizard's.
+  member the class omits is still a member. Choosing a list as its type
+  gives an empty list, which cannot be given a first level, because a
+  level is not a class the editor can make, and which is not what leaving
+  the levels out means and is refused as such. Choosing ``None`` puts the
+  member back to holding nothing, which is the built-in levels. Writing
+  the levels the first time is the wizard's.
 * A person is keyed by their own name in lower case, so renaming one means
   adding an entry under the new key and removing the old one; editing the
   name alone leaves a configuration the class refuses.

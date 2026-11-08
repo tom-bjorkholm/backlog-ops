@@ -17,7 +17,7 @@ class BloVersionReporter(VersionReporter):
     def package_names(self) -> list[str]:
         """Return the package names that this package reports."""
         ret = ['backlogops', 'tableio', 'tableio-cfg-json', 'wizard-ui-bridge',
-               'config-as-json', 'mformat']
+               'config-as-json', 'mformat', 'edit-cfg-json']
         ret += super().package_names()
         return ret
 
@@ -25,7 +25,9 @@ class BloVersionReporter(VersionReporter):
     def get_app_support_expires(self) -> dict[date, str]:
         """Return when this package will stop supporting older Python."""
         return {date(year=2026, month=1, day=1): '3.11',
-                date(year=2027, month=10, day=1): '3.12'}
+                date(year=2027, month=3, day=1): '3.12',
+                date(year=2027, month=11, day=1): '3.13',
+                date(year=2028, month=11, day=1): '3.14'}
 
     @override
     @classmethod
@@ -37,4 +39,4 @@ class BloVersionReporter(VersionReporter):
     @classmethod
     def recommended_python(cls) -> Version:
         """Return the Python version this package recommends."""
-        return Version('3.14')
+        return Version('3.15')
