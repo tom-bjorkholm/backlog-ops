@@ -4,7 +4,8 @@
 The CLI tests reuse a few fixtures first written for the library tests: an
 over-allocated workforce, the input and output preset writers, and a
 configuration with every member populated, which is what the tests of the
-configuration editor and of its descriptions need. Keeping them here lets
+configuration editor and of its descriptions need, and a way to leave one
+value out of a written file. Keeping them here lets
 both test packages share one copy instead of duplicating them across the
 package boundary.
 """
@@ -12,8 +13,11 @@ package boundary.
 # Copyright (c) 2026, Tom Björkholm
 # MIT License
 
+import json
+from collections.abc import Sequence
 from datetime import date, timedelta
 from pathlib import Path
+from config_as_json import JsonType
 from backlogops import (
     AvailableTeams, BacklogOpsConfig, DefaultRemainingTimeLevel,
     DefaultStoryPointLevel, DefaultStoryPoints, ExceptionWorkHours,
@@ -153,6 +157,37 @@ def full_config() -> BacklogOpsConfig:
 def write_full_config(path: Path) -> None:
     """Write a configuration where every declared member holds a value."""
     write_backlog_ops_config(full_config(), path, NoTextIO())
+
+
+def json_at(data: JsonType, steps: Sequence[int | str]) -> JsonType:
+    """Return the part of JSON data that a path of steps reaches."""
+    for step in steps:
+        if isinstance(step, int):
+            assert isinstance(data, list)
+            data = data[step]
+        else:
+            assert isinstance(data, dict)
+            data = data[step]
+    return data
+
+
+def remove_key(path: Path, steps: Sequence[int | str]) -> None:
+    """Rewrite a JSON file without the value that a path of steps reaches.
+
+    Args:
+        path: The JSON file to rewrite.
+        steps: Dict keys and list indices reaching the value to leave out.
+    """
+    data: JsonType = json.loads(path.read_text(encoding='utf-8'))
+    holder = json_at(data, steps[:-1])
+    last = steps[-1]
+    if isinstance(last, int):
+        assert isinstance(holder, list)
+        del holder[last]
+    else:
+        assert isinstance(holder, dict)
+        del holder[last]
+    path.write_text(json.dumps(data), encoding='utf-8')
 
 
 def def_times(hours: dict[int, float],

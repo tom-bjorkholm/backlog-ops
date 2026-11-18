@@ -46,11 +46,14 @@ class DefaultStoryPointLevel(Config):
         """Return the story points, as the number growth works on."""
         return self.story_points
 
+    # Config.__init__ fixes these six arguments.
+    # pylint: disable-next=too-many-arguments
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr, *,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create the default of one level, or read it from JSON.
 
         Args:
@@ -62,6 +65,8 @@ class DefaultStoryPointLevel(Config):
             member_name: Path for reaching this object from the top level,
                 so that a diagnostic names the whole path. None for an
                 object that is a member of nothing.
+            ok_to_use_defaults: Whether the JSON source may lack values,
+                which then keep the defaults assigned here.
 
         Attributes:
             level: The backlog item level this default is for.
@@ -69,10 +74,14 @@ class DefaultStoryPointLevel(Config):
         """
         self.level: int = 0
         self.story_points: float = 1.0
+        # Every config class forwards these arguments alike.
+        # pylint: disable=duplicate-code
         super().__init__(from_json_data_text=from_json_data_text,
                          from_json_filename=from_json_filename,
                          auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
-                         member_name=member_name)
+                         member_name=member_name,
+                         ok_to_use_defaults=ok_to_use_defaults)
+        # pylint: enable=duplicate-code
 
     @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
@@ -104,11 +113,14 @@ class DefaultStoryPoints(LevelDefaults[DefaultStoryPointLevel]):
                   'to work out a factor from')
     """Why filling in levels is refused when too few levels are given."""
 
+    # Config.__init__ fixes these six arguments.
+    # pylint: disable-next=too-many-arguments
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr, *,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create defaults that guess nothing, or read them from JSON.
 
         Args:
@@ -120,6 +132,8 @@ class DefaultStoryPoints(LevelDefaults[DefaultStoryPointLevel]):
             member_name: Path for reaching this object from the top level,
                 so that a diagnostic names the whole path. None for an
                 object that is a member of nothing.
+            ok_to_use_defaults: Whether the JSON source may lack values,
+                which then keep the defaults assigned here.
 
         Attributes:
             levels: The story points given for a level, sorted by level
@@ -136,10 +150,14 @@ class DefaultStoryPoints(LevelDefaults[DefaultStoryPointLevel]):
         self.interpolate = False
         self.extrapolate = False
         self.levels = []
+        # Every config class forwards these arguments alike.
+        # pylint: disable=duplicate-code
         super().__init__(from_json_data_text=from_json_data_text,
                          from_json_filename=from_json_filename,
                          auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
-                         member_name=member_name)
+                         member_name=member_name,
+                         ok_to_use_defaults=ok_to_use_defaults)
+        # pylint: enable=duplicate-code
 
     def get_default_story_points(self, level: int) -> Optional[float]:
         """Return the story points a backlog item of one level counts as.

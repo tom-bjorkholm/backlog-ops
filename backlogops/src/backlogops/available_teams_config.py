@@ -118,7 +118,8 @@ class _BridgeConfig(Config):
 
     def __init__(self, from_json_data_text: Optional[str],
                  from_json_filename: Optional[PathOrStr], stderr_file: TextIO,
-                 *, member_name: Optional[str] = None) -> None:
+                 *, member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Run the Config lifecycle for a bridge instance.
 
         Each bridge first creates its data class attributes, then calls
@@ -126,11 +127,14 @@ class _BridgeConfig(Config):
         ``member_name`` is the path for reaching this object from the top
         level configuration, so that a diagnostic about a value inside it
         names the whole path; it is None for a bridge that is a whole
-        configuration file of its own.
+        configuration file of its own. With ``ok_to_use_defaults`` true the
+        JSON source may lack values, which then keep the placeholder
+        defaults that the bridge created.
         """
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
-                        stderr_file=stderr_file, member_name=member_name)
+                        stderr_file=stderr_file, member_name=member_name,
+                        ok_to_use_defaults=ok_to_use_defaults)
 
     @staticmethod
     def _consistency() -> WholeConfigValidationStep:
@@ -159,12 +163,14 @@ class FteExceptionConfig(FteException, _BridgeConfig):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr, *,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create placeholder defaults, then read one FTE exception."""
         FteException.__init__(self, start_date=date(2000, 1, 1),
                               end_date=date(2000, 1, 1), fte=1.0)
         _BridgeConfig.__init__(self, from_json_data_text, from_json_filename,
-                               stderr_file, member_name=member_name)
+                               stderr_file, member_name=member_name,
+                               ok_to_use_defaults=ok_to_use_defaults)
 
     @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
@@ -185,13 +191,15 @@ class ExceptionWorkHoursConfig(ExceptionWorkHours, _BridgeConfig):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr, *,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create placeholder defaults, then read one work-hours exception."""
         ExceptionWorkHours.__init__(self, start_date=date(2000, 1, 1),
                                     end_date=date(2000, 1, 1),
                                     hours_per_day=0.0)
         _BridgeConfig.__init__(self, from_json_data_text, from_json_filename,
-                               stderr_file, member_name=member_name)
+                               stderr_file, member_name=member_name,
+                               ok_to_use_defaults=ok_to_use_defaults)
 
     @override
     def get_validation_plan(self, stderr_file: TextIO) -> ValidationPlan:
@@ -212,11 +220,13 @@ class MembershipConfig(Membership, _BridgeConfig):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr, *,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create placeholder defaults, then read one membership."""
         Membership.__init__(self, person_name='person')
         _BridgeConfig.__init__(self, from_json_data_text, from_json_filename,
-                               stderr_file, member_name=member_name)
+                               stderr_file, member_name=member_name,
+                               ok_to_use_defaults=ok_to_use_defaults)
 
     @override
     def nested_configs(self) -> NestedConfigs:
@@ -249,12 +259,14 @@ class TeamConfig(Team, _BridgeConfig):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr, *,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create placeholder defaults, then read one team."""
         Team.__init__(self, name='team', velocity=0.0, sum_fte_at_velocity=1.0,
                       sprint_length=1)
         _BridgeConfig.__init__(self, from_json_data_text, from_json_filename,
-                               stderr_file, member_name=member_name)
+                               stderr_file, member_name=member_name,
+                               ok_to_use_defaults=ok_to_use_defaults)
 
     @override
     def nested_configs(self) -> NestedConfigs:
@@ -280,11 +292,13 @@ class PersonConfig(Person, _BridgeConfig):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr, *,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create placeholder defaults, then read one person."""
         Person.__init__(self, name='person')
         _BridgeConfig.__init__(self, from_json_data_text, from_json_filename,
-                               stderr_file, member_name=member_name)
+                               stderr_file, member_name=member_name,
+                               ok_to_use_defaults=ok_to_use_defaults)
 
     @override
     def nested_configs(self) -> NestedConfigs:
@@ -306,12 +320,14 @@ class CompanyWorkHoursConfig(CompanyWorkHours, _BridgeConfig):
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr, *,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create defaults, then read the company work hours."""
         CompanyWorkHours.__init__(self)
         self._unchecked_dicts = ['work_hours']
         _BridgeConfig.__init__(self, from_json_data_text, from_json_filename,
-                               stderr_file, member_name=member_name)
+                               stderr_file, member_name=member_name,
+                               ok_to_use_defaults=ok_to_use_defaults)
 
     @override
     def nested_configs(self) -> NestedConfigs:
@@ -339,12 +355,14 @@ class CompanyWorkHoursConfig(CompanyWorkHours, _BridgeConfig):
 class AvailableTeamsConfig(AvailableTeams, _BridgeConfig):
     """JSON bridge for the available workforce (persons and teams)."""
 
-    # pylint: disable-next=super-init-not-called
+    # Config.__init__ fixes five of these; the workforce is the sixth.
+    # pylint: disable-next=too-many-arguments,super-init-not-called
     def __init__(self, *, neutral: Optional[AvailableTeams] = None,
                  from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create the bridge from a neutral workforce or from JSON.
 
         ``AvailableTeams.__init__`` is intentionally not invoked because
@@ -356,7 +374,8 @@ class AvailableTeamsConfig(AvailableTeams, _BridgeConfig):
             neutral = AvailableTeams(persons={}, teams=[])
         Config.copy_initial_data(neutral, self)
         _BridgeConfig.__init__(self, from_json_data_text, from_json_filename,
-                               stderr_file, member_name=member_name)
+                               stderr_file, member_name=member_name,
+                               ok_to_use_defaults=ok_to_use_defaults)
 
     @override
     def nested_configs(self) -> NestedConfigs:
@@ -390,16 +409,21 @@ def write_available_teams(teams: AvailableTeams, filename: PathOrStr,
     config.write(to_json_filename=filename, stderr_file=stderr_file)
 
 
-def read_available_teams(filename: PathOrStr, stderr_file: TextIO = sys.stderr
+def read_available_teams(filename: PathOrStr, stderr_file: TextIO = sys.stderr,
+                         *, ok_to_use_defaults: bool = False
                          ) -> AvailableTeamsConfig:
     """Read an available workforce from a JSON configuration file.
 
     Args:
         filename: Source JSON configuration file.
         stderr_file: Stream used for user-facing diagnostics.
+        ok_to_use_defaults: Whether the file may lack values, which then
+            keep their defaults. Running commands read strictly; an editor
+            may not.
 
     Returns:
         The loaded workforce. The returned object is an ``AvailableTeams``.
     """
     return AvailableTeamsConfig(from_json_filename=filename,
-                                stderr_file=stderr_file)
+                                stderr_file=stderr_file,
+                                ok_to_use_defaults=ok_to_use_defaults)

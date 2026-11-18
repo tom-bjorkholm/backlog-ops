@@ -119,7 +119,8 @@ def io_preset_class(filename: str
 
 
 def read_io_preset(filename: str, auto_ch_hook: ConfigAutoChangeHook,
-                   stderr_file: TextIO = sys.stderr
+                   stderr_file: TextIO = sys.stderr, *,
+                   ok_to_use_defaults: bool = False
                    ) -> InputFormatConfig | OutputFormatConfig:
     """Read a stand-alone preset file, auto-detecting its direction.
 
@@ -133,6 +134,9 @@ def read_io_preset(filename: str, auto_ch_hook: ConfigAutoChangeHook,
         auto_ch_hook: Hook notified when an old file needed
             backward-compatible normalization while reading.
         stderr_file: Stream used for user-facing diagnostics.
+        ok_to_use_defaults: Whether the file may lack values, which then
+            keep their defaults. Running commands read strictly; an editor
+            may not.
 
     Returns:
         The input or output preset read from the file.
@@ -143,7 +147,8 @@ def read_io_preset(filename: str, auto_ch_hook: ConfigAutoChangeHook,
     """
     return io_preset_class(filename)(from_json_filename=filename,
                                      auto_ch_hook=auto_ch_hook,
-                                     stderr_file=stderr_file)
+                                     stderr_file=stderr_file,
+                                     ok_to_use_defaults=ok_to_use_defaults)
 
 
 def safe_write_config(config: Config, output: str,

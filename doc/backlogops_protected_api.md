@@ -762,7 +762,6 @@
     * [validate\_member](#backlogops.io_config._StatusMapValidator.validate_member)
   * [\_capabilities](#backlogops.io_config._capabilities)
   * [\_tio\_default](#backlogops.io_config._tio_default)
-  * [\_tio\_from\_json](#backlogops.io_config._tio_from_json)
   * [\_FormatConfig](#backlogops.io_config._FormatConfig)
     * [\_\_init\_\_](#backlogops.io_config._FormatConfig.__init__)
     * [\_tio\_factory](#backlogops.io_config._FormatConfig._tio_factory)
@@ -1584,7 +1583,9 @@ to a configuration editor, needs nothing more than this.
 def read_io_preset(
     filename: str,
     auto_ch_hook: ConfigAutoChangeHook,
-    stderr_file: TextIO = sys.stderr
+    stderr_file: TextIO = sys.stderr,
+    *,
+    ok_to_use_defaults: bool = False
 ) -> InputFormatConfig | OutputFormatConfig
 ```
 
@@ -1601,6 +1602,9 @@ report the mistake.
 - `auto_ch_hook` - Hook notified when an old file needed
   backward-compatible normalization while reading.
 - `stderr_file` - Stream used for user-facing diagnostics.
+- `ok_to_use_defaults` - Whether the file may lack values, which then
+  keep their defaults. Running commands read strictly; an editor
+  may not.
   
 
 **Returns**:
@@ -3128,7 +3132,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create the empty level lookup, then read the configuration.
@@ -3143,6 +3148,8 @@ Create the empty level lookup, then read the configuration.
 - `member_name` - Path for reaching this object from the top level,
   so that a diagnostic names the whole path. None for an
   object that is a member of nothing.
+- `ok_to_use_defaults` - Whether the JSON source may lack values,
+  which then keep the defaults the derived class assigned.
 
 <a id="backlogops.level_defaults.LevelDefaults._missing_members"></a>
 
@@ -4247,7 +4254,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create the default of one level, or read it from JSON.
@@ -4262,6 +4270,8 @@ Create the default of one level, or read it from JSON.
 - `member_name` - Path for reaching this object from the top level,
   so that a diagnostic names the whole path. None for an
   object that is a member of nothing.
+- `ok_to_use_defaults` - Whether the JSON source may lack values,
+  which then keep the defaults assigned here.
   
 
 **Attributes**:
@@ -4330,7 +4340,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create defaults that guess nothing, or read them from JSON.
@@ -4345,6 +4356,8 @@ Create defaults that guess nothing, or read them from JSON.
 - `member_name` - Path for reaching this object from the top level,
   so that a diagnostic names the whole path. None for an
   object that is a member of nothing.
+- `ok_to_use_defaults` - Whether the JSON source may lack values,
+  which then keep the defaults assigned here.
   
 
 **Attributes**:
@@ -5716,7 +5729,8 @@ def __init__(*,
              from_json_filename: Optional[PathOrStr] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create defaults, or read the configuration from JSON.
@@ -5730,7 +5744,10 @@ backward-compatible normalization while reading. The default
 nested sections are created under the path of the member holding
 each of them, so that a diagnostic names the whole path even
 before any file is read; ``member_name`` is None for a whole
-configuration file, which is a member of nothing.
+configuration file, which is a member of nothing. With
+``ok_to_use_defaults`` true the JSON source may lack values, which
+then keep these defaults; :meth:`Config.kept_value_paths` tells
+which.
 
 <a id="backlogops.backlog_ops_config.BacklogOpsConfig._get_read_old_config"></a>
 
@@ -5899,8 +5916,9 @@ Validate and write a backlog-ops configuration to a JSON file.
 def read_backlog_ops_config(
         filename: PathOrStr,
         stderr_file: TextIO = sys.stderr,
-        auto_ch_hook: Optional[ConfigAutoChangeHook] = None
-) -> BacklogOpsConfig
+        auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
+        *,
+        ok_to_use_defaults: bool = False) -> BacklogOpsConfig
 ```
 
 Read a backlog-ops configuration from a JSON configuration file.
@@ -5911,6 +5929,9 @@ Read a backlog-ops configuration from a JSON configuration file.
 - `stderr_file` - Stream used for user-facing diagnostics.
 - `auto_ch_hook` - Hook notified when an old file needed
   backward-compatible normalization while reading.
+- `ok_to_use_defaults` - Whether the file may lack values, which then
+  keep their defaults. Running commands read strictly; an editor
+  may not.
   
 
 **Returns**:
@@ -6827,7 +6848,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create connection defaults, then read them from JSON.
@@ -7078,7 +7100,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create preset defaults, then read them from JSON.
@@ -7209,7 +7232,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create empty defaults, then read the jira configuration.
@@ -9038,7 +9062,8 @@ def __init__(from_json_data_text: Optional[str],
              from_json_filename: Optional[PathOrStr],
              stderr_file: TextIO,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Run the Config lifecycle for a bridge instance.
@@ -9048,7 +9073,9 @@ this constructor to read JSON, apply defaults, and validate.
 ``member_name`` is the path for reaching this object from the top
 level configuration, so that a diagnostic about a value inside it
 names the whole path; it is None for a bridge that is a whole
-configuration file of its own.
+configuration file of its own. With ``ok_to_use_defaults`` true the
+JSON source may lack values, which then keep the placeholder
+defaults that the bridge created.
 
 <a id="backlogops.available_teams_config._BridgeConfig._consistency"></a>
 
@@ -9102,7 +9129,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create placeholder defaults, then read one FTE exception.
@@ -9148,7 +9176,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create placeholder defaults, then read one work-hours exception.
@@ -9194,7 +9223,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create placeholder defaults, then read one membership.
@@ -9262,7 +9292,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create placeholder defaults, then read one team.
@@ -9319,7 +9350,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create placeholder defaults, then read one person.
@@ -9365,7 +9397,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create defaults, then read the company work hours.
@@ -9423,7 +9456,8 @@ def __init__(*,
              from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              stderr_file: TextIO = sys.stderr,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create the bridge from a neutral workforce or from JSON.
@@ -9480,7 +9514,9 @@ Validate and write an available workforce to a JSON file.
 ```python
 def read_available_teams(
         filename: PathOrStr,
-        stderr_file: TextIO = sys.stderr) -> AvailableTeamsConfig
+        stderr_file: TextIO = sys.stderr,
+        *,
+        ok_to_use_defaults: bool = False) -> AvailableTeamsConfig
 ```
 
 Read an available workforce from a JSON configuration file.
@@ -9489,6 +9525,9 @@ Read an available workforce from a JSON configuration file.
 
 - `filename` - Source JSON configuration file.
 - `stderr_file` - Stream used for user-facing diagnostics.
+- `ok_to_use_defaults` - Whether the file may lack values, which then
+  keep their defaults. Running commands read strictly; an editor
+  may not.
   
 
 **Returns**:
@@ -12774,7 +12813,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create the default of one level, or read it from JSON.
@@ -12789,6 +12829,8 @@ Create the default of one level, or read it from JSON.
 - `member_name` - Path for reaching this object from the top level,
   so that a diagnostic names the whole path. None for an
   object that is a member of nothing.
+- `ok_to_use_defaults` - Whether the JSON source may lack values,
+  which then keep the defaults assigned here.
   
 
 **Attributes**:
@@ -12886,7 +12928,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create the remaining time configuration, or read it from JSON.
@@ -12901,6 +12944,8 @@ Create the remaining time configuration, or read it from JSON.
 - `member_name` - Path for reaching this object from the top level,
   so that a diagnostic names the whole path. None for an
   object that is a member of nothing.
+- `ok_to_use_defaults` - Whether the JSON source may lack values,
+  which then keep the defaults assigned here.
   
 
 **Attributes**:
@@ -13244,19 +13289,6 @@ def _tio_default(file_access: FileAccess,
 
 Return a default TableIO config for a format and file access.
 
-<a id="backlogops.io_config._tio_from_json"></a>
-
-#### \_tio\_from\_json
-
-```python
-def _tio_from_json(file_access: FileAccess, from_json_data_text: Optional[str],
-                   from_json_filename: Optional[PathOrStr],
-                   stderr_file: TextIO,
-                   member_name: Optional[str]) -> TioJsonConfig
-```
-
-Return a TableIO config read from JSON for a file access mode.
-
 <a id="backlogops.io_config._FormatConfig"></a>
 
 ## \_FormatConfig Objects
@@ -13282,14 +13314,17 @@ def __init__(from_json_data_text: Optional[str] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create default settings or read them from a JSON source.
 
 The default TableIO endpoint is created under the path of the
 ``tableio`` member of this endpoint, so that a TableIO diagnostic
-names which preset it is about even before any file is read.
+names which preset it is about even before any file is read. With
+``ok_to_use_defaults`` true the JSON source may lack values, which
+then keep the defaults assigned before reading.
 
 <a id="backlogops.io_config._FormatConfig._tio_factory"></a>
 
@@ -13300,10 +13335,15 @@ def _tio_factory(*,
                  from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  stderr_file: TextIO = sys.stderr,
-                 member_name: Optional[str] = None) -> TioJsonConfig
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> TioJsonConfig
 ```
 
 Construct the nested TableIO config from JSON when reading.
+
+With ``ok_to_use_defaults`` true the JSON source may leave members
+out, and they then get the defaults TableIO recommends for the
+format and implementation that the source selects.
 
 <a id="backlogops.io_config._FormatConfig._map_validator"></a>
 
@@ -13422,7 +13462,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create the input map defaults, then run the shared constructor.
@@ -13492,7 +13533,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create the output defaults, then run the shared constructor.
@@ -13594,7 +13636,8 @@ def __init__(from_json_data_text: Optional[str] = None,
              from_json_filename: Optional[PathOrStr] = None,
              stderr_file: TextIO = sys.stderr,
              *,
-             member_name: Optional[str] = None) -> None
+             member_name: Optional[str] = None,
+             ok_to_use_defaults: bool = False) -> None
 ```
 
 Create the display defaults, then read them from JSON.

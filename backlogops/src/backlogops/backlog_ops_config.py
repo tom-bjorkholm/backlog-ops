@@ -219,7 +219,7 @@ DEF_STATUS_INPUT_MAP: dict[str, Status] = {
 class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
     """Top-level backlog-ops configuration stored as config-as-json."""
 
-    # The library contract fixes five of these; the workforce is the one
+    # The library contract fixes six of these; the workforce is the one
     # argument of this application, and every one of them is keyword only.
     # pylint: disable-next=too-many-arguments
     def __init__(self, *, available_teams: Optional[AvailableTeams] = None,
@@ -227,7 +227,8 @@ class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create defaults, or read the configuration from JSON.
 
         The supplied workforce establishes the schema of the nested
@@ -239,7 +240,10 @@ class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
         nested sections are created under the path of the member holding
         each of them, so that a diagnostic names the whole path even
         before any file is read; ``member_name`` is None for a whole
-        configuration file, which is a member of nothing.
+        configuration file, which is a member of nothing. With
+        ``ok_to_use_defaults`` true the JSON source may lack values, which
+        then keep these defaults; :meth:`Config.kept_value_paths` tells
+        which.
         """
         self.available_teams: AvailableTeams = (
             AvailableTeams(persons={}, teams=[]) if available_teams is None
@@ -261,10 +265,14 @@ class BacklogOpsConfig(Config):  # pylint: disable=too-many-instance-attributes
             stderr_file=stderr_file,
             member_name=member_path(member_name, 'remaining_time'))
         self._unchecked_dicts = ['status_input_map']
+        # Every config class forwards these arguments alike.
+        # pylint: disable=duplicate-code
         Config.__init__(self, from_json_data_text=from_json_data_text,
                         from_json_filename=from_json_filename,
                         auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
-                        member_name=member_name)
+                        member_name=member_name,
+                        ok_to_use_defaults=ok_to_use_defaults)
+        # pylint: enable=duplicate-code
 
     @override
     def _get_read_old_config(self) -> ReadOldConfiguration:
@@ -386,7 +394,9 @@ def write_backlog_ops_config(config: BacklogOpsConfig, filename: PathOrStr,
 
 def read_backlog_ops_config(filename: PathOrStr,
                             stderr_file: TextIO = sys.stderr,
-                            auto_ch_hook: Optional[ConfigAutoChangeHook] = None
+                            auto_ch_hook: Optional[
+                                ConfigAutoChangeHook] = None, *,
+                            ok_to_use_defaults: bool = False
                             ) -> BacklogOpsConfig:
     """Read a backlog-ops configuration from a JSON configuration file.
 
@@ -395,12 +405,16 @@ def read_backlog_ops_config(filename: PathOrStr,
         stderr_file: Stream used for user-facing diagnostics.
         auto_ch_hook: Hook notified when an old file needed
             backward-compatible normalization while reading.
+        ok_to_use_defaults: Whether the file may lack values, which then
+            keep their defaults. Running commands read strictly; an editor
+            may not.
 
     Returns:
         The loaded configuration.
     """
     return BacklogOpsConfig(from_json_filename=filename,
-                            auto_ch_hook=auto_ch_hook, stderr_file=stderr_file)
+                            auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
+                            ok_to_use_defaults=ok_to_use_defaults)
 
 
 # pylint: disable-next=too-few-public-methods

@@ -23,7 +23,7 @@ setup(
     'argcomplete >= 3.7.2',
     'wizard-ui-bridge >= 1.5',
     'wizard-tk-bridge >= 1.5',
-    'edit-cfg-json-tk >= 1.0.0',
+    'edit-cfg-json-tk >= 1.1.0',
     'versionreporter >= 0.5'
   ]
 )

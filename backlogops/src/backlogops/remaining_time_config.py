@@ -89,11 +89,14 @@ def _fraction_validator() -> MemberValidator:
 class DefaultRemainingTimeLevel(Config):
     """The default remaining time of a backlog item at one level."""
 
+    # Config.__init__ fixes these six arguments.
+    # pylint: disable-next=too-many-arguments
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr, *,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create the default of one level, or read it from JSON.
 
         Args:
@@ -105,6 +108,8 @@ class DefaultRemainingTimeLevel(Config):
             member_name: Path for reaching this object from the top level,
                 so that a diagnostic names the whole path. None for an
                 object that is a member of nothing.
+            ok_to_use_defaults: Whether the JSON source may lack values,
+                which then keep the defaults assigned here.
 
         Attributes:
             level: The backlog item level this default is for.
@@ -120,10 +125,14 @@ class DefaultRemainingTimeLevel(Config):
         """
         self.level: int = 0
         self.remaining_time: timedelta = timedelta(hours=1, minutes=30)
+        # Every config class forwards these arguments alike.
+        # pylint: disable=duplicate-code
         super().__init__(from_json_data_text=from_json_data_text,
                          from_json_filename=from_json_filename,
                          auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
-                         member_name=member_name)
+                         member_name=member_name,
+                         ok_to_use_defaults=ok_to_use_defaults)
+        # pylint: enable=duplicate-code
 
     def as_float(self) -> float:
         """Return the remaining time in seconds, for growth to work on."""
@@ -166,11 +175,14 @@ class RemainingTimeConfig(LevelDefaults[DefaultRemainingTimeLevel]):
                   'each to work out a factor from')
     """Why filling in levels is refused when too few levels are given."""
 
+    # Config.__init__ fixes these six arguments.
+    # pylint: disable-next=too-many-arguments
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr, *,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create the remaining time configuration, or read it from JSON.
 
         Args:
@@ -182,6 +194,8 @@ class RemainingTimeConfig(LevelDefaults[DefaultRemainingTimeLevel]):
             member_name: Path for reaching this object from the top level,
                 so that a diagnostic names the whole path. None for an
                 object that is a member of nothing.
+            ok_to_use_defaults: Whether the JSON source may lack values,
+                which then keep the defaults assigned here.
 
         Attributes:
             enable_remaining_time: Whether remaining time estimates are
@@ -219,10 +233,14 @@ class RemainingTimeConfig(LevelDefaults[DefaultRemainingTimeLevel]):
         self.interpolate = False
         self.extrapolate = False
         self.default_focus_factor: float = 0.3
+        # Every config class forwards these arguments alike.
+        # pylint: disable=duplicate-code
         super().__init__(from_json_data_text=from_json_data_text,
                          from_json_filename=from_json_filename,
                          auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
-                         member_name=member_name)
+                         member_name=member_name,
+                         ok_to_use_defaults=ok_to_use_defaults)
+        # pylint: enable=duplicate-code
 
     @override
     def _missing_members(self) -> dict[ConfigPath, object]:

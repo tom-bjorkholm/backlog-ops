@@ -18,6 +18,7 @@ this test asks the model about rather than one somebody tried by hand.
 # MIT License
 
 import json
+from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
 from typing import Optional, TextIO, override
@@ -34,7 +35,7 @@ from backlogops import (
     descriptions_for, read_backlog_ops_config)
 from backlogops.config_descriptions import EVERY, prefixed
 from .shared_test_data import write_full_config, write_input_preset, \
-    full_config
+    full_config, remove_key
 
 
 class UndescribedConfig(Config):
@@ -232,6 +233,38 @@ def test_out_file_completed(tmp_path: Path) -> None:
     write_full_config(source)
     model = _from_file(source, out_file=str(tmp_path / 'copy'))
     assert model.out_file == str(tmp_path / 'copy.cfg')
+
+
+LEFT_OUT = [(write_full_config, BacklogOpsConfig,
+             ('jira', 'presets', 'main', 'def_filter')),
+            (write_full_config, BacklogOpsConfig,
+             ('available_teams', 'teams', 0, 'members', 0, 'fte')),
+            (write_full_config, BacklogOpsConfig,
+             ('input_configs', 'excel', 'tableio', 'format_name')),
+            (write_input_preset, InputFormatConfig,
+             ('tableio', 'format_name'))]
+"""How to write a complete file, its class, and a value to leave out."""
+
+
+@pytest.mark.parametrize('write, config_type, steps', LEFT_OUT)
+def test_fills_left_out(tmp_path: Path, write: Callable[[Path], None],
+                        config_type: type[Config],
+                        steps: tuple[int | str, ...]) -> None:
+    """Test a file that lacks a value opens with that value marked.
+
+    The editor reads a file strictly first, and when a value is missing
+    it reads it again keeping the defaults, says so and marks what it
+    filled in. A value deep inside a nested object, or inside the TableIO
+    endpoint that a factory builds, is filled only because every
+    configuration class and factory passes ``ok_to_use_defaults`` on.
+    """
+    source = tmp_path / 'incomplete.cfg'
+    write(source)
+    remove_key(source, steps)
+    model = _model(default_config(config_type), in_file=str(source))
+    filled = [row.path for row in model.rows if row.filled_from_default]
+    assert filled == [tuple(str(step) for step in steps)]
+    assert model.load_message
 
 
 def test_missing_input_file(tmp_path: Path) -> None:

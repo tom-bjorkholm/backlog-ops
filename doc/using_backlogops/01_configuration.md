@@ -701,12 +701,13 @@ line saying what it is for. You change the one value and save.
   [`EDIT_SETTINGS`](../backlogops_api.md#backlogops.config_editing.EDIT_SETTINGS),
   which are the two things `edit-cfg-json` asks the application for.
 - **Script or build job:** `python3 -m edit_cfg_json.dump --module backlogops
-  --class BacklogOpsConfig --descriptions CONFIG_DESCRIPTIONS -i current.cfg`
-  prints what backlog-ops makes of a configuration file, with no editor and
-  with neither a display nor a terminal, and exits non-zero for a file
-  backlog-ops would refuse. Name `InputFormatConfig` with
-  `INPUT_DESCRIPTIONS`, or `OutputFormatConfig` with `OUTPUT_DESCRIPTIONS`,
-  for a stand-alone preset file.
+  --class BacklogOpsConfig --descriptions CONFIG_DESCRIPTIONS --policy strict
+  -i current.cfg` prints what backlog-ops makes of a configuration file, with
+  no editor and with neither a display nor a terminal, and exits non-zero for
+  a file backlog-ops would refuse. Without `--policy strict` it reads a file
+  that lacks values the way the editor does, below. Name `InputFormatConfig`
+  with `INPUT_DESCRIPTIONS`, or `OutputFormatConfig` with
+  `OUTPUT_DESCRIPTIONS`, for a stand-alone preset file.
 
 The editor validates before it writes, exactly as the wizard does, and
 refuses to write values the library would not read back: what is wrong is
@@ -746,15 +747,28 @@ on its own, which is the quick local check; **Validate** (`Ctrl+R`) checks
 the whole configuration.
 
 Under the name of the configuration the editor sometimes says what reading
-the file did. For a backlog-ops file that means one thing: the file was
-written by an earlier version, so what you see is the migrated
-configuration and each member the load moved or supplied is marked. Read it,
-because what is on the screen is what a save writes — saving such a file
-writes it in the current format. A file that is wrong in any other way — a
-member missing, a key this configuration does not have, a value the library
-refuses — is not opened at all. The editor never shows you defaults in place
-of the file you asked for: the command or the GUI says why the file could not
-be opened, and you correct it in a text editor first.
+the file did. For a backlog-ops file that means one of two things:
+
+- The file was written by an earlier version, so what you see is the
+  migrated configuration, and each member the load moved or supplied is
+  marked.
+- The file lacks values, for example because it was written or trimmed by
+  hand. Each value it leaves out, however deep in the configuration, is
+  filled in from its default and marked. A default is only a starting
+  point, so look at each marked value before you save.
+
+Read it, because what is on the screen is what a save writes — saving such a
+file writes it complete and in the current format. A file that is wrong in
+any other way — a key this configuration does not have, a value of the wrong
+shape, a value the library refuses — is not opened at all: the command or the
+GUI says why the file could not be opened, and you correct it in a text
+editor first. That includes a default the library refuses where it is filled
+in, such as the default name of a person whose `name` is missing, which does
+not match the key the person is stored under.
+
+Only the editor fills in what a file lacks. Every other command, and the GUI
+when it loads a configuration to work with, refuses a file that lacks a
+value, so open such a file in the editor and save it once first.
 
 Editing is not a complete replacement for the wizard, and four things are
 worth knowing before you reach for it:

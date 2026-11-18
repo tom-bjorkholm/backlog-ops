@@ -198,11 +198,14 @@ class LevelDefaults(Config, Generic[_L]):
     extrapolate: bool
     _value_for_level: dict[int, Optional[float]]
 
+    # Config.__init__ fixes these six arguments.
+    # pylint: disable-next=too-many-arguments
     def __init__(self, from_json_data_text: Optional[str] = None,
                  from_json_filename: Optional[PathOrStr] = None,
                  auto_ch_hook: Optional[ConfigAutoChangeHook] = None,
                  stderr_file: TextIO = sys.stderr, *,
-                 member_name: Optional[str] = None) -> None:
+                 member_name: Optional[str] = None,
+                 ok_to_use_defaults: bool = False) -> None:
         """Create the empty level lookup, then read the configuration.
 
         Args:
@@ -214,12 +217,18 @@ class LevelDefaults(Config, Generic[_L]):
             member_name: Path for reaching this object from the top level,
                 so that a diagnostic names the whole path. None for an
                 object that is a member of nothing.
+            ok_to_use_defaults: Whether the JSON source may lack values,
+                which then keep the defaults the derived class assigned.
         """
         self._value_for_level = {}
+        # Every config class forwards these arguments alike.
+        # pylint: disable=duplicate-code
         super().__init__(from_json_data_text=from_json_data_text,
                          from_json_filename=from_json_filename,
                          auto_ch_hook=auto_ch_hook, stderr_file=stderr_file,
-                         member_name=member_name)
+                         member_name=member_name,
+                         ok_to_use_defaults=ok_to_use_defaults)
+        # pylint: enable=duplicate-code
 
     def _missing_members(self) -> dict[ConfigPath, object]:
         """Return the empty guess an older file leaves out.
