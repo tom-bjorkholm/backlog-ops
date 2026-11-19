@@ -11,6 +11,7 @@ parsing and the per-cell validation.
 # MIT License
 
 import io
+from pathlib import Path
 from typing import Optional
 import pytest
 from wizard_ui_bridge import AskPathField, AskTextField, \
@@ -162,12 +163,16 @@ def test_conn_phrase_mismatch() -> None:
 
 
 def test_conn_file() -> None:
-    """Test a file-storage connection records the path and asks no token."""
+    """Test a file-storage connection records the path and asks no token.
+
+    The path is recorded in the platform's native form, so the expected
+    value is built with ``Path`` (backslashes on Windows).
+    """
     answers = ['1', 'f', 'cloud', 'https://x', 'me@x', 'clear_file',
                '/tmp/tok.txt']
     conn = _Navigator(_console(answers)).run(_build_connections)['f']
     assert conn.uses_token_file()
-    assert conn.token_file_path == '/tmp/tok.txt'
+    assert conn.token_file_path == str(Path('/tmp/tok.txt'))
     assert conn.stored_token is None
 
 

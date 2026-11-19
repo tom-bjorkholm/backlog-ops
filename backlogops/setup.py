@@ -16,7 +16,7 @@ setup(
   install_requires=[
     'config-as-json >= 1.9',
     'cryptography >= 50.0.2',
-    'jira[cli,opt] >= 3.10.5',
+    'jira >= 3.10.5',
     'tableio >= 1.3',
     'tableio-cfg-json >= 2.1',
     'wizard-ui-bridge >= 1.5',
