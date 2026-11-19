@@ -335,7 +335,7 @@ class BacklogWindow:
 
     def _add_menu(self) -> None:
         """Add the backlog and Jira menus with the action, save and close."""
-        menubar = tk.Menu(self._win)
+        menubar = tk.Menu(self._win, tearoff=False)
         backlog_menu = tk.Menu(menubar, tearoff=False)
         jira_menu = tk.Menu(menubar, tearoff=False)
         self._add_actions(backlog_menu)

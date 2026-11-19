@@ -46,28 +46,37 @@ def _none() -> None:
     return None
 
 
-def _menu_at(window: BacklogWindow, index: int) -> tk.Menu:
-    """Return one menu of the menu bar of a backlog window."""
+def _menu_named(window: BacklogWindow, label: str) -> tk.Menu:
+    """Return the menu of a backlog window menu bar cascade by its label.
+
+    Tk accepts a label as a menu entry index, so the lookup does not depend
+    on entry positions, which differ where Tk adds a tear-off entry.
+    """
     # pylint: disable-next=protected-access
     menubar = window._win.nametowidget(window._win.cget('menu'))
     assert isinstance(menubar, tk.Menu)
-    menu = menubar.nametowidget(menubar.entrycget(index, 'menu'))
+    menu = menubar.nametowidget(menubar.entrycget(label, 'menu'))
     assert isinstance(menu, tk.Menu)
     return menu
 
 
-def _states_of(menu: tk.Menu) -> dict[str, str]:
-    """Return the state of each command of a menu, keyed by its label."""
+def _option_of(menu: tk.Menu, option: str) -> dict[str, str]:
+    """Return one option of each item of a menu, keyed by its label."""
     last = menu.index('end')
     assert last is not None
     return {str(menu.entrycget(index, 'label')):
-            str(menu.entrycget(index, 'state'))
+            str(menu.entrycget(index, option))
             for index in range(last + 1) if menu.type(index) != 'separator'}
+
+
+def _states_of(menu: tk.Menu) -> dict[str, str]:
+    """Return the state of each item of a menu, keyed by its label."""
+    return _option_of(menu, 'state')
 
 
 def _backlog_menu(window: BacklogWindow) -> tk.Menu:
     """Return the backlog menu of a backlog window."""
-    return _menu_at(window, 0)
+    return _menu_named(window, 'Backlog')
 
 
 def _menu_labels(window: BacklogWindow) -> list[str]:
@@ -77,7 +86,7 @@ def _menu_labels(window: BacklogWindow) -> list[str]:
 
 def _jira_states(window: BacklogWindow) -> dict[str, str]:
     """Return the state of each item in the Jira menu of a window."""
-    return _states_of(_menu_at(window, 1))
+    return _states_of(_menu_named(window, 'Jira'))
 
 
 def _jira_menu_labels(window: BacklogWindow) -> list[str]:
@@ -290,13 +299,7 @@ def test_close_accelerator() -> None:
     """Test the Close menu item shows the Cmd-W accelerator."""
     with gui_root() as root:
         window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK)
-        menu = _backlog_menu(window)
-        last = menu.index('end')
-        assert last is not None
-        accels = {menu.entrycget(index, 'label'):
-                  menu.entrycget(index, 'accelerator')
-                  for index in range(last + 1)
-                  if menu.type(index) != 'separator'}
+        accels = _option_of(_backlog_menu(window), 'accelerator')
         assert accels['Close'] == 'Command-W'
 
 
@@ -304,15 +307,7 @@ def test_bl_update_absent() -> None:
     """Test the update-backlog item is disabled without a handler."""
     with gui_root() as root:
         window = BacklogWindow(root, DATA, 'Title', _none, _none, SINK)
-        # pylint: disable-next=protected-access
-        menubar = window._win.nametowidget(window._win.cget('menu'))
-        menu = menubar.nametowidget(menubar.entrycget(1, 'menu'))
-        last = menu.index('end')
-        assert last is not None
-        states = {menu.entrycget(index, 'label'):
-                  menu.entrycget(index, 'state')
-                  for index in range(last + 1)
-                  if menu.type(index) != 'separator'}
+        states = _jira_states(window)
         assert states['Update backlog in Jira…'] == 'disabled'
 
 
@@ -682,12 +677,7 @@ def test_reload_adds_warning(monkeypatch: pytest.MonkeyPatch) -> None:
         assert callable(apply)
         apply(DATA, 'Broken data')
         assert 'Broken data' in _label_texts(_win_of(window))
-        menu = _backlog_menu(window)
-        last = menu.index('end')
-        assert last is not None
-        states = {menu.entrycget(i, 'label'): menu.entrycget(i, 'state')
-                  for i in range(last + 1)
-                  if menu.type(i) != 'separator'}
+        states = _states_of(_backlog_menu(window))
         assert states['Order by keys…'] == 'disabled'
         assert states['Save to file…'] == 'normal'
 

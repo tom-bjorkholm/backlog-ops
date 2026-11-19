@@ -653,7 +653,7 @@ class BacklogApp:
 
     def build_menu(self) -> None:
         """Build the menu bar of the main window."""
-        menubar = tk.Menu(self.root)
+        menubar = tk.Menu(self.root, tearoff=False)
         self._add_file_menu(menubar)
         self._add_config_menu(menubar)
         self._add_help_menu(menubar)
